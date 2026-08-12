@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CHZZK 방송 관리 독</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Pretendard', 'system-ui', 'sans-serif'] },
+          colors: {
+            chzzk: {
+              green: '#00FFA3', dark: '#0B0E11', card: '#141921',
+              border: '#1E2636', input: '#0F131A', hover: '#1A2233',
+              text: '#A8B3C7', muted: '#5A6577', accent: '#00E59B',
+              danger: '#FF4D6A', warn: '#FFB84D',
+            }
+          },
+          animation: {
+            'fade-in': 'fadeIn 0.25s ease-out',
+            'slide-up': 'slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
+            'toast-in': 'toastIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+            'toast-out': 'toastOut 0.25s ease-in forwards',
+          },
+          keyframes: {
+            fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
+            slideUp: { '0%': { opacity: '0', transform: 'translateY(6px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+            toastIn: { '0%': { opacity: '0', transform: 'translateY(12px) scale(0.96)' }, '100%': { opacity: '1', transform: 'translateY(0) scale(1)' } },
+            toastOut: { '0%': { opacity: '1', transform: 'translateY(0) scale(1)' }, '100%': { opacity: '0', transform: 'translateY(0) scale(0.96)' } },
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    * { scrollbar-width: thin; scrollbar-color: #1E2636 transparent; }
+    ::-webkit-scrollbar { width: 3px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #1E2636; border-radius: 3px; }
+    html, body { background: #0B0E11; height: 100%; width: 100%; margin: 0; padding: 0; overflow-x: hidden; }
+    #dock-wrapper { position: relative; width: 100%; height: 100%; min-height: 100vh; background: #0B0E11; overflow-y: auto; overflow-x: hidden; box-sizing: border-box; display: flex; flex-direction: column; }
+
+    .chzzk-radio { accent-color: #00FFA3; cursor: pointer; width: 13px; height: 13px; }
+
+    .toggle-switch { position: relative; width: 36px; height: 20px; flex-shrink: 0; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider {
+      position: absolute; inset: 0; cursor: pointer; border-radius: 999px;
+      background: #1E2636; transition: all 0.2s ease;
+    }
+    .toggle-slider::before {
+      content: ''; position: absolute; left: 2px; top: 2px;
+      width: 16px; height: 16px; border-radius: 50%;
+      background: #5A6577; transition: all 0.2s ease;
+    }
+    .toggle-switch input:checked + .toggle-slider { background: rgba(0, 255, 163, 0.2); }
+    .toggle-switch input:checked + .toggle-slider::before {
+      transform: translateX(16px); background: #00FFA3;
+      box-shadow: 0 0 6px rgba(0, 255, 163, 0.4);
+    }
+
+    .category-dropdown {
+      position: absolute; left: 0; right: 0; top: 100%; z-index: 50;
+      max-height: 160px; overflow-y: auto;
+      background: #141921; border: 1px solid #1E2636; border-radius: 8px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5); margin-top: 4px;
+    }
+    .category-item {
+      padding: 6px 10px; cursor: pointer; display: flex; align-items: center; gap: 8px;
+      transition: background 0.15s; font-size: 12px; color: #A8B3C7;
+    }
+    .category-item:hover { background: #1A2233; color: #FFF; }
+    .category-item img { width: 24px; height: 24px; border-radius: 4px; object-fit: cover; }
+
+    .tag-chip {
+      display: inline-flex; align-items: center; gap: 4px;
+      background: rgba(0, 255, 163, 0.08); color: #00FFA3;
+      border: 1px solid rgba(0, 255, 163, 0.15);
+      border-radius: 6px; padding: 2px 6px; font-size: 11px; font-weight: 500;
+    }
+    .tag-chip button { background: none; border: none; color: rgba(0, 255, 163, 0.5); cursor: pointer; padding: 0; display: flex; font-size: 13px; }
+    .tag-chip button:hover { color: #FF4D6A; }
+
+    .section-card {
+      background: #141921; border: 1px solid #1E2636; border-radius: 10px;
+      padding: 12px; transition: border-color 0.2s;
+    }
+    .section-card:hover { border-color: #2A3648; }
+
+    .chzzk-input {
+      background: #0F131A; border: 1px solid #1E2636; border-radius: 6px;
+      color: #E2E8F0; font-size: 12px; padding: 6px 10px; width: 100%;
+      transition: all 0.2s; outline: none;
+    }
+    .chzzk-input:focus { border-color: #00FFA3; box-shadow: 0 0 0 2px rgba(0, 255, 163, 0.1); }
+    .chzzk-input::placeholder { color: #5A6577; }
+
+    .chzzk-select {
+      background: #0F131A; border: 1px solid #1E2636; border-radius: 6px;
+      color: #E2E8F0; font-size: 12px; padding: 6px 10px; width: 100%;
+      transition: all 0.2s; outline: none; cursor: pointer;
+      appearance: none; -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' fill='%235A6577' viewBox='0 0 16 16'%3E%3Cpath d='M8 11.5l-5-5h10l-5 5z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 8px center;
+    }
+    .chzzk-select:focus { border-color: #00FFA3; }
+
+    #toast-container { position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); z-index: 999; display: flex; flex-direction: column; gap: 6px; align-items: center; pointer-events: none; width: 92%; max-width: 320px; }
+    .toast {
+      pointer-events: auto; width: 100%;
+      padding: 8px 12px; border-radius: 8px; font-size: 11px; font-weight: 500;
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      animation: toastIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex; flex-direction: column; gap: 2px; line-height: 1.35;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    }
+    .toast.success { background: rgba(14, 25, 22, 0.95); color: #00FFA3; border: 1px solid rgba(0, 255, 163, 0.3); }
+    .toast.error { background: rgba(28, 16, 20, 0.95); color: #FF4D6A; border: 1px solid rgba(255, 77, 106, 0.3); }
+    .toast.warn { background: rgba(28, 24, 16, 0.95); color: #FFB84D; border: 1px solid rgba(255, 184, 77, 0.3); }
+    .toast.info { background: rgba(16, 22, 30, 0.95); color: #60A5FA; border: 1px solid rgba(96, 165, 250, 0.3); }
+    .toast.removing { animation: toastOut 0.25s ease-in forwards; }
+
+    .save-btn {
+      background: linear-gradient(135deg, #00E59B, #00C882);
+      color: #0B0E11; font-weight: 600; border: none; border-radius: 8px;
+      padding: 10px; font-size: 13px; cursor: pointer; width: 100%;
+      transition: all 0.2s;
+    }
+    .save-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0, 229, 155, 0.25); }
+    .save-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+    .sub-btn {
+      background: #1E2636; color: #E2E8F0; font-weight: 500; border: 1px solid #2A3648;
+      border-radius: 6px; padding: 6px 10px; font-size: 11px; cursor: pointer; width: 100%;
+      transition: all 0.2s; text-align: center;
+    }
+    .sub-btn:hover { background: #2A3648; color: #00FFA3; border-color: rgba(0, 255, 163, 0.3); }
+
+    .settings-panel {
+      position: absolute; inset: 0; background: #0B0E11; z-index: 100;
+      opacity: 0; pointer-events: none; visibility: hidden;
+      transform: translateX(100%); transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      overflow-y: auto; width: 100%; height: 100%;
+    }
+    .settings-panel.open {
+      opacity: 1; pointer-events: auto; visibility: visible;
+      transform: translateX(0);
+    }
+
+    .pill-group { display: flex; flex-wrap: wrap; gap: 4px; }
+    .pill {
+      padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 500;
+      cursor: pointer; transition: all 0.15s;
+      background: #0F131A; color: #5A6577; border: 1px solid #1E2636;
+    }
+    .pill:hover { border-color: #2A3648; color: #A8B3C7; }
+    .pill.active { background: rgba(0, 255, 163, 0.1); color: #00FFA3; border-color: rgba(0, 255, 163, 0.3); }
+    
+    .tab-btn {
+      padding: 5px 10px; font-size: 11px; font-weight: 600; border-radius: 6px;
+      color: #5A6577; cursor: pointer; transition: all 0.15s;
+    }
+    .tab-btn.active { background: #1E2636; color: #00FFA3; }
+  </style>
+</head>
+<body class="dark font-sans text-white antialiased overflow-x-hidden">
+  <div id="dock-wrapper">
+
+  <!-- ===== MAIN VIEW ===== -->
+  <div id="main-view" class="flex-1 flex flex-col justify-between px-2.5 py-3 space-y-2.5 animate-fade-in">
+
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-1 pb-1 border-b border-chzzk-border/40">
+      <div class="flex items-center gap-1.5">
+        <div class="w-6 h-6 rounded-md bg-gradient-to-br from-chzzk-green/20 to-chzzk-accent/10 flex items-center justify-center">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00FFA3" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+        </div>
+        <h1 class="text-xs font-bold text-white tracking-tight">CHZZK 방송 관리</h1>
+        <span id="header-status-dot" class="w-2 h-2 rounded-full bg-chzzk-muted transition-colors" title="API 연결 상태"></span>
+      </div>
+      <button id="btn-settings" onclick="toggleSettings()" class="flex items-center gap-1 px-2 py-1 rounded-md bg-chzzk-card border border-chzzk-border hover:border-chzzk-green/50 text-[10px] text-chzzk-muted hover:text-chzzk-green transition-all" title="API / OAuth 설정">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <span id="header-status-text" class="font-medium">설정</span>
+      </button>
+    </div>
+
+    <!-- ===== 1. 방송 정보 ===== -->
+    <div class="section-card animate-slide-up" style="animation-delay: 0.05s">
+      <div class="flex items-center gap-1.5 mb-2">
+        <div class="w-4 h-4 rounded bg-chzzk-green/10 flex items-center justify-center">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="#00FFA3"><path d="M21 3H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14zM9.5 17l7-5-7-5v10z"/></svg>
+        </div>
+        <span class="text-[11px] font-semibold text-white">방송 정보</span>
+      </div>
+
+      <!-- 방송 제목 -->
+      <div class="space-y-1 mb-2">
+        <div class="flex justify-between items-center">
+          <label class="text-[10px] font-medium text-chzzk-muted uppercase tracking-wider">방송 제목</label>
+          <span id="title-count" class="text-[10px] text-chzzk-muted">0/50</span>
+        </div>
+        <input id="live-title" type="text" class="chzzk-input" placeholder="방송 제목을 입력하세요" maxlength="50" />
+      </div>
+
+      <!-- 카테고리 -->
+      <div class="space-y-1 mb-2 relative" id="category-wrapper">
+        <label class="text-[10px] font-medium text-chzzk-muted uppercase tracking-wider">카테고리</label>
+        <div class="relative">
+          <input id="category-search" type="text" class="chzzk-input pr-7" placeholder="카테고리 검색..." />
+          <input id="category-id" type="hidden" />
+          <input id="category-type" type="hidden" />
+          <button id="category-clear" onclick="clearCategory()" class="absolute right-2 top-1/2 -translate-y-1/2 text-chzzk-muted hover:text-chzzk-danger text-xs font-bold" style="display:none;">✕</button>
+        </div>
+        <div id="category-dropdown" class="category-dropdown" style="display:none;"></div>
+      </div>
+
+      <!-- 태그 -->
+      <div class="space-y-1">
+        <label class="text-[10px] font-medium text-chzzk-muted uppercase tracking-wider">태그</label>
+        <div id="tag-container" class="flex flex-wrap gap-1 min-h-[24px]"></div>
+        <input id="tag-input" type="text" class="chzzk-input" placeholder="태그 입력 후 Enter (최대 10개)" maxlength="20" />
+      </div>
+    </div>
+
+    <!-- ===== 2. 채팅 설정 ===== -->
+    <div class="section-card animate-slide-up" style="animation-delay: 0.1s">
+      <div class="flex items-center gap-1.5 mb-2">
+        <div class="w-4 h-4 rounded bg-blue-500/10 flex items-center justify-center">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="#60A5FA"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.2L4 17.2V4h16v12z"/></svg>
+        </div>
+        <span class="text-[11px] font-semibold text-white">채팅 설정</span>
+      </div>
+
+      <!-- 채팅 참여 범위 (라디오 버튼) -->
+      <div class="space-y-1 mb-2">
+        <label class="text-[10px] font-medium text-chzzk-muted uppercase tracking-wider">채팅 참여 범위</label>
+        <div class="flex items-center flex-wrap gap-2.5 py-0.5">
+          <label class="flex items-center gap-1 cursor-pointer text-[11px] text-chzzk-text">
+            <input type="radio" name="chatAvailableGroup" value="ALL" class="chzzk-radio" checked onchange="onChatGroupChange('ALL')" />
+            <span>모두</span>
+          </label>
+          <label class="flex items-center gap-1 cursor-pointer text-[11px] text-chzzk-text">
+            <input type="radio" name="chatAvailableGroup" value="FOLLOWER" class="chzzk-radio" onchange="onChatGroupChange('FOLLOWER')" />
+            <span>팔로워</span>
+          </label>
+          <label class="flex items-center gap-1 cursor-pointer text-[11px] text-chzzk-text">
+            <input type="radio" name="chatAvailableGroup" value="MANAGER" class="chzzk-radio" onchange="onChatGroupChange('MANAGER')" />
+            <span>운영자</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- 팔로워 최소 기간 -->
+      <div id="follower-options" class="space-y-1.5 mb-2 p-2 rounded bg-chzzk-input/60 border border-chzzk-border/40" style="display:none;">
+        <div class="space-y-1">
+          <label class="text-[10px] font-medium text-chzzk-muted uppercase tracking-wider">최소 팔로잉 기간</label>
+          <select id="min-follower-minute" class="chzzk-select">
+            <option value="0">제한 없음</option>
+            <option value="10">10분</option>
+            <option value="30">30분</option>
+            <option value="60">1시간</option>
+            <option value="1440">1일</option>
+            <option value="10080">7일</option>
+            <option value="43200">30일</option>
+          </select>
+        </div>
+        <div class="flex items-center justify-between pt-1">
+          <span class="text-[11px] text-chzzk-text">구독자 예외 적용</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="toggle-sub-exception" checked />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <!-- 이모티콘 전용 모드 -->
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-[11px] text-chzzk-text">😊 이모티콘 전용 모드</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="toggle-emote" />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <!-- 저속 모드 -->
+      <div class="space-y-1 mb-2">
+        <label class="text-[10px] font-medium text-chzzk-muted uppercase tracking-wider">저속 모드</label>
+        <div class="pill-group" id="slow-mode-group">
+          <div class="pill active" data-value="0" onclick="setSlowMode(this)">OFF</div>
+          <div class="pill" data-value="3" onclick="setSlowMode(this)">3초</div>
+          <div class="pill" data-value="5" onclick="setSlowMode(this)">5초</div>
+          <div class="pill" data-value="10" onclick="setSlowMode(this)">10초</div>
+          <div class="pill" data-value="30" onclick="setSlowMode(this)">30초</div>
+          <div class="pill" data-value="60" onclick="setSlowMode(this)">60초</div>
+        </div>
+      </div>
+
+      <!-- 본인 인증 여부 -->
+      <div class="flex items-center justify-between pt-0.5">
+        <span class="text-[11px] text-chzzk-text">네이버 본인인증 시청자만 채팅</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="toggle-realname" />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <!-- ===== Save Button ===== -->
+    <div class="animate-slide-up space-y-1.5" style="animation-delay: 0.15s">
+      <button id="btn-save" class="save-btn" onclick="saveAll()">
+        <span id="save-text">설정 저장</span>
+        <svg id="save-spinner" class="animate-spin ml-1.5 inline-block" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="display:none;"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round"/></svg>
+      </button>
+
+      <button onclick="loadCurrentSettings()" class="w-full text-center text-[10px] text-chzzk-muted hover:text-chzzk-text transition-colors py-0.5">
+        🔄 현재 설정 새로고침
+      </button>
+    </div>
+
+    <div class="text-center text-[9px] text-chzzk-muted/40 pt-1 pb-1">
+      CHZZK Open API v1
+    </div>
+  </div>
+
+  <!-- ===== SETTINGS & AUTOMATED OAUTH PANEL ===== -->
+  <div id="settings-panel" class="settings-panel px-2.5 py-3">
+    <div class="flex items-center justify-between mb-2.5">
+      <div class="flex items-center gap-1.5">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00FFA3" stroke-width="2" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        <span class="text-xs font-bold text-white">치지직 API 인증 설정</span>
+      </div>
+      <button onclick="toggleSettings()" class="w-6 h-6 rounded-md bg-chzzk-card border border-chzzk-border flex items-center justify-center hover:border-chzzk-muted transition-colors">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5A6577" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <!-- Setting Tabs -->
+    <div class="flex bg-chzzk-input p-0.5 rounded-md border border-chzzk-border mb-2.5">
+      <button id="tab-btn-oauth" onclick="switchTab('oauth')" class="tab-btn active flex-1">⚡ 자동 인증 (추천)</button>
+      <button id="tab-btn-direct" onclick="switchTab('direct')" class="tab-btn flex-1">🔑 토큰 직접 입력</button>
+    </div>
+
+    <!-- TAB 1: Automatic OAuth Generator -->
+    <div id="tab-oauth" class="space-y-2">
+      <div class="section-card space-y-2">
+        <div class="text-[11px] font-semibold text-chzzk-green flex items-center gap-1">
+          <span>1단계</span> 개발자 센터 정보 입력
+        </div>
+        
+        <div class="space-y-0.5">
+          <label class="text-[9px] text-chzzk-muted font-medium uppercase">Client ID</label>
+          <input id="oauth-client-id" type="text" class="chzzk-input" placeholder="치지직 앱 Client ID" />
+        </div>
+
+        <div class="space-y-0.5">
+          <label class="text-[9px] text-chzzk-muted font-medium uppercase">Client Secret</label>
+          <input id="oauth-client-secret" type="password" class="chzzk-input" placeholder="치지직 앱 Client Secret" />
+        </div>
+
+        <div class="space-y-0.5">
+          <label class="text-[9px] text-chzzk-muted font-medium uppercase">Redirect URI</label>
+          <input id="oauth-redirect-uri" type="text" class="chzzk-input" value="https://localhost:8080" placeholder="https://localhost:8080" />
+        </div>
+
+        <button onclick="saveCredentials()" class="sub-btn !bg-chzzk-card hover:!border-chzzk-green text-chzzk-green font-semibold">
+          💾 정보 저장
+        </button>
+
+        <div class="pt-1.5 border-t border-chzzk-border/50 space-y-1">
+          <div class="text-[11px] font-semibold text-chzzk-accent">
+            <span>2단계</span> 원클릭 자동 로그인 & 토큰 발급
+          </div>
+          <p class="text-[9px] text-chzzk-muted leading-snug">
+            버튼을 누르면 PC 기본 브라우저가 열리며, 로그인 후 토큰이 자동 발급됩니다.
+          </p>
+          <button onclick="startAutoOAuth()" class="save-btn text-xs py-2">
+            🚀 자동 로그인 시작
+          </button>
+        </div>
+
+        <!-- 3단계: URL / Code Paste -->
+        <div class="pt-1.5 border-t border-chzzk-border/50 space-y-1">
+          <div class="text-[11px] font-semibold text-chzzk-warn">
+            <span>3단계 (대안)</span> 인가 코드 직접 입력
+          </div>
+          <div class="flex gap-1">
+            <input id="paste-code-input" type="text" class="chzzk-input flex-1 text-[11px]" placeholder="URL 또는 code값 붙여넣기..." />
+            <button onclick="submitPastedCode()" class="sub-btn !w-auto whitespace-nowrap !bg-chzzk-accent/20 !border-chzzk-accent/40 text-chzzk-green font-bold">
+              ⚡ 토큰 발급
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 2: Direct Token Input -->
+    <div id="tab-direct" class="space-y-2" style="display:none;">
+      <div class="section-card space-y-2">
+        <div class="space-y-1">
+          <label class="text-[10px] font-medium text-chzzk-muted uppercase tracking-wider">Access Token</label>
+          <div class="relative">
+            <input id="setting-token" type="password" class="chzzk-input pr-8" placeholder="Access Token 입력" />
+            <button onclick="toggleTokenVisibility()" class="absolute right-2 top-1/2 -translate-y-1/2 text-chzzk-muted hover:text-chzzk-text">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <button onclick="saveDirectToken()" class="save-btn text-xs py-2">
+          💾 토큰 저장
+        </button>
+      </div>
+    </div>
+
+    <div class="text-[9px] text-chzzk-muted text-center space-y-0.5 mt-3">
+      <p>🔒 로컬 파이썬 서버(server.py) 연동</p>
+    </div>
+  </div>
+
+  <!-- Floating Toast Container -->
+  <div id="toast-container"></div>
+  </div>
+
+  <script>
+    const AUTH_BASE = 'https://chzzk.naver.com/account-interlock';
+    const PROXY_SERVER = 'http://localhost:8081';
+    let currentTags = [];
+    let categorySearchTimeout = null;
+    let selectedSlowMode = 0;
+    let serverConfig = {};
+    let pollingInterval = null;
+
+    // ===== Floating Toast Notification =====
+    function showToast(message, type = 'info', detail = '') {
+      const container = document.getElementById('toast-container');
+      if (!container) return;
+
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+
+      const iconMap = {
+        success: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>',
+        error: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
+        warn: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+        info: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>'
+      };
+
+      toast.innerHTML = `
+        <div class="flex items-center gap-1.5 font-semibold">
+          ${iconMap[type] || iconMap.info}
+          <span>${escapeHtml(message)}</span>
+        </div>
+        ${detail ? `<div class="text-[10px] opacity-80 pl-4 font-normal">${escapeHtml(detail)}</div>` : ''}
+      `;
+      container.appendChild(toast);
+
+      setTimeout(() => {
+        toast.classList.add('removing');
+        setTimeout(() => toast.remove(), 250);
+      }, 3200);
+    }
+
+    function escapeHtml(str) {
+      if (typeof str !== 'string') return str;
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    // ===== App Initialization =====
+    document.addEventListener('DOMContentLoaded', async () => {
+      await loadServerConfig();
+      updateConnectionStatus();
+
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('auth') === 'success') {
+        showToast('🎉 치지직 자동 로그인 & 토큰 발급 완료!', 'success');
+        window.history.replaceState({}, document.title, window.location.pathname);
+      } else if (urlParams.get('auth') === 'failed') {
+        showToast('❌ 토큰 발급 실패', 'error', 'Client ID/Secret 정보 또는 인가 코드를 확인하세요.');
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+
+      const titleInput = document.getElementById('live-title');
+      titleInput.addEventListener('input', () => {
+        document.getElementById('title-count').textContent = `${titleInput.value.length}/50`;
+      });
+
+      const catSearch = document.getElementById('category-search');
+      catSearch.addEventListener('input', (e) => {
+        clearTimeout(categorySearchTimeout);
+        const query = e.target.value.trim();
+        if (query.length < 1) {
+          document.getElementById('category-dropdown').style.display = 'none';
+          return;
+        }
+        categorySearchTimeout = setTimeout(() => searchCategories(query), 300);
+      });
+      catSearch.addEventListener('focus', () => {
+        const query = catSearch.value.trim();
+        if (query.length >= 1) searchCategories(query);
+      });
+
+      document.addEventListener('click', (e) => {
+        const catWrapper = document.getElementById('category-wrapper');
+        if (catWrapper && !catWrapper.contains(e.target)) {
+          document.getElementById('category-dropdown').style.display = 'none';
+        }
+      });
+
+      const tagInput = document.getElementById('tag-input');
+      tagInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          addTag(tagInput.value.trim());
+          tagInput.value = '';
+        }
+      });
+
+      const pasteInput = document.getElementById('paste-code-input');
+      if (pasteInput) {
+        pasteInput.addEventListener('input', () => {
+          const val = pasteInput.value.trim();
+          if (val.includes('code=') || val.length > 20) {
+            submitPastedCode();
+          }
+        });
+      }
+
+      if (serverConfig.access_token) {
+        setTimeout(() => loadCurrentSettings(), 400);
+      } else {
+        showToast('⚙ 치지직 로그인 필요', 'warn', '⚙ 설정 버튼을 눌러 연동을 진행하세요.');
+      }
+    });
+
+    // ===== Server Config & Auth =====
+    async function loadServerConfig() {
+      try {
+        const res = await fetch(`${PROXY_SERVER}/config`);
+        if (res.ok) {
+          serverConfig = await res.json();
+          document.getElementById('oauth-client-id').value = serverConfig.client_id || '';
+          document.getElementById('oauth-client-secret').value = serverConfig.client_secret || '';
+          document.getElementById('oauth-redirect-uri').value = serverConfig.redirect_uri || 'https://localhost:8080';
+          document.getElementById('setting-token').value = serverConfig.access_token || '';
+          return;
+        }
+      } catch (e) {
+        showToast('⚠️ 로컬 서버(server.py) 미연동', 'warn', 'server.py가 실행 중인지 확인하세요.');
+      }
+
+      serverConfig = {
+        client_id: localStorage.getItem('chzzk_client_id') || '',
+        client_secret: localStorage.getItem('chzzk_client_secret') || '',
+        redirect_uri: localStorage.getItem('chzzk_redirect_uri') || 'https://localhost:8080',
+        access_token: localStorage.getItem('chzzk_access_token') || ''
+      };
+      document.getElementById('oauth-client-id').value = serverConfig.client_id;
+      document.getElementById('oauth-client-secret').value = serverConfig.client_secret;
+      document.getElementById('oauth-redirect-uri').value = serverConfig.redirect_uri;
+      document.getElementById('setting-token').value = serverConfig.access_token;
+    }
+
+    async function saveCredentials() {
+      const clientId = document.getElementById('oauth-client-id').value.trim();
+      const clientSecret = document.getElementById('oauth-client-secret').value.trim();
+      const redirectUri = document.getElementById('oauth-redirect-uri').value.trim() || 'https://localhost:8080';
+
+      if (!clientId || !clientSecret) {
+        showToast('입력 오류', 'error', 'Client ID와 Client Secret을 모두 입력하세요.');
+        return;
+      }
+
+      serverConfig.client_id = clientId;
+      serverConfig.client_secret = clientSecret;
+      serverConfig.redirect_uri = redirectUri;
+
+      localStorage.setItem('chzzk_client_id', clientId);
+      localStorage.setItem('chzzk_client_secret', clientSecret);
+      localStorage.setItem('chzzk_redirect_uri', redirectUri);
+
+      try {
+        await fetch(`${PROXY_SERVER}/save-config`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ client_id: clientId, client_secret: clientSecret, redirect_uri: redirectUri })
+        });
+      } catch (e) {}
+
+      showToast('개발자 센터 정보 저장 완료', 'success');
+    }
+
+    async function startAutoOAuth() {
+      const clientId = document.getElementById('oauth-client-id').value.trim();
+      const clientSecret = document.getElementById('oauth-client-secret').value.trim();
+
+      if (!clientId || !clientSecret) {
+        showToast('입력 오류', 'error', '1단계에서 Client ID와 Secret을 먼저 입력 후 저장하세요.');
+        return;
+      }
+
+      await saveCredentials();
+
+      try {
+        const baseUrl = window.location.origin.startsWith('http') ? '' : PROXY_SERVER;
+        const res = await fetch(`${baseUrl || PROXY_SERVER}/start-oauth`);
+        if (res.ok) {
+          showToast('브라우저에서 로그인하세요!', 'info', '기본 브라우저가 열리면 로그인 후 동의 버튼을 누르세요.');
+          startTokenPolling();
+          return;
+        }
+      } catch (e) { }
+
+      showToast('server.py 연결 실패', 'error', 'server.py 서버가 실행 중인지 확인하세요.');
+    }
+
+    function startTokenPolling() {
+      if (pollingInterval) clearInterval(pollingInterval);
+      let attempts = 0;
+      showToast('토큰 발급 대기 중...', 'info', '로그인을 진행하세요. 최대 2분간 감지합니다.');
+      
+      pollingInterval = setInterval(async () => {
+        attempts++;
+        if (attempts > 60) {
+          clearInterval(pollingInterval);
+          showToast('대기 시간 초과', 'warn', '다시 로그인 버튼을 누르고 시도하세요.');
+          return;
+        }
+        try {
+          const res = await fetch(`${PROXY_SERVER}/config`);
+          if (res.ok) {
+            const newConfig = await res.json();
+            if (newConfig.access_token && newConfig.access_token !== serverConfig.access_token) {
+              clearInterval(pollingInterval);
+              serverConfig.access_token = newConfig.access_token;
+              localStorage.setItem('chzzk_access_token', newConfig.access_token);
+              document.getElementById('setting-token').value = newConfig.access_token;
+              
+              updateConnectionStatus();
+              showToast('🎉 치지직 토큰 발급 완벽 성공!', 'success');
+              
+              const modal = document.getElementById('settings-panel');
+              if (modal && modal.classList.contains('open')) {
+                toggleSettings();
+              }
+              setTimeout(() => loadCurrentSettings(), 300);
+            }
+          }
+        } catch (e) { }
+      }, 2000);
+    }
+
+    async function submitPastedCode() {
+      const input = document.getElementById('paste-code-input');
+      let raw = input ? input.value.trim() : '';
+      if (!raw) {
+        showToast('입력 오류', 'error', 'URL 또는 인가 코드를 입력해 주세요.');
+        return;
+      }
+
+      let code = raw;
+      let state = '';
+
+      if (raw.includes('code=')) {
+        try {
+          const u = new URL(raw.startsWith('http') ? raw : 'https://' + raw);
+          code = u.searchParams.get('code') || code;
+          state = u.searchParams.get('state') || '';
+        } catch (e) {
+          const match = raw.match(/code=([^&]+)/);
+          if (match) code = match[1];
+          const stateMatch = raw.match(/state=([^&]+)/);
+          if (stateMatch) state = stateMatch[1];
+        }
+      }
+
+      try {
+        const res = await fetch(`${PROXY_SERVER}/exchange-code`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code, state })
+        });
+        const data = await res.json();
+        if (res.ok && data.access_token) {
+          serverConfig.access_token = data.access_token;
+          localStorage.setItem('chzzk_access_token', data.access_token);
+          updateConnectionStatus();
+          showToast('🎉 토큰 발급 완벽 성공!', 'success');
+          toggleSettings();
+          setTimeout(() => loadCurrentSettings(), 300);
+          return;
+        }
+      } catch (e) { }
+
+      showToast('토큰 발급 실패', 'error', '코드가 이미 사용되었거나 만료되었습니다.');
+    }
+
+    // ===== API Communication Proxy =====
+    async function apiCall(method, path, body = null) {
+      const baseUrl = window.location.origin.startsWith('http') ? '' : PROXY_SERVER;
+      const url = `${baseUrl}/api${path}`;
+
+      const opts = { method, headers: { 'Content-Type': 'application/json' } };
+      if (body) opts.body = JSON.stringify(body);
+
+      let res;
+      try {
+        res = await fetch(url, opts);
+      } catch (err) {
+        throw { title: '네트워크 연결 오류', cause: 'server.py 서버가 정상 작동 중인지 확인하세요.' };
+      }
+
+      let data;
+      try {
+        data = await res.json();
+      } catch (err) {
+        data = null;
+      }
+
+      if (!res.ok) {
+        const errorMsg = data?.message || data?.error || `HTTP ${res.status} 오류`;
+        throw { title: `요청 실패 (HTTP ${res.status})`, cause: errorMsg };
+      }
+
+      return data;
+    }
+
+    // ===== Main Settings Operations =====
+    async function loadCurrentSettings() {
+      if (!serverConfig.access_token) return;
+
+      try {
+        const liveRes = await apiCall('GET', '/open/v1/lives/setting');
+        const liveData = liveRes?.content || liveRes?.data || liveRes;
+
+        if (liveData) {
+          if (liveData.defaultLiveTitle) {
+            document.getElementById('live-title').value = liveData.defaultLiveTitle;
+            document.getElementById('title-count').textContent = `${liveData.defaultLiveTitle.length}/50`;
+          }
+          const cat = liveData.category || {};
+          const catId = cat.categoryId || liveData.categoryId || '';
+          const catType = cat.categoryType || liveData.categoryType || '';
+          const catValue = cat.categoryValue || liveData.categoryValue || catId;
+          if (catId || catValue) {
+            document.getElementById('category-id').value = catId;
+            document.getElementById('category-type').value = catType;
+            document.getElementById('category-search').value = catValue;
+            document.getElementById('category-clear').style.display = 'block';
+          }
+          if (liveData.tags && Array.isArray(liveData.tags)) {
+            currentTags = [...liveData.tags];
+            renderTags();
+          }
+        }
+      } catch (err) {
+        showToast(err.title || '방송 정보 불러오기 실패', 'error', err.cause || err.message);
+      }
+
+      try {
+        const chatRes = await apiCall('GET', '/open/v1/chats/settings');
+        const chatData = chatRes?.content || chatRes?.data || chatRes;
+
+        if (chatData) {
+          if (chatData.chatAvailableGroup) {
+            setSelectedChatGroup(chatData.chatAvailableGroup);
+          }
+          if (chatData.chatAvailableCondition) {
+            document.getElementById('toggle-realname').checked = (chatData.chatAvailableCondition === 'REAL_NAME');
+          }
+          if (chatData.minFollowerMinute !== undefined) {
+            document.getElementById('min-follower-minute').value = chatData.minFollowerMinute;
+          }
+          if (chatData.allowSubscriberInFollowerMode !== undefined) {
+            document.getElementById('toggle-sub-exception').checked = chatData.allowSubscriberInFollowerMode;
+          }
+          if (chatData.chatSlowModeSec !== undefined) {
+            selectedSlowMode = chatData.chatSlowModeSec;
+            document.querySelectorAll('#slow-mode-group .pill').forEach(p => {
+              p.classList.toggle('active', parseInt(p.dataset.value) === selectedSlowMode);
+            });
+          }
+          if (chatData.emoticonOnlyMode !== undefined) {
+            document.getElementById('toggle-emote').checked = chatData.emoticonOnlyMode;
+          }
+        }
+        showToast('현재 방송 및 채팅 설정 로딩 완료', 'success');
+      } catch (err) {
+        showToast(err.title || '채팅 설정 불러오기 실패', 'error', err.cause || err.message);
+      }
+    }
+
+    async function saveAll() {
+      const btn = document.getElementById('btn-save');
+      const saveText = document.getElementById('save-text');
+      const spinner = document.getElementById('save-spinner');
+
+      btn.disabled = true;
+      saveText.textContent = '저장 중...';
+      spinner.style.display = 'inline-block';
+
+      let liveSuccess = false;
+      let chatSuccess = false;
+
+      // 1. 방송 정보 저장
+      try {
+        const title = document.getElementById('live-title').value.trim();
+        if (!title) {
+          throw { title: '입력 확인', cause: '방송 제목을 입력해 주세요.' };
+        }
+
+        const liveBody = { defaultLiveTitle: title };
+        const catType = document.getElementById('category-type').value;
+        const catId = document.getElementById('category-id').value;
+        if (catType) liveBody.categoryType = catType;
+        liveBody.categoryId = catId || '';
+        liveBody.tags = currentTags;
+
+        await apiCall('PATCH', '/open/v1/lives/setting', liveBody);
+        liveSuccess = true;
+      } catch (err) {
+        showToast(err.title || '방송 정보 저장 실패', 'error', err.cause || err.message);
+      }
+
+      // 2. 채팅 설정 저장
+      try {
+        const chatBody = {
+          chatAvailableGroup: getSelectedChatGroup(),
+          chatAvailableCondition: document.getElementById('toggle-realname').checked ? 'REAL_NAME' : 'NONE',
+          chatSlowModeSec: selectedSlowMode,
+        };
+
+        if (chatBody.chatAvailableGroup === 'FOLLOWER') {
+          chatBody.minFollowerMinute = parseInt(document.getElementById('min-follower-minute').value) || 0;
+          chatBody.allowSubscriberInFollowerMode = document.getElementById('toggle-sub-exception').checked;
+        }
+
+        chatBody.emoticonOnlyMode = document.getElementById('toggle-emote').checked;
+
+        await apiCall('PUT', '/open/v1/chats/settings', chatBody);
+        chatSuccess = true;
+      } catch (err) {
+        showToast(err.title || '채팅 설정 저장 실패', 'error', err.cause || err.message);
+      }
+
+      btn.disabled = false;
+      saveText.textContent = '설정 저장';
+      spinner.style.display = 'none';
+
+      if (liveSuccess && chatSuccess) {
+        showToast('🎉 방송 & 채팅 설정 저장 완료!', 'success');
+      } else if (liveSuccess) {
+        showToast('방송 정보만 저장되었습니다.', 'warn');
+      } else if (chatSuccess) {
+        showToast('채팅 설정만 저장되었습니다.', 'warn');
+      }
+    }
+
+    // ===== UI Helpers =====
+    function onChatGroupChange(val) {
+      document.getElementById('follower-options').style.display = val === 'FOLLOWER' ? 'block' : 'none';
+    }
+
+    function getSelectedChatGroup() {
+      const selected = document.querySelector('input[name="chatAvailableGroup"]:checked');
+      return selected ? selected.value : 'ALL';
+    }
+
+    function setSelectedChatGroup(val) {
+      const el = document.querySelector(`input[name="chatAvailableGroup"][value="${val}"]`);
+      if (el) {
+        el.checked = true;
+      } else {
+        const defaultEl = document.querySelector('input[name="chatAvailableGroup"][value="ALL"]');
+        if (defaultEl) defaultEl.checked = true;
+      }
+      onChatGroupChange(val);
+    }
+
+    async function searchCategories(query) {
+      try {
+        const data = await apiCall('GET', `/open/v1/categories/search?query=${encodeURIComponent(query)}&size=15`);
+        const list = data?.content?.data || data?.data || [];
+
+        const dropdown = document.getElementById('category-dropdown');
+
+        if (!list.length) {
+          dropdown.innerHTML = '<div class="px-2.5 py-3 text-[11px] text-chzzk-muted text-center">검색 결과 없음</div>';
+          dropdown.style.display = 'block';
+          return;
+        }
+
+        dropdown.innerHTML = list.map(cat => `
+          <div class="category-item" onclick="selectCategory('${cat.categoryType}','${cat.categoryId}','${escapeHtml(cat.categoryValue)}','${cat.posterImageUrl || ''}')">
+            ${cat.posterImageUrl ? `<img src="${cat.posterImageUrl}" alt="" onerror="this.style.display='none'" />` : '<div class="w-6 h-6 rounded bg-chzzk-border flex items-center justify-center text-[10px] text-chzzk-muted">🎮</div>'}
+            <div>
+              <div class="text-white text-xs font-medium">${escapeHtml(cat.categoryValue)}</div>
+              <div class="text-[9px] text-chzzk-muted">${cat.categoryType}</div>
+            </div>
+          </div>
+        `).join('');
+        dropdown.style.display = 'block';
+      } catch (err) {
+        showToast('카테고리 검색 실패', 'error', err.cause || err.message);
+      }
+    }
+
+    function selectCategory(type, id, value, img) {
+      document.getElementById('category-search').value = value;
+      document.getElementById('category-type').value = type;
+      document.getElementById('category-id').value = id;
+      document.getElementById('category-dropdown').style.display = 'none';
+      document.getElementById('category-clear').style.display = 'block';
+      showToast(`카테고리: ${value}`, 'info');
+    }
+
+    function clearCategory() {
+      document.getElementById('category-search').value = '';
+      document.getElementById('category-type').value = '';
+      document.getElementById('category-id').value = '';
+      document.getElementById('category-clear').style.display = 'none';
+    }
+
+    function addTag(value) {
+      if (!value) return;
+      value = value.replace(/\s+/g, '');
+      if (!value) return;
+      if (!/^[a-zA-Z0-9가-힣ㄱ-ㅎㅏ-ㅣ]+$/.test(value)) {
+        showToast('입력 오류', 'error', '공백 및 특수문자는 사용할 수 없습니다.');
+        return;
+      }
+      if (currentTags.length >= 10) {
+        showToast('태그 제한', 'warn', '태그는 최대 10개까지 추가할 수 있습니다.');
+        return;
+      }
+      if (currentTags.includes(value)) {
+        showToast('중복 태그', 'warn', '이미 추가된 태그입니다.');
+        return;
+      }
+      currentTags.push(value);
+      renderTags();
+    }
+
+    function removeTag(index) {
+      currentTags.splice(index, 1);
+      renderTags();
+    }
+
+    function renderTags() {
+      const container = document.getElementById('tag-container');
+      container.innerHTML = currentTags.map((tag, i) => `
+        <span class="tag-chip">
+          #${escapeHtml(tag)}
+          <button onclick="removeTag(${i})">✕</button>
+        </span>
+      `).join('');
+    }
+
+    function setSlowMode(el) {
+      document.querySelectorAll('#slow-mode-group .pill').forEach(p => p.classList.remove('active'));
+      el.classList.add('active');
+      selectedSlowMode = parseInt(el.dataset.value);
+    }
+
+    function toggleSettings() {
+      const panel = document.getElementById('settings-panel');
+      panel.classList.toggle('open');
+    }
+
+    function switchTab(tab) {
+      document.getElementById('tab-btn-oauth').classList.toggle('active', tab === 'oauth');
+      document.getElementById('tab-btn-direct').classList.toggle('active', tab === 'direct');
+      document.getElementById('tab-oauth').style.display = tab === 'oauth' ? 'block' : 'none';
+      document.getElementById('tab-direct').style.display = tab === 'direct' ? 'block' : 'none';
+    }
+
+    function toggleTokenVisibility() {
+      const input = document.getElementById('setting-token');
+      input.type = input.type === 'password' ? 'text' : 'password';
+    }
+
+    function updateConnectionStatus() {
+      const dot = document.getElementById('header-status-dot');
+      const text = document.getElementById('header-status-text');
+
+      if (!dot || !text) return;
+
+      if (serverConfig.access_token) {
+        dot.className = 'w-2 h-2 rounded-full bg-chzzk-green animate-pulse';
+        dot.title = '치지직 API 연동 완료';
+        text.textContent = '연동됨';
+      } else {
+        dot.className = 'w-2 h-2 rounded-full bg-chzzk-warn';
+        dot.title = '치지직 인증 필요';
+        text.textContent = '설정';
+      }
+    }
+
+    async function saveDirectToken() {
+      const token = document.getElementById('setting-token').value.trim();
+      if (!token) {
+        showToast('입력 오류', 'error', 'Access Token을 입력해 주세요.');
+        return;
+      }
+
+      serverConfig.access_token = token;
+      localStorage.setItem('chzzk_access_token', token);
+
+      try {
+        await fetch(`${PROXY_SERVER}/save-config`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ access_token: token })
+        });
+      } catch (e) {}
+
+      updateConnectionStatus();
+      showToast('토큰 직접 저장 완료', 'success');
+      toggleSettings();
+      setTimeout(() => loadCurrentSettings(), 300);
+    }
+  </script>
+</body>
+</html>
