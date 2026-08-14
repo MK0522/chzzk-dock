@@ -2,13 +2,10 @@
 OBS Studio 안에서 사용자 브라우저 독(`http://localhost:8081`)을 추가하면 CHZZK 방송 정보를 편하게 수정할 수 있습니다.
 
 과거 트위치 시절처럼 스트리머들이 치지직 스튜디오에 접속할 필요를 줄여주는 것이 목적입니다.
-<figure align="center">
-  <img src="preview.png" height="400" alt="">
-  <img src="twitch.jpg" height="400" alt="">
-  <figcaption>(좌)Chzzk OBS Dock, (우)Twitch Info Dock</figcaption>
-</figure>
-
-> 현재 `v0.2.1-Beta` 버전입니다.
+| Chzzk OBS Dock | Twitch Info Dock |
+| :---: | :---: |
+| <img src="preview.png" width="380" alt="Chzzk OBS Dock"> | <img src="twitch.jpg" width="380" alt="Twitch Info Dock"> |
+> 현재 `v0.2.1-Beta` 버전 이미지
 
 ## 주요 기능
 
