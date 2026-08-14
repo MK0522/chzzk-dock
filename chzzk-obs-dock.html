@@ -5,9 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>CHZZK 방송 관리 독</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
   <script>
     tailwind.config = {
       darkMode: 'class',
@@ -44,9 +42,7 @@
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: #1E2636; border-radius: 3px; }
     html, body { background: #0B0E11; height: 100%; width: 100%; margin: 0; padding: 0; overflow-x: hidden; }
-    #dock-wrapper { position: relative; width: 100%; height: 100%; min-height: 100vh; background: #0B0E11; overflow-y: auto; overflow-x: hidden; box-sizing: border-box; display: flex; flex-direction: column; }
-
-    .chzzk-radio { accent-color: #00FFA3; cursor: pointer; width: 13px; height: 13px; }
+    #dock-wrapper { position: relative; width: 100%; min-height: 100vh; background: #0B0E11; overflow-y: auto; overflow-x: hidden; box-sizing: border-box; }
 
     .toggle-switch { position: relative; width: 36px; height: 20px; flex-shrink: 0; }
     .toggle-switch input { opacity: 0; width: 0; height: 0; }
@@ -152,28 +148,13 @@
       opacity: 1; pointer-events: auto; visibility: visible;
       transform: translateX(0);
     }
-
-    .pill-group { display: flex; flex-wrap: wrap; gap: 4px; }
-    .pill {
-      padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 500;
-      cursor: pointer; transition: all 0.15s;
-      background: #0F131A; color: #5A6577; border: 1px solid #1E2636;
-    }
-    .pill:hover { border-color: #2A3648; color: #A8B3C7; }
-    .pill.active { background: rgba(0, 255, 163, 0.1); color: #00FFA3; border-color: rgba(0, 255, 163, 0.3); }
-    
-    .tab-btn {
-      padding: 5px 10px; font-size: 11px; font-weight: 600; border-radius: 6px;
-      color: #5A6577; cursor: pointer; transition: all 0.15s;
-    }
-    .tab-btn.active { background: #1E2636; color: #00FFA3; }
   </style>
 </head>
 <body class="dark font-sans text-white antialiased overflow-x-hidden">
   <div id="dock-wrapper">
 
   <!-- ===== MAIN VIEW ===== -->
-  <div id="main-view" class="flex-1 flex flex-col justify-between px-2.5 py-3 space-y-2.5 animate-fade-in">
+  <div id="main-view" class="flex flex-col gap-2.5 px-2.5 py-3 animate-fade-in">
 
     <!-- Header -->
     <div class="flex items-center justify-between mb-1 pb-1 border-b border-chzzk-border/40">
@@ -181,26 +162,28 @@
         <div class="w-6 h-6 rounded-md bg-gradient-to-br from-chzzk-green/20 to-chzzk-accent/10 flex items-center justify-center">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00FFA3" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
         </div>
-        <h1 class="text-xs font-bold text-white tracking-tight">CHZZK 방송 관리</h1>
-        <span id="header-status-dot" class="w-2 h-2 rounded-full bg-chzzk-muted transition-colors" title="API 연결 상태"></span>
+        <h1 class="text-xs font-bold text-white tracking-tight">CHZZK 방송 제어 독</h1>
+        <span id="header-status-dot" class="w-2.5 h-2.5 rounded-full bg-[#FF4D6A] shadow-[0_0_6px_rgba(255,77,106,0.8)] transition-all" title="치지직 로그인 필요"></span>
       </div>
-      <button id="btn-settings" onclick="toggleSettings()" class="flex items-center gap-1 px-2 py-1 rounded-md bg-chzzk-card border border-chzzk-border hover:border-chzzk-green/50 text-[10px] text-chzzk-muted hover:text-chzzk-green transition-all" title="API / OAuth 설정">
+      <button id="btn-settings" onclick="toggleSettings()" class="flex items-center gap-1 px-2 py-1 rounded-md bg-chzzk-card border border-chzzk-border hover:border-chzzk-green/50 text-[10px] text-chzzk-muted hover:text-chzzk-green transition-all" title="로그인 설정">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-        <span id="header-status-text" class="font-medium">설정</span>
+        <span id="header-status-text" class="font-medium text-[#FF4D6A]">로그인</span>
       </button>
     </div>
 
-    <!-- ===== 1. 방송 정보 ===== -->
-    <div class="section-card animate-slide-up" style="animation-delay: 0.05s">
-      <div class="flex items-center gap-1.5 mb-2">
+    <!-- ===== 1. 방송 정보 카드 (제목, 카테고리, 태그, 세부 옵션 통합) ===== -->
+    <div id="card-broadcast" class="section-card space-y-3 shadow-xl border border-chzzk-border/80 animate-slide-up" style="animation-delay: 0.05s">
+      
+      <!-- 방송 정보 헤더 -->
+      <div class="flex items-center gap-1.5 pb-1 border-b border-chzzk-border/50">
         <div class="w-4 h-4 rounded bg-chzzk-green/10 flex items-center justify-center">
           <svg width="10" height="10" viewBox="0 0 24 24" fill="#00FFA3"><path d="M21 3H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14zM9.5 17l7-5-7-5v10z"/></svg>
         </div>
-        <span class="text-[11px] font-semibold text-white">방송 정보</span>
+        <span class="text-xs font-bold text-white">방송 정보</span>
       </div>
 
       <!-- 방송 제목 -->
-      <div class="space-y-1 mb-2">
+      <div class="space-y-1">
         <div class="flex justify-between items-center">
           <label class="text-[10px] font-medium text-chzzk-muted uppercase tracking-wider">방송 제목</label>
           <span id="title-count" class="text-[10px] text-chzzk-muted">0/50</span>
@@ -209,7 +192,7 @@
       </div>
 
       <!-- 카테고리 -->
-      <div class="space-y-1 mb-2 relative" id="category-wrapper">
+      <div class="space-y-1 relative" id="category-wrapper">
         <label class="text-[10px] font-medium text-chzzk-muted uppercase tracking-wider">카테고리</label>
         <div class="relative">
           <input id="category-search" type="text" class="chzzk-input pr-7" placeholder="카테고리 검색..." />
@@ -226,200 +209,227 @@
         <div id="tag-container" class="flex flex-wrap gap-1 min-h-[24px]"></div>
         <input id="tag-input" type="text" class="chzzk-input" placeholder="태그 입력 후 Enter (최대 10개)" maxlength="20" />
       </div>
-    </div>
 
-    <!-- ===== 2. 채팅 설정 ===== -->
-    <div class="section-card animate-slide-up" style="animation-delay: 0.1s">
-      <div class="flex items-center gap-1.5 mb-2">
-        <div class="w-4 h-4 rounded bg-blue-500/10 flex items-center justify-center">
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="#60A5FA"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.2L4 17.2V4h16v12z"/></svg>
+      <!-- 태그 아래 세부 옵션 (연령 제한, 클립, 다시보기 설정) -->
+      <div class="space-y-2 pt-2 border-t border-chzzk-border/50">
+        <!-- 연령 제한 & 클립 허용 2개 토글 -->
+        <div class="grid grid-cols-2 gap-2">
+          <div class="flex items-center justify-between p-1.5 rounded bg-chzzk-input/60 border border-chzzk-border/40">
+            <div>
+              <div class="text-[10px] font-medium text-white flex items-center gap-1">
+                <span>🔞</span> 연령 제한
+              </div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="toggle-adult" />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <div class="flex items-center justify-between p-1.5 rounded bg-chzzk-input/60 border border-chzzk-border/40">
+            <div>
+              <div class="text-[10px] font-medium text-white flex items-center gap-1">
+                <span>✂️</span> 클립 허용
+              </div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="toggle-clip" checked />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
         </div>
-        <span class="text-[11px] font-semibold text-white">채팅 설정</span>
-      </div>
 
-      <!-- 채팅 참여 범위 (라디오 버튼) -->
-      <div class="space-y-1 mb-2">
-        <label class="text-[10px] font-medium text-chzzk-muted uppercase tracking-wider">채팅 참여 범위</label>
-        <div class="flex items-center flex-wrap gap-2.5 py-0.5">
-          <label class="flex items-center gap-1 cursor-pointer text-[11px] text-chzzk-text">
-            <input type="radio" name="chatAvailableGroup" value="ALL" class="chzzk-radio" checked onchange="onChatGroupChange('ALL')" />
-            <span>모두</span>
+        <!-- 다시보기 설정 -->
+        <div class="space-y-1 pt-0.5">
+          <label class="text-[10px] font-medium text-chzzk-muted uppercase tracking-wider flex items-center gap-1">
+            <span>📺</span> 다시보기 설정
           </label>
-          <label class="flex items-center gap-1 cursor-pointer text-[11px] text-chzzk-text">
-            <input type="radio" name="chatAvailableGroup" value="FOLLOWER" class="chzzk-radio" onchange="onChatGroupChange('FOLLOWER')" />
-            <span>팔로워</span>
-          </label>
-          <label class="flex items-center gap-1 cursor-pointer text-[11px] text-chzzk-text">
-            <input type="radio" name="chatAvailableGroup" value="MANAGER" class="chzzk-radio" onchange="onChatGroupChange('MANAGER')" />
-            <span>운영자</span>
-          </label>
+          <div class="grid grid-cols-3 gap-1 bg-[#0B0E11] p-1 rounded-md border border-chzzk-border/60 text-[10px]">
+            <label class="cursor-pointer select-none">
+              <input type="radio" name="replayPublishType" value="MANUAL" class="hidden peer" checked />
+              <div class="py-1.5 px-0.5 rounded text-center text-[9.5px] text-chzzk-muted border border-transparent transition-all flex items-center justify-center gap-0.5 hover:bg-white/5 peer-checked:bg-purple-500/20 peer-checked:border-purple-500/60 peer-checked:text-purple-300 peer-checked:font-bold peer-checked:shadow-[0_0_8px_rgba(192,132,252,0.2)]">
+                <span>🖐️</span> <span>확인 후 게시</span>
+              </div>
+            </label>
+            <label class="cursor-pointer select-none">
+              <input type="radio" name="replayPublishType" value="AUTO" class="hidden peer" />
+              <div class="py-1.5 px-0.5 rounded text-center text-[9.5px] text-chzzk-muted border border-transparent transition-all flex items-center justify-center gap-0.5 hover:bg-white/5 peer-checked:bg-emerald-500/20 peer-checked:border-emerald-500/60 peer-checked:text-[#00FFA3] peer-checked:font-bold peer-checked:shadow-[0_0_8px_rgba(0,255,163,0.2)]">
+                <span>🤖</span> <span>자동 게시</span>
+              </div>
+            </label>
+            <label class="cursor-pointer select-none">
+              <input type="radio" name="replayPublishType" value="NONE" class="hidden peer" />
+              <div class="py-1.5 px-0.5 rounded text-center text-[9.5px] text-chzzk-muted border border-transparent transition-all flex items-center justify-center gap-0.5 hover:bg-white/5 peer-checked:bg-rose-500/20 peer-checked:border-rose-500/60 peer-checked:text-[#FF4D6A] peer-checked:font-bold peer-checked:shadow-[0_0_8px_rgba(255,77,106,0.2)]">
+                <span>🚫</span> <span>다시 보기 없음</span>
+              </div>
+            </label>
+          </div>
         </div>
-      </div>
-
-      <!-- 팔로워 최소 기간 -->
-      <div id="follower-options" class="space-y-1.5 mb-2 p-2 rounded bg-chzzk-input/60 border border-chzzk-border/40" style="display:none;">
-        <div class="space-y-1">
-          <label class="text-[10px] font-medium text-chzzk-muted uppercase tracking-wider">최소 팔로잉 기간</label>
-          <select id="min-follower-minute" class="chzzk-select">
-            <option value="0">제한 없음</option>
-            <option value="10">10분</option>
-            <option value="30">30분</option>
-            <option value="60">1시간</option>
-            <option value="1440">1일</option>
-            <option value="10080">7일</option>
-            <option value="43200">30일</option>
-          </select>
-        </div>
-        <div class="flex items-center justify-between pt-1">
-          <span class="text-[11px] text-chzzk-text">구독자 예외 적용</span>
-          <label class="toggle-switch">
-            <input type="checkbox" id="toggle-sub-exception" checked />
-            <span class="toggle-slider"></span>
-          </label>
-        </div>
-      </div>
-
-      <!-- 이모티콘 전용 모드 -->
-      <div class="flex items-center justify-between mb-2">
-        <span class="text-[11px] text-chzzk-text">😊 이모티콘 전용 모드</span>
-        <label class="toggle-switch">
-          <input type="checkbox" id="toggle-emote" />
-          <span class="toggle-slider"></span>
-        </label>
-      </div>
-
-      <!-- 저속 모드 -->
-      <div class="space-y-1 mb-2">
-        <label class="text-[10px] font-medium text-chzzk-muted uppercase tracking-wider">저속 모드</label>
-        <div class="pill-group" id="slow-mode-group">
-          <div class="pill active" data-value="0" onclick="setSlowMode(this)">OFF</div>
-          <div class="pill" data-value="3" onclick="setSlowMode(this)">3초</div>
-          <div class="pill" data-value="5" onclick="setSlowMode(this)">5초</div>
-          <div class="pill" data-value="10" onclick="setSlowMode(this)">10초</div>
-          <div class="pill" data-value="30" onclick="setSlowMode(this)">30초</div>
-          <div class="pill" data-value="60" onclick="setSlowMode(this)">60초</div>
-        </div>
-      </div>
-
-      <!-- 본인 인증 여부 -->
-      <div class="flex items-center justify-between pt-0.5">
-        <span class="text-[11px] text-chzzk-text">네이버 본인인증 시청자만 채팅</span>
-        <label class="toggle-switch">
-          <input type="checkbox" id="toggle-realname" />
-          <span class="toggle-slider"></span>
-        </label>
       </div>
     </div>
 
-    <!-- ===== Save Button ===== -->
-    <div class="animate-slide-up space-y-1.5" style="animation-delay: 0.15s">
+    <!-- ===== 2. 채팅 & 후원 제어 카드 (채팅 + 후원 결합) ===== -->
+    <div id="card-chat-donation" class="section-card shadow-xl border border-chzzk-border/80 animate-slide-up" style="animation-delay: 0.08s">
+      <div class="grid grid-cols-2 gap-2">
+        <!-- 좌측: 채팅 설정 -->
+        <div class="p-2 rounded-lg bg-chzzk-input/40 border border-chzzk-border/40 flex flex-col gap-2">
+          <div>
+            <div class="text-[10px] font-bold text-chzzk-text pb-1 flex items-center gap-1">
+              <span>💬</span> 채팅 이용 권한
+            </div>
+            <div class="grid grid-cols-3 gap-1 bg-[#0B0E11] p-1 rounded-md border border-chzzk-border/60 text-[10px]">
+              <label class="cursor-pointer select-none">
+                <input type="radio" name="chatAvailableGroup" value="ALL" class="hidden peer" checked onchange="onChatGroupChange('ALL')" />
+                <div class="py-1 px-0.5 rounded text-center text-[9px] text-chzzk-muted border border-transparent transition-all flex items-center justify-center hover:bg-white/5 peer-checked:bg-blue-500/20 peer-checked:border-blue-500/60 peer-checked:text-blue-300 peer-checked:font-bold peer-checked:shadow-[0_0_8px_rgba(96,165,250,0.2)]">
+                  모두
+                </div>
+              </label>
+              <label class="cursor-pointer select-none">
+                <input type="radio" name="chatAvailableGroup" value="FOLLOWER" class="hidden peer" onchange="onChatGroupChange('FOLLOWER')" />
+                <div class="py-1 px-0.5 rounded text-center text-[9px] text-chzzk-muted border border-transparent transition-all flex items-center justify-center hover:bg-white/5 peer-checked:bg-blue-500/20 peer-checked:border-blue-500/60 peer-checked:text-blue-300 peer-checked:font-bold peer-checked:shadow-[0_0_8px_rgba(96,165,250,0.2)]">
+                  팔로워
+                </div>
+              </label>
+              <label class="cursor-pointer select-none">
+                <input type="radio" name="chatAvailableGroup" value="MANAGER" class="hidden peer" onchange="onChatGroupChange('MANAGER')" />
+                <div class="py-1 px-0.5 rounded text-center text-[9px] text-chzzk-muted border border-transparent transition-all flex items-center justify-center hover:bg-white/5 peer-checked:bg-blue-500/20 peer-checked:border-blue-500/60 peer-checked:text-blue-300 peer-checked:font-bold peer-checked:shadow-[0_0_8px_rgba(96,165,250,0.2)]">
+                  운영자
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <!-- 팔로워 옵션 -->
+          <div id="follower-options" class="space-y-1.5 p-1.5 rounded bg-[#0B0E11] border border-chzzk-border/40" style="display:none;">
+            <div class="flex items-center justify-between">
+              <label class="text-[9px] text-chzzk-muted">최소 팔로우</label>
+              <select id="min-follower-minute" class="chzzk-select text-[9px] py-0.5 px-1 w-20">
+                <option value="0">제한 없음</option>
+                <option value="5">5분 이상</option>
+                <option value="10">10분 이상</option>
+                <option value="30">30분 이상</option>
+                <option value="60">1시간 이상</option>
+              </select>
+            </div>
+            <div class="flex items-center justify-between pt-0.5">
+              <span class="text-[9px] text-chzzk-text">구독자 예외</span>
+              <label class="toggle-switch">
+                <input type="checkbox" id="toggle-sub-exception" checked />
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- 우측: 후원 설정 -->
+        <div class="p-2 rounded-lg bg-chzzk-input/40 border border-chzzk-border/40 flex flex-col gap-1.5">
+          <div class="text-[10px] font-bold text-chzzk-text pb-0.5 flex items-center justify-between border-b border-chzzk-border/40">
+            <span class="flex items-center gap-1"><span>⭐</span> 후원 설정</span>
+            <span class="text-[8.5px] text-[#00FFA3] font-normal">즉시 반영</span>
+          </div>
+
+          <!-- 치즈 채팅 후원 -->
+          <div class="flex items-center justify-between py-0.5">
+            <div>
+              <div class="text-[10px] font-medium text-white flex items-center gap-1">
+                <span>💬</span> 치즈 채팅 후원
+              </div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="toggle-chat-donation" onchange="updateDonationSetting('CHAT')" />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <!-- 영상 후원 -->
+          <div class="flex items-center justify-between py-0.5">
+            <div>
+              <div class="text-[10px] font-medium text-white flex items-center gap-1">
+                <span>🎬</span> 영도(영상) 후원
+              </div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="toggle-video-donation" onchange="updateDonationSetting('VIDEO')" />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <!-- 미션 후원 -->
+          <div class="flex items-center justify-between py-0.5">
+            <div>
+              <div class="text-[10px] font-medium text-white flex items-center gap-1">
+                <span>🎯</span> 미션 후원
+              </div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="toggle-mission-donation" onchange="updateDonationSetting('MISSION')" />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== Save & Refresh Actions ===== -->
+    <div class="animate-slide-up space-y-1.5" style="animation-delay: 0.1s">
       <button id="btn-save" class="save-btn" onclick="saveAll()">
         <span id="save-text">설정 저장</span>
         <svg id="save-spinner" class="animate-spin ml-1.5 inline-block" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="display:none;"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round"/></svg>
       </button>
 
       <button onclick="loadCurrentSettings()" class="w-full text-center text-[10px] text-chzzk-muted hover:text-chzzk-text transition-colors py-0.5">
-        🔄 현재 설정 새로고침
+        🔄 현재 설정 불러오기
       </button>
-    </div>
-
-    <div class="text-center text-[9px] text-chzzk-muted/40 pt-1 pb-1">
-      CHZZK Open API v1
     </div>
   </div>
 
-  <!-- ===== SETTINGS & AUTOMATED OAUTH PANEL ===== -->
+  <!-- ===== SETTINGS & COOKIE LOGIN PANEL ===== -->
   <div id="settings-panel" class="settings-panel px-2.5 py-3">
-    <div class="flex items-center justify-between mb-2.5">
+    <div class="flex items-center justify-between mb-2.5 border-b border-chzzk-border pb-2">
       <div class="flex items-center gap-1.5">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00FFA3" stroke-width="2" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-        <span class="text-xs font-bold text-white">치지직 API 인증 설정</span>
+        <span class="text-base">🍪</span>
+        <span class="text-xs font-bold text-white">치지직 로그인 설정</span>
       </div>
       <button onclick="toggleSettings()" class="w-6 h-6 rounded-md bg-chzzk-card border border-chzzk-border flex items-center justify-center hover:border-chzzk-muted transition-colors">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5A6577" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
 
-    <!-- Setting Tabs -->
-    <div class="flex bg-chzzk-input p-0.5 rounded-md border border-chzzk-border mb-2.5">
-      <button id="tab-btn-oauth" onclick="switchTab('oauth')" class="tab-btn active flex-1">⚡ 자동 인증 (추천)</button>
-      <button id="tab-btn-direct" onclick="switchTab('direct')" class="tab-btn flex-1">🔑 토큰 직접 입력</button>
-    </div>
-
-    <!-- TAB 1: Automatic OAuth Generator -->
-    <div id="tab-oauth" class="space-y-2">
-      <div class="section-card space-y-2">
-        <div class="text-[11px] font-semibold text-chzzk-green flex items-center gap-1">
-          <span>1단계</span> 개발자 센터 정보 입력
+    <!-- Cookie Login Section -->
+    <div class="space-y-2.5">
+      <!-- 방법 A: 팝업 로그인 카드 -->
+      <div class="section-card space-y-2.5">
+        <div class="flex items-center justify-between">
+          <div class="text-[11px] font-semibold text-[#00FFA3]">방법 A. 팝업 로그인</div>
+          <span id="badge-method-a" class="text-[9px] px-1.5 py-0.5 rounded font-bold bg-gray-800 text-gray-400">대기 중</span>
         </div>
-        
-        <div class="space-y-0.5">
-          <label class="text-[9px] text-chzzk-muted font-medium uppercase">Client ID</label>
-          <input id="oauth-client-id" type="text" class="chzzk-input" placeholder="치지직 앱 Client ID" />
-        </div>
-
-        <div class="space-y-0.5">
-          <label class="text-[9px] text-chzzk-muted font-medium uppercase">Client Secret</label>
-          <input id="oauth-client-secret" type="password" class="chzzk-input" placeholder="치지직 앱 Client Secret" />
-        </div>
-
-        <div class="space-y-0.5">
-          <label class="text-[9px] text-chzzk-muted font-medium uppercase">Redirect URI</label>
-          <input id="oauth-redirect-uri" type="text" class="chzzk-input" value="https://localhost:8080" placeholder="https://localhost:8080" />
-        </div>
-
-        <button onclick="saveCredentials()" class="sub-btn !bg-chzzk-card hover:!border-chzzk-green text-chzzk-green font-semibold">
-          💾 정보 저장
+        <button id="btn-webview-login" onclick="startWebviewLogin()" class="save-btn text-xs py-2 bg-gradient-to-r from-emerald-500 to-teal-600">
+          🌐 네이버 로그인 팝업 열기
         </button>
-
-        <div class="pt-1.5 border-t border-chzzk-border/50 space-y-1">
-          <div class="text-[11px] font-semibold text-chzzk-accent">
-            <span>2단계</span> 원클릭 자동 로그인 & 토큰 발급
-          </div>
-          <p class="text-[9px] text-chzzk-muted leading-snug">
-            버튼을 누르면 PC 기본 브라우저가 열리며, 로그인 후 토큰이 자동 발급됩니다.
-          </p>
-          <button onclick="startAutoOAuth()" class="save-btn text-xs py-2">
-            🚀 자동 로그인 시작
-          </button>
-        </div>
-
-        <!-- 3단계: URL / Code Paste -->
-        <div class="pt-1.5 border-t border-chzzk-border/50 space-y-1">
-          <div class="text-[11px] font-semibold text-chzzk-warn">
-            <span>3단계 (대안)</span> 인가 코드 직접 입력
-          </div>
-          <div class="flex gap-1">
-            <input id="paste-code-input" type="text" class="chzzk-input flex-1 text-[11px]" placeholder="URL 또는 code값 붙여넣기..." />
-            <button onclick="submitPastedCode()" class="sub-btn !w-auto whitespace-nowrap !bg-chzzk-accent/20 !border-chzzk-accent/40 text-chzzk-green font-bold">
-              ⚡ 토큰 발급
-            </button>
-          </div>
-        </div>
       </div>
-    </div>
 
-    <!-- TAB 2: Direct Token Input -->
-    <div id="tab-direct" class="space-y-2" style="display:none;">
+      <!-- 방법 B: 쿠키 수동 입력 카드 -->
       <div class="section-card space-y-2">
+        <div class="flex items-center justify-between mb-1">
+          <div class="text-[11px] font-semibold text-amber-400">방법 B. 쿠키 수동 입력</div>
+          <span id="badge-method-b" class="text-[9px] px-1.5 py-0.5 rounded font-bold bg-gray-800 text-gray-400">미입력</span>
+        </div>
         <div class="space-y-1">
-          <label class="text-[10px] font-medium text-chzzk-muted uppercase tracking-wider">Access Token</label>
-          <div class="relative">
-            <input id="setting-token" type="password" class="chzzk-input pr-8" placeholder="Access Token 입력" />
-            <button onclick="toggleTokenVisibility()" class="absolute right-2 top-1/2 -translate-y-1/2 text-chzzk-muted hover:text-chzzk-text">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-            </button>
-          </div>
+          <label class="text-[9px] text-chzzk-muted font-medium">NID_AUT</label>
+          <input id="cookie-nid-aut" type="password" class="chzzk-input text-[11px]" placeholder="NID_AUT 쿠키 값" />
         </div>
-
-        <button onclick="saveDirectToken()" class="save-btn text-xs py-2">
-          💾 토큰 저장
+        <div class="space-y-1">
+          <label class="text-[9px] text-chzzk-muted font-medium">NID_SES</label>
+          <input id="cookie-nid-ses" type="password" class="chzzk-input text-[11px]" placeholder="NID_SES 쿠키 값" />
+        </div>
+        <button onclick="saveManualCookies()" class="sub-btn !bg-chzzk-card hover:!border-amber-400 text-amber-400 font-semibold py-1.5">
+          💾 쿠키 직접 저장
         </button>
       </div>
     </div>
 
-    <div class="text-[9px] text-chzzk-muted text-center space-y-0.5 mt-3">
-      <p>🔒 로컬 파이썬 서버(server.py) 연동</p>
+    <div class="text-[10px] text-chzzk-muted text-center mt-3 py-1">
+      <p class="font-medium text-white/70">띵판</p>
     </div>
   </div>
 
@@ -428,13 +438,28 @@
   </div>
 
   <script>
-    const AUTH_BASE = 'https://chzzk.naver.com/account-interlock';
-    const PROXY_SERVER = 'http://localhost:8081';
     let currentTags = [];
     let categorySearchTimeout = null;
-    let selectedSlowMode = 0;
     let serverConfig = {};
-    let pollingInterval = null;
+    let userChannelId = "";
+
+    let currentLiveSetting = {
+      adult: false,
+      clipActive: true,
+      replayPublishType: 'MANUAL',
+      rawContent: null
+    };
+
+    let currentDonationState = {
+      chatDonationActive: false,
+      videoDonationActive: false,
+      missionDonationActive: false
+    };
+
+    function toggleSettings() {
+      const panel = document.getElementById('settings-panel');
+      if (panel) panel.classList.toggle('open');
+    }
 
     // ===== Floating Toast Notification =====
     function showToast(message, type = 'info', detail = '') {
@@ -476,328 +501,367 @@
     // ===== App Initialization =====
     document.addEventListener('DOMContentLoaded', async () => {
       await loadServerConfig();
-      updateConnectionStatus();
-
-      const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.get('auth') === 'success') {
-        showToast('🎉 치지직 자동 로그인 & 토큰 발급 완료!', 'success');
-        window.history.replaceState({}, document.title, window.location.pathname);
-      } else if (urlParams.get('auth') === 'failed') {
-        showToast('❌ 토큰 발급 실패', 'error', 'Client ID/Secret 정보 또는 인가 코드를 확인하세요.');
-        window.history.replaceState({}, document.title, window.location.pathname);
-      }
+      const channelId = await updateConnectionStatus();
 
       const titleInput = document.getElementById('live-title');
-      titleInput.addEventListener('input', () => {
-        document.getElementById('title-count').textContent = `${titleInput.value.length}/50`;
-      });
+      if (titleInput) {
+        titleInput.addEventListener('input', () => {
+          document.getElementById('title-count').textContent = `${titleInput.value.length}/50`;
+        });
+      }
 
       const catSearch = document.getElementById('category-search');
-      catSearch.addEventListener('input', (e) => {
-        clearTimeout(categorySearchTimeout);
-        const query = e.target.value.trim();
-        if (query.length < 1) {
-          document.getElementById('category-dropdown').style.display = 'none';
-          return;
-        }
-        categorySearchTimeout = setTimeout(() => searchCategories(query), 300);
-      });
-      catSearch.addEventListener('focus', () => {
-        const query = catSearch.value.trim();
-        if (query.length >= 1) searchCategories(query);
-      });
+      if (catSearch) {
+        catSearch.addEventListener('input', (e) => {
+          clearTimeout(categorySearchTimeout);
+          const query = e.target.value.trim();
+          if (query.length < 1) {
+            document.getElementById('category-dropdown').style.display = 'none';
+            return;
+          }
+          categorySearchTimeout = setTimeout(() => searchCategories(query), 300);
+        });
+        catSearch.addEventListener('focus', () => {
+          const query = catSearch.value.trim();
+          if (query.length >= 1) searchCategories(query);
+        });
+      }
 
       document.addEventListener('click', (e) => {
         const catWrapper = document.getElementById('category-wrapper');
         if (catWrapper && !catWrapper.contains(e.target)) {
-          document.getElementById('category-dropdown').style.display = 'none';
+          const drop = document.getElementById('category-dropdown');
+          if (drop) drop.style.display = 'none';
         }
       });
 
       const tagInput = document.getElementById('tag-input');
-      tagInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          addTag(tagInput.value.trim());
-          tagInput.value = '';
-        }
-      });
-
-      const pasteInput = document.getElementById('paste-code-input');
-      if (pasteInput) {
-        pasteInput.addEventListener('input', () => {
-          const val = pasteInput.value.trim();
-          if (val.includes('code=') || val.length > 20) {
-            submitPastedCode();
+      if (tagInput) {
+        tagInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            addTag(tagInput.value.trim());
+            tagInput.value = '';
           }
         });
       }
 
-      if (serverConfig.access_token) {
-        setTimeout(() => loadCurrentSettings(), 400);
+      if (channelId) {
+        await loadCurrentSettings();
       } else {
-        showToast('⚙ 치지직 로그인 필요', 'warn', '⚙ 설정 버튼을 눌러 연동을 진행하세요.');
+        showToast('⚙ 로그인 설정 필요', 'warn', '⚙ 상단 로그인 설정 버튼을 눌러 연동을 진행하세요.');
       }
+
+      // 상시 10초 주기 연결 상태 백그라운드 헬스체크
+      setInterval(async () => {
+        if (!loginPollingInterval) {
+          await loadServerConfig();
+          await updateConnectionStatus();
+        }
+      }, 10000);
     });
 
-    // ===== Server Config & Auth =====
+    // ===== Server Config =====
     async function loadServerConfig() {
       try {
-        const res = await fetch(`${PROXY_SERVER}/config`);
+        const res = await fetch('/config');
         if (res.ok) {
           serverConfig = await res.json();
-          document.getElementById('oauth-client-id').value = serverConfig.client_id || '';
-          document.getElementById('oauth-client-secret').value = serverConfig.client_secret || '';
-          document.getElementById('oauth-redirect-uri').value = serverConfig.redirect_uri || 'https://localhost:8080';
-          document.getElementById('setting-token').value = serverConfig.access_token || '';
           return;
         }
       } catch (e) {
-        showToast('⚠️ 로컬 서버(server.py) 미연동', 'warn', 'server.py가 실행 중인지 확인하세요.');
+        showToast('⚠️ 로컬 서버 연결 실패', 'warn', 'server.py가 실행 중인지 확인하세요.');
       }
-
-      serverConfig = {
-        client_id: localStorage.getItem('chzzk_client_id') || '',
-        client_secret: localStorage.getItem('chzzk_client_secret') || '',
-        redirect_uri: localStorage.getItem('chzzk_redirect_uri') || 'https://localhost:8080',
-        access_token: localStorage.getItem('chzzk_access_token') || ''
-      };
-      document.getElementById('oauth-client-id').value = serverConfig.client_id;
-      document.getElementById('oauth-client-secret').value = serverConfig.client_secret;
-      document.getElementById('oauth-redirect-uri').value = serverConfig.redirect_uri;
-      document.getElementById('setting-token').value = serverConfig.access_token;
     }
 
-    async function saveCredentials() {
-      const clientId = document.getElementById('oauth-client-id').value.trim();
-      const clientSecret = document.getElementById('oauth-client-secret').value.trim();
-      const redirectUri = document.getElementById('oauth-redirect-uri').value.trim() || 'https://localhost:8080';
-
-      if (!clientId || !clientSecret) {
-        showToast('입력 오류', 'error', 'Client ID와 Client Secret을 모두 입력하세요.');
-        return;
-      }
-
-      serverConfig.client_id = clientId;
-      serverConfig.client_secret = clientSecret;
-      serverConfig.redirect_uri = redirectUri;
-
-      localStorage.setItem('chzzk_client_id', clientId);
-      localStorage.setItem('chzzk_client_secret', clientSecret);
-      localStorage.setItem('chzzk_redirect_uri', redirectUri);
-
+    async function resolveChannelId() {
+      if (userChannelId) return userChannelId;
       try {
-        await fetch(`${PROXY_SERVER}/save-config`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ client_id: clientId, client_secret: clientSecret, redirect_uri: redirectUri })
-        });
-      } catch (e) {}
-
-      showToast('개발자 센터 정보 저장 완료', 'success');
-    }
-
-    async function startAutoOAuth() {
-      const clientId = document.getElementById('oauth-client-id').value.trim();
-      const clientSecret = document.getElementById('oauth-client-secret').value.trim();
-
-      if (!clientId || !clientSecret) {
-        showToast('입력 오류', 'error', '1단계에서 Client ID와 Secret을 먼저 입력 후 저장하세요.');
-        return;
-      }
-
-      await saveCredentials();
-
-      try {
-        const baseUrl = window.location.origin.startsWith('http') ? '' : PROXY_SERVER;
-        const res = await fetch(`${baseUrl || PROXY_SERVER}/start-oauth`);
+        const res = await fetch('/unofficial-user');
         if (res.ok) {
-          showToast('브라우저에서 로그인하세요!', 'info', '기본 브라우저가 열리면 로그인 후 동의 버튼을 누르세요.');
-          startTokenPolling();
-          return;
-        }
-      } catch (e) { }
-
-      showToast('server.py 연결 실패', 'error', 'server.py 서버가 실행 중인지 확인하세요.');
-    }
-
-    function startTokenPolling() {
-      if (pollingInterval) clearInterval(pollingInterval);
-      let attempts = 0;
-      showToast('토큰 발급 대기 중...', 'info', '로그인을 진행하세요. 최대 2분간 감지합니다.');
-      
-      pollingInterval = setInterval(async () => {
-        attempts++;
-        if (attempts > 60) {
-          clearInterval(pollingInterval);
-          showToast('대기 시간 초과', 'warn', '다시 로그인 버튼을 누르고 시도하세요.');
-          return;
-        }
-        try {
-          const res = await fetch(`${PROXY_SERVER}/config`);
-          if (res.ok) {
-            const newConfig = await res.json();
-            if (newConfig.access_token && newConfig.access_token !== serverConfig.access_token) {
-              clearInterval(pollingInterval);
-              serverConfig.access_token = newConfig.access_token;
-              localStorage.setItem('chzzk_access_token', newConfig.access_token);
-              document.getElementById('setting-token').value = newConfig.access_token;
-              
-              updateConnectionStatus();
-              showToast('🎉 치지직 토큰 발급 완벽 성공!', 'success');
-              
-              const modal = document.getElementById('settings-panel');
-              if (modal && modal.classList.contains('open')) {
-                toggleSettings();
-              }
-              setTimeout(() => loadCurrentSettings(), 300);
-            }
+          const data = await res.json();
+          const content = data.content || data;
+          if (content && content.userIdHash) {
+            userChannelId = content.userIdHash;
+            return userChannelId;
           }
-        } catch (e) { }
-      }, 2000);
+        }
+      } catch (e) {}
+      return "";
     }
 
-    async function submitPastedCode() {
-      const input = document.getElementById('paste-code-input');
-      let raw = input ? input.value.trim() : '';
-      if (!raw) {
-        showToast('입력 오류', 'error', 'URL 또는 인가 코드를 입력해 주세요.');
+    async function updateConnectionStatus() {
+      const dot = document.getElementById('header-status-dot');
+      const text = document.getElementById('header-status-text');
+      const badgeA = document.getElementById('badge-method-a');
+      const badgeB = document.getElementById('badge-method-b');
+      const inputAut = document.getElementById('cookie-nid-aut');
+      const inputSes = document.getElementById('cookie-nid-ses');
+      const btnWebview = document.getElementById('btn-webview-login');
+
+      // 사용자가 입력 필드에 포커스하고 있지 않을 때만 서버 값으로 업데이트 (레이스 컨디션 방지)
+      if (serverConfig.nid_aut && inputAut && document.activeElement !== inputAut) inputAut.value = serverConfig.nid_aut;
+      if (serverConfig.nid_ses && inputSes && document.activeElement !== inputSes) inputSes.value = serverConfig.nid_ses;
+
+      try {
+        const res = await fetch('/unofficial-user');
+        if (res.ok) {
+          const data = await res.json();
+          const content = data.content || data;
+          if (content && content.userIdHash) {
+            userChannelId = content.userIdHash;
+          }
+          if (dot) { dot.className = 'w-2.5 h-2.5 rounded-full bg-[#00FFA3] shadow-[0_0_8px_rgba(0,255,163,0.9)] animate-pulse'; dot.title = '치지직 연결됨'; }
+          if (text) { text.textContent = '연동됨'; text.className = 'font-medium text-[#00FFA3]'; }
+          if (badgeA) { badgeA.textContent = "✅ 쿠키 연동됨"; badgeA.className = "text-[9px] px-1.5 py-0.5 rounded font-bold bg-emerald-950 text-[#00FFA3] border border-emerald-800/60"; }
+          if (badgeB) { badgeB.textContent = "✅ 등록됨"; badgeB.className = "text-[9px] px-1.5 py-0.5 rounded font-bold bg-emerald-950 text-[#00FFA3] border border-emerald-800/60"; }
+          if (btnWebview) { btnWebview.innerHTML = "✅ 로그인 연결 완료 (재로그인은 클릭)"; }
+          if (inputAut) inputAut.className = "chzzk-input border-emerald-500/60 bg-emerald-950/20 text-[#00FFA3]";
+          if (inputSes) inputSes.className = "chzzk-input border-emerald-500/60 bg-emerald-950/20 text-[#00FFA3]";
+          return userChannelId;
+        } else {
+          if (dot) { dot.className = 'w-2.5 h-2.5 rounded-full bg-[#FF4D6A] shadow-[0_0_6px_rgba(255,77,106,0.8)]'; dot.title = '쿠키 만료됨'; }
+          if (text) { text.textContent = '로그인'; text.className = 'font-medium text-[#FF4D6A]'; }
+          if (badgeA) { badgeA.textContent = "⚠️ 쿠키 만료됨"; badgeA.className = "text-[9px] px-1.5 py-0.5 rounded font-bold bg-amber-950 text-amber-400 border border-amber-800/60"; }
+          if (badgeB) { badgeB.textContent = "⚠️ 만료됨"; badgeB.className = "text-[9px] px-1.5 py-0.5 rounded font-bold bg-amber-950 text-amber-400 border border-amber-800/60"; }
+        }
+      } catch (e) {
+        if (dot) { dot.className = 'w-2.5 h-2.5 rounded-full bg-[#FF4D6A] shadow-[0_0_6px_rgba(255,77,106,0.8)]'; dot.title = '서버 연결 실패'; }
+        if (text) { text.textContent = '오류'; text.className = 'font-medium text-[#FF4D6A]'; }
+      }
+      return "";
+    }
+
+    let loginPollingInterval = null;
+
+    async function startWebviewLogin() {
+      try {
+        const prevAut = serverConfig.nid_aut || '';
+        const prevSes = serverConfig.nid_ses || '';
+
+        const res = await fetch('/login-webview');
+        const data = await res.json();
+        if (data.status === 'started') {
+          showToast('네이버 로그인 팝업이 열렸습니다. 로그인해 주세요.', 'info');
+
+          // 기존 폴링 정리 후 1.5초 간격 감지 시작
+          if (loginPollingInterval) clearInterval(loginPollingInterval);
+          let attempts = 0;
+          const maxAttempts = 120; // 1.5초 * 120 = 최대 3분
+
+          loginPollingInterval = setInterval(async () => {
+            attempts++;
+            await loadServerConfig();
+
+            // 새 쿠키 수신 여부 확인 (기존 계정 A가 있는 상태에서 계정 B로 재로그인 시 오탐 방지)
+            const isCookieUpdated = (!prevAut && serverConfig.nid_aut) ||
+                                    (serverConfig.nid_aut && serverConfig.nid_aut !== prevAut) ||
+                                    (serverConfig.nid_ses && serverConfig.nid_ses !== prevSes);
+
+            if (isCookieUpdated) {
+              const cid = await updateConnectionStatus();
+              if (cid) {
+                clearInterval(loginPollingInterval);
+                loginPollingInterval = null;
+                showToast('🎉 치지직 로그인 및 방송 연동 완료!', 'success');
+                // 설정 서랍 열려있으면 자동 닫기
+                const panel = document.getElementById('settings-panel');
+                if (panel && panel.classList.contains('open')) {
+                  toggleSettings();
+                }
+                await loadCurrentSettings(true);
+              }
+            } else if (attempts >= maxAttempts) {
+              clearInterval(loginPollingInterval);
+              loginPollingInterval = null;
+            }
+          }, 1500);
+        } else {
+          showToast('웹뷰 로그인 실패', 'error', data.message);
+        }
+      } catch (e) {
+        showToast('서버 통신 오류', 'error', e.message);
+      }
+    }
+
+    async function saveManualCookies() {
+      const nidAut = document.getElementById('cookie-nid-aut').value.trim();
+      const nidSes = document.getElementById('cookie-nid-ses').value.trim();
+
+      if (!nidAut || !nidSes) {
+        showToast('입력 오류', 'error', 'NID_AUT와 NID_SES를 모두 입력해 주세요.');
         return;
       }
 
-      let code = raw;
-      let state = '';
-
-      if (raw.includes('code=')) {
-        try {
-          const u = new URL(raw.startsWith('http') ? raw : 'https://' + raw);
-          code = u.searchParams.get('code') || code;
-          state = u.searchParams.get('state') || '';
-        } catch (e) {
-          const match = raw.match(/code=([^&]+)/);
-          if (match) code = match[1];
-          const stateMatch = raw.match(/state=([^&]+)/);
-          if (stateMatch) state = stateMatch[1];
-        }
-      }
-
       try {
-        const res = await fetch(`${PROXY_SERVER}/exchange-code`, {
+        const res = await fetch('/save-config', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ code, state })
+          body: JSON.stringify({ nid_aut: nidAut, nid_ses: nidSes })
         });
-        const data = await res.json();
-        if (res.ok && data.access_token) {
-          serverConfig.access_token = data.access_token;
-          localStorage.setItem('chzzk_access_token', data.access_token);
-          updateConnectionStatus();
-          showToast('🎉 토큰 발급 완벽 성공!', 'success');
+        if (res.ok) {
+          serverConfig.nid_aut = nidAut;
+          serverConfig.nid_ses = nidSes;
+          const cid = await updateConnectionStatus();
+          showToast('네이버 로그인 쿠키 저장 완료!', 'success');
           toggleSettings();
-          setTimeout(() => loadCurrentSettings(), 300);
-          return;
+          if (cid) await loadCurrentSettings();
+        } else {
+          showToast('쿠키 저장 실패', 'error');
         }
-      } catch (e) { }
-
-      showToast('토큰 발급 실패', 'error', '코드가 이미 사용되었거나 만료되었습니다.');
-    }
-
-    // ===== API Communication Proxy =====
-    async function apiCall(method, path, body = null) {
-      const baseUrl = window.location.origin.startsWith('http') ? '' : PROXY_SERVER;
-      const url = `${baseUrl}/api${path}`;
-
-      const opts = { method, headers: { 'Content-Type': 'application/json' } };
-      if (body) opts.body = JSON.stringify(body);
-
-      let res;
-      try {
-        res = await fetch(url, opts);
-      } catch (err) {
-        throw { title: '네트워크 연결 오류', cause: 'server.py 서버가 정상 작동 중인지 확인하세요.' };
+      } catch (e) {
+        showToast('서버 통신 오류', 'error', e.message);
       }
-
-      let data;
-      try {
-        data = await res.json();
-      } catch (err) {
-        data = null;
-      }
-
-      if (!res.ok) {
-        const errorMsg = data?.message || data?.error || `HTTP ${res.status} 오류`;
-        throw { title: `요청 실패 (HTTP ${res.status})`, cause: errorMsg };
-      }
-
-      return data;
     }
 
     // ===== Main Settings Operations =====
-    async function loadCurrentSettings() {
-      if (!serverConfig.access_token) return;
-
-      try {
-        const liveRes = await apiCall('GET', '/open/v1/lives/setting');
-        const liveData = liveRes?.content || liveRes?.data || liveRes;
-
-        if (liveData) {
-          if (liveData.defaultLiveTitle) {
-            document.getElementById('live-title').value = liveData.defaultLiveTitle;
-            document.getElementById('title-count').textContent = `${liveData.defaultLiveTitle.length}/50`;
-          }
-          const cat = liveData.category || {};
-          const catId = cat.categoryId || liveData.categoryId || '';
-          const catType = cat.categoryType || liveData.categoryType || '';
-          const catValue = cat.categoryValue || liveData.categoryValue || catId;
-          if (catId || catValue) {
-            document.getElementById('category-id').value = catId;
-            document.getElementById('category-type').value = catType;
-            document.getElementById('category-search').value = catValue;
-            document.getElementById('category-clear').style.display = 'block';
-          }
-          if (liveData.tags && Array.isArray(liveData.tags)) {
-            currentTags = [...liveData.tags];
-            renderTags();
-          }
-        }
-      } catch (err) {
-        showToast(err.title || '방송 정보 불러오기 실패', 'error', err.cause || err.message);
+    async function loadCurrentSettings(silent = false) {
+      if (!userChannelId) {
+        await resolveChannelId();
+      }
+      if (!userChannelId) {
+        showToast('로그인 설정 필요', 'warn', '⚙ 상단 로그인 설정 버튼을 눌러 연동을 진행하세요.');
+        return;
       }
 
-      try {
-        const chatRes = await apiCall('GET', '/open/v1/chats/settings');
-        const chatData = chatRes?.content || chatRes?.data || chatRes;
+      let loaded = false;
 
-        if (chatData) {
-          if (chatData.chatAvailableGroup) {
-            setSelectedChatGroup(chatData.chatAvailableGroup);
-          }
-          if (chatData.chatAvailableCondition) {
-            document.getElementById('toggle-realname').checked = (chatData.chatAvailableCondition === 'REAL_NAME');
-          }
-          if (chatData.minFollowerMinute !== undefined) {
-            document.getElementById('min-follower-minute').value = chatData.minFollowerMinute;
-          }
-          if (chatData.allowSubscriberInFollowerMode !== undefined) {
-            document.getElementById('toggle-sub-exception').checked = chatData.allowSubscriberInFollowerMode;
-          }
-          if (chatData.chatSlowModeSec !== undefined) {
-            selectedSlowMode = chatData.chatSlowModeSec;
-            document.querySelectorAll('#slow-mode-group .pill').forEach(p => {
-              p.classList.toggle('active', parseInt(p.dataset.value) === selectedSlowMode);
-            });
-          }
-          if (chatData.emoticonOnlyMode !== undefined) {
-            document.getElementById('toggle-emote').checked = chatData.emoticonOnlyMode;
+      // 1. 방송 정보 및 다시보기/연령제한/클립 설정
+      try {
+        const res = await fetch(`/unofficial/manage/v1/channels/${userChannelId}/live-setting/normal`);
+        if (res.ok) {
+          const data = await res.json();
+          const content = data.content || data;
+          if (content) {
+            currentLiveSetting.rawContent = content;
+            if (content.defaultLiveTitle) {
+              document.getElementById('live-title').value = content.defaultLiveTitle;
+              document.getElementById('title-count').textContent = `${content.defaultLiveTitle.length}/50`;
+            }
+            const cat = content.category || {};
+            const catId = cat.categoryId || content.liveCategory || '';
+            const catType = cat.categoryType || content.categoryType || 'ETC';
+            const catValue = cat.categoryValue || catId;
+            if (catId || catValue) {
+              document.getElementById('category-id').value = catId;
+              document.getElementById('category-type').value = catType;
+              document.getElementById('category-search').value = catValue;
+              document.getElementById('category-clear').style.display = 'block';
+            }
+            if (content.tags && Array.isArray(content.tags)) {
+              currentTags = [...content.tags];
+              renderTags();
+            }
+
+            if (content.adult !== undefined) currentLiveSetting.adult = !!content.adult;
+            if (content.clipActive !== undefined) currentLiveSetting.clipActive = !!content.clipActive;
+            if (content.replayPublishType) currentLiveSetting.replayPublishType = content.replayPublishType;
+
+            document.getElementById('toggle-adult').checked = currentLiveSetting.adult;
+            document.getElementById('toggle-clip').checked = currentLiveSetting.clipActive;
+            const radio = document.querySelector(`input[name="replayPublishType"][value="${currentLiveSetting.replayPublishType}"]`);
+            if (radio) radio.checked = true;
+
+            loaded = true;
           }
         }
-        showToast('현재 방송 및 채팅 설정 로딩 완료', 'success');
-      } catch (err) {
-        showToast(err.title || '채팅 설정 불러오기 실패', 'error', err.cause || err.message);
+      } catch (e) {}
+
+      // 2. 채팅 설정
+      try {
+        const chatRes = await fetch(`/unofficial/manage/v1/channels/${userChannelId}/live-setting/chat`);
+        if (chatRes.ok) {
+          const chatData = await chatRes.json();
+          const chatContent = chatData.content || chatData;
+          if (chatContent) {
+            if (chatContent.chatAvailableGroup) {
+              setSelectedChatGroup(chatContent.chatAvailableGroup);
+            }
+            if (chatContent.minFollowerMinute !== undefined) {
+              document.getElementById('min-follower-minute').value = chatContent.minFollowerMinute;
+            }
+            if (chatContent.allowSubscriberInFollowerMode !== undefined) {
+              document.getElementById('toggle-sub-exception').checked = chatContent.allowSubscriberInFollowerMode;
+            }
+            loaded = true;
+          }
+        }
+      } catch (e) {}
+
+      // 3. 후원 3종 설정
+      try {
+        const dRes = await fetch(`/unofficial/channels/${userChannelId}/donations/setting`);
+        if (dRes.ok) {
+          const dData = await dRes.json();
+          const dContent = dData.content || dData;
+          if (dContent && dContent.chatDonationActive !== undefined) {
+            currentDonationState = {
+              chatDonationActive: !!dContent.chatDonationActive,
+              videoDonationActive: !!dContent.videoDonationActive,
+              missionDonationActive: !!dContent.missionDonationActive
+            };
+            const elChat = document.getElementById('toggle-chat-donation');
+            const elVid = document.getElementById('toggle-video-donation');
+            const elMis = document.getElementById('toggle-mission-donation');
+            if (elChat) elChat.checked = currentDonationState.chatDonationActive;
+            if (elVid) elVid.checked = currentDonationState.videoDonationActive;
+            if (elMis) elMis.checked = currentDonationState.missionDonationActive;
+            loaded = true;
+          }
+        }
+      } catch (e) {}
+
+      if (loaded) {
+        if (!silent) showToast('현재 방송, 채팅, 후원 설정을 불러왔습니다', 'success');
+      } else {
+        if (!silent) showToast('설정 불러오기 실패', 'error', '네이버 로그인 쿠키 상태를 확인해 주세요.');
+      }
+    }
+
+    async function updateDonationSetting(type) {
+      if (!userChannelId) return;
+
+      const MAP = {
+        CHAT: { id: 'toggle-chat-donation', key: 'chatDonationActive' },
+        VIDEO: { id: 'toggle-video-donation', key: 'videoDonationActive' },
+        MISSION: { id: 'toggle-mission-donation', key: 'missionDonationActive' }
+      };
+
+      const cfg = MAP[type];
+      if (!cfg) return;
+
+      const el = document.getElementById(cfg.id);
+      const targetActive = el ? el.checked : false;
+
+      try {
+        const res = await fetch(`/unofficial/channels/${userChannelId}/donations/active-setting`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ donationType: type, active: targetActive })
+        });
+
+        if (res.ok) {
+          currentDonationState[cfg.key] = targetActive;
+          showToast('🎉 후원 옵션 변경 성공!', 'success');
+        } else {
+          if (el) el.checked = currentDonationState[cfg.key];
+          showToast('후원 옵션 변경 실패', 'error', '쿠키 로그인 상태를 확인하세요.');
+        }
+      } catch (e) {
+        if (el) el.checked = currentDonationState[cfg.key];
+        showToast('통신 오류', 'error', e.message);
       }
     }
 
     async function saveAll() {
+      if (!userChannelId) {
+        await resolveChannelId();
+      }
+      if (!userChannelId) {
+        showToast('채널 정보 없음', 'error', '⚙ 로그인 설정을 먼저 완료해 주세요.');
+        return;
+      }
+
       const btn = document.getElementById('btn-save');
       const saveText = document.getElementById('save-text');
       const spinner = document.getElementById('save-spinner');
@@ -809,53 +873,110 @@
       let liveSuccess = false;
       let chatSuccess = false;
 
-      // 1. 방송 정보 저장
+      // 1. 방송 정보 & 세부 설정 저장 (PUT /live-setting/normal)
       try {
         const title = document.getElementById('live-title').value.trim();
         if (!title) {
-          throw { title: '입력 확인', cause: '방송 제목을 입력해 주세요.' };
+          showToast('입력 확인', 'error', '방송 제목을 입력해 주세요.');
+          btn.disabled = false;
+          saveText.textContent = '설정 저장';
+          spinner.style.display = 'none';
+          return;
         }
 
-        const liveBody = { defaultLiveTitle: title };
-        const catType = document.getElementById('category-type').value;
-        const catId = document.getElementById('category-id').value;
-        if (catType) liveBody.categoryType = catType;
-        liveBody.categoryId = catId || '';
-        liveBody.tags = currentTags;
+        const catType = document.getElementById('category-type').value || "ETC";
+        const catId = document.getElementById('category-id').value || "talk";
+        const targetAdult = document.getElementById('toggle-adult').checked;
+        const targetClip = document.getElementById('toggle-clip').checked;
+        const targetReplay = document.querySelector('input[name="replayPublishType"]:checked')?.value || 'MANUAL';
 
-        await apiCall('PATCH', '/open/v1/lives/setting', liveBody);
-        liveSuccess = true;
-      } catch (err) {
-        showToast(err.title || '방송 정보 저장 실패', 'error', err.cause || err.message);
-      }
-
-      // 2. 채팅 설정 저장
-      try {
-        const chatBody = {
-          chatAvailableGroup: getSelectedChatGroup(),
-          chatAvailableCondition: document.getElementById('toggle-realname').checked ? 'REAL_NAME' : 'NONE',
-          chatSlowModeSec: selectedSlowMode,
+        const base = currentLiveSetting.rawContent || {};
+        const payloadLive = {
+          defaultLiveTitle: title,
+          categoryType: catType,
+          liveCategory: catId,
+          tags: currentTags || [],
+          adult: targetAdult,
+          clipActive: targetClip,
+          replayPublishType: targetReplay,
+          paidPromotion: !!base.paidPromotion,
+          krOnlyViewing: !!base.krOnlyViewing,
+          cvExposure: base.cvExposure !== undefined ? base.cvExposure : true,
+          timeMachineActive: base.timeMachineActive !== undefined ? base.timeMachineActive : true,
+          aiCaptionActive: !!base.aiCaptionActive,
+          streamerShopCatalogTagActive: !!base.streamerShopCatalogTagActive,
+          defaultThumbnailImageUrl: base.defaultThumbnailImageUrl || null,
+          dropsCampaignNo: base.dropsCampaignNo || null,
+          paidProductId: base.paidProductId || null,
+          broadcastLanguage: base.broadcastLanguage || null
         };
 
-        if (chatBody.chatAvailableGroup === 'FOLLOWER') {
-          chatBody.minFollowerMinute = parseInt(document.getElementById('min-follower-minute').value) || 0;
-          chatBody.allowSubscriberInFollowerMode = document.getElementById('toggle-sub-exception').checked;
+        const resLive = await fetch(`/unofficial/manage/v1/channels/${userChannelId}/live-setting/normal`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payloadLive)
+        });
+
+        if (resLive.ok) {
+          currentLiveSetting.adult = targetAdult;
+          currentLiveSetting.clipActive = targetClip;
+          currentLiveSetting.replayPublishType = targetReplay;
+          liveSuccess = true;
+        } else {
+          showToast('방송 정보 저장 실패', 'error', '치지직 서버 권한을 확인하세요.');
         }
-
-        chatBody.emoticonOnlyMode = document.getElementById('toggle-emote').checked;
-
-        await apiCall('PUT', '/open/v1/chats/settings', chatBody);
-        chatSuccess = true;
       } catch (err) {
-        showToast(err.title || '채팅 설정 저장 실패', 'error', err.cause || err.message);
+        showToast('방송 정보 저장 오류', 'error', err.message);
       }
+
+      // 2. 채팅 설정 저장 (PUT /live-setting/chat)
+      try {
+        const group = getSelectedChatGroup();
+        const payloadChat = {
+          chatAvailableGroup: group,
+          minFollowerMinute: group === 'FOLLOWER' ? (parseInt(document.getElementById('min-follower-minute').value) || 0) : 0,
+          allowSubscriberInFollowerMode: document.getElementById('toggle-sub-exception').checked
+        };
+
+        const resChat = await fetch(`/unofficial/manage/v1/channels/${userChannelId}/live-setting/chat`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payloadChat)
+        });
+
+        if (resChat.ok) {
+          chatSuccess = true;
+        } else {
+          showToast('채팅 설정 저장 실패', 'error');
+        }
+      } catch (err) {
+        showToast('채팅 설정 저장 오류', 'error', err.message);
+      }
+
+      // 3. 후원 3종 설정 저장
+      const chatActive = document.getElementById('toggle-chat-donation')?.checked ?? false;
+      const videoActive = document.getElementById('toggle-video-donation')?.checked ?? false;
+      const missionActive = document.getElementById('toggle-mission-donation')?.checked ?? false;
+
+      if (chatActive !== currentDonationState.chatDonationActive) {
+        await updateDonationSetting('CHAT');
+      }
+      if (videoActive !== currentDonationState.videoDonationActive) {
+        await updateDonationSetting('VIDEO');
+      }
+      if (missionActive !== currentDonationState.missionDonationActive) {
+        await updateDonationSetting('MISSION');
+      }
+
+      // 설정 저장 완료 후 GET을 통해 화면에 최신 방송 & 채팅 정보 다시 불러오기
+      await loadCurrentSettings(true);
 
       btn.disabled = false;
       saveText.textContent = '설정 저장';
       spinner.style.display = 'none';
 
       if (liveSuccess && chatSuccess) {
-        showToast('🎉 방송 & 채팅 설정 저장 완료!', 'success');
+        showToast('🎉 방송, 채팅 & 후원 설정 저장 완료!', 'success');
       } else if (liveSuccess) {
         showToast('방송 정보만 저장되었습니다.', 'warn');
       } else if (chatSuccess) {
@@ -885,34 +1006,59 @@
     }
 
     async function searchCategories(query) {
-      try {
-        const data = await apiCall('GET', `/open/v1/categories/search?query=${encodeURIComponent(query)}&size=15`);
-        const list = data?.content?.data || data?.data || [];
-
+      if (!query || !query.trim()) {
         const dropdown = document.getElementById('category-dropdown');
+        if (dropdown) dropdown.style.display = 'none';
+        return;
+      }
 
-        if (!list.length) {
-          dropdown.innerHTML = '<div class="px-2.5 py-3 text-[11px] text-chzzk-muted text-center">검색 결과 없음</div>';
+      try {
+        const q = encodeURIComponent(query.trim());
+        const res = await fetch(`/unofficial/manage/v1/auto-complete/categories?keyword=${q}&size=10`);
+        if (res.ok) {
+          const data = await res.json();
+          const list = data?.content?.results || [];
+
+          const dropdown = document.getElementById('category-dropdown');
+          if (!dropdown) return;
+
+          if (!list.length) {
+            dropdown.innerHTML = '<div class="px-2.5 py-3 text-[11px] text-chzzk-muted text-center">검색 결과 없음</div>';
+            dropdown.style.display = 'block';
+            return;
+          }
+
+          dropdown.innerHTML = list.map(cat => {
+            const catType = cat.categoryType || 'GAME';
+            const catId = cat.categoryId || '';
+            const catVal = cat.categoryValue || catId;
+            const poster = cat.posterImageUrl || '';
+
+            return `
+              <div class="category-item" data-type="${escapeHtml(catType)}" data-id="${escapeHtml(catId)}" data-value="${escapeHtml(catVal)}" onclick="selectCategoryItem(this)">
+                ${poster ? `<img src="${poster}" alt="" onerror="this.style.display='none'" />` : '<div class="w-6 h-6 rounded bg-chzzk-border flex items-center justify-center text-[10px] text-chzzk-muted">🎮</div>'}
+                <div>
+                  <div class="text-white text-xs font-medium">${escapeHtml(catVal)}</div>
+                  <div class="text-[9px] text-chzzk-muted">${escapeHtml(catType)}</div>
+                </div>
+              </div>
+            `;
+          }).join('');
           dropdown.style.display = 'block';
-          return;
         }
-
-        dropdown.innerHTML = list.map(cat => `
-          <div class="category-item" onclick="selectCategory('${cat.categoryType}','${cat.categoryId}','${escapeHtml(cat.categoryValue)}','${cat.posterImageUrl || ''}')">
-            ${cat.posterImageUrl ? `<img src="${cat.posterImageUrl}" alt="" onerror="this.style.display='none'" />` : '<div class="w-6 h-6 rounded bg-chzzk-border flex items-center justify-center text-[10px] text-chzzk-muted">🎮</div>'}
-            <div>
-              <div class="text-white text-xs font-medium">${escapeHtml(cat.categoryValue)}</div>
-              <div class="text-[9px] text-chzzk-muted">${cat.categoryType}</div>
-            </div>
-          </div>
-        `).join('');
-        dropdown.style.display = 'block';
       } catch (err) {
-        showToast('카테고리 검색 실패', 'error', err.cause || err.message);
+        console.error('카테고리 검색 오류', err);
       }
     }
 
-    function selectCategory(type, id, value, img) {
+    function selectCategoryItem(el) {
+      const type = el.getAttribute('data-type') || 'ETC';
+      const id = el.getAttribute('data-id') || '';
+      const value = el.getAttribute('data-value') || '';
+      selectCategory(type, id, value);
+    }
+
+    function selectCategory(type, id, value) {
       document.getElementById('category-search').value = value;
       document.getElementById('category-type').value = type;
       document.getElementById('category-id').value = id;
@@ -963,69 +1109,6 @@
       `).join('');
     }
 
-    function setSlowMode(el) {
-      document.querySelectorAll('#slow-mode-group .pill').forEach(p => p.classList.remove('active'));
-      el.classList.add('active');
-      selectedSlowMode = parseInt(el.dataset.value);
-    }
-
-    function toggleSettings() {
-      const panel = document.getElementById('settings-panel');
-      panel.classList.toggle('open');
-    }
-
-    function switchTab(tab) {
-      document.getElementById('tab-btn-oauth').classList.toggle('active', tab === 'oauth');
-      document.getElementById('tab-btn-direct').classList.toggle('active', tab === 'direct');
-      document.getElementById('tab-oauth').style.display = tab === 'oauth' ? 'block' : 'none';
-      document.getElementById('tab-direct').style.display = tab === 'direct' ? 'block' : 'none';
-    }
-
-    function toggleTokenVisibility() {
-      const input = document.getElementById('setting-token');
-      input.type = input.type === 'password' ? 'text' : 'password';
-    }
-
-    function updateConnectionStatus() {
-      const dot = document.getElementById('header-status-dot');
-      const text = document.getElementById('header-status-text');
-
-      if (!dot || !text) return;
-
-      if (serverConfig.access_token) {
-        dot.className = 'w-2 h-2 rounded-full bg-chzzk-green animate-pulse';
-        dot.title = '치지직 API 연동 완료';
-        text.textContent = '연동됨';
-      } else {
-        dot.className = 'w-2 h-2 rounded-full bg-chzzk-warn';
-        dot.title = '치지직 인증 필요';
-        text.textContent = '설정';
-      }
-    }
-
-    async function saveDirectToken() {
-      const token = document.getElementById('setting-token').value.trim();
-      if (!token) {
-        showToast('입력 오류', 'error', 'Access Token을 입력해 주세요.');
-        return;
-      }
-
-      serverConfig.access_token = token;
-      localStorage.setItem('chzzk_access_token', token);
-
-      try {
-        await fetch(`${PROXY_SERVER}/save-config`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ access_token: token })
-        });
-      } catch (e) {}
-
-      updateConnectionStatus();
-      showToast('토큰 직접 저장 완료', 'success');
-      toggleSettings();
-      setTimeout(() => loadCurrentSettings(), 300);
-    }
   </script>
 </body>
 </html>

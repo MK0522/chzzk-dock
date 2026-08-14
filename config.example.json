@@ -1,7 +1,4 @@
 {
-  "client_id": "CHZZK_CLIENT_ID를_입력하세요",
-  "client_secret": "CHZZK_CLIENT_SECRET을_입력하세요",
-  "redirect_uri": "https://localhost:8080",
-  "access_token": "",
-  "refresh_token": ""
+  "nid_aut": "",
+  "nid_ses": ""
 }

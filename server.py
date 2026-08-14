@@ -1,161 +1,179 @@
+import ctypes
+from ctypes import wintypes
 import http.server
-import socketserver
-import urllib.request
-import urllib.parse
 import json
 import os
+import subprocess
 import sys
-import ssl
-import datetime
-import webbrowser
 import threading
+import time
+import urllib.parse
+import urllib.request
+import winreg
+
+# PyInstaller --noconsole 모드에서 sys.stdout, sys.stderr가 None일 때의 충돌 방지
+if sys.stdout is None:
+    sys.stdout = open(os.devnull, "w", encoding="utf-8")
+if sys.stderr is None:
+    sys.stderr = open(os.devnull, "w", encoding="utf-8")
 
 # ============================================================
-#  버전 및 PORT 설정
-#  - HTTPS_PORT (8080): 네이버 OAuth 리다이렉트 수신 전용
-#  - HTTP_PORT  (8081): OBS 독 위젯 서빙 + API 프록시
+#  CHZZK OBS Dock Server v0.2.1-Beta
+#  - 단일 포트 (8081): OBS 브라우저 독 서빙 + 비공식 API 프록시 + 웹뷰 로그인
 # ============================================================
-APP_VERSION = "v0.1.1"
+APP_VERSION = "v0.2.1-Beta"
 APP_NAME = "ChzzkObsDockServer"
 REG_PATH = r"Software\Microsoft\Windows\CurrentVersion\Run"
-HTTPS_PORT = 8080
 HTTP_PORT = 8081
 CONFIG_FILE = "config.json"
-CERT_FILE = "cert.pem"
-KEY_FILE = "key.pem"
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
+# Win32 상수 및 64-bit API 시그니처
+user32 = ctypes.windll.user32
+shell32 = ctypes.windll.shell32
+kernel32 = ctypes.windll.kernel32
 
-def resource_path(filename):
-    """Return the path for a bundled resource or a source-tree file."""
-    base_path = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
-    return os.path.join(base_path, filename)
+LRESULT = ctypes.c_ssize_t
+WNDPROCTYPE = ctypes.WINFUNCTYPE(LRESULT, wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM)
+
+class WNDCLASSW(ctypes.Structure):
+    _fields_ = [
+        ("style", wintypes.UINT),
+        ("lpfnWndProc", WNDPROCTYPE),
+        ("cbClsExtra", ctypes.c_int),
+        ("cbWndExtra", ctypes.c_int),
+        ("hInstance", wintypes.HINSTANCE),
+        ("hIcon", wintypes.HICON),
+        ("hCursor", wintypes.HICON),
+        ("hbrBackground", wintypes.HBRUSH),
+        ("lpszMenuName", wintypes.LPCWSTR),
+        ("lpszClassName", wintypes.LPCWSTR)
+    ]
+
+user32.RegisterClassW.argtypes = [ctypes.POINTER(WNDCLASSW)]
+user32.RegisterClassW.restype = wintypes.ATOM
+
+user32.CreateWindowExW.argtypes = [
+    wintypes.DWORD, wintypes.LPCWSTR, wintypes.LPCWSTR, wintypes.DWORD,
+    ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int,
+    wintypes.HWND, wintypes.HMENU, wintypes.HINSTANCE, wintypes.LPVOID
+]
+user32.CreateWindowExW.restype = wintypes.HWND
+
+user32.DefWindowProcW.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM]
+user32.DefWindowProcW.restype = LRESULT
+
+user32.LoadImageW.argtypes = [wintypes.HINSTANCE, wintypes.LPCWSTR, wintypes.UINT, ctypes.c_int, ctypes.c_int, wintypes.UINT]
+user32.LoadImageW.restype = wintypes.HICON
+
+user32.LoadIconW.argtypes = [wintypes.HINSTANCE, wintypes.LPCWSTR]
+user32.LoadIconW.restype = wintypes.HICON
+
+user32.CreatePopupMenu.restype = wintypes.HMENU
+
+user32.AppendMenuW.argtypes = [wintypes.HMENU, wintypes.UINT, ctypes.c_uint64, wintypes.LPCWSTR]
+user32.AppendMenuW.restype = wintypes.BOOL
+
+user32.TrackPopupMenu.argtypes = [wintypes.HMENU, wintypes.UINT, ctypes.c_int, ctypes.c_int, ctypes.c_int, wintypes.HWND, ctypes.c_void_p]
+user32.TrackPopupMenu.restype = ctypes.c_int
+
+user32.DestroyMenu.argtypes = [wintypes.HMENU]
+user32.DestroyMenu.restype = wintypes.BOOL
+
+user32.DestroyWindow.argtypes = [wintypes.HWND]
+user32.DestroyWindow.restype = wintypes.BOOL
+
+user32.SetForegroundWindow.argtypes = [wintypes.HWND]
+user32.SetForegroundWindow.restype = wintypes.BOOL
+
+user32.GetCursorPos.argtypes = [ctypes.POINTER(wintypes.POINT)]
+user32.GetCursorPos.restype = wintypes.BOOL
+
+user32.PostMessageW.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM]
+user32.PostMessageW.restype = wintypes.BOOL
+
+user32.GetMessageW.argtypes = [ctypes.POINTER(wintypes.MSG), wintypes.HWND, wintypes.UINT, wintypes.UINT]
+user32.GetMessageW.restype = wintypes.BOOL
+
+user32.TranslateMessage.argtypes = [ctypes.POINTER(wintypes.MSG)]
+user32.TranslateMessage.restype = wintypes.BOOL
+
+user32.DispatchMessageW.argtypes = [ctypes.POINTER(wintypes.MSG)]
+user32.DispatchMessageW.restype = LRESULT
+
+shell32.Shell_NotifyIconW.argtypes = [wintypes.DWORD, ctypes.c_void_p]
+shell32.Shell_NotifyIconW.restype = wintypes.BOOL
+
+WM_USER = 0x0400
+WM_TRAYICON = WM_USER + 20
+NIM_ADD = 0x00000000
+NIM_MODIFY = 0x00000001
+NIM_DELETE = 0x00000002
+NIF_MESSAGE = 0x00000001
+NIF_ICON = 0x00000002
+NIF_TIP = 0x00000004
+NIF_INFO = 0x00000010
+NIIF_INFO = 0x00000001
+IMAGE_ICON = 1
+LR_LOADFROMFILE = 0x00000010
+LR_DEFAULTSIZE = 0x00000040
+TPM_RIGHTBUTTON = 0x0002
+TPM_RETURNCMD = 0x0100
+MF_STRING = 0x0000
+MF_SEPARATOR = 0x0800
+MF_CHECKED = 0x0008
+
+webview_process = None
+tray_instance = None
 
 
-def ensure_ssl_cert():
-    if not os.path.exists(CERT_FILE) or not os.path.exists(KEY_FILE):
-        print("[SSL] Self-signed 인증서 생성 중...")
+# ============================================================
+#  Config 관리
+# ============================================================
+def get_config_path():
+    if getattr(sys, 'frozen', False):
+        exe_dir = os.path.dirname(os.path.abspath(sys.executable))
+        return os.path.join(exe_dir, CONFIG_FILE)
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(script_dir, CONFIG_FILE)
+
+
+def load_config():
+    cfg = {"nid_aut": "", "nid_ses": ""}
+    cpath = get_config_path()
+    if os.path.exists(cpath):
         try:
-            from cryptography import x509
-            from cryptography.x509.oid import NameOID
-            from cryptography.hazmat.primitives import hashes, serialization
-            from cryptography.hazmat.primitives.asymmetric import rsa
-
-            key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-            subject = issuer = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, u"localhost")])
-            cert = (
-                x509.CertificateBuilder()
-                .subject_name(subject)
-                .issuer_name(issuer)
-                .public_key(key.public_key())
-                .serial_number(x509.random_serial_number())
-                .not_valid_before(datetime.datetime.now(datetime.timezone.utc))
-                .not_valid_after(datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=3650))
-                .add_extension(
-                    x509.SubjectAlternativeName([x509.DNSName(u"localhost"), x509.DNSName(u"127.0.0.1")]),
-                    critical=False,
-                )
-                .sign(key, hashes.SHA256())
-            )
-            with open(KEY_FILE, "wb") as f:
-                f.write(key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.TraditionalOpenSSL, serialization.NoEncryption()))
-            with open(CERT_FILE, "wb") as f:
-                f.write(cert.public_bytes(serialization.Encoding.PEM))
-            print("[SSL] 인증서 생성 완료!")
-        except Exception as e:
-            print("[SSL Error]", e)
+            with open(cpath, "r", encoding="utf-8") as f:
+                cfg.update(json.load(f))
+        except Exception:
+            pass
+    return cfg
 
 
-ensure_ssl_cert()
-
-# ============================================================
-#  Config
-# ============================================================
-config = {
-    "client_id": "",
-    "client_secret": "",
-    "redirect_uri": "https://localhost:8080",
-    "access_token": "",
-    "refresh_token": "",
-}
-
-if os.path.exists(CONFIG_FILE):
+def save_config(new_data=None):
+    cfg = load_config()
+    if new_data:
+        cfg.update(new_data)
+    cpath = get_config_path()
     try:
-        with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-            config.update(json.load(f))
-    except Exception as e:
-        print("[Config] load error:", e)
-
-
-def save_config():
-    with open(CONFIG_FILE, "w", encoding="utf-8") as f:
-        json.dump(config, f, ensure_ascii=False, indent=2)
-
-
-def random_state():
-    import random, string
-    return "".join(random.choices(string.ascii_lowercase + string.digits, k=12))
-
-
-def exchange_token(code, state):
-    url = "https://openapi.chzzk.naver.com/auth/v1/token"
-    redirect_uri = config.get("redirect_uri", "https://localhost:8080")
-    payload = json.dumps({
-        "grantType": "authorization_code",
-        "clientId": config["client_id"],
-        "clientSecret": config["client_secret"],
-        "code": code,
-        "state": state,
-        "redirectUri": redirect_uri,
-    }).encode()
-    req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json", "User-Agent": USER_AGENT}, method="POST")
-    try:
-        with urllib.request.urlopen(req) as resp:
-            data = json.loads(resp.read().decode())
-            return data.get("content") or data.get("data") or data
-    except Exception as e:
-        print("[Token Exchange Error]:", e.read().decode() if hasattr(e, "read") else e)
-        return None
-
-
-def refresh_access_token():
-    url = "https://openapi.chzzk.naver.com/auth/v1/token"
-    payload = json.dumps({
-        "grantType": "refresh_token",
-        "clientId": config["client_id"],
-        "clientSecret": config["client_secret"],
-        "refreshToken": config.get("refresh_token"),
-    }).encode()
-    req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json", "User-Agent": USER_AGENT}, method="POST")
-    try:
-        with urllib.request.urlopen(req) as resp:
-            data = json.loads(resp.read().decode())
-            res = data.get("content") or data.get("data") or data
-            if res and "accessToken" in res:
-                config["access_token"] = res["accessToken"]
-                if "refreshToken" in res:
-                    config["refresh_token"] = res["refreshToken"]
-                save_config()
-                print("[Refresh] 토큰 갱신 성공!")
-                return True
-    except Exception as e:
-        print("[Refresh Error]:", e)
-    return False
-
-
-# ============================================================
-#  공용 핸들러 로직
-# ============================================================
-class CommonHandler(http.server.BaseHTTPRequestHandler):
-    protocol_version = "HTTP/1.1"
-
-    def log_message(self, format, *args):
-        """Avoid writing request logs when the packaged app has no console."""
+        with open(cpath, "w", encoding="utf-8") as f:
+            json.dump(cfg, f, ensure_ascii=False, indent=2)
+    except Exception:
         pass
+    return cfg
 
-    def handle(self):
+
+# ============================================================
+#  HTTP 핸들러 (포트 8081) — OBS 독 위젯 + API 프록시
+# ============================================================
+class HttpDockHandler(http.server.BaseHTTPRequestHandler):
+    def log_message(self, format, *args):
         try:
-            super().handle()
+            msg = args[0] if args else ""
+            if "/config" in msg:
+                return
+            if sys.stderr and not sys.stderr.closed:
+                super().log_message(format, *args)
         except Exception:
             pass
 
@@ -170,383 +188,383 @@ class CommonHandler(http.server.BaseHTTPRequestHandler):
         self.send_header("Content-Length", "0")
         self.end_headers()
 
+    def send_bytes(self, body, status=200, content_type="application/json"):
+        self.send_response(status)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+        try:
+            self.wfile.flush()
+        except Exception:
+            pass
+
     def send_json(self, data, status=200):
-        body = json.dumps(data, ensure_ascii=False).encode()
-        self.send_response(status)
-        self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
+        body = json.dumps(data, ensure_ascii=False).encode("utf-8")
+        self.send_bytes(body, status=status, content_type="application/json; charset=utf-8")
 
-    def send_html(self, status, html):
-        body = html.encode()
-        self.send_response(status)
-        self.send_header("Content-Type", "text/html; charset=utf-8")
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
+    def proxy_unofficial_request(self, method, path, body=None, custom_url=None):
+        """치지직 비공식 API 프록시 (NID_AUT, NID_SES 쿠키 헤더 포함)"""
+        cfg = load_config()
+        nid_aut = cfg.get("nid_aut", "")
+        nid_ses = cfg.get("nid_ses", "")
 
-    def proxy_request(self, method, path, body=None):
-        is_category_search = "/categories/search" in path
-        token = config.get("access_token")
-        if not token and not is_category_search:
-            self.send_json({"code": 401, "message": "Access Token 미설정"}, 401)
+        if not nid_aut or not nid_ses:
+            self.send_json({"code": 401, "message": "네이버 로그인 쿠키(NID_AUT, NID_SES)가 설정되지 않았습니다. 설정에서 쿠키를 입력하거나 로그인하세요."}, 401)
             return
 
-        url = f"https://openapi.chzzk.naver.com{path}"
-        headers = {"User-Agent": USER_AGENT, "Content-Type": "application/json"}
-        if is_category_search:
-            # 카테고리 검색은 Client Credentials 인증 사용
-            headers["Client-Id"] = config.get("client_id", "")
-            headers["Client-Secret"] = config.get("client_secret", "")
+        if custom_url:
+            url = custom_url
+        elif path.startswith("/manage/") or path.startswith("/service/"):
+            url = f"https://api.chzzk.naver.com{path}"
         else:
-            headers["Authorization"] = f"Bearer {token}"
+            url = f"https://api.chzzk.naver.com/manage/v1{path}"
+
+        headers = {
+            "User-Agent": USER_AGENT,
+            "Content-Type": "application/json",
+            "Cookie": f"NID_AUT={nid_aut}; NID_SES={nid_ses}",
+            "Origin": "https://chzzk.naver.com",
+            "Referer": "https://chzzk.naver.com/"
+        }
 
         req = urllib.request.Request(url, data=body, headers=headers, method=method)
         try:
             with urllib.request.urlopen(req) as resp:
-                rb = resp.read()
-                self.send_response(resp.status)
-                self.send_header("Content-Type", resp.headers.get("Content-Type", "application/json"))
-                self.send_header("Content-Length", str(len(rb)))
-                self.end_headers()
-                self.wfile.write(rb)
+                self.send_bytes(resp.read(), status=resp.status, content_type=resp.headers.get("Content-Type", "application/json"))
         except urllib.error.HTTPError as e:
-            eb = e.read()
-            if e.code == 401 and config.get("refresh_token") and not is_public:
-                if refresh_access_token():
-                    return self.proxy_request(method, path, body)
-            self.send_response(e.code)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(eb)))
-            self.end_headers()
-            self.wfile.write(eb)
+            self.send_bytes(e.read(), status=e.code, content_type="application/json")
         except Exception as e:
-            err = json.dumps({"code": 500, "message": str(e)}, ensure_ascii=False).encode()
-            self.send_response(500)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(err)))
-            self.end_headers()
-            self.wfile.write(err)
+            self.send_json({"code": 500, "message": str(e)}, status=500)
 
-    def handle_oauth_callback(self, code, state):
-        """OAuth 코드로 토큰 교환 → HTML 결과 페이지 반환"""
-        token_data = exchange_token(code, state)
-        if token_data and "accessToken" in token_data:
-            config["access_token"] = token_data["accessToken"]
-            if "refreshToken" in token_data:
-                config["refresh_token"] = token_data["refreshToken"]
-            save_config()
-            print(f"[OAuth] 토큰 발급 성공!")
-            self.send_html(200, SUCCESS_HTML)
-        else:
-            print("[OAuth] 토큰 교환 실패")
-            self.send_html(400, FAIL_HTML)
-
-
-# ============================================================
-#  HTTPS 핸들러 (포트 8080) — 네이버 OAuth 콜백만 처리
-# ============================================================
-class HttpsOAuthHandler(CommonHandler):
-    def do_GET(self):
+    def proxy_dispatch(self, method):
+        """unofficial API 프록시 디스패처 (DRY 헬퍼)"""
         parsed = urllib.parse.urlparse(self.path)
-        query = urllib.parse.parse_qs(parsed.query)
-
-        if "code" in query:
-            self.handle_oauth_callback(query["code"][0], query.get("state", [""])[0])
-            return
-
-        # HTTPS 포트로 직접 접속한 경우 → HTTP 포트로 안내
-        self.send_html(200, f"""<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>CHZZK Server</title>
-<style>body{{background:#0B0E11;color:#A8B3C7;font-family:system-ui;text-align:center;padding:60px 20px}}
-.card{{background:#141921;border:1px solid #1E2630;border-radius:16px;max-width:420px;margin:0 auto;padding:32px}}
-h2{{color:#fff;font-size:20px;margin-bottom:12px}}
-code{{background:#1E2630;padding:4px 10px;border-radius:6px;color:#00FFA3;font-size:14px}}
-p{{font-size:13px;line-height:1.7}}</style></head>
-<body><div class="card">
-<h2>✅ CHZZK HTTPS 서버 정상 작동</h2>
-<p>이 포트(8080)는 네이버 OAuth 콜백 전용입니다.<br>
-OBS 독 위젯은 아래 주소를 사용하세요:</p>
-<p><code>http://localhost:{HTTP_PORT}</code></p>
-</div></body></html>""")
-
-
-# ============================================================
-#  HTTP 핸들러 (포트 8081) — OBS 독 위젯 + API 프록시
-# ============================================================
-class HttpDockHandler(CommonHandler):
-    def do_GET(self):
-        parsed = urllib.parse.urlparse(self.path)
-        query = urllib.parse.parse_qs(parsed.query)
-
-        if parsed.path == "/config":
-            self.send_json(config)
-            return
-
-        if parsed.path == "/start-oauth":
-            cid = config.get("client_id")
-            ruri = config.get("redirect_uri", "https://localhost:8080")
-            st = random_state()
-            auth_url = f"https://chzzk.naver.com/account-interlock?clientId={urllib.parse.quote(cid)}&redirectUri={urllib.parse.quote(ruri)}&state={urllib.parse.quote(st)}"
-            print(f"[OAuth] 브라우저 실행: {auth_url}")
-            webbrowser.open(auth_url)
-            self.send_json({"status": "ok", "url": auth_url})
-            return
-
-        if parsed.path.startswith("/api/"):
-            target = parsed.path[4:]
+        if parsed.path.startswith("/unofficial/"):
+            target = parsed.path[11:]
             if parsed.query:
                 target += "?" + parsed.query
-            self.proxy_request("GET", target)
+            cl = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(cl) if cl > 0 else None
+            self.proxy_unofficial_request(method, target, body)
+            return True
+        return False
+
+    def do_GET(self):
+        parsed = urllib.parse.urlparse(self.path)
+
+        if parsed.path == "/config":
+            self.send_json(load_config())
             return
 
-        # 정적 파일 서빙
+        if parsed.path == "/login-webview":
+            global webview_process
+            if webview_process and webview_process.poll() is None:
+                self.send_json({"status": "started", "message": "이미 네이버 로그인 창이 열려 있습니다."})
+                return
+
+            if getattr(sys, 'frozen', False):
+                webview_process = subprocess.Popen([sys.executable, "--login"])
+            else:
+                base_dir = os.path.dirname(os.path.abspath(__file__))
+                script_path = os.path.join(base_dir, "webview_login.py")
+                webview_process = subprocess.Popen([sys.executable, script_path])
+
+            self.send_json({"status": "started", "message": "네이버 로그인 웹뷰 창을 생성 중입니다."})
+            return
+
+        if parsed.path == "/unofficial-user":
+            self.proxy_unofficial_request("GET", "", custom_url="https://comm-api.game.naver.com/nng_main/v1/user/getUserStatus")
+            return
+
+        if self.proxy_dispatch("GET"):
+            return
+
+        # OBS 독 정적 HTML 서빙
         fname = "chzzk-obs-dock.html" if parsed.path in ("/", "/index.html") else parsed.path.lstrip("/")
-        file_path = resource_path(fname)
-        if os.path.exists(file_path) and os.path.isfile(file_path):
-            with open(file_path, "rb") as f:
+        base_dir = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+        fpath = os.path.join(base_dir, fname)
+        if not os.path.exists(fpath):
+            fpath = os.path.join(os.getcwd(), fname)
+
+        if os.path.exists(fpath) and os.path.isfile(fpath):
+            with open(fpath, "rb") as f:
                 content = f.read()
-            ext = os.path.splitext(fname)[1]
-            mime = {".html": "text/html", ".css": "text/css", ".js": "application/javascript", ".png": "image/png", ".svg": "image/svg+xml"}.get(ext, "application/octet-stream")
-            self.send_response(200)
-            self.send_header("Content-Type", mime)
-            self.send_header("Content-Length", str(len(content)))
-            self.end_headers()
-            self.wfile.write(content)
+            ext = os.path.splitext(fpath)[1]
+            mime = {
+                ".html": "text/html; charset=utf-8",
+                ".css": "text/css; charset=utf-8",
+                ".js": "application/javascript; charset=utf-8",
+                ".png": "image/png",
+                ".svg": "image/svg+xml"
+            }.get(ext, "application/octet-stream")
+            self.send_bytes(content, status=200, content_type=mime)
             return
 
         self.send_error(404)
 
     def do_POST(self):
         parsed = urllib.parse.urlparse(self.path)
-        cl = int(self.headers.get("Content-Length", 0))
-
-        if parsed.path == "/save-config":
-            data = json.loads(self.rfile.read(cl).decode())
-            for k in ("client_id", "client_secret", "redirect_uri", "access_token", "refresh_token"):
-                if k in data:
-                    config[k] = data[k]
-            save_config()
-            self.send_json({"status": "ok", "config": config})
+        if parsed.path in ("/save-config", "/save-cookies"):
+            cl = int(self.headers.get("Content-Length", 0))
+            data = json.loads(self.rfile.read(cl).decode("utf-8"))
+            cfg = save_config({k: data[k] for k in ("nid_aut", "nid_ses") if k in data})
+            self.send_json({"status": "ok", "config": cfg})
             return
 
-        if parsed.path == "/exchange-code":
-            data = json.loads(self.rfile.read(cl).decode())
-            code, state = data.get("code"), data.get("state", "")
-            token_data = exchange_token(code, state)
-            if token_data and "accessToken" in token_data:
-                config["access_token"] = token_data["accessToken"]
-                if "refreshToken" in token_data:
-                    config["refresh_token"] = token_data["refreshToken"]
-                save_config()
-                self.send_json({"status": "ok", "access_token": token_data["accessToken"]})
-            else:
-                self.send_json({"error": "Token exchange failed"}, 400)
-            return
-
-        if parsed.path.startswith("/api/"):
-            target = parsed.path[4:]
-            if parsed.query:
-                target += "?" + parsed.query
-            body = self.rfile.read(cl) if cl > 0 else None
-            self.proxy_request("POST", target, body)
-            return
-
-        self.send_error(404)
+        if not self.proxy_dispatch("POST"):
+            self.send_error(404)
 
     def do_PUT(self):
-        parsed = urllib.parse.urlparse(self.path)
-        if parsed.path.startswith("/api/"):
-            target = parsed.path[4:]
-            if parsed.query:
-                target += "?" + parsed.query
-            cl = int(self.headers.get("Content-Length", 0))
-            body = self.rfile.read(cl) if cl > 0 else None
-            self.proxy_request("PUT", target, body)
-            return
-        self.send_error(404)
+        if not self.proxy_dispatch("PUT"):
+            self.send_error(404)
 
     def do_PATCH(self):
-        parsed = urllib.parse.urlparse(self.path)
-        if parsed.path.startswith("/api/"):
-            target = parsed.path[4:]
-            if parsed.query:
-                target += "?" + parsed.query
-            cl = int(self.headers.get("Content-Length", 0))
-            body = self.rfile.read(cl) if cl > 0 else None
-            self.proxy_request("PATCH", target, body)
-            return
-        self.send_error(404)
+        if not self.proxy_dispatch("PATCH"):
+            self.send_error(404)
 
 
 # ============================================================
-#  HTML 페이지
+#  시스템 트레이 (Win32 ctypes 기반 — Zero External Dependencies)
 # ============================================================
-SUCCESS_HTML = """<!DOCTYPE html>
-<html lang="ko">
-<head>
-  <meta charset="utf-8"><title>치지직 인증 완료</title>
-  <style>
-    body{background:#0B0E11;color:#00FFA3;font-family:system-ui,-apple-system,sans-serif;text-align:center;padding:70px 20px}
-    .card{background:#141921;border:2px solid #00FFA3;border-radius:20px;max-width:440px;margin:0 auto;padding:40px 32px;box-shadow:0 16px 50px rgba(0,255,163,0.25)}
-    .icon{font-size:52px;margin-bottom:20px;display:block}
-    h2{font-size:24px;font-weight:800;margin-bottom:14px;color:#FFF;letter-spacing:-0.5px}
-    p{color:#A8B3C7;font-size:15px;line-height:1.7;margin-bottom:24px}
-    .notice{background:rgba(0,255,163,0.08);border:1px solid rgba(0,255,163,0.25);padding:12px;border-radius:10px;margin-bottom:24px;font-size:14px;color:#00FFA3;font-weight:700}
-    .btn{background:#00FFA3;color:#0B0E11;font-weight:800;border:none;padding:16px 32px;border-radius:12px;font-size:16px;cursor:pointer;width:100%}
-    .btn:hover{background:#00E59B;transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,255,163,0.4)}
-    .hint{margin-top:20px;color:#5A6577;font-size:13px}
-  </style>
-</head>
-<body>
-  <div class="card">
-    <span class="icon">🎉</span>
-    <h2>치지직 API 연동 완료!</h2>
-    <div class="notice">✅ 토큰 발급 및 저장 성공</div>
-    <p>이제 <strong>이 브라우저 창을 닫으셔도 좋습니다.</strong><br>OBS Studio 독 화면에서 방송 관리를 바로 이용하세요!</p>
-  </div>
-</body>
-</html>"""
-
-FAIL_HTML = """<!DOCTYPE html>
-<html lang="ko">
-<head>
-  <meta charset="utf-8"><title>치지직 인증 실패</title>
-  <style>
-    body{background:#0B0E11;color:#FF4D6A;font-family:system-ui,sans-serif;text-align:center;padding:60px 20px}
-    .card{background:#141921;border:1px solid #FF4D6A;border-radius:16px;max-width:400px;margin:0 auto;padding:32px}
-    h2{font-size:20px;margin-bottom:12px}p{color:#A8B3C7;font-size:13px;line-height:1.6}
-  </style>
-</head>
-<body>
-  <div class="card">
-    <h2>❌ 치지직 토큰 발급 실패</h2>
-    <p>Client ID / Client Secret 정보 또는 인가 코드 유효 시간을 확인해 주세요.</p>
-  </div>
-</body>
-</html>"""
+class NOTIFYICONDATAW(ctypes.Structure):
+    _fields_ = [
+        ("cbSize", wintypes.DWORD),
+        ("hWnd", wintypes.HWND),
+        ("uID", wintypes.UINT),
+        ("uFlags", wintypes.UINT),
+        ("uCallbackMessage", wintypes.UINT),
+        ("hIcon", wintypes.HICON),
+        ("szTip", wintypes.WCHAR * 128),
+        ("dwState", wintypes.DWORD),
+        ("dwStateMask", wintypes.DWORD),
+        ("szInfo", wintypes.WCHAR * 256),
+        ("uTimeoutOrVersion", wintypes.UINT),
+        ("szInfoTitle", wintypes.WCHAR * 64),
+        ("dwInfoFlags", wintypes.DWORD),
+        ("guidItem", ctypes.c_byte * 16),
+        ("hBalloonIcon", wintypes.HICON)
+    ]
 
 
-# ============================================================
-#  시스템 트레이 및 시작 프로그램 제어
-# ============================================================
-def copy_dock_url(icon=None, item=None):
+def copy_dock_url():
     url = f"http://localhost:{HTTP_PORT}"
     try:
-        import subprocess
         subprocess.run(['clip'], input=url.encode('utf-16le'), check=True)
-        if icon:
-            icon.notify(f"주소가 클립보드에 복사되었습니다:\n{url}", f"CHZZK Dock {APP_VERSION}")
+        if tray_instance:
+            tray_instance.notify(f"주소가 클립보드에 복사되었습니다:\n{url}", f"CHZZK Dock {APP_VERSION}")
     except Exception as e:
         print("[Clipboard Error]", e)
 
 
 def is_startup_enabled():
     try:
-        import winreg
         key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, REG_PATH, 0, winreg.KEY_READ)
         winreg.QueryValueEx(key, APP_NAME)
         winreg.CloseKey(key)
         return True
-    except:
+    except Exception:
         return False
 
 
-def toggle_startup(icon, item):
+def toggle_startup():
     try:
-        import winreg
         exe_path = os.path.abspath(sys.argv[0])
         key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, REG_PATH, 0, winreg.KEY_ALL_ACCESS)
         if is_startup_enabled():
             winreg.DeleteValue(key, APP_NAME)
-            icon.notify("시작 프로그램에서 해제되었습니다.", "자동 실행 해제")
+            if tray_instance:
+                tray_instance.notify("시작 프로그램에서 해제되었습니다.", "자동 실행 해제")
         else:
             winreg.SetValueEx(key, APP_NAME, 0, winreg.REG_SZ, f'"{exe_path}"')
-            icon.notify("윈도우 시작 프로그램으로 등록되었습니다.", "자동 실행 등록")
+            if tray_instance:
+                tray_instance.notify("윈도우 시작 프로그램으로 등록되었습니다.", "자동 실행 등록")
         winreg.CloseKey(key)
     except Exception as e:
         print("[Registry Error]", e)
 
 
-def exit_app(icon, item):
-    if icon:
-        icon.stop()
+def exit_app():
+    if tray_instance:
+        tray_instance.stop()
     os._exit(0)
 
 
-def load_tray_icon():
-    try:
-        from PIL import Image, ImageDraw
-        icon_path = resource_path("icon.png")
+class PureWinTrayIcon:
+    def __init__(self, title, icon_path=None):
+        self.title = title
+        self.icon_path = icon_path
+        self.hwnd = None
+        self.nid = None
+        self.hicon = None
+        self.menu_items = []
 
-        if os.path.exists(icon_path):
-            return Image.open(icon_path)
+    def load_icon(self):
+        base_dir = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+        candidates = [
+            self.icon_path,
+            os.path.join(base_dir, "icon.ico"),
+            os.path.join(os.getcwd(), "icon.ico"),
+            os.path.join(os.path.dirname(sys.executable), "icon.ico")
+        ]
+        for p in candidates:
+            if p and os.path.exists(p):
+                self.hicon = user32.LoadImageW(None, os.path.abspath(p), IMAGE_ICON, 0, 0, LR_LOADFROMFILE | LR_DEFAULTSIZE)
+                if self.hicon:
+                    break
 
-        img = Image.new('RGBA', (64, 64), (0, 0, 0, 0))
-        d = ImageDraw.Draw(img)
-        d.ellipse((8, 8, 56, 56), fill=(0, 255, 163))
-        return img
-    except Exception as e:
-        print("[Tray Icon Error]", e)
-        return None
+        if not self.hicon:
+            hinst = kernel32.GetModuleHandleW(None)
+            self.hicon = user32.LoadIconW(hinst, ctypes.c_wchar_p(1))
+        if not self.hicon:
+            self.hicon = user32.LoadIconW(0, ctypes.c_wchar_p(32512))
+
+    def notify(self, message, title="CHZZK OBS Dock"):
+        if not self.nid:
+            return
+        self.nid.uFlags |= NIF_INFO
+        self.nid.szInfo = message[:255]
+        self.nid.szInfoTitle = title[:63]
+        self.nid.dwInfoFlags = NIIF_INFO
+        shell32.Shell_NotifyIconW(NIM_MODIFY, ctypes.byref(self.nid))
+
+    def show_menu(self):
+        hmenu = user32.CreatePopupMenu()
+        cmd_map = {}
+        for idx, item in enumerate(self.menu_items):
+            label, callback, is_checked, is_sep = item
+            if is_sep:
+                user32.AppendMenuW(hmenu, MF_SEPARATOR, 0, None)
+            else:
+                flags = MF_STRING
+                if is_checked and is_checked():
+                    flags |= MF_CHECKED
+                cmd_id = 1000 + idx
+                cmd_map[cmd_id] = callback
+                user32.AppendMenuW(hmenu, flags, cmd_id, label)
+
+        pos = wintypes.POINT()
+        user32.GetCursorPos(ctypes.byref(pos))
+        user32.SetForegroundWindow(self.hwnd)
+        selected = user32.TrackPopupMenu(hmenu, TPM_RIGHTBUTTON | TPM_RETURNCMD, pos.x, pos.y, 0, self.hwnd, None)
+        user32.PostMessageW(self.hwnd, 0, 0, 0)
+        user32.DestroyMenu(hmenu)
+        if selected in cmd_map and cmd_map[selected]:
+            cmd_map[selected]()
+
+    def run(self):
+        self.load_icon()
+
+        def wnd_proc(hwnd, msg, wparam, lparam):
+            if msg == WM_TRAYICON:
+                if lparam == 0x0205:  # WM_RBUTTONUP (우클릭 메뉴)
+                    self.show_menu()
+                    return 0
+                elif lparam in (0x0202, 0x0203):  # WM_LBUTTONUP / WM_LBUTTONDBLCLK (좌클릭 URL 복사)
+                    copy_dock_url()
+                    return 0
+            elif msg == 0x0010:  # WM_CLOSE
+                self.stop()
+                return 0
+            return user32.DefWindowProcW(hwnd, msg, wparam, lparam)
+
+        self._wnd_proc = WNDPROCTYPE(wnd_proc)
+
+        wcls = WNDCLASSW()
+        wcls.lpfnWndProc = self._wnd_proc
+        wcls.lpszClassName = "ChzzkDockTrayClass"
+        wcls.hInstance = kernel32.GetModuleHandleW(None)
+        user32.RegisterClassW(ctypes.byref(wcls))
+
+        self.hwnd = user32.CreateWindowExW(
+            0, "ChzzkDockTrayClass", "ChzzkDockTray", 0,
+            0, 0, 0, 0, 0, 0, wcls.hInstance, None
+        )
+        self.nid = NOTIFYICONDATAW()
+        self.nid.cbSize = ctypes.sizeof(NOTIFYICONDATAW)
+        self.nid.hWnd = self.hwnd
+        self.nid.uID = 1
+        self.nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP | NIF_INFO
+        self.nid.uCallbackMessage = WM_TRAYICON
+        self.nid.hIcon = self.hicon
+        self.nid.szTip = self.title[:127]
+        # 시작 시 윈도우 알림 센터 정보 메시지
+        self.nid.szInfo = f"CHZZK 방송 제어 독 서버가 시작되었습니다.\n(http://localhost:{HTTP_PORT})"
+        self.nid.szInfoTitle = "CHZZK OBS Dock"
+        self.nid.dwInfoFlags = NIIF_INFO
+
+        shell32.Shell_NotifyIconW(NIM_ADD, ctypes.byref(self.nid))
+
+        msg = wintypes.MSG()
+        while user32.GetMessageW(ctypes.byref(msg), 0, 0, 0) > 0:
+            user32.TranslateMessage(ctypes.byref(msg))
+            user32.DispatchMessageW(ctypes.byref(msg))
+
+    def stop(self):
+        if self.nid:
+            shell32.Shell_NotifyIconW(NIM_DELETE, ctypes.byref(self.nid))
+            self.nid = None
+        if self.hwnd:
+            user32.DestroyWindow(self.hwnd)
+            self.hwnd = None
+        os._exit(0)
 
 
 def run_tray():
+    global tray_instance
     try:
-        import pystray
-        menu = pystray.Menu(
-            pystray.MenuItem(f"CHZZK Dock {APP_VERSION}", copy_dock_url, default=True),
-            pystray.Menu.SEPARATOR,
-            pystray.MenuItem("시작 프로그램 등록", toggle_startup, checked=lambda item: is_startup_enabled()),
-            pystray.Menu.SEPARATOR,
-            pystray.MenuItem("서버 종료", exit_app)
-        )
+        base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+        icon_path = os.path.join(base_path, "icon.ico")
 
-        icon_img = load_tray_icon()
-        if icon_img:
-            tray_icon = pystray.Icon(
-                "ChzzkDockServer",
-                icon_img,
-                f"CHZZK OBS Dock Server ({APP_VERSION})",
-                menu
-            )
-            tray_icon.run()
+        tray = PureWinTrayIcon(f"CHZZK OBS Dock Server ({APP_VERSION})", icon_path)
+        tray.menu_items = [
+            (f"CHZZK Dock {APP_VERSION}", copy_dock_url, None, False),
+            (None, None, None, True),
+            ("시작 프로그램 등록", toggle_startup, is_startup_enabled, False),
+            (None, None, None, True),
+            ("서버 종료", exit_app, None, False)
+        ]
+        tray_instance = tray
+        tray.run()
     except Exception as e:
         print("[System Tray Error]", e)
+        while True:
+            time.sleep(1)
 
 
-# ============================================================
-#  서버 클래스
-# ============================================================
-class ThreadedServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
+class ExclusiveThreadingServer(http.server.ThreadingHTTPServer):
     allow_reuse_address = False
     daemon_threads = True
 
 
 # ============================================================
-#  메인: HTTP + HTTPS 동시 실행 + 트레이 아이콘
+#  메인: HTTP 서버 실행 + 트레이 아이콘
 # ============================================================
 if __name__ == "__main__":
-    # 1) HTTPS 서버 (포트 8080) — 네이버 OAuth 콜백 수신
-    https_server = ThreadedServer(("0.0.0.0", HTTPS_PORT), HttpsOAuthHandler)
-    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-    ctx.load_cert_chain(certfile=CERT_FILE, keyfile=KEY_FILE)
-    https_server.socket = ctx.wrap_socket(https_server.socket, server_side=True)
+    if len(sys.argv) > 1 and sys.argv[1] in ("--login", "webview_login.py", "-l"):
+        import webview_login
+        webview_login.main()
+        sys.exit(0)
 
-    # 2) HTTP 서버 (포트 8081) — OBS 독 위젯 서빙
-    http_server = ThreadedServer(("0.0.0.0", HTTP_PORT), HttpDockHandler)
+    try:
+        http_server = ExclusiveThreadingServer(("127.0.0.1", HTTP_PORT), HttpDockHandler)
+    except OSError as e:
+        if getattr(e, 'winerror', None) == 10048 or e.errno == 10048 or "10048" in str(e) or "address already in use" in str(e).lower():
+            msg = f"CHZZK Dock 서버가 이미 실행 중이거나 포트({HTTP_PORT})가 사용 중입니다.\n\n작업 표시줄 트레이 아이콘이나 기존 실행 중인 프로그램을 확인해 주세요."
+            print(f"\n[오류] {msg}\n")
+            try:
+                ctypes.windll.user32.MessageBoxW(0, msg, "CHZZK OBS Dock - 실행 오류", 0x10 | 0x0)
+            except Exception:
+                pass
+            sys.exit(1)
+        raise
 
-    https_thread = threading.Thread(target=https_server.serve_forever, daemon=True)
-    http_thread = threading.Thread(target=http_server.serve_forever, daemon=True)
-
-    print("=" * 56)
+    print("=" * 60)
     print(f"  CHZZK OBS Dock Server ({APP_VERSION})")
-    print(f"  HTTPS (OAuth 콜백) : https://localhost:{HTTPS_PORT}")
-    print(f"  HTTP  (OBS 독)     : http://localhost:{HTTP_PORT}")
-    print("=" * 56)
+    print(f"  HTTP  (통합 방송 독) : http://localhost:{HTTP_PORT}")
+    print("=" * 60)
 
-    https_thread.start()
+    http_thread = threading.Thread(target=http_server.serve_forever, daemon=True)
     http_thread.start()
 
     run_tray()

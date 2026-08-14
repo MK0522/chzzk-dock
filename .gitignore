@@ -10,9 +10,11 @@ dist/
 
 # Editor settings
 .vscode/
+.idea/
 
-# Local Config & SSL Certs
+# Local Config, Debug Logs & SSL Certs
 config.json
+server_debug.txt
 cert.pem
 key.pem
 

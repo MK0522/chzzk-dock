@@ -1,7 +1,7 @@
 @echo off
 chcp 65001 >nul
 echo ========================================================
-echo  CHZZK OBS Dock Server v0.1.1 빌드 스크립트
+echo  CHZZK OBS Dock Server v0.2.1-Beta 빌드 스크립트
 echo ========================================================
 echo.
 
@@ -22,8 +22,8 @@ if not defined PYTHON_EXE (
 %PYTHON_EXE% -m pip install -r requirements.txt
 
 echo.
-echo [2/2] PyInstaller 실행 파일(server.exe) 생성 중...
-%PYTHON_EXE% -m PyInstaller --noconfirm --clean --onefile --noconsole --icon=icon.ico --add-data "icon.png;." --add-data "chzzk-obs-dock.html;." server.py
+echo [2/2] PyInstaller 단일 바이너리 패키징 중...
+%PYTHON_EXE% -m PyInstaller --noconfirm --clean --onefile --noconsole --icon=icon.ico --add-data "icon.png;." --add-data "icon.ico;." --add-data "chzzk-obs-dock.html;." --add-data "webview_login.py;." --exclude-module cryptography --exclude-module PIL --exclude-module Pillow --exclude-module pystray --exclude-module tkinter server.py
 
 echo.
 echo ========================================================
