@@ -1,0 +1,26 @@
+{
+  "FixedFileInfo": {
+    "FileVersion": {
+      "Major": 0,
+      "Minor": 4,
+      "Patch": 1,
+      "Build": 0
+    },
+    "ProductVersion": {
+      "Major": 0,
+      "Minor": 4,
+      "Patch": 1,
+      "Build": 0
+    }
+  },
+  "StringFileInfo": {
+    "FileDescription": "CHZZK OBS Dock Server",
+    "InternalName": "chzzk-dock",
+    "LegalCopyright": "CHZZK OBS Dock",
+    "OriginalFilename": "chzzk-dock.exe",
+    "ProductName": "CHZZK OBS Dock",
+    "ProductVersion": "0.4.1.0"
+  },
+  "IconPath": "icon.ico",
+  "ManifestPath": "app.manifest"
+}

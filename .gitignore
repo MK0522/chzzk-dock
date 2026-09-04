@@ -3,21 +3,19 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# PyInstaller / Build outputs
+# PyInstaller / Build outputs / Go Binaries
 build/
 dist/
 *.spec
+*.exe
 
-# Editor settings
-.vscode/
-.idea/
-
-# Local Config, Debug Logs & SSL Certs
+# Local Config & Credentials (SECURITY: DO NOT COMMIT)
 config.json
-server_debug.txt
 cert.pem
 key.pem
+server_debug.txt
 
-# OS generated files
+# Editor & System files
+.vscode/
 .DS_Store
 Thumbs.db

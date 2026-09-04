@@ -1,33 +1,24 @@
 @echo off
-chcp 65001 >nul
-echo ========================================================
-echo  CHZZK OBS Dock Server v0.2.1-Beta 빌드 스크립트
-echo ========================================================
+set "PATH=C:\Program Files\Go\bin;%PATH%"
+echo ======================================================
+echo   CHZZK OBS Dock - Go Single Binary Build
+echo ======================================================
 echo.
+echo [*] Dependencies tidy...
+go mod tidy
 
-echo [1/2] Python 확인 및 필수 패키지 설치 중...
-set "PYTHON_EXE="
-where py >nul 2>nul
-if not errorlevel 1 set "PYTHON_EXE=py -3"
-if not defined PYTHON_EXE (
-  where python >nul 2>nul
-  if not errorlevel 1 set "PYTHON_EXE=python"
+echo [*] Generating Windows PE Resource (Icon ^& Manifest)...
+del /f /q rsrc_*.syso >nul 2>&1
+go run github.com/josephspurrier/goversioninfo/cmd/goversioninfo@latest -64 -o resource_windows_amd64.syso
+
+echo [*] Building chzzk-dock.exe with embedded icon...
+go build -ldflags="-H windowsgui -s -w" -o chzzk-dock.exe .
+if %errorlevel% equ 0 (
+    echo.
+    echo [SUCCESS] chzzk-dock.exe build completed with icon!
+) else (
+    echo.
+    echo [ERROR] Build failed.
 )
-if not defined PYTHON_EXE if exist "%LocalAppData%\Python\pythoncore-3.14-64\python.exe" set "PYTHON_EXE=%LocalAppData%\Python\pythoncore-3.14-64\python.exe"
-if not defined PYTHON_EXE (
-  echo [오류] Python 3를 찾지 못했습니다. Python 설치 시 Add Python to PATH를 선택하세요.
-  pause
-  exit /b 1
-)
-%PYTHON_EXE% -m pip install -r requirements.txt
-
 echo.
-echo [2/2] PyInstaller 단일 바이너리 패키징 중...
-%PYTHON_EXE% -m PyInstaller --noconfirm --clean --onefile --noconsole --icon=icon.ico --add-data "icon.png;." --add-data "icon.ico;." --add-data "chzzk-obs-dock.html;." --add-data "webview_login.py;." --exclude-module cryptography --exclude-module PIL --exclude-module Pillow --exclude-module pystray --exclude-module tkinter server.py
-
-echo.
-echo ========================================================
-echo  🎉 빌드 완료!
-echo  생성된 파일 경로: dist\server.exe
-echo ========================================================
 pause

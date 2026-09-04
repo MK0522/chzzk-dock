@@ -40,66 +40,166 @@
     * { scrollbar-width: thin; scrollbar-color: #1E2636 transparent; }
     ::-webkit-scrollbar { width: 3px; }
     ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: #1E2636; border-radius: 3px; }
-    html, body { background: #0B0E11; height: 100%; width: 100%; margin: 0; padding: 0; overflow-x: hidden; }
-    #dock-wrapper { position: relative; width: 100%; min-height: 100vh; background: #0B0E11; overflow-y: auto; overflow-x: hidden; box-sizing: border-box; }
+    html, body {
+      background: #080A0D;
+      width: 100%;
+      margin: 0;
+      padding: 0;
+      overflow-x: hidden;
+      overflow-y: auto;
+    }
+    #dock-wrapper {
+      position: relative;
+      width: 100%;
+      background: #080A0D;
+      overflow: hidden;
+      box-sizing: border-box;
+    }
 
-    .toggle-switch { position: relative; width: 36px; height: 20px; flex-shrink: 0; }
+    .toggle-switch { position: relative; width: 34px; height: 20px; flex-shrink: 0; }
     .toggle-switch input { opacity: 0; width: 0; height: 0; }
     .toggle-slider {
       position: absolute; inset: 0; cursor: pointer; border-radius: 999px;
-      background: #1E2636; transition: all 0.2s ease;
+      background: #1A2230; transition: all 0.2s ease;
     }
     .toggle-slider::before {
       content: ''; position: absolute; left: 2px; top: 2px;
       width: 16px; height: 16px; border-radius: 50%;
       background: #5A6577; transition: all 0.2s ease;
     }
-    .toggle-switch input:checked + .toggle-slider { background: rgba(0, 255, 163, 0.2); }
+    .toggle-switch input:checked + .toggle-slider { background: rgba(0, 255, 163, 0.25); }
     .toggle-switch input:checked + .toggle-slider::before {
-      transform: translateX(16px); background: #00FFA3;
-      box-shadow: 0 0 6px rgba(0, 255, 163, 0.4);
+      transform: translateX(14px); background: #00FFA3;
+      box-shadow: 0 0 8px rgba(0, 255, 163, 0.5);
+    }
+
+    /* Custom Checkbox (+2px scale: 17x17) */
+    .chzzk-checkbox-input {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 17px;
+      height: 17px;
+      border-radius: 4px;
+      background: #0B0F15;
+      border: 1.5px solid #243044;
+      outline: none;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      position: relative;
+      flex-shrink: 0;
+      display: inline-grid;
+      place-content: center;
+      margin: 0;
+      vertical-align: middle;
+    }
+    .chzzk-checkbox-input:hover {
+      border-color: #00FFA3;
+      background: #101620;
+    }
+    .chzzk-checkbox-input:checked {
+      background: #00FFA3;
+      border-color: #00FFA3;
+      box-shadow: 0 0 8px rgba(0, 255, 163, 0.4);
+    }
+    .chzzk-checkbox-input:checked::before {
+      content: "";
+      width: 4.5px;
+      height: 8.5px;
+      border: solid #080A0D;
+      border-width: 0 2.2px 2.2px 0;
+      transform: rotate(45deg) translate(-0.5px, -1px);
+    }
+
+    /* Custom Radio (+2px scale: 16x16) */
+    .chzzk-radio {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #0B0F15;
+      border: 1.5px solid #243044;
+      outline: none;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      position: relative;
+      flex-shrink: 0;
+      display: inline-grid;
+      place-content: center;
+      margin: 0;
+      vertical-align: middle;
+    }
+    .chzzk-radio:hover {
+      border-color: #00FFA3;
+      background: #101620;
+    }
+    .chzzk-radio:checked {
+      border-color: #00FFA3;
+      background: #0B0F15;
+      box-shadow: 0 0 8px rgba(0, 255, 163, 0.35);
+    }
+    .chzzk-radio:checked::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #00FFA3;
     }
 
     .category-dropdown {
       position: absolute; left: 0; right: 0; top: 100%; z-index: 50;
-      max-height: 160px; overflow-y: auto;
-      background: #141921; border: 1px solid #1E2636; border-radius: 8px;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.5); margin-top: 4px;
+      max-height: 170px; overflow-y: auto;
+      background: #0E131A; border: 1px solid #1E2738; border-radius: 8px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.6); margin-top: 4px;
     }
     .category-item {
-      padding: 6px 10px; cursor: pointer; display: flex; align-items: center; gap: 8px;
-      transition: background 0.15s; font-size: 12px; color: #A8B3C7;
+      padding: 7px 10px; cursor: pointer; display: flex; align-items: center; gap: 8px;
+      transition: all 0.15s; font-size: 12px; color: #CBD5E1; border-left: 2px solid transparent;
     }
-    .category-item:hover { background: #1A2233; color: #FFF; }
-    .category-item img { width: 24px; height: 24px; border-radius: 4px; object-fit: cover; }
+    .category-item:hover, .category-item.highlighted {
+      background: #161F2E; color: #FFF; border-left-color: #00FFA3;
+    }
+    .category-item img { width: 26px; height: 26px; border-radius: 4px; object-fit: cover; }
 
     .tag-chip {
       display: inline-flex; align-items: center; gap: 4px;
       background: rgba(0, 255, 163, 0.08); color: #00FFA3;
-      border: 1px solid rgba(0, 255, 163, 0.15);
-      border-radius: 6px; padding: 2px 6px; font-size: 11px; font-weight: 500;
+      border: 1px solid rgba(0, 255, 163, 0.2);
+      border-radius: 6px; padding: 2px 7px; font-size: 11.5px; font-weight: 500;
     }
-    .tag-chip button { background: none; border: none; color: rgba(0, 255, 163, 0.5); cursor: pointer; padding: 0; display: flex; font-size: 13px; }
+    .tag-chip button { background: none; border: none; color: rgba(0, 255, 163, 0.6); cursor: pointer; padding: 0; display: flex; font-size: 13px; }
     .tag-chip button:hover { color: #FF4D6A; }
 
     .section-card {
-      background: #141921; border: 1px solid #1E2636; border-radius: 10px;
-      padding: 12px; transition: border-color 0.2s;
+      background: #0E131A; border: 1px solid #1B2332; border-radius: 10px;
+      padding: 12px; transition: border-color 0.2s, box-shadow 0.2s;
     }
-    .section-card:hover { border-color: #2A3648; }
+    .section-card:hover { border-color: #243044; }
+
+    .instant-card {
+      background: linear-gradient(180deg, rgba(16, 26, 31, 0.95) 0%, rgba(11, 17, 24, 0.95) 100%);
+      border: 2px solid rgba(0, 255, 163, 0.65);
+      border-radius: 10px;
+      padding: 10px 12px;
+      box-shadow: 0 0 16px rgba(0, 255, 163, 0.12), inset 0 0 12px rgba(0, 255, 163, 0.03);
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .instant-card:hover {
+      border-color: rgba(0, 255, 163, 0.9);
+      box-shadow: 0 0 20px rgba(0, 255, 163, 0.22), inset 0 0 16px rgba(0, 255, 163, 0.05);
+    }
 
     .chzzk-input {
-      background: #0F131A; border: 1px solid #1E2636; border-radius: 6px;
-      color: #E2E8F0; font-size: 12px; padding: 6px 10px; width: 100%;
+      background: #0B0F15; border: 1px solid #1E2738; border-radius: 6px;
+      color: #F1F5F9; font-size: 12px; padding: 6.5px 10px; width: 100%;
       transition: all 0.2s; outline: none;
     }
-    .chzzk-input:focus { border-color: #00FFA3; box-shadow: 0 0 0 2px rgba(0, 255, 163, 0.1); }
+    .chzzk-input:focus { border-color: #00FFA3; box-shadow: 0 0 0 2px rgba(0, 255, 163, 0.15); background: #0E131A; }
     .chzzk-input::placeholder { color: #5A6577; }
 
     .chzzk-select {
-      background: #0F131A; border: 1px solid #1E2636; border-radius: 6px;
-      color: #E2E8F0; font-size: 12px; padding: 6px 10px; width: 100%;
+      background: #0B0F15; border: 1px solid #1E2738; border-radius: 6px;
+      color: #F1F5F9; font-size: 11.5px; padding: 5.5px 8px; width: 100%;
       transition: all 0.2s; outline: none; cursor: pointer;
       appearance: none; -webkit-appearance: none;
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' fill='%235A6577' viewBox='0 0 16 16'%3E%3Cpath d='M8 11.5l-5-5h10l-5 5z'/%3E%3C/svg%3E");
@@ -110,36 +210,76 @@
     #toast-container { position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); z-index: 999; display: flex; flex-direction: column; gap: 6px; align-items: center; pointer-events: none; width: 92%; max-width: 320px; }
     .toast {
       pointer-events: auto; width: 100%;
-      padding: 8px 12px; border-radius: 8px; font-size: 11px; font-weight: 500;
+      padding: 8px 12px; border-radius: 8px; font-size: 11.5px; font-weight: 500;
       backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
       animation: toastIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
       display: flex; flex-direction: column; gap: 2px; line-height: 1.35;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.5);
     }
-    .toast.success { background: rgba(14, 25, 22, 0.95); color: #00FFA3; border: 1px solid rgba(0, 255, 163, 0.3); }
-    .toast.error { background: rgba(28, 16, 20, 0.95); color: #FF4D6A; border: 1px solid rgba(255, 77, 106, 0.3); }
-    .toast.warn { background: rgba(28, 24, 16, 0.95); color: #FFB84D; border: 1px solid rgba(255, 184, 77, 0.3); }
-    .toast.info { background: rgba(16, 22, 30, 0.95); color: #60A5FA; border: 1px solid rgba(96, 165, 250, 0.3); }
+    .toast.success { background: rgba(14, 25, 22, 0.96); color: #00FFA3; border: 1px solid rgba(0, 255, 163, 0.35); }
+    .toast.error { background: rgba(28, 16, 20, 0.96); color: #FF4D6A; border: 1px solid rgba(255, 77, 106, 0.35); }
+    .toast.warn { background: rgba(28, 24, 16, 0.96); color: #FFB84D; border: 1px solid rgba(255, 184, 77, 0.35); }
+    .toast.info { background: rgba(16, 22, 30, 0.96); color: #60A5FA; border: 1px solid rgba(96, 165, 250, 0.35); }
     .toast.removing { animation: toastOut 0.25s ease-in forwards; }
 
+    .locked-by-party {
+      opacity: 0.6;
+      cursor: not-allowed !important;
+    }
+    .locked-by-party input,
+    .locked-by-party button {
+      pointer-events: none !important;
+    }
+
     .save-btn {
-      background: linear-gradient(135deg, #00E59B, #00C882);
-      color: #0B0E11; font-weight: 600; border: none; border-radius: 8px;
+      background: linear-gradient(135deg, #00FFA3, #00D287);
+      color: #080A0D !important; font-weight: 800; border: none; border-radius: 8px;
       padding: 10px; font-size: 13px; cursor: pointer; width: 100%;
       transition: all 0.2s;
     }
-    .save-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0, 229, 155, 0.25); }
+    .save-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0, 255, 163, 0.3); }
     .save-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
 
+    @keyframes saveDirtyGlow {
+      0%, 100% {
+        box-shadow: 0 0 6px rgba(0, 255, 163, 0.4), 0 0 0 0 rgba(0, 255, 163, 0.6);
+        filter: brightness(1);
+        transform: translateY(0);
+      }
+      50% {
+        box-shadow: 0 0 18px 4px rgba(0, 255, 163, 0.9), 0 0 32px 8px rgba(0, 255, 163, 0.35);
+        filter: brightness(1.15);
+        transform: translateY(-1px);
+      }
+    }
+    .save-btn.is-dirty {
+      animation: saveDirtyGlow 1.1s infinite ease-in-out !important;
+      border: 1.5px solid #FFFFFF !important;
+    }
+
+    @keyframes liveSoftGlow {
+      0%, 100% {
+        box-shadow: 0 0 10px 1px rgba(0, 255, 163, 0.5), inset 0 0 4px rgba(0, 255, 163, 0.2);
+        border-color: rgba(0, 255, 163, 0.8);
+      }
+      50% {
+        box-shadow: 0 0 22px 5px rgba(0, 255, 163, 0.95), 0 0 34px 8px rgba(0, 255, 163, 0.4), inset 0 0 8px rgba(0, 255, 163, 0.35);
+        border-color: #00FFA3;
+      }
+    }
+    .live-soft-glow {
+      animation: liveSoftGlow 1.8s infinite ease-in-out !important;
+    }
+
     .sub-btn {
-      background: #1E2636; color: #E2E8F0; font-weight: 500; border: 1px solid #2A3648;
-      border-radius: 6px; padding: 6px 10px; font-size: 11px; cursor: pointer; width: 100%;
+      background: #1A2230; color: #F1F5F9; font-weight: 500; border: 1px solid #243044;
+      border-radius: 6px; padding: 6px 10px; font-size: 11.5px; cursor: pointer; width: 100%;
       transition: all 0.2s; text-align: center;
     }
-    .sub-btn:hover { background: #2A3648; color: #00FFA3; border-color: rgba(0, 255, 163, 0.3); }
+    .sub-btn:hover { background: #243044; color: #00FFA3; border-color: rgba(0, 255, 163, 0.3); }
 
     .settings-panel {
-      position: absolute; inset: 0; background: #0B0E11; z-index: 100;
+      position: fixed; inset: 0; background: #0B0E11; z-index: 100;
       opacity: 0; pointer-events: none; visibility: hidden;
       transform: translateX(100%); transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
       overflow-y: auto; width: 100%; height: 100%;
@@ -154,231 +294,580 @@
   <div id="dock-wrapper">
 
   <!-- ===== MAIN VIEW ===== -->
-  <div id="main-view" class="flex flex-col gap-2.5 px-2.5 py-3 animate-fade-in">
+  <div id="main-view" class="flex flex-col gap-2 px-2.5 pt-2 pb-1 animate-fade-in">
 
     <!-- Header -->
-    <div class="flex items-center justify-between mb-1 pb-1 border-b border-chzzk-border/40">
-      <div class="flex items-center gap-1.5">
-        <div class="w-6 h-6 rounded-md bg-gradient-to-br from-chzzk-green/20 to-chzzk-accent/10 flex items-center justify-center">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00FFA3" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
-        </div>
-        <h1 class="text-xs font-bold text-white tracking-tight">CHZZK 방송 제어 독</h1>
-        <span id="header-status-dot" class="w-2.5 h-2.5 rounded-full bg-[#FF4D6A] shadow-[0_0_6px_rgba(255,77,106,0.8)] transition-all" title="치지직 로그인 필요"></span>
+    <div class="flex items-center justify-between pb-1.5 border-b border-chzzk-border/40">
+      <div class="flex items-center gap-1.5 min-w-0">
+        <button id="header-live-icon" onclick="openChannelInBrowser()" class="w-6 h-6 rounded-md bg-[#6EE7B7]/10 border border-[#6EE7B7]/25 hover:border-[#6EE7B7]/50 flex items-center justify-center flex-shrink-0 cursor-pointer transition-all" title="치지직 방송 꺼짐 (OFF) - 클릭 시 라이브 화면 열기">
+          <svg id="header-live-svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6EE7B7" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="opacity-70"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+        </button>
+        <a id="header-channel-name" href="javascript:void(0)" onclick="openChannelInBrowser()" class="text-[11px] font-medium text-[#A7F3D0]/80 bg-[#6EE7B7]/5 hover:bg-[#6EE7B7]/15 border border-[#6EE7B7]/20 hover:border-[#6EE7B7]/40 px-2 py-0.5 rounded-md transition-all truncate max-w-[140px] cursor-pointer select-none" style="display:none;" title="클릭 시 치지직 라이브 화면을 브라우저로 엽니다"></a>
       </div>
-      <button id="btn-settings" onclick="toggleSettings()" class="flex items-center gap-1 px-2 py-1 rounded-md bg-chzzk-card border border-chzzk-border hover:border-chzzk-green/50 text-[10px] text-chzzk-muted hover:text-chzzk-green transition-all" title="로그인 설정">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-        <span id="header-status-text" class="font-medium text-[#FF4D6A]">로그인</span>
+      <div class="flex items-center gap-1.5 flex-shrink-0">
+        <button id="btn-settings" onclick="toggleSettings()" class="flex items-center gap-1 px-2 py-1 rounded-md bg-chzzk-card border border-chzzk-border hover:border-chzzk-green/50 text-[11px] text-slate-300 hover:text-chzzk-green transition-all flex-shrink-0" title="독 환경 및 로그인 설정">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1 2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83-2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          <span id="header-status-text" class="font-medium text-[#FF4D6A]">설정</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ===== 빠른 액션 패널 버튼 3종 (알림 URL / 후원·채팅 / 리모컨) ===== -->
+    <div class="grid grid-cols-3 gap-1.5 animate-slide-up" style="animation-delay: 0.04s">
+      <button id="btn-quick-urls" onclick="toggleUrlsPanel()" class="flex items-center justify-center gap-1.5 py-1.5 px-1 rounded-lg bg-[#121721] border border-[#1E2738] hover:border-[#00FFA3]/60 hover:bg-[#00FFA3]/5 text-xs font-bold text-slate-200 hover:text-[#00FFA3] transition-all cursor-pointer shadow-sm group">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400 group-hover:text-[#00FFA3] transition-colors"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        <span>알림 URL</span>
+      </button>
+
+      <button id="btn-quick-donations" onclick="toggleDonationsPanel()" class="flex items-center justify-center gap-1.5 py-1.5 px-1 rounded-lg bg-[#121721] border border-[#1E2738] hover:border-[#00FFA3]/60 hover:bg-[#00FFA3]/5 text-xs font-bold text-slate-200 hover:text-[#00FFA3] transition-all cursor-pointer shadow-sm group">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400 group-hover:text-[#00FFA3] transition-colors"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <span>후원/채팅</span>
+      </button>
+
+      <button id="btn-quick-remote" onclick="showToast('리모컨 준비 중', 'info', '리모컨 기능은 추후 업데이트될 예정입니다.')" class="flex items-center justify-center gap-1.5 py-1.5 px-1 rounded-lg bg-[#0E121A] border border-[#1E2738]/60 hover:border-slate-600 text-xs font-medium text-slate-400 hover:text-slate-300 transition-all cursor-pointer shadow-sm group" title="리모컨 기능 (추후 지원 예정)">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500 group-hover:text-slate-400 transition-colors"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+        <span>리모컨</span>
       </button>
     </div>
 
-    <!-- ===== 1. 방송 정보 카드 (제목, 카테고리, 태그, 세부 옵션 통합) ===== -->
-    <div id="card-broadcast" class="section-card space-y-3 shadow-xl border border-chzzk-border/80 animate-slide-up" style="animation-delay: 0.05s">
+    <!-- ===== 통합 방송 설정 카드 (단일 블록) ===== -->
+    <div id="card-broadcast" class="section-card space-y-2 shadow-lg border border-[#1E2738] animate-slide-up" style="animation-delay: 0.08s">
       
-      <!-- 방송 정보 헤더 -->
-      <div class="flex items-center gap-1.5 pb-1 border-b border-chzzk-border/50">
-        <div class="w-4 h-4 rounded bg-chzzk-green/10 flex items-center justify-center">
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="#00FFA3"><path d="M21 3H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14zM9.5 17l7-5-7-5v10z"/></svg>
-        </div>
-        <span class="text-xs font-bold text-white">방송 정보</span>
-      </div>
-
       <!-- 방송 제목 -->
       <div class="space-y-1">
         <div class="flex justify-between items-center">
-          <label class="text-[10px] font-medium text-chzzk-muted uppercase tracking-wider">방송 제목</label>
-          <span id="title-count" class="text-[10px] text-chzzk-muted">0/50</span>
+          <label class="text-xs font-bold text-slate-100 uppercase tracking-wider">방송 제목</label>
+          <span id="title-count" class="text-xs text-slate-400 font-medium">0/50</span>
         </div>
-        <input id="live-title" type="text" class="chzzk-input" placeholder="방송 제목을 입력하세요" maxlength="50" />
-      </div>
-
-      <!-- 카테고리 -->
-      <div class="space-y-1 relative" id="category-wrapper">
-        <label class="text-[10px] font-medium text-chzzk-muted uppercase tracking-wider">카테고리</label>
         <div class="relative">
-          <input id="category-search" type="text" class="chzzk-input pr-7" placeholder="카테고리 검색..." />
-          <input id="category-id" type="hidden" />
-          <input id="category-type" type="hidden" />
-          <button id="category-clear" onclick="clearCategory()" class="absolute right-2 top-1/2 -translate-y-1/2 text-chzzk-muted hover:text-chzzk-danger text-xs font-bold" style="display:none;">✕</button>
+          <input id="live-title" type="text" class="chzzk-input text-xs pr-7" placeholder="방송 제목을 입력하세요" maxlength="50" />
+          <button id="title-clear" onclick="clearTitle()" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-chzzk-danger text-xs font-bold cursor-pointer" style="display:none;" title="제목 지우기">✕</button>
         </div>
-        <div id="category-dropdown" class="category-dropdown" style="display:none;"></div>
       </div>
 
-      <!-- 태그 -->
+      <!-- 2열 그리드: 카테고리 (좌) & 같이보기 방송 (우) -->
+      <div class="grid grid-cols-2 gap-2 items-start">
+        <!-- 열 1: 카테고리 -->
+        <div class="space-y-1 relative" id="category-wrapper">
+          <div class="flex items-center justify-between h-4">
+            <label class="text-xs font-bold text-slate-100 uppercase tracking-wider leading-none">카테고리</label>
+            <span id="lock-category" class="text-[9px] text-amber-400 font-bold leading-none" style="display:none;" title="같이보기 규정으로 고정됨">🔒 고정</span>
+          </div>
+          <div class="relative">
+            <input id="category-search" type="text" class="chzzk-input text-xs pr-7" placeholder="카테고리 검색..." />
+            <input id="category-id" type="hidden" />
+            <input id="category-type" type="hidden" />
+            <button id="category-clear" onclick="clearCategory()" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-chzzk-danger text-xs font-bold" style="display:none;">✕</button>
+          </div>
+          <div id="category-dropdown" class="category-dropdown" style="display:none;"></div>
+        </div>
+
+        <!-- 열 2: 같이보기 방송 -->
+        <div class="space-y-1 relative" id="watch-party-wrapper">
+          <div class="flex items-center justify-between h-4">
+            <div class="flex items-center gap-1">
+              <label class="text-xs font-bold text-slate-100 uppercase tracking-wider leading-none flex items-center gap-1">
+                <span>🎬</span> 같이보기
+              </label>
+              <button onclick="reloadWatchPartiesOnly()" class="text-slate-400 hover:text-[#00FFA3] transition-colors p-0.5 rounded hover:bg-white/5 cursor-pointer flex items-center" title="치지직 같이보기 목록 즉시 새로고침">
+                <svg id="wp-reload-icon" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+              </button>
+            </div>
+            <span id="watch-party-badge" class="text-[9.5px] px-1.5 py-0.2 rounded font-medium text-slate-400 bg-slate-800/80 border border-slate-700/50 leading-none">일반 방송</span>
+          </div>
+          <div class="relative">
+            <select id="select-watch-party" class="chzzk-select text-xs py-1.5 px-2" onchange="onWatchPartyChange(this.value)">
+              <option value="">사용 안 함 (일반 방송)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- 같이보기 방송 고정 안내 알림 (활성화 시 노출) -->
+      <div id="watch-party-notice" class="text-[10.5px] text-amber-300/90 bg-amber-500/10 border border-amber-500/20 rounded px-2 py-1 flex items-center gap-1.5" style="display:none;">
+        <span>🔒</span>
+        <span>같이보기 규정에 따라 카테고리, 한국 전용, 클립 OFF, 다시보기 OFF가 고정됩니다.</span>
+      </div>
+
+      <!-- 태그 영역 (+ 버튼 상호작용 방식) -->
       <div class="space-y-1">
-        <label class="text-[10px] font-medium text-chzzk-muted uppercase tracking-wider">태그</label>
-        <div id="tag-container" class="flex flex-wrap gap-1 min-h-[24px]"></div>
-        <input id="tag-input" type="text" class="chzzk-input" placeholder="태그 입력 후 Enter (최대 10개)" maxlength="20" />
+        <div class="flex items-center justify-between h-4">
+          <label class="text-xs font-bold text-slate-100 uppercase tracking-wider leading-none">태그</label>
+          <span id="tag-count-label" class="text-[10px] text-slate-400 font-medium leading-none">0/10</span>
+        </div>
+        <div id="tag-container" class="flex flex-wrap items-center gap-1 min-h-[26px]">
+          <!-- 태그 칩 목록 (동적 렌더링) -->
+          <div id="tag-chips-wrapper" class="flex flex-wrap items-center gap-1"></div>
+
+          <!-- 인라인 태그 입력 상자 (정적 DOM 유지: 한글 IME 좌표 이탈 방지) -->
+          <div id="tag-inline-box" class="items-center gap-1 bg-[#0B0F15] border border-[#00FFA3] rounded px-1.5 py-0.5 shadow-[0_0_8px_rgba(0,255,163,0.25)]" style="display:none;">
+            <span class="text-[#00FFA3] text-xs font-bold select-none leading-none">#</span>
+            <input id="tag-inline-input" type="text" class="bg-transparent text-white text-xs outline-none w-20 sm:w-24 leading-normal" placeholder="태그 입력" maxlength="20" autocomplete="off" spellcheck="false" />
+            <button type="button" onclick="confirmTagInput()" class="text-[#00FFA3] hover:text-white text-xs font-bold px-0.5 leading-none cursor-pointer" title="태그 추가 (Enter)">↵</button>
+            <button type="button" onclick="closeTagInput()" class="text-slate-400 hover:text-rose-400 text-xs font-bold px-0.5 leading-none cursor-pointer" title="입력 닫기 (Esc)">✕</button>
+          </div>
+
+          <!-- 태그 추가 열기 버튼 -->
+          <button id="btn-open-tag" type="button" onclick="openTagInput()" class="inline-flex items-center gap-1 text-[11px] font-medium text-slate-300 hover:text-[#00FFA3] bg-[#121721] hover:bg-[#161F2E] border border-dashed border-[#1E2738] hover:border-[#00FFA3]/50 px-2 py-0.5 rounded transition-all cursor-pointer select-none" title="새 태그 추가">
+            <span class="text-xs font-bold leading-none">+</span>
+            <span class="leading-none">태그 추가</span>
+          </button>
+        </div>
       </div>
 
-      <!-- 태그 아래 세부 옵션 (연령 제한, 클립, 다시보기 설정) -->
-      <div class="space-y-2 pt-2 border-t border-chzzk-border/50">
-        <!-- 연령 제한 & 클립 허용 2개 토글 -->
-        <div class="grid grid-cols-2 gap-2">
-          <div class="flex items-center justify-between p-1.5 rounded bg-chzzk-input/60 border border-chzzk-border/40">
-            <div>
-              <div class="text-[10px] font-medium text-white flex items-center gap-1">
-                <span>🔞</span> 연령 제한
-              </div>
+      <!-- 구분선 -->
+      <div class="border-t border-[#1E2738] pt-2">
+        <!-- 1번째 줄: 3열 벤토 그리드 (다시보기 설정 / 방송 옵션 / 채팅 이용 권한) -->
+        <div class="grid grid-cols-3 gap-2 items-stretch">
+          
+          <!-- 열 1: 다시보기 설정 -->
+          <div class="space-y-1 flex flex-col justify-between">
+            <div class="flex items-center justify-between h-4">
+              <label class="text-xs font-bold text-slate-100 flex items-center gap-1">
+                <span>📺</span> 다시보기
+              </label>
             </div>
-            <label class="toggle-switch">
-              <input type="checkbox" id="toggle-adult" />
-              <span class="toggle-slider"></span>
-            </label>
+            <div id="container-replay-radios" class="flex flex-col gap-1 bg-[#121721] p-1.5 rounded-lg border border-[#1E2738] flex-1 justify-between min-h-[96px]">
+              <label class="cursor-pointer select-none flex items-center justify-between px-1.5 py-1 rounded hover:bg-white/5 transition-all text-[11px] text-slate-200 font-medium" title="확인 후 수동 게시">
+                <span class="flex items-center gap-1.5">
+                  <input type="radio" name="replayPublishType" value="MANUAL" class="chzzk-radio" checked />
+                  <span>🖐️</span> <span>확인 후</span>
+                </span>
+                <span id="lock-replay-manual" class="lock-replay-disabled text-[9px] text-amber-400 font-bold ml-1" style="display:none;" title="같이보기 방송 규정으로 선택 불가">🔒</span>
+              </label>
+              <label class="cursor-pointer select-none flex items-center justify-between px-1.5 py-1 rounded hover:bg-white/5 transition-all text-[11px] text-slate-200 font-medium" title="방송 종료 시 자동 게시">
+                <span class="flex items-center gap-1.5">
+                  <input type="radio" name="replayPublishType" value="AUTO" class="chzzk-radio" />
+                  <span>🤖</span> <span>자동게시</span>
+                </span>
+                <span id="lock-replay-auto" class="lock-replay-disabled text-[9px] text-amber-400 font-bold ml-1" style="display:none;" title="같이보기 방송 규정으로 선택 불가">🔒</span>
+              </label>
+              <label class="cursor-pointer select-none flex items-center justify-between px-1.5 py-1 rounded hover:bg-white/5 transition-all text-[11px] text-slate-200 font-medium" title="다시보기 생성 안 함">
+                <span class="flex items-center gap-1.5">
+                  <input type="radio" name="replayPublishType" value="NONE" class="chzzk-radio" />
+                  <span>🚫</span> <span>생성안함</span>
+                </span>
+              </label>
+            </div>
           </div>
 
-          <div class="flex items-center justify-between p-1.5 rounded bg-chzzk-input/60 border border-chzzk-border/40">
-            <div>
-              <div class="text-[10px] font-medium text-white flex items-center gap-1">
-                <span>✂️</span> 클립 허용
-              </div>
-            </div>
-            <label class="toggle-switch">
-              <input type="checkbox" id="toggle-clip" checked />
-              <span class="toggle-slider"></span>
+          <!-- 열 2: 방송 옵션 -->
+          <div class="space-y-1 flex flex-col justify-between">
+            <label class="text-xs font-bold text-slate-100 flex items-center gap-1">
+              <span>⚙️</span> 방송 옵션
             </label>
+            <div class="flex flex-col gap-1 bg-[#121721] p-1.5 rounded-lg border border-[#1E2738] flex-1 justify-between min-h-[96px]">
+              <!-- 연령 제한 -->
+              <label for="toggle-adult" class="cursor-pointer select-none flex items-center justify-between px-2 py-1 rounded bg-[#0B0F15] border border-[#1E2738]/80 hover:border-[#2A374E] transition-all text-[11px] text-slate-200 font-medium" title="연령 제한 (성인 방송)">
+                <span class="flex items-center gap-1.5">
+                  <span>🔞</span> <span>연령제한</span>
+                </span>
+                <input type="checkbox" id="toggle-adult" class="chzzk-checkbox-input" />
+              </label>
+
+              <!-- 클립 허용 -->
+              <label id="label-clip" for="toggle-clip" class="cursor-pointer select-none flex items-center justify-between px-2 py-1 rounded bg-[#0B0F15] border border-[#1E2738]/80 hover:border-[#2A374E] transition-all text-[11px] text-slate-200 font-medium" title="시청자 클립 생성 허용">
+                <span class="flex items-center gap-1.5">
+                  <span>✂️</span> <span>클립허용</span>
+                  <span id="lock-clip" class="text-[9px] text-amber-400 font-bold ml-1" style="display:none;" title="같이보기 규정으로 고정됨">🔒</span>
+                </span>
+                <input type="checkbox" id="toggle-clip" class="chzzk-checkbox-input" checked />
+              </label>
+
+              <!-- 해외 시청 -->
+              <label id="label-overseas" for="toggle-overseas" class="cursor-pointer select-none flex items-center justify-between px-2 py-1 rounded bg-[#0B0F15] border border-[#1E2738]/80 hover:border-[#2A374E] transition-all text-[11px] text-slate-200 font-medium" title="해외 시청 허용 (체크 시 해외 시청 가능, 해제 시 한국 시청자만 시청 가능 - krOnlyViewing)">
+                <span class="flex items-center gap-1.5">
+                  <span>🌐</span> <span>해외시청</span>
+                  <span id="lock-overseas" class="text-[9px] text-amber-400 font-bold ml-1" style="display:none;" title="같이보기 규정으로 고정됨">🔒</span>
+                </span>
+                <input type="checkbox" id="toggle-overseas" class="chzzk-checkbox-input" checked />
+              </label>
+            </div>
           </div>
+
+          <!-- 열 3: 채팅 이용 권한 -->
+          <div class="space-y-1 flex flex-col justify-between">
+            <label class="text-xs font-bold text-slate-100 flex items-center gap-1">
+              <span>💬</span> 채팅 권한
+            </label>
+            <div class="flex flex-col gap-1 bg-[#121721] p-1.5 rounded-lg border border-[#1E2738] flex-1 justify-between min-h-[96px]">
+              <label class="cursor-pointer select-none flex items-center gap-1.5 px-2 py-1 rounded hover:bg-white/5 transition-all text-[11px] text-slate-200 font-medium">
+                <input type="radio" name="chatAvailableGroup" value="ALL" class="chzzk-radio" checked onchange="onChatGroupChange('ALL')" />
+                <span>모두</span>
+              </label>
+              <label class="cursor-pointer select-none flex items-center gap-1.5 px-2 py-1 rounded hover:bg-white/5 transition-all text-[11px] text-slate-200 font-medium">
+                <input type="radio" name="chatAvailableGroup" value="FOLLOWER" class="chzzk-radio" onchange="onChatGroupChange('FOLLOWER')" />
+                <span>팔로워</span>
+              </label>
+              <label class="cursor-pointer select-none flex items-center gap-1.5 px-2 py-1 rounded hover:bg-white/5 transition-all text-[11px] text-slate-200 font-medium">
+                <input type="radio" name="chatAvailableGroup" value="MANAGER" class="chzzk-radio" onchange="onChatGroupChange('MANAGER')" />
+                <span>운영자</span>
+              </label>
+            </div>
+          </div>
+
         </div>
+      </div>
 
-        <!-- 다시보기 설정 -->
-        <div class="space-y-1 pt-0.5">
-          <label class="text-[10px] font-medium text-chzzk-muted uppercase tracking-wider flex items-center gap-1">
-            <span>📺</span> 다시보기 설정
+      <!-- 팔로우 세부 설정 (팔로워 권한 선택 시 노출) -->
+      <div id="follower-options" class="mt-2 pt-2 border-t border-[#1E2738] flex items-center justify-between gap-2" style="display:none;">
+        <div class="flex items-center gap-1.5 flex-1 min-w-0">
+          <label class="text-[11px] text-slate-300 font-medium whitespace-nowrap flex items-center gap-1">
+            <span>🔒</span> 팔로우 시간
           </label>
-          <div class="grid grid-cols-3 gap-1 bg-[#0B0E11] p-1 rounded-md border border-chzzk-border/60 text-[10px]">
-            <label class="cursor-pointer select-none">
-              <input type="radio" name="replayPublishType" value="MANUAL" class="hidden peer" checked />
-              <div class="py-1.5 px-0.5 rounded text-center text-[9.5px] text-chzzk-muted border border-transparent transition-all flex items-center justify-center gap-0.5 hover:bg-white/5 peer-checked:bg-purple-500/20 peer-checked:border-purple-500/60 peer-checked:text-purple-300 peer-checked:font-bold peer-checked:shadow-[0_0_8px_rgba(192,132,252,0.2)]">
-                <span>🖐️</span> <span>확인 후 게시</span>
-              </div>
-            </label>
-            <label class="cursor-pointer select-none">
-              <input type="radio" name="replayPublishType" value="AUTO" class="hidden peer" />
-              <div class="py-1.5 px-0.5 rounded text-center text-[9.5px] text-chzzk-muted border border-transparent transition-all flex items-center justify-center gap-0.5 hover:bg-white/5 peer-checked:bg-emerald-500/20 peer-checked:border-emerald-500/60 peer-checked:text-[#00FFA3] peer-checked:font-bold peer-checked:shadow-[0_0_8px_rgba(0,255,163,0.2)]">
-                <span>🤖</span> <span>자동 게시</span>
-              </div>
-            </label>
-            <label class="cursor-pointer select-none">
-              <input type="radio" name="replayPublishType" value="NONE" class="hidden peer" />
-              <div class="py-1.5 px-0.5 rounded text-center text-[9.5px] text-chzzk-muted border border-transparent transition-all flex items-center justify-center gap-0.5 hover:bg-white/5 peer-checked:bg-rose-500/20 peer-checked:border-rose-500/60 peer-checked:text-[#FF4D6A] peer-checked:font-bold peer-checked:shadow-[0_0_8px_rgba(255,77,106,0.2)]">
-                <span>🚫</span> <span>다시 보기 없음</span>
-              </div>
-            </label>
-          </div>
+          <select id="min-follower-minute" class="chzzk-select text-[11px] py-1 px-2 flex-1">
+            <option value="0">제한 없음</option>
+            <option value="5">5분 이상</option>
+            <option value="10">10분 이상</option>
+            <option value="30">30분 이상</option>
+            <option value="60">1시간 이상</option>
+          </select>
         </div>
+        <label for="toggle-sub-exception" class="flex items-center gap-1.5 cursor-pointer select-none pl-2.5 border-l border-[#1E2738] flex-shrink-0" title="구독자는 팔로우 시간 제한 무관하게 채팅 가능">
+          <span class="text-[11px] text-slate-200 font-medium whitespace-nowrap">구독자 예외</span>
+          <input type="checkbox" id="toggle-sub-exception" class="chzzk-checkbox-input" checked />
+        </label>
+        <div id="follower-options-placeholder" style="display:none;"></div>
       </div>
+
     </div>
 
-    <!-- ===== 2. 채팅 & 후원 제어 카드 (채팅 + 후원 결합) ===== -->
-    <div id="card-chat-donation" class="section-card shadow-xl border border-chzzk-border/80 animate-slide-up" style="animation-delay: 0.08s">
-      <div class="grid grid-cols-2 gap-2">
-        <!-- 좌측: 채팅 설정 -->
-        <div class="p-2 rounded-lg bg-chzzk-input/40 border border-chzzk-border/40 flex flex-col gap-2">
-          <div>
-            <div class="text-[10px] font-bold text-chzzk-text pb-1 flex items-center gap-1">
-              <span>💬</span> 채팅 이용 권한
-            </div>
-            <div class="grid grid-cols-3 gap-1 bg-[#0B0E11] p-1 rounded-md border border-chzzk-border/60 text-[10px]">
-              <label class="cursor-pointer select-none">
-                <input type="radio" name="chatAvailableGroup" value="ALL" class="hidden peer" checked onchange="onChatGroupChange('ALL')" />
-                <div class="py-1 px-0.5 rounded text-center text-[9px] text-chzzk-muted border border-transparent transition-all flex items-center justify-center hover:bg-white/5 peer-checked:bg-blue-500/20 peer-checked:border-blue-500/60 peer-checked:text-blue-300 peer-checked:font-bold peer-checked:shadow-[0_0_8px_rgba(96,165,250,0.2)]">
-                  모두
-                </div>
-              </label>
-              <label class="cursor-pointer select-none">
-                <input type="radio" name="chatAvailableGroup" value="FOLLOWER" class="hidden peer" onchange="onChatGroupChange('FOLLOWER')" />
-                <div class="py-1 px-0.5 rounded text-center text-[9px] text-chzzk-muted border border-transparent transition-all flex items-center justify-center hover:bg-white/5 peer-checked:bg-blue-500/20 peer-checked:border-blue-500/60 peer-checked:text-blue-300 peer-checked:font-bold peer-checked:shadow-[0_0_8px_rgba(96,165,250,0.2)]">
-                  팔로워
-                </div>
-              </label>
-              <label class="cursor-pointer select-none">
-                <input type="radio" name="chatAvailableGroup" value="MANAGER" class="hidden peer" onchange="onChatGroupChange('MANAGER')" />
-                <div class="py-1 px-0.5 rounded text-center text-[9px] text-chzzk-muted border border-transparent transition-all flex items-center justify-center hover:bg-white/5 peer-checked:bg-blue-500/20 peer-checked:border-blue-500/60 peer-checked:text-blue-300 peer-checked:font-bold peer-checked:shadow-[0_0_8px_rgba(96,165,250,0.2)]">
-                  운영자
-                </div>
-              </label>
-            </div>
-          </div>
-
-          <!-- 팔로워 옵션 -->
-          <div id="follower-options" class="space-y-1.5 p-1.5 rounded bg-[#0B0E11] border border-chzzk-border/40" style="display:none;">
-            <div class="flex items-center justify-between">
-              <label class="text-[9px] text-chzzk-muted">최소 팔로우</label>
-              <select id="min-follower-minute" class="chzzk-select text-[9px] py-0.5 px-1 w-20">
-                <option value="0">제한 없음</option>
-                <option value="5">5분 이상</option>
-                <option value="10">10분 이상</option>
-                <option value="30">30분 이상</option>
-                <option value="60">1시간 이상</option>
-              </select>
-            </div>
-            <div class="flex items-center justify-between pt-0.5">
-              <span class="text-[9px] text-chzzk-text">구독자 예외</span>
-              <label class="toggle-switch">
-                <input type="checkbox" id="toggle-sub-exception" checked />
-                <span class="toggle-slider"></span>
-              </label>
-            </div>
-          </div>
-        </div>
-
-        <!-- 우측: 후원 설정 -->
-        <div class="p-2 rounded-lg bg-chzzk-input/40 border border-chzzk-border/40 flex flex-col gap-1.5">
-          <div class="text-[10px] font-bold text-chzzk-text pb-0.5 flex items-center justify-between border-b border-chzzk-border/40">
-            <span class="flex items-center gap-1"><span>⭐</span> 후원 설정</span>
-            <span class="text-[8.5px] text-[#00FFA3] font-normal">즉시 반영</span>
-          </div>
-
-          <!-- 치즈 채팅 후원 -->
-          <div class="flex items-center justify-between py-0.5">
-            <div>
-              <div class="text-[10px] font-medium text-white flex items-center gap-1">
-                <span>💬</span> 치즈 채팅 후원
-              </div>
-            </div>
-            <label class="toggle-switch">
-              <input type="checkbox" id="toggle-chat-donation" onchange="updateDonationSetting('CHAT')" />
-              <span class="toggle-slider"></span>
-            </label>
-          </div>
-
-          <!-- 영상 후원 -->
-          <div class="flex items-center justify-between py-0.5">
-            <div>
-              <div class="text-[10px] font-medium text-white flex items-center gap-1">
-                <span>🎬</span> 영도(영상) 후원
-              </div>
-            </div>
-            <label class="toggle-switch">
-              <input type="checkbox" id="toggle-video-donation" onchange="updateDonationSetting('VIDEO')" />
-              <span class="toggle-slider"></span>
-            </label>
-          </div>
-
-          <!-- 미션 후원 -->
-          <div class="flex items-center justify-between py-0.5">
-            <div>
-              <div class="text-[10px] font-medium text-white flex items-center gap-1">
-                <span>🎯</span> 미션 후원
-              </div>
-            </div>
-            <label class="toggle-switch">
-              <input type="checkbox" id="toggle-mission-donation" onchange="updateDonationSetting('MISSION')" />
-              <span class="toggle-slider"></span>
-            </label>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ===== Save & Refresh Actions ===== -->
-    <div class="animate-slide-up space-y-1.5" style="animation-delay: 0.1s">
-      <button id="btn-save" class="save-btn" onclick="saveAll()">
+    <!-- ===== Load & Save Action & Revert (UI 하단 종료점) ===== -->
+    <div class="flex items-center gap-1.5 animate-slide-up pt-1 pb-0" style="animation-delay: 0.1s">
+      <button id="btn-load-settings" onclick="loadCurrentSettings()" class="px-2.5 py-2.5 rounded-lg bg-[#161F2E] border border-[#1E2738] hover:border-[#00FFA3]/50 text-slate-300 hover:text-[#00FFA3] transition-all text-xs font-medium flex items-center justify-center gap-1 cursor-pointer flex-shrink-0" title="치지직 현재 방송 설정 다시 불러오기">
+        <svg id="load-spinner" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+        <span>불러오기</span>
+      </button>
+      <button id="btn-save" class="save-btn flex-1 !w-auto py-2.5 text-xs font-bold" onclick="saveAll()">
         <span id="save-text">설정 저장</span>
+        <span id="save-dirty-badge" class="ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-extrabold bg-[#080A0D] text-[#00FFA3] shadow-sm animate-pulse" style="display:none;">● 변경됨</span>
         <svg id="save-spinner" class="animate-spin ml-1.5 inline-block" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="display:none;"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round"/></svg>
       </button>
+      <button id="btn-revert" onclick="revertBroadcastState()" class="px-2.5 py-2.5 rounded-lg bg-[#161F2E] border border-[#1E2738] hover:border-slate-500 text-slate-400 hover:text-white transition-all text-xs font-medium flex items-center justify-center gap-1 cursor-pointer disabled:opacity-30 disabled:pointer-events-none flex-shrink-0" title="수정 중인 설정을 기존 저장 상태로 되돌리기" disabled>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+        <span>되돌리기</span>
+      </button>
+    </div>
+  </div>
 
-      <button onclick="loadCurrentSettings()" class="w-full text-center text-[10px] text-chzzk-muted hover:text-chzzk-text transition-colors py-0.5">
-        🔄 현재 설정 불러오기
+  <!-- ===== URLS & STREAM KEY & REVENUE PANEL ===== -->
+  <div id="urls-panel" class="settings-panel px-2.5 py-3">
+    <!-- Panel Header -->
+    <div class="flex items-center justify-between mb-2 border-b border-chzzk-border pb-2">
+      <div class="flex items-center gap-1.5">
+        <span class="text-base">🔗</span>
+        <span class="text-xs font-bold text-white">알림 URL & 방송 정보</span>
+      </div>
+      <div class="flex items-center gap-1">
+        <button onclick="fetchStreamingInfoAndRevenue()" class="w-6 h-6 rounded-md bg-chzzk-card border border-chzzk-border flex items-center justify-center text-slate-300 hover:text-[#00FFA3] transition-colors" title="새로고침">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+        </button>
+        <button onclick="toggleUrlsPanel()" class="w-6 h-6 rounded-md bg-chzzk-card border border-chzzk-border flex items-center justify-center hover:border-chzzk-muted transition-colors">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5A6577" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs: [🔗 알림 URL & 스트림키] vs [💰 후원 수익 요약] -->
+    <div class="flex items-center gap-1 mb-2.5 p-0.5 bg-[#0B0F15] rounded-lg border border-[#1E2738]">
+      <button id="tab-btn-urls" onclick="switchUrlTab('urls')" class="flex-1 py-1 text-[11px] font-bold rounded text-[#00FFA3] bg-[#161F2E] border border-[#00FFA3]/30 transition-all flex items-center justify-center gap-1">
+        <span>🔗</span> 알림 URL & 스트림키
+      </button>
+      <button id="tab-btn-revenue" onclick="switchUrlTab('revenue')" class="flex-1 py-1 text-[11px] font-medium rounded text-slate-400 hover:text-slate-200 transition-all flex items-center justify-center gap-1">
+        <span>💰</span> 후원 수익 요약
+      </button>
+    </div>
+
+    <!-- Tab 1: 알림 URL & 스트림키 -->
+    <div id="tab-content-urls" class="space-y-2">
+      <!-- 안내 문구 -->
+      <div class="px-2 py-1 rounded bg-[#101620] border border-[#1E2738] text-[10px] text-slate-400 leading-snug">
+        OBS 소스에 추가할 URL입니다. 방송 노출 방지를 위해 <span class="text-[#00FFA3]">기본 마스킹</span>되어 있습니다.
+      </div>
+
+      <!-- 스트림키 카드 -->
+      <div class="section-card space-y-1 p-2">
+        <div class="flex items-center justify-between">
+          <span class="text-[11px] font-bold text-amber-300 flex items-center gap-1">
+            <span>🔑</span> 방송 송출 스트림키
+          </span>
+          <span class="text-[9px] text-slate-400">OBS 설정 ➡️ 방송</span>
+        </div>
+        <div class="flex items-center gap-1">
+          <input type="password" id="field-stream-key" readonly class="chzzk-input text-[10px] py-1 px-2 font-mono flex-1 bg-[#090D13] select-all" placeholder="불러오는 중..." />
+          <button onclick="toggleFieldMask('field-stream-key', this)" class="px-1.5 py-0.5 bg-[#161F2E] border border-[#1E2738] hover:border-[#2A374E] rounded text-slate-300 text-xs" title="보기/숨기기">👁️</button>
+          <button onclick="copyFieldValue('field-stream-key', '스트림키')" class="px-2 py-0.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-black font-bold text-[10px] rounded whitespace-nowrap" title="복사">복사</button>
+        </div>
+      </div>
+
+      <!-- 채팅창 URL 카드 -->
+      <div class="section-card space-y-1 p-2">
+        <div class="flex items-center justify-between">
+          <span class="text-[11px] font-bold text-slate-200 flex items-center gap-1">
+            <span>💬</span> 채팅창 URL (520px 권장)
+          </span>
+        </div>
+        <div class="flex items-center gap-1">
+          <input type="password" id="field-chat-url" readonly class="chzzk-input text-[10px] py-1 px-2 font-mono flex-1 bg-[#090D13] select-all" placeholder="불러오는 중..." />
+          <button onclick="toggleFieldMask('field-chat-url', this)" class="px-1.5 py-0.5 bg-[#161F2E] border border-[#1E2738] hover:border-[#2A374E] rounded text-slate-300 text-xs" title="보기/숨기기">👁️</button>
+          <button onclick="copyFieldValue('field-chat-url', '채팅창 URL')" class="px-2 py-0.5 bg-[#161F2E] border border-[#1E2738] hover:border-slate-400 rounded text-slate-200 text-[10px] font-medium" title="복사">복사</button>
+          <button onclick="openUrlField('field-chat-url')" class="px-1.5 py-0.5 bg-[#161F2E] border border-[#1E2738] hover:border-[#00FFA3] rounded text-[#00FFA3] text-[10px] font-medium" title="브라우저에서 열기">열기</button>
+        </div>
+      </div>
+
+      <!-- 후원 알림 URL 그룹 카드 -->
+      <div class="section-card space-y-1.5 p-2">
+        <div class="text-[11px] font-bold text-slate-200 flex items-center gap-1 border-b border-[#1E2738] pb-1">
+          <span>🔔</span> 후원 & 참여 알림 URL (브라우저 소스)
+        </div>
+
+        <!-- 1) 채팅 후원/구독 알림 -->
+        <div class="space-y-0.5">
+          <div class="text-[10px] text-slate-300 font-medium">💬 채팅 후원 / 구독 알림</div>
+          <div class="flex items-center gap-1">
+            <input type="password" id="field-alert-donation" readonly class="chzzk-input text-[10px] py-0.5 px-2 font-mono flex-1 bg-[#090D13] select-all" />
+            <button onclick="toggleFieldMask('field-alert-donation', this)" class="px-1.5 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-300 text-[10px]">👁️</button>
+            <button onclick="copyFieldValue('field-alert-donation', '채팅 후원 알림 URL')" class="px-2 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-200 text-[10px]">복사</button>
+            <button onclick="openUrlField('field-alert-donation')" class="px-1.5 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-[#00FFA3] text-[10px]">열기</button>
+          </div>
+        </div>
+
+        <!-- 2) 영상 후원 알림 -->
+        <div class="space-y-0.5">
+          <div class="text-[10px] text-slate-300 font-medium">🎬 영상 후원 알림</div>
+          <div class="flex items-center gap-1">
+            <input type="password" id="field-alert-video" readonly class="chzzk-input text-[10px] py-0.5 px-2 font-mono flex-1 bg-[#090D13] select-all" />
+            <button onclick="toggleFieldMask('field-alert-video', this)" class="px-1.5 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-300 text-[10px]">👁️</button>
+            <button onclick="copyFieldValue('field-alert-video', '영상 후원 알림 URL')" class="px-2 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-200 text-[10px]">복사</button>
+            <button onclick="openUrlField('field-alert-video')" class="px-1.5 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-[#00FFA3] text-[10px]">열기</button>
+          </div>
+        </div>
+
+        <!-- 3) 미션 후원 알림 -->
+        <div class="space-y-0.5">
+          <div class="text-[10px] text-slate-300 font-medium">🎯 미션 후원 알림</div>
+          <div class="flex items-center gap-1">
+            <input type="password" id="field-alert-mission" readonly class="chzzk-input text-[10px] py-0.5 px-2 font-mono flex-1 bg-[#090D13] select-all" />
+            <button onclick="toggleFieldMask('field-alert-mission', this)" class="px-1.5 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-300 text-[10px]">👁️</button>
+            <button onclick="copyFieldValue('field-alert-mission', '미션 후원 알림 URL')" class="px-2 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-200 text-[10px]">복사</button>
+            <button onclick="openUrlField('field-alert-mission')" class="px-1.5 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-[#00FFA3] text-[10px]">열기</button>
+          </div>
+        </div>
+
+        <!-- 4) 파티 누적 후원금 안내 -->
+        <div class="space-y-0.5">
+          <div class="text-[10px] text-slate-300 font-medium">🏆 파티 누적 후원금 안내</div>
+          <div class="flex items-center gap-1">
+            <input type="password" id="field-alert-party-amount" readonly class="chzzk-input text-[10px] py-0.5 px-2 font-mono flex-1 bg-[#090D13] select-all" />
+            <button onclick="toggleFieldMask('field-alert-party-amount', this)" class="px-1.5 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-300 text-[10px]">👁️</button>
+            <button onclick="copyFieldValue('field-alert-party-amount', '파티 누적 후원금 URL')" class="px-2 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-200 text-[10px]">복사</button>
+            <button onclick="openUrlField('field-alert-party-amount')" class="px-1.5 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-[#00FFA3] text-[10px]">열기</button>
+          </div>
+        </div>
+
+        <!-- 5) 파티 후원 실시간 티커 -->
+        <div class="space-y-0.5">
+          <div class="text-[10px] text-slate-300 font-medium">📊 파티 후원 실시간 티커</div>
+          <div class="flex items-center gap-1">
+            <input type="password" id="field-alert-party-ticker" readonly class="chzzk-input text-[10px] py-0.5 px-2 font-mono flex-1 bg-[#090D13] select-all" />
+            <button onclick="toggleFieldMask('field-alert-party-ticker', this)" class="px-1.5 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-300 text-[10px]">👁️</button>
+            <button onclick="copyFieldValue('field-alert-party-ticker', '파티 후원 티커 URL')" class="px-2 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-200 text-[10px]">복사</button>
+            <button onclick="openUrlField('field-alert-party-ticker')" class="px-1.5 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-[#00FFA3] text-[10px]">열기</button>
+          </div>
+        </div>
+
+        <!-- 6) 구독 선물 효과 -->
+        <div class="space-y-0.5">
+          <div class="text-[10px] text-slate-300 font-medium">🎁 구독 선물 효과</div>
+          <div class="flex items-center gap-1">
+            <input type="password" id="field-alert-gift" readonly class="chzzk-input text-[10px] py-0.5 px-2 font-mono flex-1 bg-[#090D13] select-all" />
+            <button onclick="toggleFieldMask('field-alert-gift', this)" class="px-1.5 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-300 text-[10px]">👁️</button>
+            <button onclick="copyFieldValue('field-alert-gift', '구독 선물 효과 URL')" class="px-2 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-200 text-[10px]">복사</button>
+            <button onclick="openUrlField('field-alert-gift')" class="px-1.5 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-[#00FFA3] text-[10px]">열기</button>
+          </div>
+        </div>
+
+        <!-- 7) 상품 구매 알림 -->
+        <div class="space-y-0.5">
+          <div class="text-[10px] text-slate-300 font-medium">🛍️ 상품 구매 알림</div>
+          <div class="flex items-center gap-1">
+            <input type="password" id="field-alert-shop" readonly class="chzzk-input text-[10px] py-0.5 px-2 font-mono flex-1 bg-[#090D13] select-all" />
+            <button onclick="toggleFieldMask('field-alert-shop', this)" class="px-1.5 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-300 text-[10px]">👁️</button>
+            <button onclick="copyFieldValue('field-alert-shop', '상품 구매 알림 URL')" class="px-2 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-200 text-[10px]">복사</button>
+            <button onclick="openUrlField('field-alert-shop')" class="px-1.5 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-[#00FFA3] text-[10px]">열기</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Tab 2: 후원 수익 요약 -->
+    <div id="tab-content-revenue" class="space-y-2" style="display:none;">
+      <!-- 월 선택기 & 조회 -->
+      <div class="flex items-center justify-between bg-[#101620] p-1.5 rounded-lg border border-[#1E2738]">
+        <button onclick="changeRevenueMonth(-1)" class="px-2 py-1 rounded bg-[#161F2E] hover:bg-[#1E2738] text-[11px] font-bold text-slate-300">◀ 이전 달</button>
+        <div class="text-[11px] font-bold text-white flex items-center gap-1.5">
+          <span id="revenue-month-display">2026년 9월</span>
+          <span id="revenue-loading-spinner" class="animate-spin inline-block text-[#00FFA3]" style="display:none;">⏳</span>
+        </div>
+        <button onclick="changeRevenueMonth(1)" class="px-2 py-1 rounded bg-[#161F2E] hover:bg-[#1E2738] text-[11px] font-bold text-slate-300">다음 달 ▶</button>
+      </div>
+
+      <!-- 프라이버시 보호 안내 -->
+      <div class="flex items-center justify-between px-2 py-1 bg-[#0B0F15] rounded border border-[#1E2738] text-[10px] text-slate-400">
+        <span>방송 노출 방지: <span class="text-amber-400">프라이버시 모드</span></span>
+        <button onclick="toggleRevenuePrivacy()" id="btn-toggle-privacy" class="px-1.5 py-0.5 rounded bg-[#161F2E] text-slate-300 hover:text-white font-medium">👁️ 금액 표시</button>
+      </div>
+
+      <!-- 2열 레이아웃: 좌측(총 후원액 + 정산 예정액) / 우측(후원 건수, 정산 상태, 정산 입금일) -->
+      <div class="grid grid-cols-2 gap-2 items-stretch">
+        <!-- 좌측 열: 총 후원액 아래에 정산 예정액 -->
+        <div class="flex flex-col gap-1.5 justify-between">
+          <!-- 총 후원액 -->
+          <div class="section-card p-2 space-y-0.5 flex-1 flex flex-col justify-center">
+            <div class="text-[10px] text-slate-400 font-medium flex items-center gap-1">
+              <span>🧀</span> 총 후원액 (치즈)
+            </div>
+            <div id="revenue-total-amount" class="text-sm font-bold text-amber-300 font-mono filter blur-[5px] select-none transition-all">
+              ₩ ••••••
+            </div>
+          </div>
+
+          <!-- 정산 예정액 -->
+          <div class="section-card p-2 space-y-0.5 flex-1 flex flex-col justify-center">
+            <div class="text-[10px] text-slate-400 font-medium flex items-center gap-1">
+              <span>💵</span> 정산 예정액
+            </div>
+            <div id="revenue-settlement-amount" class="text-sm font-bold text-[#00FFA3] font-mono filter blur-[5px] select-none transition-all">
+              ₩ ••••••
+            </div>
+          </div>
+        </div>
+
+        <!-- 우측 열: 후원 건수 및 정산 상태 카드 -->
+        <div class="section-card p-2.5 flex flex-col justify-between space-y-1.5">
+          <div class="flex items-center justify-between text-[11px]">
+            <span class="text-slate-400 text-[10px]">후원 건수</span>
+            <span id="revenue-donation-count" class="font-bold text-slate-200 font-mono text-[11px]">0건</span>
+          </div>
+          <div class="flex items-center justify-between text-[11px] pt-1.5 border-t border-[#1E2738]">
+            <span class="text-slate-400 text-[10px]">정산 상태</span>
+            <span id="revenue-settlement-status" class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#161F2E] text-slate-300">미정산</span>
+          </div>
+          <div class="flex items-center justify-between text-[11px] pt-1.5 border-t border-[#1E2738]">
+            <span class="text-slate-400 text-[10px]">정산 입금일</span>
+            <span id="revenue-paid-date" class="font-mono text-slate-300 text-[10px]">-</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="text-[9px] text-slate-500 leading-relaxed px-1">
+        * 특정 달만 선별 조회하여 트래픽을 최소화합니다. 치지직 정책 및 계약 유형(프로/파트너)에 따라 정산액 및 상세 내역이 상이할 수 있습니다.
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ===== DONATIONS & CHAT SETTINGS PANEL (후원/채팅 슬라이딩 패널) ===== -->
+  <div id="donations-panel" class="settings-panel px-2.5 py-3">
+    <!-- Panel Header -->
+    <div class="flex items-center justify-between mb-2.5 border-b border-chzzk-border pb-2">
+      <div class="flex items-center gap-1.5 min-w-0">
+        <span class="text-base">💬</span>
+        <span class="text-xs font-bold text-white truncate">후원 & 채팅 제어</span>
+        <span class="text-[9px] bg-[#00FFA3]/15 text-[#00FFA3] border border-[#00FFA3]/40 px-1.5 py-0.5 rounded-full font-bold flex items-center gap-1 flex-shrink-0">
+          <span class="w-1.5 h-1.5 rounded-full bg-[#00FFA3] shadow-[0_0_6px_rgba(0,255,163,0.8)] animate-pulse"></span>
+          즉시 적용
+        </span>
+      </div>
+      <div class="flex items-center gap-1 flex-shrink-0">
+        <button id="btn-refresh-donations" onclick="fetchDonationsAndChatMode(false)" class="w-6 h-6 rounded-md bg-chzzk-card border border-chzzk-border flex items-center justify-center text-slate-300 hover:text-[#00FFA3] transition-colors" title="후원 및 실시간 채팅 설정 다시 불러오기">
+          <svg id="donations-refresh-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+        </button>
+        <button onclick="toggleDonationsPanel()" class="w-6 h-6 rounded-md bg-chzzk-card border border-chzzk-border flex items-center justify-center hover:border-chzzk-muted transition-colors flex-shrink-0">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5A6577" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Panel Content -->
+    <div class="space-y-2.5">
+      <!-- 1. 후원 활성화 카드 -->
+      <div class="p-2.5 rounded-lg bg-[#0F141C] border border-[#1E2738] space-y-2">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold text-[#00FFA3] flex items-center gap-1">
+            <span>⭐</span> 후원 활성화
+          </span>
+        </div>
+        <div class="space-y-1.5 pt-0.5">
+          <!-- 치즈 후원 -->
+          <label for="toggle-chat-donation" class="flex items-center justify-between px-2.5 py-2 rounded-md bg-[#161F2E] border border-[#1E2738] hover:border-[#00FFA3]/40 cursor-pointer select-none transition-all">
+            <span class="flex items-center gap-2 text-xs font-medium text-slate-200">
+              <span>💬</span> <span>치즈 후원</span>
+            </span>
+            <input type="checkbox" id="toggle-chat-donation" class="chzzk-checkbox-input" onchange="updateDonationSetting('CHAT')" />
+          </label>
+
+          <!-- 영상 후원 -->
+          <label for="toggle-video-donation" class="flex items-center justify-between px-2.5 py-2 rounded-md bg-[#161F2E] border border-[#1E2738] hover:border-[#00FFA3]/40 cursor-pointer select-none transition-all">
+            <span class="flex items-center gap-2 text-xs font-medium text-slate-200">
+              <span>🎬</span> <span>영상(영도) 후원</span>
+            </span>
+            <input type="checkbox" id="toggle-video-donation" class="chzzk-checkbox-input" onchange="updateDonationSetting('VIDEO')" />
+          </label>
+
+          <!-- 미션 후원 -->
+          <label for="toggle-mission-donation" class="flex items-center justify-between px-2.5 py-2 rounded-md bg-[#161F2E] border border-[#1E2738] hover:border-[#00FFA3]/40 cursor-pointer select-none transition-all">
+            <span class="flex items-center gap-2 text-xs font-medium text-slate-200">
+              <span>🎯</span> <span>미션 후원</span>
+            </span>
+            <input type="checkbox" id="toggle-mission-donation" class="chzzk-checkbox-input" onchange="updateDonationSetting('MISSION')" />
+          </label>
+        </div>
+      </div>
+
+      <!-- 2. 실시간 채팅 모드 카드 -->
+      <div class="p-2.5 rounded-lg bg-[#0F141C] border border-[#1E2738] space-y-2">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold text-slate-200 flex items-center gap-1">
+            <span>💬</span> 실시간 채팅 모드
+          </span>
+        </div>
+        <div class="space-y-1.5 pt-0.5">
+          <!-- 이모티콘 전용 모드 -->
+          <label for="toggle-emoji-mode" class="flex items-center justify-between px-2.5 py-2 rounded-md bg-[#161F2E] border border-[#1E2738] hover:border-[#00FFA3]/40 cursor-pointer select-none transition-all">
+            <span class="flex items-center gap-2 text-xs font-medium text-slate-200">
+              <span>😀</span> <span>이모티콘 전용 모드</span>
+            </span>
+            <input type="checkbox" id="toggle-emoji-mode" class="chzzk-checkbox-input" onchange="updateChatEmojiMode(this.checked)" />
+          </label>
+
+          <!-- 저속 모드 -->
+          <div class="px-2.5 py-2 rounded-md bg-[#161F2E] border border-[#1E2738] space-y-1.5">
+            <div class="flex items-center justify-between">
+              <span class="flex items-center gap-2 text-xs font-medium text-slate-200">
+                <span>⏱️</span> <span>저속 모드</span>
+              </span>
+              <span id="slow-mode-status" class="text-[10px] text-slate-400 font-mono font-semibold">OFF</span>
+            </div>
+            <select id="select-slow-mode" class="chzzk-select text-xs py-1.5 px-2 bg-[#0B0F15] border-[#1E2738] w-full" onchange="updateChatSlowMode(Number(this.value))">
+              <option value="0">끄기 (일반 속도)</option>
+              <option value="3">3초 간격</option>
+              <option value="5">5초 간격</option>
+              <option value="10">10초 간격</option>
+              <option value="30">30초 간격</option>
+              <option value="60">1분 간격</option>
+              <option value="120">2분 간격</option>
+              <option value="300">5분 간격</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. 불러오기 버튼 (명시적 액션 버튼) -->
+      <button type="button" onclick="fetchDonationsAndChatMode(false)" class="w-full py-2 px-3 rounded-lg bg-[#161F2E] border border-[#1E2738] hover:border-[#00FFA3]/50 text-slate-300 hover:text-[#00FFA3] transition-all text-xs font-medium flex items-center justify-center gap-1.5 cursor-pointer" title="치지직 서버에서 최신 후원 및 실시간 채팅 설정을 다시 불러옵니다">
+        <svg id="donations-bottom-refresh-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+        <span>후원 / 실시간 채팅 설정 불러오기</span>
       </button>
     </div>
   </div>
@@ -387,23 +876,47 @@
   <div id="settings-panel" class="settings-panel px-2.5 py-3">
     <div class="flex items-center justify-between mb-2.5 border-b border-chzzk-border pb-2">
       <div class="flex items-center gap-1.5">
-        <span class="text-base">🍪</span>
-        <span class="text-xs font-bold text-white">치지직 로그인 설정</span>
+        <span class="text-base">⚙️</span>
+        <span class="text-xs font-bold text-white">독 환경 및 로그인 설정</span>
       </div>
       <button onclick="toggleSettings()" class="w-6 h-6 rounded-md bg-chzzk-card border border-chzzk-border flex items-center justify-center hover:border-chzzk-muted transition-colors">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5A6577" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
 
-    <!-- Cookie Login Section -->
+    <!-- Settings Sections -->
     <div class="space-y-2.5">
+      <!-- 화면 배율 및 폰트 크기 조절 카드 (3단계) -->
+      <div class="section-card space-y-2">
+        <div class="flex items-center justify-between">
+          <div class="text-[11px] font-semibold text-white/90 flex items-center gap-1">
+            <span>🔤</span> <span>독 화면 및 폰트 크기</span>
+          </div>
+          <span id="font-scale-current-label" class="text-[10px] text-[#00FFA3] font-bold font-mono">120% (크게)</span>
+        </div>
+        <div class="grid grid-cols-3 gap-1 p-0.5 bg-[#0B0F15] rounded-lg border border-[#1E2738]">
+          <button id="btn-scale-100" onclick="setFontScale(1.0)" class="py-1 text-[11px] font-medium rounded text-slate-400 hover:text-slate-200 transition-all text-center">
+            보통 (100%)
+          </button>
+          <button id="btn-scale-120" onclick="setFontScale(1.2)" class="py-1 text-[11px] font-bold rounded text-[#00FFA3] bg-[#161F2E] border border-[#00FFA3]/40 transition-all text-center">
+            크게 (120%)
+          </button>
+          <button id="btn-scale-135" onclick="setFontScale(1.35)" class="py-1 text-[11px] font-medium rounded text-slate-400 hover:text-slate-200 transition-all text-center">
+            아주 크게 (135%)
+          </button>
+        </div>
+        <div class="text-[9px] text-slate-500">
+          * 기본값 120%가 적용되어 있으며, OBS 창 크기나 고해상도 환경에 맞춰 언제든 변경할 수 있습니다.
+        </div>
+      </div>
+
       <!-- 방법 A: 팝업 로그인 카드 -->
       <div class="section-card space-y-2.5">
         <div class="flex items-center justify-between">
           <div class="text-[11px] font-semibold text-[#00FFA3]">방법 A. 팝업 로그인</div>
           <span id="badge-method-a" class="text-[9px] px-1.5 py-0.5 rounded font-bold bg-gray-800 text-gray-400">대기 중</span>
         </div>
-        <button id="btn-webview-login" onclick="startWebviewLogin()" class="save-btn text-xs py-2 bg-gradient-to-r from-emerald-500 to-teal-600">
+        <button id="btn-webview-login" onclick="startWebviewLogin()" class="save-btn text-xs py-2.5 bg-gradient-to-r from-emerald-400 to-teal-400 !text-[#080A0D] font-extrabold shadow-md">
           🌐 네이버 로그인 팝업 열기
         </button>
       </div>
@@ -426,29 +939,52 @@
           💾 쿠키 직접 저장
         </button>
       </div>
+
+      <!-- 백그라운드 자동 동기화 옵션 (기본: OFF) -->
+      <div class="section-card flex items-center justify-between p-2.5 bg-chzzk-card/70 border border-chzzk-border">
+        <div>
+          <div class="text-[11px] font-semibold text-white/90">백그라운드 자동 동기화</div>
+          <div class="text-[9px] text-chzzk-muted">60초마다 연결 상태를 백그라운드에서 주기적으로 체크합니다.</div>
+        </div>
+        <label class="toggle-switch relative inline-flex items-center cursor-pointer">
+          <input type="checkbox" id="toggle-auto-sync" onchange="toggleAutoSync(this.checked)" class="sr-only peer" />
+          <div class="w-7 h-4 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-[#00FFA3]"></div>
+        </label>
+      </div>
+
+      <!-- [LEG-01] 비공식 API 면책 조항 및 Rate Limiting 안내 -->
+      <div class="p-2.5 rounded bg-chzzk-card/60 border border-chzzk-border text-[10px] text-chzzk-muted leading-relaxed">
+        <p class="font-medium text-amber-400/90 mb-0.5">⚠️ 비공식 API 연동 안내</p>
+        본 도구는 네이버 치지직 비공식 스튜디오 엔드포인트를 사용하며, 네이버 공식 서비스와 무관합니다. 트래픽 과부하 방지를 위해 3초 Rate Limiting이 적용되어 있습니다.
+      </div>
     </div>
 
     <div class="text-[10px] text-chzzk-muted text-center mt-3 py-1">
-      <p class="font-medium text-white/70">띵판</p>
+      <p class="font-medium text-white/70">CHZZK OBS Dock v0.4.1</p>
     </div>
   </div>
 
   <!-- Floating Toast Container -->
   <div id="toast-container"></div>
-  </div>
 
   <script>
     let currentTags = [];
     let categorySearchTimeout = null;
     let serverConfig = {};
     let userChannelId = "";
+    let currentChannelName = "";
 
     let currentLiveSetting = {
       adult: false,
       clipActive: true,
+      krOnlyViewing: false,
       replayPublishType: 'MANUAL',
+      watchPartyNo: null,
       rawContent: null
     };
+
+    let availableWatchParties = [];
+    let activeWatchParty = null;
 
     let currentDonationState = {
       chatDonationActive: false,
@@ -456,15 +992,642 @@
       missionDonationActive: false
     };
 
+    let currentChatModeState = {
+      chatEmojiMode: false,
+      chatSlowModeSec: 0
+    };
+
+    let streamingInfoLoaded = false;
+    let donationsLoaded = false;
+    let currentRevenueDate = new Date();
+    let isRevenuePrivate = true;
+    let revenueCache = {};
+    let isLoggingIn = false;
+
+    // ===== Font Scale & Screen Zoom (화면 및 글꼴 배율: 1.0, 1.2, 1.35) =====
+    let currentFontScale = 1.2;
+
+    function setFontScale(scale, save = true) {
+      currentFontScale = scale;
+      document.body.style.zoom = String(scale);
+
+      const scales = [1.0, 1.2, 1.35];
+      scales.forEach(s => {
+        const idKey = Math.round(s * 100);
+        const btn = document.getElementById(`btn-scale-${idKey}`);
+        if (btn) {
+          if (Math.abs(s - scale) < 0.01) {
+            btn.className = 'py-1 text-[11px] font-bold rounded text-[#00FFA3] bg-[#161F2E] border border-[#00FFA3]/40 transition-all text-center';
+          } else {
+            btn.className = 'py-1 text-[11px] font-medium rounded text-slate-400 hover:text-slate-200 transition-all text-center';
+          }
+        }
+      });
+
+      const label = document.getElementById('font-scale-current-label');
+      if (label) {
+        if (scale === 1.0) label.textContent = '100% (보통)';
+        else if (scale === 1.2) label.textContent = '120% (크게)';
+        else if (scale === 1.35) label.textContent = '135% (아주 크게)';
+      }
+
+      if (save) {
+        try {
+          localStorage.setItem('chzzk_dock_font_scale', String(scale));
+          showToast(`글꼴 크기 ${Math.round(scale * 100)}% 적용 완료`, 'success');
+        } catch (e) {}
+      }
+    }
+
+    function initFontScale() {
+      let saved = 1.2;
+      try {
+        const val = localStorage.getItem('chzzk_dock_font_scale');
+        if (val) saved = parseFloat(val);
+      } catch (e) {}
+      setFontScale(saved || 1.2, false);
+    }
+
+    // 즉시 기본 1.2배(크게) 초기 적용
+    initFontScale();
+
+    // ===== Broadcast Settings Dirty State (설정 변경 감지 및 저장 버튼 반짝임) =====
+    let savedBroadcastBaseline = null;
+
+    function captureCurrentBroadcastState() {
+      const elTitle = document.getElementById('live-title');
+      const elCatId = document.getElementById('category-id');
+      const elCatType = document.getElementById('category-type');
+      const elCatSearch = document.getElementById('category-search');
+      const elAdult = document.getElementById('toggle-adult');
+      const elClip = document.getElementById('toggle-clip');
+      const elOverseas = document.getElementById('toggle-overseas');
+      const elReplay = document.querySelector('input[name="replayPublishType"]:checked');
+      const elMinFollower = document.getElementById('min-follower-minute');
+      const elSubEx = document.getElementById('toggle-sub-exception');
+
+      return {
+        title: (elTitle ? elTitle.value : '').trim(),
+        categoryId: elCatId ? elCatId.value : '',
+        categoryType: elCatType ? elCatType.value : '',
+        categoryValue: (elCatSearch ? elCatSearch.value : '').trim(),
+        tags: (currentTags || []).slice().sort().join(','),
+        adult: elAdult ? elAdult.checked : false,
+        clipActive: elClip ? elClip.checked : true,
+        overseas: elOverseas ? elOverseas.checked : true,
+        replayPublishType: elReplay ? elReplay.value : 'MANUAL',
+        chatGroup: typeof getSelectedChatGroup === 'function' ? getSelectedChatGroup() : 'ALL',
+        minFollowerMinute: elMinFollower ? elMinFollower.value : '0',
+        subException: elSubEx ? elSubEx.checked : true,
+        watchPartyNo: (document.getElementById('select-watch-party')?.value || '')
+      };
+    }
+
+    function updateSavedBroadcastBaseline() {
+      savedBroadcastBaseline = captureCurrentBroadcastState();
+      checkBroadcastStateDirty();
+    }
+
+    function checkBroadcastStateDirty() {
+      if (!savedBroadcastBaseline) {
+        setSaveButtonDirty(false);
+        return false;
+      }
+      const cur = captureCurrentBroadcastState();
+      const base = savedBroadcastBaseline;
+
+      let isDirty = (
+        cur.title !== base.title ||
+        cur.categoryId !== base.categoryId ||
+        cur.categoryType !== base.categoryType ||
+        cur.tags !== base.tags ||
+        cur.adult !== base.adult ||
+        cur.clipActive !== base.clipActive ||
+        cur.overseas !== base.overseas ||
+        cur.replayPublishType !== base.replayPublishType ||
+        cur.chatGroup !== base.chatGroup ||
+        cur.watchPartyNo !== base.watchPartyNo
+      );
+
+      // 팔로워 모드일 때만 팔로우 시간 및 구독자 예외 비교
+      if (cur.chatGroup === 'FOLLOWER') {
+        if (cur.minFollowerMinute !== base.minFollowerMinute || cur.subException !== base.subException) {
+          isDirty = true;
+        }
+      }
+
+      setSaveButtonDirty(isDirty);
+      return isDirty;
+    }
+
+    function setSaveButtonDirty(isDirty) {
+      const btn = document.getElementById('btn-save');
+      const badge = document.getElementById('save-dirty-badge');
+      const btnRevert = document.getElementById('btn-revert');
+      if (!btn) return;
+
+      if (isDirty) {
+        btn.classList.add('is-dirty');
+        if (badge) badge.style.display = 'inline-block';
+        if (btnRevert) btnRevert.disabled = false;
+      } else {
+        btn.classList.remove('is-dirty');
+        if (badge) badge.style.display = 'none';
+        if (btnRevert) btnRevert.disabled = true;
+      }
+    }
+
+    function revertBroadcastState() {
+      if (!savedBroadcastBaseline) {
+        showToast('되돌리기 실패', 'warn', '저장된 기준 설정 정보가 없습니다.');
+        return;
+      }
+      const base = savedBroadcastBaseline;
+
+      // 1. 방송 제목
+      const elTitle = document.getElementById('live-title');
+      if (elTitle) {
+        elTitle.value = base.title || '';
+        const countEl = document.getElementById('title-count');
+        if (countEl) countEl.textContent = `${(base.title || '').length}/50`;
+        const clearBtn = document.getElementById('title-clear');
+        if (clearBtn) clearBtn.style.display = (base.title ? 'block' : 'none');
+      }
+
+      // 2. 카테고리
+      const elCatId = document.getElementById('category-id');
+      const elCatType = document.getElementById('category-type');
+      const elCatSearch = document.getElementById('category-search');
+      const elCatClear = document.getElementById('category-clear');
+      if (elCatId) elCatId.value = base.categoryId || '';
+      if (elCatType) elCatType.value = base.categoryType || '';
+      if (elCatSearch) elCatSearch.value = base.categoryValue || base.categoryId || '';
+      if (elCatClear) elCatClear.style.display = (base.categoryId ? 'block' : 'none');
+
+      // 3. 태그 복원
+      if (base.tags) {
+        currentTags = base.tags.split(',').filter(Boolean);
+      } else {
+        currentTags = [];
+      }
+      renderTags();
+
+      // 4. 방송 옵션 (연령제한, 클립, 해외시청)
+      const elAdult = document.getElementById('toggle-adult');
+      if (elAdult) elAdult.checked = !!base.adult;
+
+      const elClip = document.getElementById('toggle-clip');
+      if (elClip) elClip.checked = !!base.clipActive;
+
+      const elOverseas = document.getElementById('toggle-overseas');
+      if (elOverseas) elOverseas.checked = !!base.overseas;
+
+      // 5. 다시보기 복원
+      const radio = document.querySelector(`input[name="replayPublishType"][value="${base.replayPublishType || 'MANUAL'}"]`);
+      if (radio) radio.checked = true;
+
+      // 6. 같이보기 복원
+      const selWp = document.getElementById('select-watch-party');
+      if (selWp) {
+        selWp.value = base.watchPartyNo || '';
+      }
+      if (base.watchPartyNo) {
+        const wpItem = availableWatchParties.find(p => String(p.watchPartyNo) === String(base.watchPartyNo));
+        if (wpItem) {
+          applyWatchPartyLock(wpItem, false);
+        }
+      } else {
+        releaseWatchPartyLock(false);
+      }
+
+      // 7. 채팅 권한
+      if (typeof setSelectedChatGroup === 'function') {
+        setSelectedChatGroup(base.chatGroup || 'ALL');
+      }
+      const elMinFollower = document.getElementById('min-follower-minute');
+      if (elMinFollower) elMinFollower.value = base.minFollowerMinute || '0';
+      const elSubEx = document.getElementById('toggle-sub-exception');
+      if (elSubEx) elSubEx.checked = base.subException !== undefined ? base.subException : true;
+
+      checkBroadcastStateDirty();
+      showToast('설정 복원 완료', 'info', '저장된 기준 설정으로 복원되었습니다.');
+    }
+
+    async function openExternalUrl(url, label = '페이지') {
+      if (!url || (!url.startsWith('https://') && !url.startsWith('http://'))) {
+        showToast('열기 실패', 'warn', '유효한 웹 URL이 아닙니다.');
+        return false;
+      }
+      try {
+        const res = await apiFetch(`/open-browser?url=${encodeURIComponent(url)}`);
+        if (res.ok) {
+          showToast('기본 브라우저 열기', 'info', `${label}을(를) 브라우저로 열었습니다.`);
+          return true;
+        }
+        const data = await res.json().catch(() => ({}));
+        showToast('브라우저 열기 실패', 'error', data.message || '브라우저 실행에 실패했습니다.');
+        return false;
+      } catch (e) {
+        console.error('브라우저 열기 요청 실패:', e);
+        showToast('브라우저 열기 실패', 'error', '서버 통신 상태를 확인하세요.');
+        return false;
+      }
+    }
+
+    async function openChannelInBrowser() {
+      if (!userChannelId) {
+        showToast('채널 정보 없음', 'warn', '치지직 로그인이 완료된 후 클릭하세요.');
+        return;
+      }
+      const url = `https://chzzk.naver.com/live/${encodeURIComponent(userChannelId)}`;
+      await openExternalUrl(url, `${currentChannelName || '내 채널'} 라이브 화면`);
+    }
+
+    // ===== Live Status Polling (방송 중: 1분, 오프라인: 10초) =====
+    let liveCheckTimeout = null;
+    let isCurrentlyLive = false;
+
+    async function checkLiveStatus() {
+      clearTimeout(liveCheckTimeout);
+      if (!userChannelId) {
+        liveCheckTimeout = setTimeout(checkLiveStatus, 10000);
+        return;
+      }
+
+      try {
+        // 치지직 스튜디오 공식 라이브 상태 관리 API 호출
+        const res = await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/live-status`);
+        if (res.ok) {
+          const data = await res.json();
+          const content = data.content || data;
+          const isLive = !!(content && content.status === 'OPEN');
+          isCurrentlyLive = isLive;
+          updateLiveStatusUI(isLive);
+        } else {
+          // 서비스 채널 정보 fallback
+          const fbRes = await apiFetch(`/unofficial/service/v1/channels/${userChannelId}`);
+          if (fbRes.ok) {
+            const fbData = await fbRes.json();
+            const fbContent = fbData.content || fbData;
+            const isLive = !!(fbContent && fbContent.openLive);
+            isCurrentlyLive = isLive;
+            updateLiveStatusUI(isLive);
+          }
+        }
+      } catch (e) {
+        console.warn('[CHZZK Dock] 라이브 상태 확인 오류:', e);
+      }
+
+      // 방송 중이면 30초, 방송 꺼짐 상태면 10초마다 갱신
+      const nextDelay = isCurrentlyLive ? 30000 : 10000;
+      liveCheckTimeout = setTimeout(checkLiveStatus, nextDelay);
+    }
+
+    function updateLiveStatusUI(openLive) {
+      const iconBtn = document.getElementById('header-live-icon');
+      const iconSvg = document.getElementById('header-live-svg');
+      const elChannelName = document.getElementById('header-channel-name');
+      if (!iconBtn || !iconSvg) return;
+
+      if (openLive) {
+        // 방송 중 (ON / LIVE): 진한 네온 그린 점등 애니메이션 + LIVE 뱃지
+        iconBtn.className = 'w-6 h-6 rounded-md bg-[#00FFA3]/20 border-2 border-[#00FFA3] flex items-center justify-center flex-shrink-0 cursor-pointer transition-all live-soft-glow';
+        iconBtn.title = '치지직 방송 중 (LIVE ON-AIR) - 클릭 시 기본 브라우저로 라이브 열기';
+        iconSvg.setAttribute('stroke', '#00FFA3');
+        iconSvg.classList.remove('opacity-70');
+
+        if (elChannelName && currentChannelName) {
+          elChannelName.className = 'text-[11px] font-bold text-[#00FFA3] bg-[#00FFA3]/15 hover:bg-[#00FFA3]/25 border border-[#00FFA3]/70 hover:border-[#00FFA3] px-2 py-0.5 rounded-md transition-all truncate max-w-[140px] cursor-pointer select-none flex items-center gap-1 live-soft-glow';
+          elChannelName.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-[#00FFA3] shadow-[0_0_8px_rgba(0,255,163,1)] flex-shrink-0 animate-pulse"></span><span class="truncate">${escapeHtml(currentChannelName)}</span><span class="text-[8.5px] bg-[#00FFA3] text-[#080A0D] font-black px-1 py-0.2 rounded-sm flex-shrink-0 shadow-sm">LIVE</span>`;
+          elChannelName.title = `[방송 중] ${currentChannelName} (클릭 시 기본 브라우저로 라이브 열기)`;
+        }
+      } else {
+        // 방송 꺼짐 (OFF): 차분한 연한 연두/슬레이트 소등 상태
+        iconBtn.className = 'w-6 h-6 rounded-md bg-[#6EE7B7]/10 border border-[#6EE7B7]/25 hover:border-[#6EE7B7]/50 flex items-center justify-center flex-shrink-0 cursor-pointer transition-all';
+        iconBtn.classList.remove('live-soft-glow');
+        iconBtn.title = '치지직 방송 꺼짐 (OFF) - 클릭 시 기본 브라우저로 라이브 열기';
+        iconSvg.setAttribute('stroke', '#6EE7B7');
+        iconSvg.classList.add('opacity-70');
+
+        if (elChannelName && currentChannelName) {
+          elChannelName.className = 'text-[11px] font-medium text-[#A7F3D0]/80 bg-[#6EE7B7]/5 hover:bg-[#6EE7B7]/15 border border-[#6EE7B7]/20 hover:border-[#6EE7B7]/40 px-2 py-0.5 rounded-md transition-all truncate max-w-[140px] cursor-pointer select-none flex items-center gap-1';
+          elChannelName.classList.remove('live-soft-glow');
+          elChannelName.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-[#6EE7B7]/40 flex-shrink-0"></span><span class="truncate">${escapeHtml(currentChannelName)}</span><span class="text-[8.5px] bg-[#6EE7B7]/15 text-[#A7F3D0] border border-[#6EE7B7]/30 font-medium px-1 py-0.2 rounded-sm flex-shrink-0">OFF</span>`;
+          elChannelName.title = `[방송 꺼짐] ${currentChannelName} (클릭 시 기본 브라우저로 라이브 열기)`;
+        }
+      }
+    }
+
     function toggleSettings() {
+      const urlsPanel = document.getElementById('urls-panel');
+      if (urlsPanel && urlsPanel.classList.contains('open')) urlsPanel.classList.remove('open');
+      const donationsPanel = document.getElementById('donations-panel');
+      if (donationsPanel && donationsPanel.classList.contains('open')) donationsPanel.classList.remove('open');
       const panel = document.getElementById('settings-panel');
       if (panel) panel.classList.toggle('open');
     }
 
+    function toggleUrlsPanel() {
+      const panel = document.getElementById('urls-panel');
+      const settingsPanel = document.getElementById('settings-panel');
+      const donationsPanel = document.getElementById('donations-panel');
+      if (settingsPanel && settingsPanel.classList.contains('open')) settingsPanel.classList.remove('open');
+      if (donationsPanel && donationsPanel.classList.contains('open')) donationsPanel.classList.remove('open');
+      if (panel) {
+        panel.classList.toggle('open');
+        if (panel.classList.contains('open') && !streamingInfoLoaded) {
+          fetchStreamingInfo();
+        }
+      }
+    }
+
+    function toggleDonationsPanel() {
+      const panel = document.getElementById('donations-panel');
+      const settingsPanel = document.getElementById('settings-panel');
+      const urlsPanel = document.getElementById('urls-panel');
+      if (settingsPanel && settingsPanel.classList.contains('open')) settingsPanel.classList.remove('open');
+      if (urlsPanel && urlsPanel.classList.contains('open')) urlsPanel.classList.remove('open');
+      if (panel) {
+        panel.classList.toggle('open');
+        if (panel.classList.contains('open') && !donationsLoaded) {
+          fetchDonationsAndChatMode(true);
+        }
+      }
+    }
+
+    function switchUrlTab(tab) {
+      const tabUrls = document.getElementById('tab-content-urls');
+      const tabRev = document.getElementById('tab-content-revenue');
+      const btnUrls = document.getElementById('tab-btn-urls');
+      const btnRev = document.getElementById('tab-btn-revenue');
+
+      if (tab === 'urls') {
+        if (tabUrls) tabUrls.style.display = 'block';
+        if (tabRev) tabRev.style.display = 'none';
+        if (btnUrls) {
+          btnUrls.className = 'flex-1 py-1 text-[11px] font-bold rounded text-[#00FFA3] bg-[#161F2E] border border-[#00FFA3]/30 transition-all flex items-center justify-center gap-1';
+        }
+        if (btnRev) {
+          btnRev.className = 'flex-1 py-1 text-[11px] font-medium rounded text-slate-400 hover:text-slate-200 transition-all flex items-center justify-center gap-1';
+        }
+      } else {
+        if (tabUrls) tabUrls.style.display = 'none';
+        if (tabRev) tabRev.style.display = 'block';
+        if (btnUrls) {
+          btnUrls.className = 'flex-1 py-1 text-[11px] font-medium rounded text-slate-400 hover:text-slate-200 transition-all flex items-center justify-center gap-1';
+        }
+        if (btnRev) {
+          btnRev.className = 'flex-1 py-1 text-[11px] font-bold rounded text-[#00FFA3] bg-[#161F2E] border border-[#00FFA3]/30 transition-all flex items-center justify-center gap-1';
+        }
+        fetchRevenueSummary();
+      }
+    }
+
+    function toggleFieldMask(fieldId, btn) {
+      const input = document.getElementById(fieldId);
+      if (!input) return;
+      if (input.type === 'password') {
+        input.type = 'text';
+        if (btn) btn.textContent = '🙈';
+      } else {
+        input.type = 'password';
+        if (btn) btn.textContent = '👁️';
+      }
+    }
+
+    function copyFieldValue(fieldId, label) {
+      const input = document.getElementById(fieldId);
+      if (!input || !input.value) {
+        showToast('복사 실패', 'warn', '복사할 값이 없습니다.');
+        return;
+      }
+      navigator.clipboard.writeText(input.value).then(() => {
+        showToast(`✅ ${label} 복사 완료!`, 'success');
+      }).catch(() => {
+        input.select();
+        document.execCommand('copy');
+        showToast(`✅ ${label} 복사 완료!`, 'success');
+      });
+    }
+
+    async function openUrlField(fieldId) {
+      const input = document.getElementById(fieldId);
+      if (!input || !input.value || !input.value.startsWith('http')) {
+        showToast('열기 실패', 'warn', '유효한 URL이 아닙니다.');
+        return;
+      }
+      await openExternalUrl(input.value, '해당 URL');
+    }
+
+    async function fetchStreamingInfo() {
+      if (!userChannelId) {
+        await resolveChannelId();
+      }
+      if (!userChannelId) {
+        showToast('로그인 필요', 'warn', '치지직 로그인 설정을 먼저 완료해 주세요.');
+        return;
+      }
+
+      try {
+        const res = await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/streaming-info`);
+        if (res.ok) {
+          const data = await res.json();
+          const info = data.content || data;
+          if (info) {
+            const elKey = document.getElementById('field-stream-key');
+            const elChat = document.getElementById('field-chat-url');
+            const elDon = document.getElementById('field-alert-donation');
+            const elVid = document.getElementById('field-alert-video');
+            const elMis = document.getElementById('field-alert-mission');
+            const elPartyAmount = document.getElementById('field-alert-party-amount');
+            const elPartyTicker = document.getElementById('field-alert-party-ticker');
+            const elGift = document.getElementById('field-alert-gift');
+            const elShop = document.getElementById('field-alert-shop');
+
+            if (elKey) elKey.value = info.streamKey || '';
+            if (elChat) elChat.value = info.chatSourceHash ? `https://chzzk.naver.com/chat/${info.chatSourceHash}` : '';
+            if (elDon) elDon.value = info.donationSessionIOChannelId ? `https://chzzk.naver.com/donation/${info.donationSessionIOChannelId}` : '';
+            if (elVid) elVid.value = info.videoSessionIOChannelId ? `https://chzzk.naver.com/video-donation/${info.videoSessionIOChannelId}` : '';
+            if (elMis) elMis.value = info.missionSessionIOChannelId ? `https://chzzk.naver.com/mission-donation/${info.missionSessionIOChannelId}` : '';
+            if (elPartyAmount) elPartyAmount.value = info.partyDonationSessionIOChannelId ? `https://chzzk.naver.com/party-donation/amount/${info.partyDonationSessionIOChannelId}` : '';
+            if (elPartyTicker) elPartyTicker.value = info.partyDonationSessionIOChannelId ? `https://chzzk.naver.com/party-donation/ticker/${info.partyDonationSessionIOChannelId}` : '';
+            if (elGift) elGift.value = info.giftSessionIOChannelId ? `https://chzzk.naver.com/gift-effect/${info.giftSessionIOChannelId}` : '';
+            if (elShop) elShop.value = info.streamerShopSessionIOChannelId ? `https://chzzk.naver.com/product-purchase/${info.streamerShopSessionIOChannelId}` : '';
+
+            streamingInfoLoaded = true;
+            return true;
+          }
+        }
+      } catch (e) {
+        showToast('스트리밍 정보 조회 실패', 'error', e.message);
+      }
+      return false;
+    }
+
+    function getFormattedYM(date) {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      return `${y}${m}`;
+    }
+
+    function updateRevenueDisplayDate() {
+      const disp = document.getElementById('revenue-month-display');
+      if (disp) {
+        const y = currentRevenueDate.getFullYear();
+        const m = currentRevenueDate.getMonth() + 1;
+        disp.textContent = `${y}년 ${m}월`;
+      }
+    }
+
+    function changeRevenueMonth(delta) {
+      currentRevenueDate.setMonth(currentRevenueDate.getMonth() + delta);
+      updateRevenueDisplayDate();
+      fetchRevenueSummary();
+    }
+
+    function toggleRevenuePrivacy() {
+      isRevenuePrivate = !isRevenuePrivate;
+      const elTotal = document.getElementById('revenue-total-amount');
+      const elSettlement = document.getElementById('revenue-settlement-amount');
+      const btn = document.getElementById('btn-toggle-privacy');
+
+      if (isRevenuePrivate) {
+        if (elTotal) elTotal.classList.add('blur-[5px]');
+        if (elSettlement) elSettlement.classList.add('blur-[5px]');
+        if (btn) btn.textContent = '👁️ 금액 표시';
+      } else {
+        if (elTotal) elTotal.classList.remove('blur-[5px]');
+        if (elSettlement) elSettlement.classList.remove('blur-[5px]');
+        if (btn) btn.textContent = '🙈 금액 숨김';
+      }
+    }
+
+    async function fetchRevenueSummary() {
+      if (!userChannelId) {
+        await resolveChannelId();
+      }
+      if (!userChannelId) return;
+
+      const ym = getFormattedYM(currentRevenueDate);
+      updateRevenueDisplayDate();
+
+      const spinner = document.getElementById('revenue-loading-spinner');
+      if (spinner) spinner.style.display = 'inline-block';
+
+      // Check in-memory cache
+      if (revenueCache[ym]) {
+        renderRevenueData(revenueCache[ym]);
+        if (spinner) spinner.style.display = 'none';
+        return;
+      }
+
+      try {
+        const res = await apiFetch(`/unofficial/manage/v2/channels/${userChannelId}/revenue/summary?channelId=${userChannelId}&fromYearMonth=${ym}&toYearMonth=${ym}`);
+        if (res.ok) {
+          const data = await res.json();
+          const content = data.content || data;
+          revenueCache[ym] = content;
+          renderRevenueData(content);
+        } else if (res.status === 403) {
+          renderRevenueError('수익 창출 계약(프로/파트너) 이후 확인 가능합니다.');
+        } else {
+          renderRevenueError('해당 월 수익 데이터를 불러올 수 없습니다.');
+        }
+      } catch (e) {
+        renderRevenueError(e.message);
+      } finally {
+        if (spinner) spinner.style.display = 'none';
+      }
+    }
+
+    function renderRevenueData(content) {
+      const summaryList = content?.summaryList || [];
+      const item = summaryList.length > 0 ? summaryList[0] : null;
+
+      const elTotal = document.getElementById('revenue-total-amount');
+      const elSettlement = document.getElementById('revenue-settlement-amount');
+      const elCount = document.getElementById('revenue-donation-count');
+      const elStatus = document.getElementById('revenue-settlement-status');
+      const elPaidDate = document.getElementById('revenue-paid-date');
+
+      if (!item) {
+        if (elTotal) elTotal.textContent = '₩ 0';
+        if (elSettlement) elSettlement.textContent = '₩ 0';
+        if (elCount) elCount.textContent = '0건';
+        if (elStatus) {
+          elStatus.textContent = '내역 없음';
+          elStatus.className = 'px-2 py-0.5 rounded text-[10px] font-bold bg-[#161F2E] text-slate-400';
+        }
+        if (elPaidDate) elPaidDate.textContent = '-';
+        return;
+      }
+
+      const total = (item.totalRevenue || 0).toLocaleString();
+      const settlement = (item.totalSettlement || 0).toLocaleString();
+      const count = (item.donationCount || 0).toLocaleString();
+
+      if (elTotal) elTotal.textContent = `₩ ${total}`;
+      if (elSettlement) elSettlement.textContent = `₩ ${settlement}`;
+      if (elCount) elCount.textContent = `${count}건`;
+
+      const statusMap = {
+        NONE: { label: '미정산 (NONE)', class: 'bg-[#161F2E] text-slate-400' },
+        WAITING: { label: '정산 대기 중', class: 'bg-amber-950/80 text-amber-300 border border-amber-800/50' },
+        IN_PROGRESS: { label: '정산 진행 중', class: 'bg-blue-950/80 text-blue-300 border border-blue-800/50' },
+        SETTLED: { label: '정산 완료', class: 'bg-emerald-950/80 text-[#00FFA3] border border-emerald-800/50' }
+      };
+
+      const st = statusMap[item.settlementStatus] || { label: item.settlementStatus || 'NONE', class: 'bg-[#161F2E] text-slate-400' };
+      if (elStatus) {
+        elStatus.textContent = st.label;
+        elStatus.className = `px-2 py-0.5 rounded text-[10px] font-bold ${st.class}`;
+      }
+
+      if (elPaidDate) {
+        if (Array.isArray(item.paidSettlementDate)) {
+          elPaidDate.textContent = `${item.paidSettlementDate[0]}년 ${item.paidSettlementDate[1]}월`;
+        } else if (item.paidSettlementDate) {
+          elPaidDate.textContent = String(item.paidSettlementDate);
+        } else {
+          elPaidDate.textContent = '-';
+        }
+      }
+    }
+
+    function renderRevenueError(msg) {
+      const elTotal = document.getElementById('revenue-total-amount');
+      const elSettlement = document.getElementById('revenue-settlement-amount');
+      const elStatus = document.getElementById('revenue-settlement-status');
+      if (elTotal) elTotal.textContent = '-';
+      if (elSettlement) elSettlement.textContent = '-';
+      if (elStatus) {
+        elStatus.textContent = msg;
+        elStatus.className = 'px-2 py-0.5 rounded text-[10px] font-medium bg-red-950/80 text-red-300 border border-red-800/50';
+      }
+    }
+
+    async function fetchStreamingInfoAndRevenue() {
+      const pUrls = fetchStreamingInfo();
+      const pRev = fetchRevenueSummary();
+      await Promise.all([pUrls, pRev]);
+      showToast('알림 정보 및 수익 데이터 갱신 완료', 'success');
+    }
+
     // ===== Floating Toast Notification =====
+    let lastToastKey = '';
+    let lastToastTime = 0;
+
     function showToast(message, type = 'info', detail = '') {
       const container = document.getElementById('toast-container');
       if (!container) return;
+
+      const now = Date.now();
+      const toastKey = `${type}:${message}:${detail}`;
+      if (toastKey === lastToastKey && (now - lastToastTime) < 800) {
+        return; // 동일 알림 중복 노출 방지
+      }
+      lastToastKey = toastKey;
+      lastToastTime = now;
 
       const toast = document.createElement('div');
       toast.className = `toast ${type}`;
@@ -498,22 +1661,238 @@
       return div.innerHTML;
     }
 
-    // ===== App Initialization =====
-    document.addEventListener('DOMContentLoaded', async () => {
-      await loadServerConfig();
-      const channelId = await updateConnectionStatus();
+    // ===== Replay & Watch Party Handlers =====
+    function onReplayNoneClicked() {
+      const elWp = document.getElementById('select-watch-party');
+      if (elWp && elWp.value) {
+        showToast('다시보기 고정 안내', 'warn', '같이보기 방송 중에는 규정에 따라 다시보기가 생성되지 않도록 고정되어 있습니다.');
+        return;
+      }
+      showToast('다시보기 미생성 주의', 'warn', '생성 안 함 선택 시 방송 종료 후 다시보기가 저장되지 않으며 복구할 수 없습니다.');
+    }
 
+    async function reloadWatchPartiesOnly() {
+      const icon = document.getElementById('wp-reload-icon');
+      if (icon) icon.classList.add('animate-spin');
+      try {
+        if (!userChannelId) await resolveChannelId();
+        if (!userChannelId) {
+          showToast('로그인 필요', 'warn', '치지직 로그인을 먼저 확인해 주세요.');
+          return;
+        }
+        const wpRes = await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/watch-parties`);
+        if (wpRes.ok) {
+          const wpData = await wpRes.json();
+          const wpContent = wpData.content || wpData;
+          if (wpContent && Array.isArray(wpContent.watchParties)) {
+            availableWatchParties = wpContent.watchParties;
+            renderWatchPartyOptions(availableWatchParties);
+            const curVal = document.getElementById('select-watch-party')?.value;
+            if (curVal) {
+              const wp = availableWatchParties.find(p => String(p.watchPartyNo) === String(curVal));
+              if (wp) applyWatchPartyLock(wp, false);
+            }
+            showToast('같이보기 목록 갱신', 'success', `${availableWatchParties.length}개의 방송이 조회되었습니다.`);
+          }
+        } else {
+          showToast('같이보기 목록 갱신 실패', 'error');
+        }
+      } catch (e) {
+        showToast('통신 오류', 'error', e.message);
+      } finally {
+        if (icon) setTimeout(() => icon.classList.remove('animate-spin'), 350);
+      }
+    }
+
+    function renderWatchPartyOptions(parties) {
+      const select = document.getElementById('select-watch-party');
+      if (!select) return;
+      const currentVal = select.value;
+      select.innerHTML = '<option value="">사용 안 함 (일반 방송)</option>';
+      if (Array.isArray(parties)) {
+        parties.forEach(p => {
+          const opt = document.createElement('option');
+          opt.value = String(p.watchPartyNo);
+          const catStr = p.category && p.category.categoryValue ? ` [${p.category.categoryValue}]` : '';
+          opt.textContent = `${p.watchPartyTitle}${catStr}`;
+          select.appendChild(opt);
+        });
+      }
+      if (currentVal) {
+        select.value = currentVal;
+      }
+    }
+
+    function applyWatchPartyLock(wp, showNotify = true) {
+      activeWatchParty = wp;
+      const badge = document.getElementById('watch-party-badge');
+      const notice = document.getElementById('watch-party-notice');
+      if (badge) {
+        badge.textContent = '🎬 같이보기 방송';
+        badge.className = 'text-[10px] px-1.5 py-0.5 rounded font-bold text-[#00FFA3] bg-[#00FFA3]/10 border border-[#00FFA3]/30';
+      }
+      if (notice) notice.style.display = 'flex';
+
+      // 1. 카테고리 고정
+      const elCatSearch = document.getElementById('category-search');
+      const elCatId = document.getElementById('category-id');
+      const elCatType = document.getElementById('category-type');
+      const elCatClear = document.getElementById('category-clear');
+      const elCatWrapper = document.getElementById('category-wrapper');
+      const lockCat = document.getElementById('lock-category');
+
+      if (wp && wp.category) {
+        if (elCatId) elCatId.value = wp.category.categoryId || '';
+        if (elCatType) elCatType.value = wp.category.categoryType || 'ENTERTAINMENT';
+        if (elCatSearch) elCatSearch.value = wp.category.categoryValue || wp.category.categoryId || '';
+      }
+      if (elCatSearch) elCatSearch.disabled = true;
+      if (elCatClear) elCatClear.style.display = 'none';
+      if (elCatWrapper) elCatWrapper.classList.add('locked-by-party');
+      if (lockCat) lockCat.style.display = 'inline';
+
+      // 2. 다른 같이보기 태그 정리 및 현재 같이보기 태그 자동 추가
+      const otherWpTags = availableWatchParties
+        .filter(p => String(p.watchPartyNo) !== String(wp?.watchPartyNo))
+        .map(p => p.watchPartyTag)
+        .filter(Boolean);
+      currentTags = currentTags.filter(t => !otherWpTags.includes(t));
+
+      if (wp && wp.watchPartyTag) {
+        if (!currentTags.includes(wp.watchPartyTag)) {
+          currentTags.push(wp.watchPartyTag);
+        }
+      }
+      renderTags();
+
+      // 3. 시청 국가 한국만 가능 (krOnlyViewing: true => overseas: false)
+      const elOverseas = document.getElementById('toggle-overseas');
+      const labelOverseas = document.getElementById('label-overseas');
+      const lockOverseas = document.getElementById('lock-overseas');
+      if (elOverseas) {
+        elOverseas.checked = false;
+        elOverseas.disabled = true;
+      }
+      if (labelOverseas) labelOverseas.classList.add('locked-by-party');
+      if (lockOverseas) lockOverseas.style.display = 'inline';
+
+      // 4. 클립 비허용 (clipActive: false)
+      const elClip = document.getElementById('toggle-clip');
+      const labelClip = document.getElementById('label-clip');
+      const lockClip = document.getElementById('lock-clip');
+      if (elClip) {
+        elClip.checked = false;
+        elClip.disabled = true;
+      }
+      if (labelClip) labelClip.classList.add('locked-by-party');
+      if (lockClip) lockClip.style.display = 'inline';
+
+      // 5. 다시보기 없음 고정 (replayPublishType: 'NONE' 강제, '확인 후' 및 '자동게시'에 잠금 표시)
+      const radioNone = document.querySelector('input[name="replayPublishType"][value="NONE"]');
+      const containerReplay = document.getElementById('container-replay-radios');
+      if (radioNone) radioNone.checked = true;
+      document.querySelectorAll('input[name="replayPublishType"]').forEach(r => r.disabled = true);
+      if (containerReplay) containerReplay.classList.add('locked-by-party');
+      document.querySelectorAll('.lock-replay-disabled').forEach(el => el.style.display = 'inline');
+
+      if (showNotify && wp) {
+        const title = wp.watchPartyTitle || '같이보기';
+        showToast('같이보기 방송 설정', 'info', `"${title}" 규정에 맞춰 카테고리, 한국 전용, 클립 OFF, 다시보기 OFF가 고정되었습니다.`);
+      }
+    }
+
+    function releaseWatchPartyLock(showNotify = true) {
+      activeWatchParty = null;
+      const badge = document.getElementById('watch-party-badge');
+      const notice = document.getElementById('watch-party-notice');
+      if (badge) {
+        badge.textContent = '일반 방송';
+        badge.className = 'text-[9.5px] px-1.5 py-0.2 rounded font-medium text-slate-400 bg-slate-800/80 border border-slate-700/50 leading-none';
+      }
+      if (notice) notice.style.display = 'none';
+
+      // 1. 같이보기 불필요 태그 자동 정리
+      const allWpTags = availableWatchParties.map(p => p.watchPartyTag).filter(Boolean);
+      if (allWpTags.length > 0) {
+        currentTags = currentTags.filter(t => !allWpTags.includes(t));
+        renderTags();
+      }
+
+      // 2. 카테고리 잠금 해제
+      const elCatSearch = document.getElementById('category-search');
+      const elCatId = document.getElementById('category-id');
+      const elCatClear = document.getElementById('category-clear');
+      const elCatWrapper = document.getElementById('category-wrapper');
+      const lockCat = document.getElementById('lock-category');
+      if (elCatSearch) elCatSearch.disabled = false;
+      if (elCatClear) elCatClear.style.display = (elCatId && elCatId.value) ? 'block' : 'none';
+      if (elCatWrapper) elCatWrapper.classList.remove('locked-by-party');
+      if (lockCat) lockCat.style.display = 'none';
+
+      // 3. 해외 시청 잠금 해제
+      const elOverseas = document.getElementById('toggle-overseas');
+      const labelOverseas = document.getElementById('label-overseas');
+      const lockOverseas = document.getElementById('lock-overseas');
+      if (elOverseas) elOverseas.disabled = false;
+      if (labelOverseas) labelOverseas.classList.remove('locked-by-party');
+      if (lockOverseas) lockOverseas.style.display = 'none';
+
+      // 4. 클립 허용 잠금 해제
+      const elClip = document.getElementById('toggle-clip');
+      const labelClip = document.getElementById('label-clip');
+      const lockClip = document.getElementById('lock-clip');
+      if (elClip) elClip.disabled = false;
+      if (labelClip) labelClip.classList.remove('locked-by-party');
+      if (lockClip) lockClip.style.display = 'none';
+
+      // 5. 다시보기 잠금 해제 ('확인 후' 및 '자동게시' 잠금 표시 제거)
+      const containerReplay = document.getElementById('container-replay-radios');
+      document.querySelectorAll('input[name="replayPublishType"]').forEach(r => r.disabled = false);
+      if (containerReplay) containerReplay.classList.remove('locked-by-party');
+      document.querySelectorAll('.lock-replay-disabled').forEach(el => el.style.display = 'none');
+
+      if (showNotify) {
+        showToast('일반 방송 전환', 'info', '카테고리, 해외 시청, 클립, 다시보기가 잠금 해제되었으며 불필요한 태그가 정리되었습니다.');
+      }
+    }
+
+    function onWatchPartyChange(val) {
+      if (!val) {
+        releaseWatchPartyLock(true);
+      } else {
+        const wp = availableWatchParties.find(p => String(p.watchPartyNo) === String(val));
+        if (wp) {
+          applyWatchPartyLock(wp, true);
+        }
+      }
+      checkBroadcastStateDirty();
+    }
+
+    // ===== App Initialization (UI 즉시 활성화 + 백그라운드 연결) =====
+    const INIT_MAX_RETRIES = 5;
+    const INIT_RETRY_DELAY_MS = 1500;
+
+    function startApp() {
+      // ── 1. 이벤트 리스너 즉시 등록 (UI 반응성 확보) ──
       const titleInput = document.getElementById('live-title');
+      const titleClearBtn = document.getElementById('title-clear');
       if (titleInput) {
         titleInput.addEventListener('input', () => {
           document.getElementById('title-count').textContent = `${titleInput.value.length}/50`;
+          if (titleClearBtn) {
+            titleClearBtn.style.display = titleInput.value.length > 0 ? 'block' : 'none';
+          }
+          checkBroadcastStateDirty();
         });
       }
 
       const catSearch = document.getElementById('category-search');
       if (catSearch) {
+        let selectedCatIdx = -1;
+
         catSearch.addEventListener('input', (e) => {
           clearTimeout(categorySearchTimeout);
+          selectedCatIdx = -1;
           const query = e.target.value.trim();
           if (query.length < 1) {
             document.getElementById('category-dropdown').style.display = 'none';
@@ -521,9 +1900,39 @@
           }
           categorySearchTimeout = setTimeout(() => searchCategories(query), 300);
         });
+
         catSearch.addEventListener('focus', () => {
           const query = catSearch.value.trim();
+          selectedCatIdx = -1;
           if (query.length >= 1) searchCategories(query);
+        });
+
+        catSearch.addEventListener('keydown', (e) => {
+          const dropdown = document.getElementById('category-dropdown');
+          if (!dropdown || dropdown.style.display === 'none') return;
+          const items = dropdown.querySelectorAll('.category-item');
+          if (!items.length) return;
+
+          if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            selectedCatIdx = (selectedCatIdx + 1) % items.length;
+            items.forEach((it, idx) => it.classList.toggle('highlighted', idx === selectedCatIdx));
+            items[selectedCatIdx]?.scrollIntoView({ block: 'nearest' });
+          } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            selectedCatIdx = (selectedCatIdx - 1 + items.length) % items.length;
+            items.forEach((it, idx) => it.classList.toggle('highlighted', idx === selectedCatIdx));
+            items[selectedCatIdx]?.scrollIntoView({ block: 'nearest' });
+          } else if (e.key === 'Enter') {
+            if (selectedCatIdx >= 0 && selectedCatIdx < items.length) {
+              e.preventDefault();
+              selectCategoryItem(items[selectedCatIdx]);
+              selectedCatIdx = -1;
+            }
+          } else if (e.key === 'Escape') {
+            dropdown.style.display = 'none';
+            selectedCatIdx = -1;
+          }
         });
       }
 
@@ -535,36 +1944,146 @@
         }
       });
 
-      const tagInput = document.getElementById('tag-input');
+
+      // 방송 설정 변경 감지 리스너 일괄 등록
+      document.getElementById('toggle-adult')?.addEventListener('change', checkBroadcastStateDirty);
+      document.getElementById('toggle-clip')?.addEventListener('change', checkBroadcastStateDirty);
+      document.getElementById('toggle-overseas')?.addEventListener('change', checkBroadcastStateDirty);
+      document.querySelectorAll('input[name="replayPublishType"]').forEach(el => {
+        el.addEventListener('change', () => {
+          if (el.value === 'NONE' && el.checked) {
+            onReplayNoneClicked();
+          }
+          checkBroadcastStateDirty();
+        });
+      });
+      document.getElementById('select-watch-party')?.addEventListener('change', (e) => {
+        onWatchPartyChange(e.target.value);
+      });
+      document.querySelectorAll('input[name="chatAvailableGroup"]').forEach(el => el.addEventListener('change', checkBroadcastStateDirty));
+      document.getElementById('min-follower-minute')?.addEventListener('change', checkBroadcastStateDirty);
+      document.getElementById('toggle-sub-exception')?.addEventListener('change', checkBroadcastStateDirty);
+
+      // 태그 인라인 입력 이벤트 리스너 (한글 IME 조합 및 좌표 이탈 완벽 대응)
+      const tagInput = document.getElementById('tag-inline-input');
       if (tagInput) {
+        let isTagComposing = false;
+        tagInput.addEventListener('compositionstart', () => { isTagComposing = true; });
+        tagInput.addEventListener('compositionend', () => { isTagComposing = false; });
         tagInput.addEventListener('keydown', (e) => {
+          if (e.isComposing || e.keyCode === 229 || isTagComposing) {
+            return;
+          }
           if (e.key === 'Enter') {
             e.preventDefault();
-            addTag(tagInput.value.trim());
-            tagInput.value = '';
+            confirmTagInput();
+          } else if (e.key === 'Escape') {
+            e.preventDefault();
+            closeTagInput();
+          }
+        });
+        tagInput.addEventListener('keyup', (e) => {
+          if (e.key === 'Enter' && !isTagComposing) {
+            if (tagInput.value.trim().length > 0) {
+              confirmTagInput();
+            }
           }
         });
       }
 
-      if (channelId) {
-        await loadCurrentSettings();
-      } else {
-        showToast('⚙ 로그인 설정 필요', 'warn', '⚙ 상단 로그인 설정 버튼을 눌러 연동을 진행하세요.');
+      // ── 2. 백그라운드에서 연결 시도 (UI 차단 없음) ──
+      initConnection();
+    }
+
+    // DOM 로드 완료 상태에 무관하게 즉시 또는 이벤트 시점에 100% 실행 보장
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', startApp);
+    } else {
+      startApp();
+    }
+
+    async function initConnection() {
+      // Step 1: 서버 설정(쿠키) 시도적 로드
+      await loadServerConfig();
+
+      // Step 2: 연결 시도 (최대 INIT_MAX_RETRIES회)
+      for (let attempt = 1; attempt <= INIT_MAX_RETRIES; attempt++) {
+        if (isLoggingIn) return;
+
+        try {
+          const channelId = await updateConnectionStatus();
+          if (channelId) {
+            await loadCurrentSettings(true);
+            return;
+          }
+        } catch (e) {
+          console.warn(`[CHZZK Dock] 연결 시도 ${attempt} 예외:`, e);
+        }
+
+        if (attempt < INIT_MAX_RETRIES) {
+          await new Promise(r => setTimeout(r, INIT_RETRY_DELAY_MS));
+          await loadServerConfig();
+        }
       }
 
-      // 상시 10초 주기 연결 상태 백그라운드 헬스체크
-      setInterval(async () => {
-        if (!loginPollingInterval) {
-          await loadServerConfig();
-          await updateConnectionStatus();
+      // 모든 재시도 실패 후 최종 상태 확인
+      if (!serverConfig.nid_aut && !serverConfig.nid_ses) {
+        showToast('⚙ 로그인 설정 필요', 'warn', '⚙ 상단 로그인 설정 버튼을 눌러 연동을 진행하세요.');
+      } else {
+        showToast('⚠️ 치지직 연결 실패', 'warn', '치지직 서버 응답이 지연되고 있습니다. 잠시 후 새로고침해 주세요.');
+      }
+    }
+
+    // ===== Core Unified API Fetch (보안 헤더 및 401 세션 만료 공통 핸들링) =====
+    async function apiFetch(url, options = {}) {
+      const defaultHeaders = {
+        'X-Requested-With': 'ChzzkDock'
+      };
+      const mergedHeaders = Object.assign({}, defaultHeaders, options.headers || {});
+      const mergedOptions = Object.assign({}, options, { headers: mergedHeaders });
+
+      try {
+        const res = await fetch(url, mergedOptions);
+        if (res.status === 401 || res.status === 403) {
+          handleSessionExpired();
         }
-      }, 10000);
-    });
+        return res;
+      } catch (err) {
+        throw err;
+      }
+    }
+
+    function handleSessionExpired() {
+      const dot = document.getElementById('header-status-dot');
+      const text = document.getElementById('header-status-text');
+      const badgeA = document.getElementById('badge-method-a');
+      const badgeB = document.getElementById('badge-method-b');
+      const btnWebview = document.getElementById('btn-webview-login');
+      const inputAut = document.getElementById('cookie-nid-aut');
+      const inputSes = document.getElementById('cookie-nid-ses');
+      const elChannelName = document.getElementById('header-channel-name');
+
+      if (elChannelName) elChannelName.style.display = 'none';
+      const liveBadge = document.getElementById('header-live-badge');
+      if (liveBadge) liveBadge.style.display = 'none';
+      clearTimeout(liveCheckTimeout);
+      if (dot) { dot.className = 'w-2.5 h-2.5 rounded-full bg-[#FF4D6A] shadow-[0_0_8px_rgba(255,77,106,0.8)] transition-all flex-shrink-0'; dot.title = '로그인 필요 / 세션 만료'; }
+      if (text) { text.textContent = '로그인 필요'; text.className = 'font-medium text-[#FF4D6A]'; }
+      if (badgeA) { badgeA.textContent = "⚠️ 로그인 필요"; badgeA.className = "text-[9px] px-1.5 py-0.5 rounded font-bold bg-amber-950 text-amber-400 border border-amber-800/60"; }
+      if (badgeB) { badgeB.textContent = "⚠️ 미연동"; badgeB.className = "text-[9px] px-1.5 py-0.5 rounded font-bold bg-amber-950 text-amber-400 border border-amber-800/60"; }
+      if (btnWebview) {
+        btnWebview.innerHTML = "🔑 네이버 로그인 시작 (클릭)";
+        btnWebview.className = "save-btn text-xs py-2.5 bg-gradient-to-r from-emerald-400 to-teal-400 !text-[#080A0D] font-extrabold shadow-md";
+        btnWebview.onclick = startWebviewLogin;
+      }
+      if (inputAut) inputAut.className = "chzzk-input border-amber-500/60 bg-amber-950/20 text-amber-300";
+      if (inputSes) inputSes.className = "chzzk-input border-amber-500/60 bg-amber-950/20 text-amber-300";
+    }
 
     // ===== Server Config =====
     async function loadServerConfig() {
       try {
-        const res = await fetch('/config');
+        const res = await apiFetch('/config');
         if (res.ok) {
           serverConfig = await res.json();
           return;
@@ -577,16 +2096,17 @@
     async function resolveChannelId() {
       if (userChannelId) return userChannelId;
       try {
-        const res = await fetch('/unofficial-user');
+        const res = await apiFetch('/unofficial-user');
         if (res.ok) {
           const data = await res.json();
           const content = data.content || data;
-          if (content && content.userIdHash) {
-            userChannelId = content.userIdHash;
+          if (content && (content.loggedIn === true || content.userIdHash)) {
+            userChannelId = content.userIdHash || "";
             return userChannelId;
           }
         }
       } catch (e) {}
+      userChannelId = "";
       return "";
     }
 
@@ -598,91 +2118,232 @@
       const inputAut = document.getElementById('cookie-nid-aut');
       const inputSes = document.getElementById('cookie-nid-ses');
       const btnWebview = document.getElementById('btn-webview-login');
+      const elChannelName = document.getElementById('header-channel-name');
 
       // 사용자가 입력 필드에 포커스하고 있지 않을 때만 서버 값으로 업데이트 (레이스 컨디션 방지)
       if (serverConfig.nid_aut && inputAut && document.activeElement !== inputAut) inputAut.value = serverConfig.nid_aut;
       if (serverConfig.nid_ses && inputSes && document.activeElement !== inputSes) inputSes.value = serverConfig.nid_ses;
 
       try {
-        const res = await fetch('/unofficial-user');
+        const res = await apiFetch('/unofficial-user');
         if (res.ok) {
           const data = await res.json();
           const content = data.content || data;
-          if (content && content.userIdHash) {
-            userChannelId = content.userIdHash;
+          // HTTP 200 응답이더라도 실제 loggedIn 플래그 및 userIdHash가 유효한지 엄격히 검증
+          if (content && (content.loggedIn === true || content.userIdHash)) {
+            userChannelId = content.userIdHash || "";
+            currentChannelName = content.nickname || content.channelName || "";
+
+            // /unofficial-user 응답에 닉네임이 없으면 채널 정보 API 조회
+            if (!currentChannelName && userChannelId) {
+              try {
+                const chRes = await apiFetch(`/unofficial/service/v1/channels/${userChannelId}`);
+                if (chRes.ok) {
+                  const chData = await chRes.json();
+                  const chContent = chData.content || chData;
+                  if (chContent && chContent.channelName) {
+                    currentChannelName = chContent.channelName;
+                  }
+                }
+              } catch (e) {}
+            }
+
+            if (elChannelName) {
+              if (currentChannelName) {
+                elChannelName.style.display = 'inline-flex';
+                updateLiveStatusUI(isCurrentlyLive);
+              } else {
+                elChannelName.style.display = 'none';
+              }
+            }
+            checkLiveStatus();
+
+            if (dot) { dot.className = 'w-2.5 h-2.5 rounded-full bg-[#00FFA3] shadow-[0_0_8px_rgba(0,255,163,0.9)] animate-pulse flex-shrink-0'; dot.title = '치지직 연결됨'; }
+            if (text) { text.textContent = '연동됨'; text.className = 'font-medium text-[#00FFA3]'; }
+            if (badgeA) { badgeA.textContent = "✅ 쿠키 연동됨"; badgeA.className = "text-[9px] px-1.5 py-0.5 rounded font-bold bg-emerald-950 text-[#00FFA3] border border-emerald-800/60"; }
+            if (badgeB) { badgeB.textContent = "✅ 등록됨"; badgeB.className = "text-[9px] px-1.5 py-0.5 rounded font-bold bg-emerald-950 text-[#00FFA3] border border-emerald-800/60"; }
+            if (btnWebview) {
+              btnWebview.innerHTML = "🚪 치지직 연동 해제 (로그아웃)";
+              btnWebview.className = "save-btn text-xs py-2 bg-rose-900/60 hover:bg-rose-800 text-rose-200 border border-rose-600/60 transition-colors";
+              btnWebview.onclick = handleLogout;
+            }
+            if (inputAut) inputAut.className = "chzzk-input border-emerald-500/40 bg-emerald-950/10 text-emerald-300";
+            if (inputSes) inputSes.className = "chzzk-input border-emerald-500/40 bg-emerald-950/10 text-emerald-300";
+            return userChannelId;
+          } else {
+            userChannelId = "";
+            currentChannelName = "";
+            if (elChannelName) elChannelName.style.display = 'none';
+            handleSessionExpired();
           }
-          if (dot) { dot.className = 'w-2.5 h-2.5 rounded-full bg-[#00FFA3] shadow-[0_0_8px_rgba(0,255,163,0.9)] animate-pulse'; dot.title = '치지직 연결됨'; }
-          if (text) { text.textContent = '연동됨'; text.className = 'font-medium text-[#00FFA3]'; }
-          if (badgeA) { badgeA.textContent = "✅ 쿠키 연동됨"; badgeA.className = "text-[9px] px-1.5 py-0.5 rounded font-bold bg-emerald-950 text-[#00FFA3] border border-emerald-800/60"; }
-          if (badgeB) { badgeB.textContent = "✅ 등록됨"; badgeB.className = "text-[9px] px-1.5 py-0.5 rounded font-bold bg-emerald-950 text-[#00FFA3] border border-emerald-800/60"; }
-          if (btnWebview) { btnWebview.innerHTML = "✅ 로그인 연결 완료 (재로그인은 클릭)"; }
-          if (inputAut) inputAut.className = "chzzk-input border-emerald-500/60 bg-emerald-950/20 text-[#00FFA3]";
-          if (inputSes) inputSes.className = "chzzk-input border-emerald-500/60 bg-emerald-950/20 text-[#00FFA3]";
-          return userChannelId;
         } else {
-          if (dot) { dot.className = 'w-2.5 h-2.5 rounded-full bg-[#FF4D6A] shadow-[0_0_6px_rgba(255,77,106,0.8)]'; dot.title = '쿠키 만료됨'; }
-          if (text) { text.textContent = '로그인'; text.className = 'font-medium text-[#FF4D6A]'; }
-          if (badgeA) { badgeA.textContent = "⚠️ 쿠키 만료됨"; badgeA.className = "text-[9px] px-1.5 py-0.5 rounded font-bold bg-amber-950 text-amber-400 border border-amber-800/60"; }
-          if (badgeB) { badgeB.textContent = "⚠️ 만료됨"; badgeB.className = "text-[9px] px-1.5 py-0.5 rounded font-bold bg-amber-950 text-amber-400 border border-amber-800/60"; }
+          userChannelId = "";
+          currentChannelName = "";
+          if (elChannelName) elChannelName.style.display = 'none';
+          handleSessionExpired();
         }
       } catch (e) {
-        if (dot) { dot.className = 'w-2.5 h-2.5 rounded-full bg-[#FF4D6A] shadow-[0_0_6px_rgba(255,77,106,0.8)]'; dot.title = '서버 연결 실패'; }
-        if (text) { text.textContent = '오류'; text.className = 'font-medium text-[#FF4D6A]'; }
+        // 이미 연동되어 있는 상태라면 일시적 네트워크 에러로 오류 UI로 덮어쓰지 않음
+        if (!userChannelId) {
+          if (dot) { dot.className = 'w-2.5 h-2.5 rounded-full bg-[#FF4D6A] shadow-[0_0_8px_rgba(255,77,106,0.8)] transition-all flex-shrink-0'; dot.title = '서버 연결 실패'; }
+          if (text) { text.textContent = '오류'; text.className = 'font-medium text-[#FF4D6A]'; }
+          if (elChannelName) elChannelName.style.display = 'none';
+        }
       }
-      return "";
+      return userChannelId;
     }
 
-    let loginPollingInterval = null;
+    // ===== 백그라운드 자동 동기화 옵션 제어 (기본 OFF) =====
+    let autoSyncInterval = null;
+
+    function toggleAutoSync(enabled) {
+      if (autoSyncInterval) {
+        clearInterval(autoSyncInterval);
+        autoSyncInterval = null;
+      }
+
+      if (enabled) {
+        showToast('자동 동기화 켬', 'info', '60초마다 연결 상태를 동기화합니다.');
+        autoSyncInterval = setInterval(async () => {
+          if (!isLoggingIn) {
+            await updateConnectionStatus();
+          }
+        }, 60000);
+      } else {
+        showToast('자동 동기화 끔', 'info', '수동 새로고침 모드로 동작합니다.');
+      }
+    }
+
+    // ===== Webview Login (이벤트 기반 비동기 대기 / 더블클릭 방지) =====
+
+
+    // ===== Account Logout & Session Clear (Option B: 깔끔한 계정 전환) =====
+    async function handleLogout() {
+      if (!confirm('치지직 연동을 해제(로그아웃)하시겠습니까?\n저장된 쿠키가 삭제되며, 다른 계정으로 다시 로그인할 수 있습니다.')) return;
+      try {
+        const res = await apiFetch('/logout', { method: 'POST' });
+        if (res.ok) {
+          serverConfig = { nid_aut: '', nid_ses: '' };
+          userChannelId = '';
+          currentChannelName = '';
+          streamingInfoLoaded = false;
+          donationsLoaded = false;
+          const inputAut = document.getElementById('cookie-nid-aut');
+          const inputSes = document.getElementById('cookie-nid-ses');
+          const elChannelName = document.getElementById('header-channel-name');
+          if (inputAut) inputAut.value = '';
+          if (inputSes) inputSes.value = '';
+          if (elChannelName) elChannelName.style.display = 'none';
+          handleSessionExpired();
+          showToast('로그아웃 완료', 'info', '치지직 연동이 해제되었습니다. 새로운 계정으로 로그인할 수 있습니다.');
+        } else {
+          showToast('로그아웃 실패', 'error', '서버에서 로그아웃 처리에 실패했습니다.');
+        }
+      } catch (e) {
+        showToast('로그아웃 오류', 'error', e.message);
+      }
+    }
 
     async function startWebviewLogin() {
+      if (isLoggingIn) return;
+      isLoggingIn = true;
+
+      const btnWebview = document.getElementById('btn-webview-login');
+      if (btnWebview) {
+        btnWebview.classList.add('opacity-50', 'pointer-events-none');
+      }
+
       try {
-        const prevAut = serverConfig.nid_aut || '';
-        const prevSes = serverConfig.nid_ses || '';
-
-        const res = await fetch('/login-webview');
+        const res = await apiFetch('/login-webview');
         const data = await res.json();
-        if (data.status === 'started') {
-          showToast('네이버 로그인 팝업이 열렸습니다. 로그인해 주세요.', 'info');
+        if (data.status === 'started' || data.status === 'already_open') {
+          showToast('네이버 로그인 창이 열렸습니다. 로그인해 주세요.', 'info');
 
-          // 기존 폴링 정리 후 1.5초 간격 감지 시작
-          if (loginPollingInterval) clearInterval(loginPollingInterval);
-          let attempts = 0;
-          const maxAttempts = 120; // 1.5초 * 120 = 최대 3분
+          // [이벤트 기반] 단일 대기
+          const waitRes = await apiFetch('/login-wait');
+          const waitData = await waitRes.json();
 
-          loginPollingInterval = setInterval(async () => {
-            attempts++;
+          // 세션 완료 여부 다중 체크 (status === 'completed' 또는 쿠키 직접 보유)
+          const hasCookies = Boolean(waitData.config && waitData.config.nid_aut && waitData.config.nid_ses);
+
+          if (waitData.status === 'completed' || hasCookies) {
+            serverConfig = waitData.config || (await (await apiFetch('/config')).json());
+            const cid = await updateConnectionStatus();
+            if (cid) {
+              showToast('🎉 치지직 로그인 및 방송 연동 완료!', 'success');
+              const panel = document.getElementById('settings-panel');
+              if (panel && panel.classList.contains('open')) {
+                toggleSettings();
+              }
+              await loadCurrentSettings(true);
+            } else {
+              showToast('⚠️ 연동 확인 실패', 'warn', '쿠키는 저장되었으나 치지직 채널 정보 확인에 실패했습니다. 다시 [로그인] 버튼을 눌러주세요.');
+            }
+          } else {
+            // [자가 치유]: 창이 닫혔더라도 금고에 저장되었는지 최종 재확인
             await loadServerConfig();
-
-            // 새 쿠키 수신 여부 확인 (기존 계정 A가 있는 상태에서 계정 B로 재로그인 시 오탐 방지)
-            const isCookieUpdated = (!prevAut && serverConfig.nid_aut) ||
-                                    (serverConfig.nid_aut && serverConfig.nid_aut !== prevAut) ||
-                                    (serverConfig.nid_ses && serverConfig.nid_ses !== prevSes);
-
-            if (isCookieUpdated) {
+            if (serverConfig.nid_aut && serverConfig.nid_ses) {
               const cid = await updateConnectionStatus();
               if (cid) {
-                clearInterval(loginPollingInterval);
-                loginPollingInterval = null;
-                showToast('🎉 치지직 로그인 및 방송 연동 완료!', 'success');
-                // 설정 서랍 열려있으면 자동 닫기
+                showToast('🎉 치지직 로그인 자동 복구 완료!', 'success');
                 const panel = document.getElementById('settings-panel');
                 if (panel && panel.classList.contains('open')) {
                   toggleSettings();
                 }
                 await loadCurrentSettings(true);
+                return;
               }
-            } else if (attempts >= maxAttempts) {
-              clearInterval(loginPollingInterval);
-              loginPollingInterval = null;
             }
-          }, 1500);
+            showToast('⚠️ 로그인 미완료', 'warn', '로그인이 완료되지 않고 창이 닫혔습니다. 연동을 위해 [네이버 로그인] 버튼을 다시 눌러주세요.');
+          }
         } else {
-          showToast('웹뷰 로그인 실패', 'error', data.message);
+          showToast('웹뷰 로그인 알림', 'info', data.message || '로그인 창을 열 수 없습니다. 다시 시도해 주세요.');
         }
       } catch (e) {
-        showToast('서버 통신 오류', 'error', e.message);
+        // 네트워크/통신 에러 시 자가 치유 시도 후 명확한 안내 토스트
+        await loadServerConfig();
+        if (serverConfig.nid_aut && serverConfig.nid_ses) {
+          const cid = await updateConnectionStatus();
+          if (cid) {
+            showToast('🎉 치지직 로그인 자동 복구 완료!', 'success');
+            await loadCurrentSettings(true);
+            return;
+          }
+        }
+        showToast('⚠️ 로그인 연결 오류', 'error', '통신 중 오류가 발생했습니다. [로그인] 버튼을 다시 눌러주세요.');
+      } finally {
+        isLoggingIn = false;
+        if (btnWebview) {
+          btnWebview.classList.remove('opacity-50', 'pointer-events-none');
+        }
       }
     }
+
+    // [자가 치유 & 자동 동기화] 미연동 상태에서 독 창 복귀/가시 전환 시 자동 세션 확인
+    let selfHealRunning = false;
+    async function trySelfHeal(source) {
+      if (userChannelId || isLoggingIn || selfHealRunning) return;
+      selfHealRunning = true;
+      try {
+        await loadServerConfig();
+        if (serverConfig.nid_aut && serverConfig.nid_ses) {
+          const cid = await updateConnectionStatus();
+          if (cid) {
+            showToast('🎉 치지직 로그인 자동 연결 완료!', 'success');
+            await loadCurrentSettings(true);
+          }
+        }
+      } finally {
+        selfHealRunning = false;
+      }
+    }
+
+    window.addEventListener('focus', () => trySelfHeal('focus'));
+
+    // OBS 브라우저 독은 focus 이벤트가 발생하지 않을 수 있으므로 visibilitychange도 감시
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) trySelfHeal('visibility');
+    });
 
     async function saveManualCookies() {
       const nidAut = document.getElementById('cookie-nid-aut').value.trim();
@@ -694,7 +2355,7 @@
       }
 
       try {
-        const res = await fetch('/save-config', {
+        const res = await apiFetch('/save-config', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ nid_aut: nidAut, nid_ses: nidSes })
@@ -716,60 +2377,98 @@
 
     // ===== Main Settings Operations =====
     async function loadCurrentSettings(silent = false) {
-      if (!userChannelId) {
-        await resolveChannelId();
-      }
-      if (!userChannelId) {
-        showToast('로그인 설정 필요', 'warn', '⚙ 상단 로그인 설정 버튼을 눌러 연동을 진행하세요.');
-        return;
-      }
+      const refreshIcon = document.getElementById('header-refresh-icon');
+      const loadSpinner = document.getElementById('load-spinner');
+      if (refreshIcon) refreshIcon.classList.add('animate-spin');
+      if (loadSpinner) loadSpinner.classList.add('animate-spin');
 
-      let loaded = false;
-
-      // 1. 방송 정보 및 다시보기/연령제한/클립 설정
       try {
-        const res = await fetch(`/unofficial/manage/v1/channels/${userChannelId}/live-setting/normal`);
-        if (res.ok) {
-          const data = await res.json();
-          const content = data.content || data;
-          if (content) {
-            currentLiveSetting.rawContent = content;
-            if (content.defaultLiveTitle) {
-              document.getElementById('live-title').value = content.defaultLiveTitle;
-              document.getElementById('title-count').textContent = `${content.defaultLiveTitle.length}/50`;
-            }
-            const cat = content.category || {};
-            const catId = cat.categoryId || content.liveCategory || '';
-            const catType = cat.categoryType || content.categoryType || 'ETC';
-            const catValue = cat.categoryValue || catId;
-            if (catId || catValue) {
-              document.getElementById('category-id').value = catId;
-              document.getElementById('category-type').value = catType;
-              document.getElementById('category-search').value = catValue;
-              document.getElementById('category-clear').style.display = 'block';
-            }
-            if (content.tags && Array.isArray(content.tags)) {
-              currentTags = [...content.tags];
-              renderTags();
-            }
-
-            if (content.adult !== undefined) currentLiveSetting.adult = !!content.adult;
-            if (content.clipActive !== undefined) currentLiveSetting.clipActive = !!content.clipActive;
-            if (content.replayPublishType) currentLiveSetting.replayPublishType = content.replayPublishType;
-
-            document.getElementById('toggle-adult').checked = currentLiveSetting.adult;
-            document.getElementById('toggle-clip').checked = currentLiveSetting.clipActive;
-            const radio = document.querySelector(`input[name="replayPublishType"][value="${currentLiveSetting.replayPublishType}"]`);
-            if (radio) radio.checked = true;
-
-            loaded = true;
-          }
+        if (!userChannelId) {
+          await resolveChannelId();
         }
-      } catch (e) {}
+        if (!userChannelId) {
+          showToast('로그인 설정 필요', 'warn', '⚙ 상단 로그인 설정 버튼을 눌러 연동을 진행하세요.');
+          return;
+        }
+
+        let loaded = false;
+
+        // 0. 같이보기(Watch Party) 목록 조회
+        try {
+          const wpRes = await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/watch-parties`);
+          if (wpRes.ok) {
+            const wpData = await wpRes.json();
+            const wpContent = wpData.content || wpData;
+            if (wpContent && Array.isArray(wpContent.watchParties)) {
+              availableWatchParties = wpContent.watchParties;
+              renderWatchPartyOptions(availableWatchParties);
+            }
+          }
+        } catch (e) {}
+
+        // 1. 방송 정보 및 다시보기/연령제한/클립 설정
+        try {
+          const res = await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/live-setting/normal`);
+          if (res.ok) {
+            const data = await res.json();
+            const content = data.content || data;
+            if (content) {
+              currentLiveSetting.rawContent = content;
+              if (content.defaultLiveTitle) {
+                document.getElementById('live-title').value = content.defaultLiveTitle;
+                document.getElementById('title-count').textContent = `${content.defaultLiveTitle.length}/50`;
+                const titleClearBtn = document.getElementById('title-clear');
+                if (titleClearBtn) titleClearBtn.style.display = 'block';
+              }
+              const cat = content.category || {};
+              const catId = cat.categoryId || content.liveCategory || '';
+              const catType = cat.categoryType || content.categoryType || 'ETC';
+              const catValue = cat.categoryValue || catId;
+              if (catId || catValue) {
+                document.getElementById('category-id').value = catId;
+                document.getElementById('category-type').value = catType;
+                document.getElementById('category-search').value = catValue;
+                document.getElementById('category-clear').style.display = 'block';
+              }
+              if (content.tags && Array.isArray(content.tags)) {
+                currentTags = [...content.tags];
+                renderTags();
+              }
+
+              if (content.adult !== undefined) currentLiveSetting.adult = !!content.adult;
+              if (content.clipActive !== undefined) currentLiveSetting.clipActive = !!content.clipActive;
+              if (content.replayPublishType) currentLiveSetting.replayPublishType = content.replayPublishType;
+              if (content.krOnlyViewing !== undefined) currentLiveSetting.krOnlyViewing = !!content.krOnlyViewing;
+
+              document.getElementById('toggle-adult').checked = currentLiveSetting.adult;
+              document.getElementById('toggle-clip').checked = currentLiveSetting.clipActive;
+              const elOverseas = document.getElementById('toggle-overseas');
+              if (elOverseas) elOverseas.checked = !currentLiveSetting.krOnlyViewing;
+              const radio = document.querySelector(`input[name="replayPublishType"][value="${currentLiveSetting.replayPublishType}"]`);
+              if (radio) radio.checked = true;
+
+              // 같이보기 상태 확인 및 UI 반영
+              if (content.watchParty && content.watchParty.watchPartyNo) {
+                currentLiveSetting.watchPartyNo = content.watchParty.watchPartyNo;
+                const selWp = document.getElementById('select-watch-party');
+                if (selWp) selWp.value = String(content.watchParty.watchPartyNo);
+                const wpItem = availableWatchParties.find(p => String(p.watchPartyNo) === String(content.watchParty.watchPartyNo)) || content.watchParty;
+                applyWatchPartyLock(wpItem, false);
+              } else {
+                currentLiveSetting.watchPartyNo = null;
+                const selWp = document.getElementById('select-watch-party');
+                if (selWp) selWp.value = "";
+                releaseWatchPartyLock(false);
+              }
+
+              loaded = true;
+            }
+          }
+        } catch (e) {}
 
       // 2. 채팅 설정
       try {
-        const chatRes = await fetch(`/unofficial/manage/v1/channels/${userChannelId}/live-setting/chat`);
+        const chatRes = await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/live-setting/chat`);
         if (chatRes.ok) {
           const chatData = await chatRes.json();
           const chatContent = chatData.content || chatData;
@@ -788,33 +2487,121 @@
         }
       } catch (e) {}
 
-      // 3. 후원 3종 설정
-      try {
-        const dRes = await fetch(`/unofficial/channels/${userChannelId}/donations/setting`);
-        if (dRes.ok) {
-          const dData = await dRes.json();
-          const dContent = dData.content || dData;
-          if (dContent && dContent.chatDonationActive !== undefined) {
-            currentDonationState = {
-              chatDonationActive: !!dContent.chatDonationActive,
-              videoDonationActive: !!dContent.videoDonationActive,
-              missionDonationActive: !!dContent.missionDonationActive
-            };
-            const elChat = document.getElementById('toggle-chat-donation');
-            const elVid = document.getElementById('toggle-video-donation');
-            const elMis = document.getElementById('toggle-mission-donation');
-            if (elChat) elChat.checked = currentDonationState.chatDonationActive;
-            if (elVid) elVid.checked = currentDonationState.videoDonationActive;
-            if (elMis) elMis.checked = currentDonationState.missionDonationActive;
-            loaded = true;
-          }
-        }
-      } catch (e) {}
-
       if (loaded) {
-        if (!silent) showToast('현재 방송, 채팅, 후원 설정을 불러왔습니다', 'success');
+        if (!silent) showToast('현재 방송 설정을 불러왔습니다', 'success');
+        // 설정 로드 성공 시 헤더 상태도 '연동됨(초록불)'으로 확정
+        const dot = document.getElementById('header-status-dot');
+        const text = document.getElementById('header-status-text');
+        const badgeA = document.getElementById('badge-method-a');
+        const badgeB = document.getElementById('badge-method-b');
+        const btnWebview = document.getElementById('btn-webview-login');
+
+        if (dot) { dot.className = 'w-2.5 h-2.5 rounded-full bg-[#00FFA3] shadow-[0_0_8px_rgba(0,255,163,0.9)] animate-pulse'; dot.title = '치지직 연결됨'; }
+        if (text) { text.textContent = '연동됨'; text.className = 'font-medium text-[#00FFA3]'; }
+        if (badgeA) { badgeA.textContent = "✅ 쿠키 연동됨"; badgeA.className = "text-[9px] px-1.5 py-0.5 rounded font-bold bg-emerald-950 text-[#00FFA3] border border-emerald-800/60"; }
+        if (badgeB) { badgeB.textContent = "✅ 등록됨"; badgeB.className = "text-[9px] px-1.5 py-0.5 rounded font-bold bg-emerald-950 text-[#00FFA3] border border-emerald-800/60"; }
+        if (btnWebview) {
+          btnWebview.innerHTML = "✅ 로그인 연결 완료 (재로그인은 클릭)";
+          btnWebview.className = "save-btn text-xs py-2.5 bg-gradient-to-r from-emerald-400 to-teal-400 !text-[#080A0D] font-extrabold shadow-md";
+        }
+        updateSavedBroadcastBaseline();
       } else {
         if (!silent) showToast('설정 불러오기 실패', 'error', '네이버 로그인 쿠키 상태를 확인해 주세요.');
+      }
+    } finally {
+      if (refreshIcon) {
+        setTimeout(() => refreshIcon.classList.remove('animate-spin'), 350);
+      }
+      if (loadSpinner) {
+        setTimeout(() => loadSpinner.classList.remove('animate-spin'), 350);
+      }
+    }
+  }
+
+    // ===== Donations & Realtime Chat Mode Loading =====
+    async function fetchDonationsAndChatMode(silent = false) {
+      const iconTop = document.getElementById('donations-refresh-icon');
+      const iconBottom = document.getElementById('donations-bottom-refresh-icon');
+      if (iconTop) iconTop.classList.add('animate-spin');
+      if (iconBottom) iconBottom.classList.add('animate-spin');
+
+      try {
+        if (!userChannelId) {
+          await resolveChannelId();
+        }
+        if (!userChannelId) {
+          if (!silent) showToast('로그인 설정 필요', 'warn', '치지직 연동 상태를 확인해 주세요.');
+          return;
+        }
+
+        let loaded = false;
+
+        // 1. 후원 3종 설정
+        try {
+          const dRes = await apiFetch(`/unofficial/channels/${userChannelId}/donations/setting`);
+          if (dRes.ok) {
+            const dData = await dRes.json();
+            const dContent = dData.content || dData;
+            if (dContent && dContent.chatDonationActive !== undefined) {
+              currentDonationState = {
+                chatDonationActive: !!dContent.chatDonationActive,
+                videoDonationActive: !!dContent.videoDonationActive,
+                missionDonationActive: !!dContent.missionDonationActive
+              };
+              const elChat = document.getElementById('toggle-chat-donation');
+              const elVid = document.getElementById('toggle-video-donation');
+              const elMis = document.getElementById('toggle-mission-donation');
+              if (elChat) elChat.checked = currentDonationState.chatDonationActive;
+              if (elVid) elVid.checked = currentDonationState.videoDonationActive;
+              if (elMis) elMis.checked = currentDonationState.missionDonationActive;
+              loaded = true;
+            }
+          }
+        } catch (e) {
+          console.warn('[CHZZK Dock] 후원 설정 조회 오류:', e);
+        }
+
+        // 2. 실시간 채팅 모드 설정 (이모티콘 전용 모드, 저속 모드)
+        try {
+          const modeRes = await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/live-setting/chat-mode`);
+          if (modeRes.ok) {
+            const modeData = await modeRes.json();
+            const modeContent = modeData.content || modeData;
+            if (modeContent) {
+              currentChatModeState = {
+                chatEmojiMode: !!modeContent.chatEmojiMode,
+                chatSlowModeSec: Number(modeContent.chatSlowModeSec) || 0
+              };
+              const elEmoji = document.getElementById('toggle-emoji-mode');
+              const elSlow = document.getElementById('select-slow-mode');
+              const elSlowStatus = document.getElementById('slow-mode-status');
+              if (elEmoji) elEmoji.checked = currentChatModeState.chatEmojiMode;
+              if (elSlow) elSlow.value = String(currentChatModeState.chatSlowModeSec);
+              if (elSlowStatus) {
+                if (currentChatModeState.chatSlowModeSec > 0) {
+                  elSlowStatus.textContent = formatSlowSec(currentChatModeState.chatSlowModeSec);
+                  elSlowStatus.className = 'text-[10px] text-[#00FFA3] font-bold font-mono';
+                } else {
+                  elSlowStatus.textContent = 'OFF';
+                  elSlowStatus.className = 'text-[10px] text-slate-400 font-mono font-semibold';
+                }
+              }
+              loaded = true;
+            }
+          }
+        } catch (e) {
+          console.warn('[CHZZK Dock] 실시간 채팅 모드 조회 오류:', e);
+        }
+
+        if (loaded) {
+          donationsLoaded = true;
+          if (!silent) showToast('후원 및 실시간 채팅 설정을 불러왔습니다', 'success');
+        } else {
+          if (!silent) showToast('후원/채팅 설정 불러오기 실패', 'error', '네이버 로그인 쿠키 상태를 확인해 주세요.');
+        }
+      } finally {
+        if (iconTop) setTimeout(() => iconTop.classList.remove('animate-spin'), 350);
+        if (iconBottom) setTimeout(() => iconBottom.classList.remove('animate-spin'), 350);
       }
     }
 
@@ -834,7 +2621,7 @@
       const targetActive = el ? el.checked : false;
 
       try {
-        const res = await fetch(`/unofficial/channels/${userChannelId}/donations/active-setting`, {
+        const res = await apiFetch(`/unofficial/channels/${userChannelId}/donations/active-setting`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ donationType: type, active: targetActive })
@@ -849,6 +2636,76 @@
         }
       } catch (e) {
         if (el) el.checked = currentDonationState[cfg.key];
+        showToast('통신 오류', 'error', e.message);
+      }
+    }
+
+    function formatSlowSec(sec) {
+      if (sec >= 60) return `${sec / 60}분`;
+      return `${sec}초`;
+    }
+
+    async function updateChatEmojiMode(enabled) {
+      if (!userChannelId) {
+        showToast('채널 정보 없음', 'error', '⚙ 로그인 설정을 먼저 완료해 주세요.');
+        const el = document.getElementById('toggle-emoji-mode');
+        if (el) el.checked = currentChatModeState.chatEmojiMode;
+        return;
+      }
+      const el = document.getElementById('toggle-emoji-mode');
+      try {
+        const res = await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/live-setting/chat-mode/emoji`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chatEmojiMode: enabled })
+        });
+        if (res.ok) {
+          currentChatModeState.chatEmojiMode = enabled;
+          showToast(enabled ? '😀 이모티콘 전용 모드 ON' : '💬 일반 채팅 모드로 전환', 'success');
+        } else {
+          if (el) el.checked = currentChatModeState.chatEmojiMode;
+          showToast('이모티콘 모드 변경 실패', 'error', '쿠키 로그인 상태를 확인하세요.');
+        }
+      } catch (e) {
+        if (el) el.checked = currentChatModeState.chatEmojiMode;
+        showToast('통신 오류', 'error', e.message);
+      }
+    }
+
+    async function updateChatSlowMode(sec) {
+      if (!userChannelId) {
+        showToast('채널 정보 없음', 'error', '⚙ 로그인 설정을 먼저 완료해 주세요.');
+        const el = document.getElementById('select-slow-mode');
+        if (el) el.value = String(currentChatModeState.chatSlowModeSec);
+        return;
+      }
+      const el = document.getElementById('select-slow-mode');
+      const elStatus = document.getElementById('slow-mode-status');
+      try {
+        const res = await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/live-setting/chat-mode/slow`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chatSlowModeSec: sec })
+        });
+        if (res.ok) {
+          currentChatModeState.chatSlowModeSec = sec;
+          if (elStatus) {
+            if (sec > 0) {
+              elStatus.textContent = formatSlowSec(sec);
+              elStatus.className = 'text-[10px] text-[#00FFA3] font-bold font-mono';
+              showToast(`⏱️ 저속 모드 (${formatSlowSec(sec)}) 설정 완료`, 'success');
+            } else {
+              elStatus.textContent = 'OFF';
+              elStatus.className = 'text-[10px] text-slate-400 font-mono font-semibold';
+              showToast('⏱️ 저속 모드 해제 완료', 'success');
+            }
+          }
+        } else {
+          if (el) el.value = String(currentChatModeState.chatSlowModeSec);
+          showToast('저속 모드 변경 실패', 'error', '쿠키 로그인 상태를 확인하세요.');
+        }
+      } catch (e) {
+        if (el) el.value = String(currentChatModeState.chatSlowModeSec);
         showToast('통신 오류', 'error', e.message);
       }
     }
@@ -875,20 +2732,67 @@
 
       // 1. 방송 정보 & 세부 설정 저장 (PUT /live-setting/normal)
       try {
-        const title = document.getElementById('live-title').value.trim();
+        let title = document.getElementById('live-title').value.trim();
         if (!title) {
-          showToast('입력 확인', 'error', '방송 제목을 입력해 주세요.');
-          btn.disabled = false;
-          saveText.textContent = '설정 저장';
-          spinner.style.display = 'none';
-          return;
+          if (savedBroadcastBaseline && savedBroadcastBaseline.title) {
+            title = savedBroadcastBaseline.title;
+            document.getElementById('live-title').value = title;
+            document.getElementById('title-count').textContent = `${title.length}/50`;
+            showToast('제목 복구', 'info', '제목이 비어있어 이전 값으로 복구되었습니다.');
+          } else {
+            showToast('입력 확인', 'warn', '방송 제목을 입력해 주세요.');
+            btn.disabled = false;
+            saveText.textContent = '설정 저장';
+            spinner.style.display = 'none';
+            return;
+          }
         }
 
-        const catType = document.getElementById('category-type').value || "ETC";
-        const catId = document.getElementById('category-id').value || "talk";
+        let catSearchVal = (document.getElementById('category-search')?.value || '').trim();
+        let catId = (document.getElementById('category-id')?.value || '').trim();
+        let catType = (document.getElementById('category-type')?.value || '').trim();
+
+        // 카테고리가 비어있는 경우: 이전 값 복구, 이전 값도 없으면 'talk' 사용
+        if (!catId || !catSearchVal) {
+          if (savedBroadcastBaseline && savedBroadcastBaseline.categoryId) {
+            catId = savedBroadcastBaseline.categoryId;
+            catType = savedBroadcastBaseline.categoryType || 'ETC';
+            catSearchVal = savedBroadcastBaseline.categoryValue || savedBroadcastBaseline.categoryId;
+
+            document.getElementById('category-id').value = catId;
+            document.getElementById('category-type').value = catType;
+            document.getElementById('category-search').value = catSearchVal;
+            const clearBtn = document.getElementById('category-clear');
+            if (clearBtn) clearBtn.style.display = 'block';
+
+            showToast('카테고리 복구', 'info', `카테고리가 비어있어 이전 값(${catSearchVal})으로 복구되었습니다.`);
+          } else {
+            catId = 'talk';
+            catType = 'ETC';
+            catSearchVal = 'talk';
+
+            document.getElementById('category-id').value = 'talk';
+            document.getElementById('category-type').value = 'ETC';
+            document.getElementById('category-search').value = 'talk';
+            const clearBtn = document.getElementById('category-clear');
+            if (clearBtn) clearBtn.style.display = 'block';
+
+            showToast('기본 카테고리', 'info', '이전 카테고리가 없어 talk로 설정되었습니다.');
+          }
+        }
         const targetAdult = document.getElementById('toggle-adult').checked;
         const targetClip = document.getElementById('toggle-clip').checked;
+        const targetOverseas = document.getElementById('toggle-overseas')?.checked ?? true;
+        const targetKrOnly = !targetOverseas;
         const targetReplay = document.querySelector('input[name="replayPublishType"]:checked')?.value || 'MANUAL';
+        const targetWpNo = document.getElementById('select-watch-party')?.value || '';
+        const isWp = !!targetWpNo;
+
+        // 같이보기 모드일 때 필수 규정 적용 (카테고리, 한국 전용, 클립 비허용, 다시보기 없음)
+        if (isWp && activeWatchParty && activeWatchParty.category) {
+          catId = activeWatchParty.category.categoryId || catId;
+          catType = activeWatchParty.category.categoryType || catType;
+        }
 
         const base = currentLiveSetting.rawContent || {};
         const payloadLive = {
@@ -897,21 +2801,22 @@
           liveCategory: catId,
           tags: currentTags || [],
           adult: targetAdult,
-          clipActive: targetClip,
-          replayPublishType: targetReplay,
+          clipActive: isWp ? false : targetClip,
+          replayPublishType: isWp ? 'NONE' : targetReplay,
           paidPromotion: !!base.paidPromotion,
-          krOnlyViewing: !!base.krOnlyViewing,
+          krOnlyViewing: isWp ? true : targetKrOnly,
           cvExposure: base.cvExposure !== undefined ? base.cvExposure : true,
-          timeMachineActive: base.timeMachineActive !== undefined ? base.timeMachineActive : true,
+          timeMachineActive: isWp ? false : (base.timeMachineActive !== undefined ? base.timeMachineActive : true),
           aiCaptionActive: !!base.aiCaptionActive,
           streamerShopCatalogTagActive: !!base.streamerShopCatalogTagActive,
           defaultThumbnailImageUrl: base.defaultThumbnailImageUrl || null,
           dropsCampaignNo: base.dropsCampaignNo || null,
           paidProductId: base.paidProductId || null,
-          broadcastLanguage: base.broadcastLanguage || null
+          broadcastLanguage: base.broadcastLanguage || null,
+          watchPartyNo: isWp ? Number(targetWpNo) : null
         };
 
-        const resLive = await fetch(`/unofficial/manage/v1/channels/${userChannelId}/live-setting/normal`, {
+        const resLive = await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/live-setting/normal`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payloadLive)
@@ -919,8 +2824,10 @@
 
         if (resLive.ok) {
           currentLiveSetting.adult = targetAdult;
-          currentLiveSetting.clipActive = targetClip;
-          currentLiveSetting.replayPublishType = targetReplay;
+          currentLiveSetting.clipActive = isWp ? false : targetClip;
+          currentLiveSetting.krOnlyViewing = isWp ? true : targetKrOnly;
+          currentLiveSetting.replayPublishType = isWp ? 'NONE' : targetReplay;
+          currentLiveSetting.watchPartyNo = isWp ? Number(targetWpNo) : null;
           liveSuccess = true;
         } else {
           showToast('방송 정보 저장 실패', 'error', '치지직 서버 권한을 확인하세요.');
@@ -938,7 +2845,7 @@
           allowSubscriberInFollowerMode: document.getElementById('toggle-sub-exception').checked
         };
 
-        const resChat = await fetch(`/unofficial/manage/v1/channels/${userChannelId}/live-setting/chat`, {
+        const resChat = await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/live-setting/chat`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payloadChat)
@@ -972,21 +2879,36 @@
       await loadCurrentSettings(true);
 
       btn.disabled = false;
-      saveText.textContent = '설정 저장';
       spinner.style.display = 'none';
 
       if (liveSuccess && chatSuccess) {
+        saveText.textContent = '✅ 저장 완료!';
         showToast('🎉 방송, 채팅 & 후원 설정 저장 완료!', 'success');
+        setTimeout(() => { saveText.textContent = '설정 저장'; }, 1500);
       } else if (liveSuccess) {
+        saveText.textContent = '✅ 저장 완료!';
         showToast('방송 정보만 저장되었습니다.', 'warn');
+        setTimeout(() => { saveText.textContent = '설정 저장'; }, 1500);
       } else if (chatSuccess) {
+        saveText.textContent = '✅ 저장 완료!';
         showToast('채팅 설정만 저장되었습니다.', 'warn');
+        setTimeout(() => { saveText.textContent = '설정 저장'; }, 1500);
+      } else {
+        saveText.textContent = '설정 저장';
       }
     }
 
     // ===== UI Helpers =====
     function onChatGroupChange(val) {
-      document.getElementById('follower-options').style.display = val === 'FOLLOWER' ? 'block' : 'none';
+      const opts = document.getElementById('follower-options');
+      const placeholder = document.getElementById('follower-options-placeholder');
+      if (val === 'FOLLOWER') {
+        if (opts) opts.style.display = 'flex';
+        if (placeholder) placeholder.style.display = 'none';
+      } else {
+        if (opts) opts.style.display = 'none';
+        if (placeholder) placeholder.style.display = 'none';
+      }
     }
 
     function getSelectedChatGroup() {
@@ -1014,7 +2936,7 @@
 
       try {
         const q = encodeURIComponent(query.trim());
-        const res = await fetch(`/unofficial/manage/v1/auto-complete/categories?keyword=${q}&size=10`);
+        const res = await apiFetch(`/unofficial/manage/v1/auto-complete/categories?keyword=${q}&size=10`);
         if (res.ok) {
           const data = await res.json();
           const list = data?.content?.results || [];
@@ -1065,6 +2987,7 @@
       document.getElementById('category-dropdown').style.display = 'none';
       document.getElementById('category-clear').style.display = 'block';
       showToast(`카테고리: ${value}`, 'info');
+      checkBroadcastStateDirty();
     }
 
     function clearCategory() {
@@ -1072,26 +2995,43 @@
       document.getElementById('category-type').value = '';
       document.getElementById('category-id').value = '';
       document.getElementById('category-clear').style.display = 'none';
+      checkBroadcastStateDirty();
     }
 
+    function clearTitle() {
+      const elTitle = document.getElementById('live-title');
+      if (elTitle) {
+        elTitle.value = '';
+        const countEl = document.getElementById('title-count');
+        if (countEl) countEl.textContent = '0/50';
+        const clearBtn = document.getElementById('title-clear');
+        if (clearBtn) clearBtn.style.display = 'none';
+        elTitle.focus();
+        checkBroadcastStateDirty();
+      }
+    }
+
+    let isTagInputOpen = false;
+
     function addTag(value) {
-      if (!value) return;
+      if (!value) return false;
       value = value.replace(/\s+/g, '');
-      if (!value) return;
+      if (!value) return false;
       if (!/^[a-zA-Z0-9가-힣ㄱ-ㅎㅏ-ㅣ]+$/.test(value)) {
         showToast('입력 오류', 'error', '공백 및 특수문자는 사용할 수 없습니다.');
-        return;
+        return false;
       }
       if (currentTags.length >= 10) {
         showToast('태그 제한', 'warn', '태그는 최대 10개까지 추가할 수 있습니다.');
-        return;
+        return false;
       }
       if (currentTags.includes(value)) {
         showToast('중복 태그', 'warn', '이미 추가된 태그입니다.');
-        return;
+        return false;
       }
       currentTags.push(value);
       renderTags();
+      return true;
     }
 
     function removeTag(index) {
@@ -1099,14 +3039,93 @@
       renderTags();
     }
 
+    function openTagInput() {
+      if (currentTags.length >= 10) {
+        showToast('태그 제한', 'warn', '태그는 최대 10개까지 추가할 수 있습니다.');
+        return;
+      }
+      isTagInputOpen = true;
+      const inlineBox = document.getElementById('tag-inline-box');
+      const btnOpen = document.getElementById('btn-open-tag');
+      const inputEl = document.getElementById('tag-inline-input');
+
+      if (inlineBox) inlineBox.style.display = 'inline-flex';
+      if (btnOpen) btnOpen.style.display = 'none';
+
+      if (inputEl) {
+        inputEl.value = '';
+        requestAnimationFrame(() => {
+          inputEl.focus();
+        });
+      }
+    }
+
+    function closeTagInput() {
+      isTagInputOpen = false;
+      const inlineBox = document.getElementById('tag-inline-box');
+      const btnOpen = document.getElementById('btn-open-tag');
+      const inputEl = document.getElementById('tag-inline-input');
+
+      if (inlineBox) inlineBox.style.display = 'none';
+      if (btnOpen && currentTags.length < 10) btnOpen.style.display = 'inline-flex';
+      if (inputEl) inputEl.value = '';
+    }
+
+    function confirmTagInput() {
+      const inputEl = document.getElementById('tag-inline-input');
+      if (!inputEl) return;
+      const val = inputEl.value.trim();
+      if (!val) {
+        closeTagInput();
+        return;
+      }
+      const ok = addTag(val);
+      if (ok) {
+        inputEl.value = '';
+        if (currentTags.length >= 10) {
+          closeTagInput();
+        } else {
+          requestAnimationFrame(() => {
+            inputEl.focus();
+          });
+        }
+      }
+    }
+
     function renderTags() {
-      const container = document.getElementById('tag-container');
-      container.innerHTML = currentTags.map((tag, i) => `
-        <span class="tag-chip">
-          #${escapeHtml(tag)}
-          <button onclick="removeTag(${i})">✕</button>
-        </span>
-      `).join('');
+      const chipsWrapper = document.getElementById('tag-chips-wrapper');
+      const countEl = document.getElementById('tag-count-label');
+      const inlineBox = document.getElementById('tag-inline-box');
+      const btnOpen = document.getElementById('btn-open-tag');
+
+      if (countEl) {
+        countEl.textContent = `${currentTags.length}/10`;
+      }
+
+      if (chipsWrapper) {
+        chipsWrapper.innerHTML = currentTags.map((tag, i) => `
+          <span class="tag-chip">
+            #${escapeHtml(tag)}
+            <button type="button" onclick="removeTag(${i})" title="태그 삭제">✕</button>
+          </span>
+        `).join('');
+      }
+
+      if (currentTags.length >= 10) {
+        if (inlineBox) inlineBox.style.display = 'none';
+        if (btnOpen) btnOpen.style.display = 'none';
+        isTagInputOpen = false;
+      } else {
+        if (isTagInputOpen) {
+          if (inlineBox) inlineBox.style.display = 'inline-flex';
+          if (btnOpen) btnOpen.style.display = 'none';
+        } else {
+          if (inlineBox) inlineBox.style.display = 'none';
+          if (btnOpen) btnOpen.style.display = 'inline-flex';
+        }
+      }
+
+      checkBroadcastStateDirty();
     }
 
   </script>
