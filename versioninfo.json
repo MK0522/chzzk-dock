@@ -3,13 +3,13 @@
     "FileVersion": {
       "Major": 0,
       "Minor": 4,
-      "Patch": 1,
+      "Patch": 2,
       "Build": 0
     },
     "ProductVersion": {
       "Major": 0,
       "Minor": 4,
-      "Patch": 1,
+      "Patch": 2,
       "Build": 0
     }
   },
@@ -19,7 +19,7 @@
     "LegalCopyright": "CHZZK OBS Dock",
     "OriginalFilename": "chzzk-dock.exe",
     "ProductName": "CHZZK OBS Dock",
-    "ProductVersion": "0.4.1.0"
+    "ProductVersion": "0.4.2.0"
   },
   "IconPath": "icon.ico",
   "ManifestPath": "app.manifest"

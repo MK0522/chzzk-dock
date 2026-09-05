@@ -26,11 +26,17 @@ var embeddedHTML []byte
 //go:embed icon.ico
 var embeddedIcon []byte
 
+//go:embed docs/cookie_guide_1.png
+var embeddedGuide1 []byte
+
+//go:embed docs/cookie_guide_2.png
+var embeddedGuide2 []byte
+
 // ============================================================
-//  CHZZK OBS Dock Server v0.4.1 (Modular Architecture)
+//  CHZZK OBS Dock Server v0.4.2 (Modular Architecture)
 // ============================================================
 const (
-	APP_VERSION = "v0.4.1"
+	APP_VERSION = "v0.4.2"
 	HTTP_PORT   = 8081
 	USER_AGENT  = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 )
@@ -55,22 +61,38 @@ func sendJSON(w http.ResponseWriter, data interface{}, status int) {
 	_ = json.NewEncoder(w).Encode(data)
 }
 
+var (
+	shell32DLL        = syscall.NewLazyDLL("shell32.dll")
+	procShellExecuteW = shell32DLL.NewProc("ShellExecuteW")
+)
+
 // OpenURL: 시스템 기본 브라우저로 입력된 URL을 엽니다.
 func OpenURL(url string) error {
 	switch runtime.GOOS {
 	case "windows":
-		// Windows cmd.exe의 start 명령은 첫 번째 따옴표 인자를 창 제목으로 취급하므로
-		// 반드시 빈 타이틀("")을 첫 번째 인자로 전달해야 URL이 실행됩니다.
-		escaped := strings.ReplaceAll(url, "&", "^&")
-		cmd := exec.Command("cmd", "/c", "start", "", escaped)
-		cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-		if err := cmd.Start(); err == nil {
-			return nil
+		// [SYS-501] cmd /c start 및 powershell 호출 제거
+		// Win32 공식 ShellExecuteW API를 직접 바인딩하여 백신 오탐을 원천 차단하고 즉시 실행합니다.
+		opPtr, err := syscall.UTF16PtrFromString("open")
+		if err != nil {
+			return err
 		}
-		// 폴백: PowerShell Start-Process
-		psCmd := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", fmt.Sprintf("Start-Process '%s'", strings.ReplaceAll(url, "'", "''")))
-		psCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-		return psCmd.Start()
+		urlPtr, err := syscall.UTF16PtrFromString(url)
+		if err != nil {
+			return err
+		}
+		ret, _, err := procShellExecuteW.Call(
+			0,
+			uintptr(unsafe.Pointer(opPtr)),
+			uintptr(unsafe.Pointer(urlPtr)),
+			0,
+			0,
+			1, // SW_SHOWNORMAL
+		)
+		// ShellExecuteW는 성공 시 32보다 큰 인스턴스 핸들을 반환합니다.
+		if ret <= 32 {
+			return fmt.Errorf("ShellExecuteW failed (code %d): %w", ret, err)
+		}
+		return nil
 	case "darwin":
 		// macOS: open 주소
 		cmd := exec.Command("open", url)
@@ -233,7 +255,19 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 			}
 
 			if path == "/config" {
-				sendJSON(w, core.LoadConfig(), http.StatusOK)
+				cfg := core.LoadConfig()
+				autMask := ""
+				sesMask := ""
+				if cfg.NidAut != "" {
+					autMask = "••••••••••••••••••••••••••••••••"
+				}
+				if cfg.NidSes != "" {
+					sesMask = "••••••••••••••••••••••••••••••••"
+				}
+				sendJSON(w, map[string]string{
+					"nid_aut": autMask,
+					"nid_ses": sesMask,
+				}, http.StatusOK)
 				return
 			}
 
@@ -294,7 +328,10 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 				if cfg.NidAut != "" && cfg.NidSes != "" {
 					sendJSON(w, map[string]interface{}{
 						"status": "completed",
-						"config": cfg,
+						"config": map[string]string{
+							"nid_aut": "••••••••••••••••••••••••••••••••",
+							"nid_ses": "••••••••••••••••••••••••••••••••",
+						},
 					}, http.StatusOK)
 				} else {
 					sendJSON(w, map[string]interface{}{
@@ -329,6 +366,24 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
+		// 쿠키 확인 가이드 이미지 서빙 (새창 열기 및 독 내 임베드 지원)
+		if path == "/guide-image/1" {
+			if localImg, err := os.ReadFile("docs/cookie_guide_1.png"); err == nil {
+				sendBytes(w, localImg, http.StatusOK, "image/png")
+				return
+			}
+			sendBytes(w, embeddedGuide1, http.StatusOK, "image/png")
+			return
+		}
+		if path == "/guide-image/2" {
+			if localImg, err := os.ReadFile("docs/cookie_guide_2.png"); err == nil {
+				sendBytes(w, localImg, http.StatusOK, "image/png")
+				return
+			}
+			sendBytes(w, embeddedGuide2, http.StatusOK, "image/png")
+			return
+		}
+
 		// OBS 독 정적 HTML 페이지 서빙
 		if path == "/" || path == "/index.html" || path == "/chzzk-obs-dock.html" {
 			// 로컬 디스크 파일 우선 확인, 없으면 내장 에셋 서빙
@@ -351,6 +406,12 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 			var bodyMap map[string]interface{}
 			if err := json.NewDecoder(r.Body).Decode(&bodyMap); err != nil {
 				sendJSON(w, map[string]interface{}{"code": 400, "message": "설정 저장에 실패했습니다."}, http.StatusBadRequest)
+				return
+			}
+			aut, _ := bodyMap["nid_aut"].(string)
+			ses, _ := bodyMap["nid_ses"].(string)
+			if strings.Contains(aut, "•") || strings.Contains(aut, "*") || strings.Contains(ses, "•") || strings.Contains(ses, "*") {
+				sendJSON(w, map[string]interface{}{"code": 400, "message": "더미 마스킹 값이 아닌 실제 쿠키 값을 입력하세요."}, http.StatusBadRequest)
 				return
 			}
 			saved := core.SaveConfig(bodyMap)

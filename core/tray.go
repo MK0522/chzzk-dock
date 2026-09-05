@@ -3,7 +3,6 @@ package core
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"sync"
@@ -19,24 +18,33 @@ var (
 	shell32  = syscall.NewLazyDLL("shell32.dll")
 	kernel32 = syscall.NewLazyDLL("kernel32.dll")
 
-	procRegisterClassW     = user32.NewProc("RegisterClassW")
-	procCreateWindowExW    = user32.NewProc("CreateWindowExW")
-	procDefWindowProcW     = user32.NewProc("DefWindowProcW")
-	procLoadImageW         = user32.NewProc("LoadImageW")
-	procLoadIconW          = user32.NewProc("LoadIconW")
-	procCreatePopupMenu    = user32.NewProc("CreatePopupMenu")
-	procAppendMenuW        = user32.NewProc("AppendMenuW")
-	procTrackPopupMenu     = user32.NewProc("TrackPopupMenu")
-	procDestroyMenu        = user32.NewProc("DestroyMenu")
-	procDestroyWindow      = user32.NewProc("DestroyWindow")
-	procSetForegroundWindow = user32.NewProc("SetForegroundWindow")
-	procGetCursorPos       = user32.NewProc("GetCursorPos")
-	procPostMessageW       = user32.NewProc("PostMessageW")
-	procGetMessageW        = user32.NewProc("GetMessageW")
-	procTranslateMessage   = user32.NewProc("TranslateMessage")
-	procDispatchMessageW   = user32.NewProc("DispatchMessageW")
-	procShell_NotifyIconW  = shell32.NewProc("Shell_NotifyIconW")
-	procGetModuleHandleW   = kernel32.NewProc("GetModuleHandleW")
+	procRegisterClassW      = user32.NewProc("RegisterClassW")
+	procCreateWindowExW     = user32.NewProc("CreateWindowExW")
+	procDefWindowProcW      = user32.NewProc("DefWindowProcW")
+	procLoadImageW          = user32.NewProc("LoadImageW")
+	procLoadIconW           = user32.NewProc("LoadIconW")
+	procCreatePopupMenu     = user32.NewProc("CreatePopupMenu")
+	procAppendMenuW         = user32.NewProc("AppendMenuW")
+	procTrackPopupMenu      = user32.NewProc("TrackPopupMenu")
+	procDestroyMenu         = user32.NewProc("DestroyMenu")
+	procDestroyWindow       = user32.NewProc("DestroyWindow")
+	procSetForegroundWindow  = user32.NewProc("SetForegroundWindow")
+	procGetCursorPos        = user32.NewProc("GetCursorPos")
+	procPostMessageW        = user32.NewProc("PostMessageW")
+	procGetMessageW         = user32.NewProc("GetMessageW")
+	procTranslateMessage    = user32.NewProc("TranslateMessage")
+	procDispatchMessageW    = user32.NewProc("DispatchMessageW")
+	procShell_NotifyIconW   = shell32.NewProc("Shell_NotifyIconW")
+	procGetModuleHandleW    = kernel32.NewProc("GetModuleHandleW")
+
+	procOpenClipboard    = user32.NewProc("OpenClipboard")
+	procCloseClipboard   = user32.NewProc("CloseClipboard")
+	procEmptyClipboard   = user32.NewProc("EmptyClipboard")
+	procSetClipboardData = user32.NewProc("SetClipboardData")
+	procGlobalAlloc      = kernel32.NewProc("GlobalAlloc")
+	procGlobalLock       = kernel32.NewProc("GlobalLock")
+	procGlobalUnlock     = kernel32.NewProc("GlobalUnlock")
+	procGlobalFree       = kernel32.NewProc("GlobalFree")
 )
 
 const (
@@ -58,6 +66,9 @@ const (
 	MF_STRING       = 0x0000
 	MF_SEPARATOR    = 0x0800
 	MF_CHECKED      = 0x0008
+
+	GMEM_MOVEABLE  = 0x0002
+	CF_UNICODETEXT = 13
 
 	APP_NAME = "ChzzkObsDockServer"
 	REG_PATH = `Software\Microsoft\Windows\CurrentVersion\Run`
@@ -292,11 +303,66 @@ func (t *PureWinTrayIcon) ShowNotification(title, msg string) {
 	procShell_NotifyIconW.Call(uintptr(NIM_MODIFY), uintptr(unsafe.Pointer(t.Nid)))
 }
 
+// SetClipboardText: [SYS-501] Win32 네이티브 API(OpenClipboard / SetClipboardData)를 사용하여
+// cmd.exe 및 clip.exe 호출 없이 즉각적이고 안전하게 텍스트를 클립보드에 복사합니다.
+func SetClipboardText(text string) error {
+	utf16, err := syscall.UTF16FromString(text)
+	if err != nil {
+		return err
+	}
+	size := uintptr(len(utf16) * 2)
+
+	hMem, _, err := procGlobalAlloc.Call(uintptr(GMEM_MOVEABLE), size)
+	if hMem == 0 {
+		return fmt.Errorf("GlobalAlloc failed: %v", err)
+	}
+
+	ptr, _, err := procGlobalLock.Call(hMem)
+	if ptr == 0 {
+		procGlobalFree.Call(hMem)
+		return fmt.Errorf("GlobalLock failed: %v", err)
+	}
+
+	dest := unsafe.Slice((*uint16)(unsafe.Pointer(ptr)), len(utf16))
+	copy(dest, utf16)
+
+	procGlobalUnlock.Call(hMem)
+
+	// 타 프로세스의 클립보드 점유 가능성을 고려한 재시도 루프
+	var opened bool
+	for i := 0; i < 10; i++ {
+		r, _, _ := procOpenClipboard.Call(0)
+		if r != 0 {
+			opened = true
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if !opened {
+		procGlobalFree.Call(hMem)
+		return fmt.Errorf("OpenClipboard failed")
+	}
+	defer procCloseClipboard.Call()
+
+	r, _, err := procEmptyClipboard.Call()
+	if r == 0 {
+		procGlobalFree.Call(hMem)
+		return fmt.Errorf("EmptyClipboard failed: %v", err)
+	}
+
+	r, _, err = procSetClipboardData.Call(uintptr(CF_UNICODETEXT), hMem)
+	if r == 0 {
+		procGlobalFree.Call(hMem)
+		return fmt.Errorf("SetClipboardData failed: %v", err)
+	}
+
+	return nil
+}
+
 // CopyDockUrl: 독 URL을 클립보드에 복사하고 알림 표시
 func CopyDockUrl(port int) {
 	dockURL := fmt.Sprintf("http://localhost:%d", port)
-	cmd := exec.Command("cmd", "/c", fmt.Sprintf("echo|set /p=\"%s\"|clip", dockURL))
-	if err := cmd.Run(); err != nil {
+	if err := SetClipboardText(dockURL); err != nil {
 		fmt.Printf("[Clipboard Error] %v\n", err)
 	} else if GlobalTray != nil {
 		GlobalTray.ShowNotification("CHZZK OBS Dock", fmt.Sprintf("독 URL이 복사되었습니다: %s", dockURL))
