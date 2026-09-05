@@ -38,19 +38,35 @@
   </script>
   <style>
     * { scrollbar-width: thin; scrollbar-color: #1E2636 transparent; }
-    ::-webkit-scrollbar { width: 3px; }
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
     ::-webkit-scrollbar-track { background: transparent; }
-    html, body {
+    ::-webkit-scrollbar-thumb { background: #243044; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #00FFA3; }
+
+    html {
       background: #080A0D;
       width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden !important; /* 브라우저/OBS 루트 뷰포트의 중복 스크롤바 원천 차단 */
+    }
+    body {
+      background: #080A0D;
+      width: 100%;
+      height: 100%;
       margin: 0;
       padding: 0;
       overflow-x: hidden;
-      overflow-y: auto;
+      overflow-y: auto; /* 본문 단일 스크롤 */
+    }
+    body.panel-open {
+      overflow-y: hidden !important; /* 설정/후원/URL 패널 활성화 시 body 배경 스크롤 차단 -> 패널 단일 스크롤 */
     }
     #dock-wrapper {
       position: relative;
       width: 100%;
+      min-height: 100%;
       background: #080A0D;
       overflow: hidden;
       box-sizing: border-box;
@@ -282,7 +298,8 @@
       position: fixed; inset: 0; background: #0B0E11; z-index: 100;
       opacity: 0; pointer-events: none; visibility: hidden;
       transform: translateX(100%); transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-      overflow-y: auto; width: 100%; height: 100%;
+      overflow-x: hidden; overflow-y: auto; width: 100%; height: 100%;
+      box-sizing: border-box;
     }
     .settings-panel.open {
       opacity: 1; pointer-events: auto; visibility: visible;
@@ -781,9 +798,6 @@
         </span>
       </div>
       <div class="flex items-center gap-1 flex-shrink-0">
-        <button id="btn-refresh-donations" onclick="fetchDonationsAndChatMode(false)" class="w-6 h-6 rounded-md bg-chzzk-card border border-chzzk-border flex items-center justify-center text-slate-300 hover:text-[#00FFA3] transition-colors" title="후원 및 실시간 채팅 설정 다시 불러오기">
-          <svg id="donations-refresh-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
-        </button>
         <button onclick="toggleDonationsPanel()" class="w-6 h-6 rounded-md bg-chzzk-card border border-chzzk-border flex items-center justify-center hover:border-chzzk-muted transition-colors flex-shrink-0">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5A6577" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
@@ -913,20 +927,89 @@
       <!-- 방법 A: 팝업 로그인 카드 -->
       <div class="section-card space-y-2.5">
         <div class="flex items-center justify-between">
-          <div class="text-[11px] font-semibold text-[#00FFA3]">방법 A. 팝업 로그인</div>
+          <div class="text-[11px] font-semibold text-[#00FFA3]">방법 A. 팝업 로그인 (자동)</div>
           <span id="badge-method-a" class="text-[9px] px-1.5 py-0.5 rounded font-bold bg-gray-800 text-gray-400">대기 중</span>
         </div>
         <button id="btn-webview-login" onclick="startWebviewLogin()" class="save-btn text-xs py-2.5 bg-gradient-to-r from-emerald-400 to-teal-400 !text-[#080A0D] font-extrabold shadow-md">
-          🌐 네이버 로그인 팝업 열기
+          🌐 네이버 로그인 팝업 열기 (자동)
         </button>
       </div>
 
       <!-- 방법 B: 쿠키 수동 입력 카드 -->
       <div class="section-card space-y-2">
         <div class="flex items-center justify-between mb-1">
-          <div class="text-[11px] font-semibold text-amber-400">방법 B. 쿠키 수동 입력</div>
+          <div class="flex items-center gap-1.5">
+            <div class="text-[11px] font-semibold text-amber-400">방법 B. 쿠키 수동 입력</div>
+            <button type="button" onclick="toggleCookieHelp()" class="text-[10px] px-1.5 py-0.5 rounded bg-amber-400/15 hover:bg-amber-400/25 text-amber-300 font-medium transition-colors inline-flex items-center gap-1 border border-amber-400/30" title="쿠키 값 확인 및 복사 방법 안내">
+              <span>❓ 도움말</span>
+            </button>
+          </div>
           <span id="badge-method-b" class="text-[9px] px-1.5 py-0.5 rounded font-bold bg-gray-800 text-gray-400">미입력</span>
         </div>
+
+        <!-- 쿠키 확인 가이드 (도움말 아코디언) -->
+        <div id="cookie-help-box" class="hidden p-2.5 rounded-lg bg-[#0a0d13] border border-amber-400/30 text-[10px] space-y-2 text-gray-300 leading-relaxed shadow-inner">
+          <div class="font-bold text-amber-300 flex items-center justify-between text-[11px] border-b border-gray-800 pb-1.5">
+            <span class="flex items-center gap-1"><span>📖</span> 네이버 쿠키(NID_AUT, NID_SES) 복사 방법</span>
+            <button type="button" onclick="toggleCookieHelp()" class="text-gray-400 hover:text-gray-200 text-xs px-1 font-mono">✕</button>
+          </div>
+          <ol class="list-decimal list-inside space-y-1.5 text-gray-300 text-[10px]">
+            <li>
+              브라우저(Chrome, Edge, Whale 등)에서
+              <button type="button" onclick="openExternalUrl('https://chzzk.naver.com', '치지직')" class="text-emerald-400 font-semibold underline hover:text-emerald-300 inline-flex items-center gap-0.5">
+                <span>치지직(chzzk.naver.com)</span><span class="text-[8px]">↗</span>
+              </button>
+              에 접속하여 로그인합니다.
+            </li>
+            <li>
+              키보드 <kbd class="px-1.5 py-0.5 bg-gray-800 border border-gray-700 rounded text-amber-300 font-mono text-[9px] font-bold">F12</kbd> (또는 웹페이지 우클릭 ➔ <strong>[검사]</strong>)를 눌러 <strong>개발자 도구</strong>를 엽니다.
+            </li>
+            <li>
+              상단 탭 메뉴에서 <strong class="text-white bg-gray-800 px-1 py-0.5 rounded">[애플리케이션]</strong>(Application) 또는 <strong class="text-white bg-gray-800 px-1 py-0.5 rounded">[저장공간]</strong>(Storage) 탭을 클릭합니다.
+              <span class="text-gray-400 block pl-3 text-[9px]">* 창 폭이 좁아 탭이 안 보이면 상단 우측 <strong>»</strong> 화살표 아이콘을 클릭하세요.</span>
+            </li>
+            <li>
+              좌측 트리 메뉴에서 <strong class="text-white">[저장용량]</strong> ➔ <strong class="text-white">[쿠키]</strong> ➔ <strong class="text-emerald-400">https://chzzk.naver.com</strong>(또는 naver.com)을 선택합니다.
+            </li>
+            <li>
+              우측 표 목록에서 이름이 <code class="text-amber-300 bg-gray-900 border border-gray-700 px-1 py-0.5 rounded font-mono font-bold">NID_AUT</code>와 <code class="text-amber-300 bg-gray-900 border border-gray-700 px-1 py-0.5 rounded font-mono font-bold">NID_SES</code>인 항목을 찾습니다.
+              <!-- 참고 이미지 1 -->
+              <div class="my-2 bg-[#06090e] rounded-lg border border-gray-800 p-2 shadow-sm">
+                <div class="text-[9.5px] text-amber-300 font-bold mb-1.5 flex items-center justify-between">
+                  <span class="flex items-center gap-1"><span>📸</span> [참고 1] 개발자 도구 쿠키 확인 화면</span>
+                  <button type="button" onclick="openExternalUrl(window.location.origin + '/guide-image/1', '[참고 1] 개발자 도구 쿠키 확인 화면')" class="text-[8.5px] bg-amber-400/20 hover:bg-amber-400/30 text-amber-300 px-2 py-0.5 rounded flex items-center gap-1 font-semibold border border-amber-400/30 transition-colors" title="기본 브라우저 새창으로 크게 보기">
+                    <span>🔍 새창으로 확대 ↗</span>
+                  </button>
+                </div>
+                <img src="/guide-image/1" alt="개발자 도구 쿠키 확인 화면" onclick="openExternalUrl(window.location.origin + '/guide-image/1', '[참고 1] 개발자 도구 쿠키 확인 화면')" class="w-full rounded border border-gray-700/70 hover:border-amber-400 cursor-pointer transition-all shadow-md" title="클릭 시 기본 브라우저 새창으로 크게 열립니다" />
+                <div class="text-[8.5px] text-gray-400 mt-1 leading-tight">
+                  빨간색 번호 순서대로 <strong class="text-red-400">[1]</strong> 애플리케이션 ➔ <strong class="text-red-400">[2]</strong> 저장용량/쿠키 ➔ <strong class="text-red-400">[3]</strong> NID_AUT / NID_SES를 확인합니다.
+                </div>
+              </div>
+            </li>
+            <li>
+              각 항목을 클릭한 뒤 하단 <strong class="text-white">Cookie Value</strong> 영역에서 값을 전체 드래그하거나 우클릭 ➔ <strong>[복사]</strong>(<kbd class="px-1.5 py-0.5 bg-gray-800 border border-gray-700 rounded text-gray-200 font-mono text-[9px]">Ctrl+C</kbd>)하여 아래 입력란에 각각 붙여넣습니다.
+              <!-- 참고 이미지 2 -->
+              <div class="my-2 bg-[#06090e] rounded-lg border border-gray-800 p-2 shadow-sm">
+                <div class="text-[9.5px] text-amber-300 font-bold mb-1.5 flex items-center justify-between">
+                  <span class="flex items-center gap-1"><span>📸</span> [참고 2] Cookie Value 값 복사 방법</span>
+                  <button type="button" onclick="openExternalUrl(window.location.origin + '/guide-image/2', '[참고 2] Cookie Value 값 복사 방법')" class="text-[8.5px] bg-amber-400/20 hover:bg-amber-400/30 text-amber-300 px-2 py-0.5 rounded flex items-center gap-1 font-semibold border border-amber-400/30 transition-colors" title="기본 브라우저 새창으로 크게 보기">
+                    <span>🔍 새창으로 확대 ↗</span>
+                  </button>
+                </div>
+                <img src="/guide-image/2" alt="Cookie Value 값 복사 화면" onclick="openExternalUrl(window.location.origin + '/guide-image/2', '[참고 2] Cookie Value 값 복사 방법')" class="w-full rounded border border-gray-700/70 hover:border-amber-400 cursor-pointer transition-all shadow-md" title="클릭 시 기본 브라우저 새창으로 크게 열립니다" />
+                <div class="text-[8.5px] text-gray-400 mt-1 leading-tight">
+                  하단 <strong>Cookie Value</strong> 입력창의 긴 문자열을 우클릭하여 <strong>[복사]</strong>합니다.
+                </div>
+              </div>
+            </li>
+          </ol>
+          <div class="pt-1.5 border-t border-gray-800/80 text-[9px] text-gray-400 flex items-start gap-1">
+            <span class="text-emerald-400">🔒</span>
+            <span>입력된 쿠키는 외부 서버로 일절 전송되지 않으며, 오직 내 컴퓨터의 <strong>Windows 자격 증명 관리자(보안 금고)</strong>에만 안전하게 암호화 보관됩니다.</span>
+          </div>
+        </div>
+
         <div class="space-y-1">
           <label class="text-[9px] text-chzzk-muted font-medium">NID_AUT</label>
           <input id="cookie-nid-aut" type="password" class="chzzk-input text-[11px]" placeholder="NID_AUT 쿠키 값" />
@@ -1318,6 +1401,15 @@
       }
     }
 
+    function updatePanelScrollLock() {
+      const hasOpenPanel = document.querySelector('.settings-panel.open') !== null;
+      if (hasOpenPanel) {
+        document.body.classList.add('panel-open');
+      } else {
+        document.body.classList.remove('panel-open');
+      }
+    }
+
     function toggleSettings() {
       const urlsPanel = document.getElementById('urls-panel');
       if (urlsPanel && urlsPanel.classList.contains('open')) urlsPanel.classList.remove('open');
@@ -1325,6 +1417,7 @@
       if (donationsPanel && donationsPanel.classList.contains('open')) donationsPanel.classList.remove('open');
       const panel = document.getElementById('settings-panel');
       if (panel) panel.classList.toggle('open');
+      updatePanelScrollLock();
     }
 
     function toggleUrlsPanel() {
@@ -1339,6 +1432,7 @@
           fetchStreamingInfo();
         }
       }
+      updatePanelScrollLock();
     }
 
     function toggleDonationsPanel() {
@@ -1353,6 +1447,7 @@
           fetchDonationsAndChatMode(true);
         }
       }
+      updatePanelScrollLock();
     }
 
     function switchUrlTab(tab) {
@@ -2072,7 +2167,7 @@
       if (badgeA) { badgeA.textContent = "⚠️ 로그인 필요"; badgeA.className = "text-[9px] px-1.5 py-0.5 rounded font-bold bg-amber-950 text-amber-400 border border-amber-800/60"; }
       if (badgeB) { badgeB.textContent = "⚠️ 미연동"; badgeB.className = "text-[9px] px-1.5 py-0.5 rounded font-bold bg-amber-950 text-amber-400 border border-amber-800/60"; }
       if (btnWebview) {
-        btnWebview.innerHTML = "🔑 네이버 로그인 시작 (클릭)";
+        btnWebview.innerHTML = "🔑 네이버 로그인 시작 (자동)";
         btnWebview.className = "save-btn text-xs py-2.5 bg-gradient-to-r from-emerald-400 to-teal-400 !text-[#080A0D] font-extrabold shadow-md";
         btnWebview.onclick = startWebviewLogin;
       }
@@ -2120,9 +2215,10 @@
       const btnWebview = document.getElementById('btn-webview-login');
       const elChannelName = document.getElementById('header-channel-name');
 
-      // 사용자가 입력 필드에 포커스하고 있지 않을 때만 서버 값으로 업데이트 (레이스 컨디션 방지)
-      if (serverConfig.nid_aut && inputAut && document.activeElement !== inputAut) inputAut.value = serverConfig.nid_aut;
-      if (serverConfig.nid_ses && inputSes && document.activeElement !== inputSes) inputSes.value = serverConfig.nid_ses;
+      // 보안 강화: 실제 쿠키 평문 노출 방지를 위해 화면에는 항상 더미 마스킹 데이터 표시
+      const DUMMY_MASK = "••••••••••••••••••••••••••••••••";
+      if (serverConfig.nid_aut && inputAut && document.activeElement !== inputAut) inputAut.value = DUMMY_MASK;
+      if (serverConfig.nid_ses && inputSes && document.activeElement !== inputSes) inputSes.value = DUMMY_MASK;
 
       try {
         const res = await apiFetch('/unofficial-user');
@@ -2345,12 +2441,46 @@
       if (!document.hidden) trySelfHeal('visibility');
     });
 
+    function toggleCookieHelp() {
+      const box = document.getElementById('cookie-help-box');
+      if (box) {
+        box.classList.toggle('hidden');
+      }
+    }
+
+    function showImageModal(src, title) {
+      const modal = document.getElementById('image-modal');
+      const img = document.getElementById('image-modal-img');
+      const titleEl = document.getElementById('image-modal-title');
+      if (modal && img) {
+        img.src = src;
+        if (titleEl) titleEl.textContent = title || '참고 이미지';
+        modal.classList.remove('hidden');
+      }
+    }
+
+    function closeImageModal() {
+      const modal = document.getElementById('image-modal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeImageModal();
+    });
+
     async function saveManualCookies() {
       const nidAut = document.getElementById('cookie-nid-aut').value.trim();
       const nidSes = document.getElementById('cookie-nid-ses').value.trim();
 
       if (!nidAut || !nidSes) {
         showToast('입력 오류', 'error', 'NID_AUT와 NID_SES를 모두 입력해 주세요.');
+        return;
+      }
+
+      // 더미 마스킹 값이 그대로 제출된 경우 기존 쿠키 설정 유지
+      if (nidAut.includes('•') || nidAut.includes('*') || nidSes.includes('•') || nidSes.includes('*')) {
+        showToast('쿠키 안내', 'info', '기존에 안전하게 저장된 쿠키 설정이 유지됩니다.');
+        toggleSettings();
         return;
       }
 
@@ -3129,5 +3259,6 @@
     }
 
   </script>
+</div>
 </body>
 </html>
