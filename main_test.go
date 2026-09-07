@@ -108,4 +108,20 @@ func TestHttpDockHandlerRouting(t *testing.T) {
 	if wOpenBadURL.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400 for bad url scheme in /open-browser, got %d", wOpenBadURL.Code)
 	}
+
+	// 9. /obs-script-status 테스트
+	reqScriptStatusNoAuth := httptest.NewRequest(http.MethodGet, "http://localhost:8081/obs-script-status", nil)
+	wScriptStatusNoAuth := httptest.NewRecorder()
+	HttpDockHandler(wScriptStatusNoAuth, reqScriptStatusNoAuth)
+	if wScriptStatusNoAuth.Code != http.StatusForbidden {
+		t.Fatalf("expected 403 for unauthenticated /obs-script-status, got %d", wScriptStatusNoAuth.Code)
+	}
+
+	reqScriptStatus := httptest.NewRequest(http.MethodGet, "http://localhost:8081/obs-script-status", nil)
+	reqScriptStatus.Header.Set("X-Requested-With", "ChzzkDock")
+	wScriptStatus := httptest.NewRecorder()
+	HttpDockHandler(wScriptStatus, reqScriptStatus)
+	if wScriptStatus.Code != http.StatusOK {
+		t.Fatalf("expected 200 for authenticated /obs-script-status, got %d", wScriptStatus.Code)
+	}
 }

@@ -32,11 +32,14 @@ var embeddedGuide1 []byte
 //go:embed docs/cookie_guide_2.png
 var embeddedGuide2 []byte
 
+//go:embed chzzk_dock_launcher.lua
+var embeddedLauncherScript []byte
+
 // ============================================================
-//  CHZZK OBS Dock Server v0.4.2 (Modular Architecture)
+//  CHZZK OBS Dock Server v0.4.3 (Modular Architecture)
 // ============================================================
 const (
-	APP_VERSION = "v0.4.2"
+	APP_VERSION = "v0.4.3"
 	HTTP_PORT   = 8081
 	USER_AGENT  = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 )
@@ -242,15 +245,28 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 	case http.MethodGet:
 		// API 엔드포인트 라우팅
 		apiPaths := map[string]bool{
-			"/config":          true,
-			"/login-webview":   true,
-			"/login-wait":      true,
-			"/unofficial-user": true,
-			"/open-browser":    true,
+			"/config":            true,
+			"/login-webview":     true,
+			"/login-wait":        true,
+			"/unofficial-user":   true,
+			"/open-browser":      true,
+			"/obs-script-status": true,
 		}
 
 		if apiPaths[path] || strings.HasPrefix(path, "/unofficial/") {
 			if !core.CheckApiAuth(w, r) {
+				return
+			}
+
+			if path == "/obs-script-status" {
+				scriptsDir, detected := core.DetectObsScriptsDir()
+				installed := core.IsScriptInstalled(scriptsDir)
+				sendJSON(w, map[string]interface{}{
+					"code":      200,
+					"detected":  detected,
+					"path":      scriptsDir,
+					"installed": installed,
+				}, http.StatusOK)
 				return
 			}
 
@@ -384,6 +400,16 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		// OBS 자동 실행 Lua 스크립트 서빙
+		if path == "/obs-script" || path == "/obs-launcher.lua" || path == "/chzzk_dock_launcher.lua" {
+			if localScript, err := os.ReadFile("chzzk_dock_launcher.lua"); err == nil {
+				sendBytes(w, localScript, http.StatusOK, "text/plain; charset=utf-8")
+				return
+			}
+			sendBytes(w, embeddedLauncherScript, http.StatusOK, "text/plain; charset=utf-8")
+			return
+		}
+
 		// OBS 독 정적 HTML 페이지 서빙
 		if path == "/" || path == "/index.html" || path == "/chzzk-obs-dock.html" {
 			// 로컬 디스크 파일 우선 확인, 없으면 내장 에셋 서빙
@@ -399,6 +425,100 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 
 	case http.MethodPost:
 		if !core.CheckApiAuth(w, r) {
+			return
+		}
+
+		if path == "/browse-obs-folder" {
+			folder, err := core.BrowseForObsFolder("OBS Studio 설치 폴더(obs-studio) 또는 scripts 폴더를 선택하세요")
+			if err != nil {
+				sendJSON(w, map[string]interface{}{
+					"code":    500,
+					"message": "폴더 선택 중 오류가 발생했습니다: " + err.Error(),
+				}, http.StatusInternalServerError)
+				return
+			}
+			if folder == "" {
+				sendJSON(w, map[string]interface{}{
+					"code":      200,
+					"cancelled": true,
+				}, http.StatusOK)
+				return
+			}
+			resolved := core.ResolveObsScriptsDir(folder)
+			sendJSON(w, map[string]interface{}{
+				"code":          200,
+				"cancelled":     false,
+				"selected_path": folder,
+				"resolved_path": resolved,
+			}, http.StatusOK)
+			return
+		}
+
+		if path == "/install-obs-script" {
+			var reqData struct {
+				CustomDir string `json:"custom_dir"`
+			}
+			if r.Body != nil {
+				_ = json.NewDecoder(r.Body).Decode(&reqData)
+			}
+
+			scriptData := embeddedLauncherScript
+			if localScript, err := os.ReadFile("chzzk_dock_launcher.lua"); err == nil {
+				scriptData = localScript
+			}
+			installedPath, err := core.InstallLauncherScriptToObs(reqData.CustomDir, scriptData)
+			if err != nil {
+				sendJSON(w, map[string]interface{}{
+					"code":    500,
+					"message": "OBS 스크립트 설치 실패: " + err.Error(),
+				}, http.StatusInternalServerError)
+				return
+			}
+			sendJSON(w, map[string]interface{}{
+				"code":    200,
+				"message": "OBS 스크립트 폴더에 성공적으로 추가되었습니다.",
+				"path":    installedPath,
+			}, http.StatusOK)
+			return
+		}
+
+		if path == "/uninstall-obs-script" {
+			var reqData struct {
+				CustomDir string `json:"custom_dir"`
+			}
+			if r.Body != nil {
+				_ = json.NewDecoder(r.Body).Decode(&reqData)
+			}
+
+			if err := core.UninstallLauncherScriptFromObs(reqData.CustomDir); err != nil {
+				sendJSON(w, map[string]interface{}{
+					"code":    500,
+					"message": "스크립트 삭제 실패: " + err.Error(),
+				}, http.StatusInternalServerError)
+				return
+			}
+			sendJSON(w, map[string]interface{}{
+				"code":    200,
+				"message": "OBS 스크립트가 성공적으로 제거되었습니다.",
+			}, http.StatusOK)
+			return
+		}
+
+		if path == "/export-script" {
+			scriptData := embeddedLauncherScript
+			if localScript, err := os.ReadFile("chzzk_dock_launcher.lua"); err == nil {
+				scriptData = localScript
+			}
+			createdPath, err := core.ExportLauncherScript(scriptData)
+			if err != nil {
+				sendJSON(w, map[string]interface{}{"code": 500, "message": err.Error()}, http.StatusInternalServerError)
+				return
+			}
+			sendJSON(w, map[string]interface{}{
+				"code":    200,
+				"message": "스크립트 파일이 생성되고 코드가 클립보드에 복사되었습니다.",
+				"path":    createdPath,
+			}, http.StatusOK)
 			return
 		}
 
@@ -494,14 +614,6 @@ func runTray() {
 		},
 		{IsSeparator: true},
 		{
-			Label: "시작 프로그램 등록",
-			Callback: func() {
-				core.ToggleStartup(!core.IsStartupEnabled())
-			},
-			CheckFn: core.IsStartupEnabled,
-		},
-		{IsSeparator: true},
-		{
 			Label:    "서버 종료",
 			Callback: exitApp,
 		},
@@ -527,6 +639,63 @@ func main() {
 	if len(os.Args) > 1 && (os.Args[1] == "--login" || os.Args[1] == "-l" || os.Args[1] == "webview_login.py") {
 		core.RunLoginWebview()
 		os.Exit(0)
+	}
+
+	// --install-script 서브커맨드 감지 시 (UAC 관리자 권한 자식 프로세스 모드)
+	if len(os.Args) > 1 && os.Args[1] == "--install-script" {
+		targetDir := ""
+		if len(os.Args) > 2 {
+			targetDir = strings.Trim(os.Args[2], `"`)
+		}
+		if targetDir == "" {
+			var err error
+			targetDir, err = core.FindObsScriptsDir()
+			if err != nil {
+				os.Exit(1)
+			}
+		}
+		_ = os.MkdirAll(targetDir, 0755)
+		targetFile := filepath.Join(targetDir, "chzzk_dock_launcher.lua")
+		scriptData := embeddedLauncherScript
+		if localScript, err := os.ReadFile("chzzk_dock_launcher.lua"); err == nil {
+			scriptData = localScript
+		}
+		scriptData = core.PrepareLauncherScriptWithExePath(scriptData)
+		if err := os.WriteFile(targetFile, scriptData, 0644); err != nil {
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
+
+	// --uninstall-script 서브커맨드 감지 시 (UAC 관리자 권한 자식 프로세스 모드)
+	if len(os.Args) > 1 && os.Args[1] == "--uninstall-script" {
+		targetDir := ""
+		if len(os.Args) > 2 {
+			targetDir = strings.Trim(os.Args[2], `"`)
+		}
+		if targetDir == "" {
+			var err error
+			targetDir, err = core.FindObsScriptsDir()
+			if err != nil {
+				os.Exit(1)
+			}
+		}
+		targetFile := filepath.Join(targetDir, "chzzk_dock_launcher.lua")
+		_ = os.Remove(targetFile)
+		os.Exit(0)
+	}
+
+	// [WATCHDOG] OBS 프로세스 감시 및 자동 자폭 활성화 (기본 3분 유예 시간)
+	enableWatchdog := true
+	for _, arg := range os.Args[1:] {
+		if arg == "--no-watchdog" || arg == "--standalone" {
+			enableWatchdog = false
+			break
+		}
+	}
+
+	if enableWatchdog {
+		core.StartObsWatchdog(3 * time.Minute)
 	}
 
 	addr := fmt.Sprintf("127.0.0.1:%d", HTTP_PORT)

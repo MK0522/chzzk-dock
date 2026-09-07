@@ -1,327 +1,302 @@
 package core
 
 import (
-	"bufio"
-	"crypto/rand"
-	"encoding/base64"
-	"encoding/json"
 	"fmt"
-	"io"
-	"net"
-	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"strings"
+	"runtime"
 	"syscall"
 	"time"
 	"unsafe"
+
+	"github.com/wailsapp/go-webview2/pkg/combridge"
+	"github.com/wailsapp/go-webview2/pkg/edge"
 )
 
 // ==============================================================================
 // [SECURITY & AUDIT NOTE: Naver Login & Cookie Extraction]
-// - 목적: 네이버 치지직 방송 제어(제목, 카테고리, 채팅 설정 등)를 위한 사용자 인증 세션 연동
-// - 메커니즘:
-//   1. 네이버의 2차 기기 인증 및 보안 캡차를 지원하기 위해 격리된 전용 WebView(Edge) 창 팝업
-//   2. 사용자가 직접 정상 로그인을 완료하면 로컬 루프백(127.0.0.1) CDP를 통해
-//      치지직 도메인의 방송 제어용 쿠키(NID_AUT, NID_SES)만 1회 감지/추출
-//   3. 추출 즉시 Edge 프로세스를 안전하게 자동 종료하고 OS 보안 금고(Credential Manager)에 저장
+// - 목적: 네이버 치지직 방송 제어(제목, 카테고리, 채팅 설정 등)를 위한 세션 연동
+// - 아키텍처: Windows 공식 WebView2 런타임 및 ICoreWebView2CookieManager 정식 인터페이스 사용
 // - 안전성 보장:
-//   * 사용자 기존 브라우저 프로필과 완전 분리된 전용 격리 디렉터리(ChzzkObsDock\webview_profile) 사용
-//   * 추출된 쿠키는 원격 서버로 일절 전송되지 않으며, 오직 네이버 공식 치지직 API 통신 프록시에만 로컬 사용
-//   * 오픈소스 코드 서명(SignPath, Certum 등) 및 보안 소프트웨어 심사 시 악성 행위가 아닌 정당한 사용자 편의 기능임
+//   * 별도의 디버깅 포트나 WebSocket CDP 등 악성 의심 패턴 원천 배제
+//   * Microsoft 공식 Evergreen WebView2 COM 인터페이스로 안전하게 로그인 및 쿠키 취득
+//   * 추출된 세션 쿠키는 Windows 자격 증명 관리자(Windows Vault)에 암호화 보관
 // ==============================================================================
 
-// 독립 프로세스로 실행될 때 core 패키지 동작 보장
 const (
-	TARGET_DOMAIN = "chzzk.naver.com"
-	LOGIN_URL     = "https://nid.naver.com/nidlogin.login?url=https%3A%2F%2Fchzzk.naver.com%2F"
+	LOGIN_URL = "https://nid.naver.com/nidlogin.login?url=https%3A%2F%2Fchzzk.naver.com%2F"
 )
 
 var (
-	procCreateMutexW = kernel32.NewProc("CreateMutexW")
-	procCloseHandle  = kernel32.NewProc("CloseHandle")
-	procGetLastError = kernel32.NewProc("GetLastError")
+	ole32DLL          = syscall.NewLazyDLL("ole32.dll")
+	procCoTaskMemFree = ole32DLL.NewProc("CoTaskMemFree")
+
+	procShowWindow       = user32.NewProc("ShowWindow")
+	procUpdateWindow     = user32.NewProc("UpdateWindow")
+	procSetTimer         = user32.NewProc("SetTimer")
+	procKillTimer        = user32.NewProc("KillTimer")
+	procPostQuitMessage  = user32.NewProc("PostQuitMessage")
 )
 
-type CDPPage struct {
-	ID                   string `json:"id"`
-	Title                string `json:"title"`
-	Type                 string `json:"type"`
-	URL                  string `json:"url"`
-	WebSocketDebuggerURL string `json:"webSocketDebuggerUrl"`
+const (
+	WM_SIZE_WV    = 0x0005
+	WM_DESTROY_WV = 0x0002
+	WM_TIMER_WV   = 0x0113
+	TIMER_ID_WV   = 2001
+)
+
+var (
+	activeChromium *edge.Chromium
+	cookieCaptured = false
+)
+
+// COM vtable definitions for ICoreWebView2GetCookiesCompletedHandler
+type ICoreWebView2GetCookiesCompletedHandler interface {
+	Invoke(errorCode int32, result uintptr) int32
 }
 
-type CDPCookie struct {
-	Name     string `json:"name"`
-	Value    string `json:"value"`
-	Domain   string `json:"domain"`
-	Path     string `json:"path"`
-	HTTPOnly bool   `json:"httpOnly"`
-	Secure   bool   `json:"secure"`
+type iCoreWebView2GetCookiesCompletedHandler interface {
+	combridge.IUnknown
+	ICoreWebView2GetCookiesCompletedHandler
 }
 
-type CDPCookiesResult struct {
-	ID     int `json:"id"`
-	Result struct {
-		Cookies []CDPCookie `json:"cookies"`
-	} `json:"result"`
+type cookiesCompletedHandler struct {
+	onDone func(uintptr, error)
 }
 
-// findEdgePath: 시스템에 설치된 Microsoft Edge 실행 파일 경로 검색
-func findEdgePath() string {
-	candidates := []string{
-		`C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe`,
-		`C:\Program Files\Microsoft\Edge\Application\msedge.exe`,
-		filepath.Join(os.Getenv("LOCALAPPDATA"), `Microsoft\Edge\Application\msedge.exe`),
+func (h *cookiesCompletedHandler) Invoke(errorCode int32, result uintptr) int32 {
+	if errorCode != 0 {
+		h.onDone(0, fmt.Errorf("GetCookies failed: 0x%X", uint32(errorCode)))
+		return 0
 	}
-	for _, path := range candidates {
-		if _, err := os.Stat(path); err == nil {
-			return path
-		}
-	}
-	return "msedge.exe"
+	h.onDone(result, nil)
+	return 0
 }
 
-// getFreePort: 사용 가능한 로컬 TCP 포트 할당
-func getFreePort() int {
-	addr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:0")
-	if err != nil {
-		return 9222
-	}
-	l, err := net.ListenTCP("tcp", addr)
-	if err != nil {
-		return 9222
-	}
-	defer l.Close()
-	return l.Addr().(*net.TCPAddr).Port
-}
-
-// sendRawCDPRequest: 순수 Go 기반 경량 WebSocket으로 CDP Network.getCookies 명령 전송
-func queryCDPCookies(wsURL string) (map[string]string, error) {
-	// wsURL 형식: ws://127.0.0.1:PORT/devtools/page/...
-	cleanURL := strings.TrimPrefix(wsURL, "ws://")
-	parts := strings.SplitN(cleanURL, "/", 2)
-	if len(parts) < 2 {
-		return nil, fmt.Errorf("invalid ws url: %s", wsURL)
-	}
-	hostPort := parts[0]
-	path := "/" + parts[1]
-
-	conn, err := net.DialTimeout("tcp", hostPort, 2*time.Second)
-	if err != nil {
-		return nil, err
-	}
-	defer conn.Close()
-
-	// WebSocket 핸드셰이크 키 생성
-	keyBytes := make([]byte, 16)
-	_, _ = rand.Read(keyBytes)
-	secKey := base64.StdEncoding.EncodeToString(keyBytes)
-
-	// 핸드셰이크 HTTP 요청 작성
-	req := fmt.Sprintf(
-		"GET %s HTTP/1.1\r\n"+
-			"Host: %s\r\n"+
-			"Upgrade: websocket\r\n"+
-			"Connection: Upgrade\r\n"+
-			"Sec-WebSocket-Key: %s\r\n"+
-			"Sec-WebSocket-Version: 13\r\n\r\n",
-		path, hostPort, secKey,
+func init() {
+	combridge.RegisterVTable[combridge.IUnknown, iCoreWebView2GetCookiesCompletedHandler](
+		"{5a4f5069-5c15-47c3-8646-f4de1c116670}",
+		_iCoreWebView2GetCookiesCompletedHandlerInvoke,
 	)
-
-	_, err = conn.Write([]byte(req))
-	if err != nil {
-		return nil, err
-	}
-
-	reader := bufio.NewReader(conn)
-	// HTTP 핸드셰이크 응답 대기
-	resp, err := http.ReadResponse(reader, nil)
-	if err != nil {
-		return nil, err
-	}
-	if resp.StatusCode != 101 {
-		return nil, fmt.Errorf("handshake failed with status %d", resp.StatusCode)
-	}
-
-	// CDP Network.getCookies 명령 프레임 전송
-	cmdJSON := `{"id": 100, "method": "Network.getCookies", "params": {"urls": ["https://chzzk.naver.com", "https://nid.naver.com"]}}`
-	payload := []byte(cmdJSON)
-
-	// WebSocket 텍스트 프레임 인코딩 (Client -> Server 마스킹 필수)
-	maskKey := []byte{0x12, 0x34, 0x56, 0x78}
-	maskedPayload := make([]byte, len(payload))
-	for i := range payload {
-		maskedPayload[i] = payload[i] ^ maskKey[i%4]
-	}
-
-	var frame []byte
-	frame = append(frame, 0x81) // FIN + Text opcode
-	if len(payload) < 126 {
-		frame = append(frame, byte(0x80|len(payload))) // MASK bit on
-	} else {
-		frame = append(frame, 0x80|126)
-		frame = append(frame, byte(len(payload)>>8), byte(len(payload)&0xFF))
-	}
-	frame = append(frame, maskKey...)
-	frame = append(frame, maskedPayload...)
-
-	_, err = conn.Write(frame)
-	if err != nil {
-		return nil, err
-	}
-
-	// 응답 프레임 수신 (최대 3초 대기)
-	conn.SetReadDeadline(time.Now().Add(3 * time.Second))
-	for {
-		header := make([]byte, 2)
-		_, err := io.ReadFull(reader, header)
-		if err != nil {
-			return nil, err
-		}
-
-		payloadLen := int(header[1] & 0x7F)
-		if payloadLen == 126 {
-			extLen := make([]byte, 2)
-			_, err := io.ReadFull(reader, extLen)
-			if err != nil {
-				return nil, err
-			}
-			payloadLen = int(extLen[0])<<8 | int(extLen[1])
-		} else if payloadLen == 127 {
-			extLen := make([]byte, 8)
-			_, err := io.ReadFull(reader, extLen)
-			if err != nil {
-				return nil, err
-			}
-			payloadLen = int(extLen[4])<<24 | int(extLen[5])<<16 | int(extLen[6])<<8 | int(extLen[7])
-		}
-
-		body := make([]byte, payloadLen)
-		_, err = io.ReadFull(reader, body)
-		if err != nil {
-			return nil, err
-		}
-
-		var cdpResp CDPCookiesResult
-		if err := json.Unmarshal(body, &cdpResp); err == nil && cdpResp.ID == 100 {
-			cookiesMap := make(map[string]string)
-			for _, c := range cdpResp.Result.Cookies {
-				if c.Name == "NID_AUT" || c.Name == "NID_SES" {
-					cookiesMap[c.Name] = c.Value
-				}
-			}
-			return cookiesMap, nil
-		}
-	}
 }
 
-// CheckAndExtractCookies: 네이버 로그인 완료 즉시 NID_AUT / NID_SES 쿠키를 감지하여 자격 증명 관리자에 저장 후 창 자동 닫기
-func checkAndExtractCookies(port int, cmd *exec.Cmd) {
-	client := &http.Client{Timeout: 1 * time.Second}
-	jsonURL := fmt.Sprintf("http://127.0.0.1:%d/json", port)
+func _iCoreWebView2GetCookiesCompletedHandlerInvoke(this uintptr, errorCode int32, result uintptr) uintptr {
+	res := combridge.Resolve[iCoreWebView2GetCookiesCompletedHandler](this).Invoke(errorCode, result)
+	return uintptr(res)
+}
 
-	for {
-		// 프로세스가 종료되었는지 확인
-		if cmd.ProcessState != nil && cmd.ProcessState.Exited() {
-			fmt.Println("[Webview] 사용자가 창을 닫았습니다.")
-			return
+// callGetCookies executes ICoreWebView2CookieManager::GetCookies via COM vtable
+func callGetCookies(cm *edge.ICoreWebView2CookieManager, uri string, onDone func(uintptr, error)) error {
+	uriUTF16, err := syscall.UTF16PtrFromString(uri)
+	if err != nil {
+		return err
+	}
+
+	handlerObj := &cookiesCompletedHandler{onDone: onDone}
+	comPtr := combridge.New[iCoreWebView2GetCookiesCompletedHandler](handlerObj)
+	_ = comPtr // Keep alive for the asynchronous callback
+
+	vtablePtr := *(*uintptr)(unsafe.Pointer(cm))
+	vtable := (*[10]uintptr)(unsafe.Pointer(vtablePtr))
+	getCookiesProc := vtable[5]
+
+	hr, _, _ := syscall.SyscallN(
+		getCookiesProc,
+		uintptr(unsafe.Pointer(cm)),
+		uintptr(unsafe.Pointer(uriUTF16)),
+		comPtr.Ref(),
+	)
+	if hr != 0 {
+		return syscall.Errno(hr)
+	}
+	return nil
+}
+
+// inspectCookies parses the ICoreWebView2CookieList and searches for NID_AUT and NID_SES
+func inspectCookies(listPtr uintptr) (aut, ses string, found bool) {
+	if listPtr == 0 {
+		return "", "", false
+	}
+	vtablePtr := *(*uintptr)(unsafe.Pointer(listPtr))
+	vtable := (*[5]uintptr)(unsafe.Pointer(vtablePtr))
+
+	var count uint32
+	hr, _, _ := syscall.SyscallN(vtable[3], listPtr, uintptr(unsafe.Pointer(&count)))
+	if hr != 0 || count == 0 {
+		return "", "", false
+	}
+
+	for i := uint32(0); i < count; i++ {
+		var cookiePtr uintptr
+		hr, _, _ := syscall.SyscallN(vtable[4], listPtr, uintptr(i), uintptr(unsafe.Pointer(&cookiePtr)))
+		if hr != 0 || cookiePtr == 0 {
+			continue
 		}
 
-		resp, err := client.Get(jsonURL)
-		if err == nil && resp.StatusCode == http.StatusOK {
-			var pages []CDPPage
-			if err := json.NewDecoder(resp.Body).Decode(&pages); err == nil {
-				resp.Body.Close()
+		cookieVtablePtr := *(*uintptr)(unsafe.Pointer(cookiePtr))
+		cookieVtable := (*[15]uintptr)(unsafe.Pointer(cookieVtablePtr))
 
-				for _, page := range pages {
-					if page.Type == "page" && page.WebSocketDebuggerURL != "" {
-						cookies, err := queryCDPCookies(page.WebSocketDebuggerURL)
-						if err == nil && cookies != nil {
-							aut, hasAut := cookies["NID_AUT"]
-							ses, hasSes := cookies["NID_SES"]
+		var namePtr, valPtr *uint16
+		syscall.SyscallN(cookieVtable[3], cookiePtr, uintptr(unsafe.Pointer(&namePtr)))
+		syscall.SyscallN(cookieVtable[4], cookiePtr, uintptr(unsafe.Pointer(&valPtr)))
 
-							if hasAut && hasSes && aut != "" && ses != "" {
-								SaveConfig(map[string]interface{}{
-									"nid_aut": aut,
-									"nid_ses": ses,
-								})
-								fmt.Println("[Webview Login] 세션 쿠키 추출 완료 (NID_AUT, NID_SES) -> 자격 증명 관리자에 저장됨.")
-								time.Sleep(500 * time.Millisecond)
+		cName := ""
+		cVal := ""
+		if namePtr != nil {
+			cName = syscall.UTF16ToString((*[4096]uint16)(unsafe.Pointer(namePtr))[:])
+			procCoTaskMemFree.Call(uintptr(unsafe.Pointer(namePtr)))
+		}
+		if valPtr != nil {
+			cVal = syscall.UTF16ToString((*[4096]uint16)(unsafe.Pointer(valPtr))[:])
+			procCoTaskMemFree.Call(uintptr(unsafe.Pointer(valPtr)))
+		}
 
-								// 브라우저 프로세스 안전하게 종료
-								if cmd.Process != nil {
-									_ = cmd.Process.Kill()
-								}
-								return
-							}
-						}
+		if cName == "NID_AUT" {
+			aut = cVal
+		} else if cName == "NID_SES" {
+			ses = cVal
+		}
+
+		// Release individual cookie object
+		syscall.SyscallN(cookieVtable[2], cookiePtr)
+	}
+
+	if aut != "" && ses != "" {
+		return aut, ses, true
+	}
+	return aut, ses, false
+}
+
+func loginWndProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr {
+	switch msg {
+	case WM_SIZE_WV:
+		if activeChromium != nil {
+			activeChromium.Resize()
+		}
+		return 0
+
+	case WM_TIMER_WV:
+		if wParam == TIMER_ID_WV && activeChromium != nil && !cookieCaptured {
+			cm, err := activeChromium.GetCookieManager()
+			if err == nil && cm != nil {
+				_ = callGetCookies(cm, "https://chzzk.naver.com", func(listPtr uintptr, err error) {
+					if err != nil || listPtr == 0 {
+						return
 					}
-				}
-			} else {
-				resp.Body.Close()
+					aut, ses, found := inspectCookies(listPtr)
+					if found && !cookieCaptured {
+						cookieCaptured = true
+						SaveConfig(map[string]interface{}{
+							"nid_aut": aut,
+							"nid_ses": ses,
+						})
+						fmt.Println("[Webview Login] 세션 쿠키 추출 완료 (NID_AUT, NID_SES) -> 자격 증명 관리자에 저장됨.")
+						procKillTimer.Call(uintptr(hwnd), TIMER_ID_WV)
+						procDestroyWindow.Call(uintptr(hwnd))
+					}
+				})
 			}
 		}
+		return 0
 
-		time.Sleep(500 * time.Millisecond)
+	case WM_DESTROY_WV:
+		procKillTimer.Call(uintptr(hwnd), TIMER_ID_WV)
+		procPostQuitMessage.Call(0)
+		return 0
 	}
+	ret, _, _ := procDefWindowProcW.Call(uintptr(hwnd), uintptr(msg), wParam, lParam)
+	return ret
 }
 
-// RunLoginWebview: 네이버 로그인 웹뷰 메인 엔트리포인트
+// RunLoginWebview: Windows 공식 WebView2 런타임 및 ICoreWebView2CookieManager 기반 로그인 창 실행
 func RunLoginWebview() {
-	// [단일 인스턴스 보장] 중복 클릭/동시 실행 시 0x800700AA 충돌 원천 방지
+	runtime.LockOSThread()
+
+	// [단일 인스턴스 보장]
 	mutexNamePtr, _ := syscall.UTF16PtrFromString(`Local\ChzzkObsDock_Login_Mutex`)
-	mutexHandle, _, _ := procCreateMutexW.Call(0, 0, uintptr(unsafe.Pointer(mutexNamePtr)))
-	lastErr, _, _ := procGetLastError.Call()
+	mutexHandle, _, _ := kernel32.NewProc("CreateMutexW").Call(0, 0, uintptr(unsafe.Pointer(mutexNamePtr)))
+	lastErr, _, _ := kernel32.NewProc("GetLastError").Call()
 
 	if lastErr == 183 { // ERROR_ALREADY_EXISTS
 		fmt.Println("[Webview] 이미 로그인 창이 실행 중입니다. 중복 실행을 건너뜁니다.")
 		if mutexHandle != 0 {
-			procCloseHandle.Call(mutexHandle)
+			kernel32.NewProc("CloseHandle").Call(mutexHandle)
 		}
 		os.Exit(0)
 	}
 	defer func() {
 		if mutexHandle != 0 {
-			procCloseHandle.Call(mutexHandle)
+			kernel32.NewProc("CloseHandle").Call(mutexHandle)
 		}
 	}()
 
-	// 2단계 기기 인증 정보가 유지되도록 영구 프로필 폴더 사용
+	cookieCaptured = false
+
 	appData := os.Getenv("LOCALAPPDATA")
 	if appData == "" {
 		appData = os.Getenv("USERPROFILE")
 	}
-	profileDir := filepath.Join(appData, "ChzzkObsDock", "webview_profile")
+	profileDir := filepath.Join(appData, "ChzzkObsDock", "webview2_profile")
 	_ = os.MkdirAll(profileDir, 0755)
 
-	edgePath := findEdgePath()
-	debugPort := getFreePort()
+	className, _ := syscall.UTF16PtrFromString("ChzzkLoginWindowClass")
+	windowTitle, _ := syscall.UTF16PtrFromString("네이버 로그인 - CHZZK OBS Dock")
 
-	// Chromium 내부 엔진 디버그 로그(Failed to unregister class 등) 콘솔 노이즈 억제
-	args := []string{
-		fmt.Sprintf("--app=%s", LOGIN_URL),
-		fmt.Sprintf("--user-data-dir=%s", profileDir),
-		fmt.Sprintf("--remote-debugging-port=%d", debugPort),
-		"--window-size=460,650",
-		"--log-level=3",
-		"--no-first-run",
-		"--no-default-browser-check",
+	hInst, _, _ := procGetModuleHandleW.Call(0)
+
+	wc := WNDCLASSW{
+		Style:         0x0002 | 0x0001, // CS_HREDRAW | CS_VREDRAW
+		LpfnWndProc:   syscall.NewCallback(loginWndProc),
+		HInstance:     syscall.Handle(hInst),
+		HCursor:       syscall.Handle(0),
+		LpszClassName: className,
 	}
+	procRegisterClassW.Call(uintptr(unsafe.Pointer(&wc)))
 
-	cmd := exec.Command(edgePath, args...)
-	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: false}
+	// 480 x 680 중앙 배치 윈도우 생성
+	hwnd, _, _ := procCreateWindowExW.Call(
+		0,
+		uintptr(unsafe.Pointer(className)),
+		uintptr(unsafe.Pointer(windowTitle)),
+		0x00CF0000, // WS_OVERLAPPEDWINDOW
+		150, 150, 480, 680,
+		0, 0, hInst, 0,
+	)
 
-	if err := cmd.Start(); err != nil {
-		fmt.Printf("[Webview Error] 브라우저 실행 실패: %v\n", err)
+	if hwnd == 0 {
+		fmt.Println("[Webview Error] 로그인 윈도우 생성 실패")
 		return
 	}
 
-	// 비동기로 쿠키 캡처 루프 가동
-	checkAndExtractCookies(debugPort, cmd)
+	chromium := edge.NewChromium()
+	chromium.DataPath = profileDir
+	activeChromium = chromium
 
-	// 프로세스 종료 대기
-	_ = cmd.Wait()
+	if !chromium.Embed(hwnd) {
+		fmt.Println("[Webview Error] WebView2 임베딩 실패 (WebView2 Runtime이 설치되어 있는지 확인하세요)")
+		procDestroyWindow.Call(hwnd)
+		return
+	}
+
+	procShowWindow.Call(hwnd, 5) // SW_SHOW
+	procUpdateWindow.Call(hwnd)
+
+	chromium.Resize()
+	chromium.Navigate(LOGIN_URL)
+
+	// 1초마다 로그인 완료 쿠키 감지 타이머 가동
+	procSetTimer.Call(hwnd, TIMER_ID_WV, 1000, 0)
+
+	var m MSG
+	for {
+		ret, _, _ := procGetMessageW.Call(uintptr(unsafe.Pointer(&m)), 0, 0, 0)
+		if int32(ret) <= 0 {
+			break
+		}
+		procTranslateMessage.Call(uintptr(unsafe.Pointer(&m)))
+		procDispatchMessageW.Call(uintptr(unsafe.Pointer(&m)))
+	}
+
 	time.Sleep(300 * time.Millisecond)
 }
+

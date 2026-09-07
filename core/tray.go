@@ -9,8 +9,6 @@ import (
 	"syscall"
 	"time"
 	"unsafe"
-
-	"golang.org/x/sys/windows/registry"
 )
 
 var (
@@ -69,9 +67,6 @@ const (
 
 	GMEM_MOVEABLE  = 0x0002
 	CF_UNICODETEXT = 13
-
-	APP_NAME = "ChzzkObsDockServer"
-	REG_PATH = `Software\Microsoft\Windows\CurrentVersion\Run`
 )
 
 type POINT struct {
@@ -141,41 +136,18 @@ type PureWinTrayIcon struct {
 
 var GlobalTray *PureWinTrayIcon
 
-// IsStartupEnabled: 시작 프로그램 등록 여부 확인
-func IsStartupEnabled() bool {
-	k, err := registry.OpenKey(registry.CURRENT_USER, REG_PATH, registry.QUERY_VALUE)
+// ExportLauncherScript: 실행 파일과 같은 폴더에 chzzk_dock_launcher.lua 생성 및 클립보드 복사
+func ExportLauncherScript(scriptContent []byte) (string, error) {
+	exePath, err := os.Executable()
 	if err != nil {
-		return false
+		return "", fmt.Errorf("실행 파일 경로 확인 실패: %w", err)
 	}
-	defer k.Close()
-
-	_, _, err = k.GetStringValue(APP_NAME)
-	return err == nil
-}
-
-// ToggleStartup: 시작 프로그램 등록/해제 토글
-func ToggleStartup(enable bool) {
-	k, err := registry.OpenKey(registry.CURRENT_USER, REG_PATH, registry.SET_VALUE)
-	if err != nil {
-		fmt.Printf("[Startup Reg Error] OpenKey: %v\n", err)
-		return
+	targetPath := filepath.Join(filepath.Dir(exePath), "chzzk_dock_launcher.lua")
+	if err := os.WriteFile(targetPath, scriptContent, 0644); err != nil {
+		return "", fmt.Errorf("스크립트 파일 생성 실패: %w", err)
 	}
-	defer k.Close()
-
-	if enable {
-		exePath, err := os.Executable()
-		if err != nil {
-			fmt.Printf("[Startup Reg Error] GetExecutable: %v\n", err)
-			return
-		}
-		quotedPath := fmt.Sprintf(`"%s"`, exePath)
-		err = k.SetStringValue(APP_NAME, quotedPath)
-		if err != nil {
-			fmt.Printf("[Startup Reg Error] SetStringValue: %v\n", err)
-		}
-	} else {
-		_ = k.DeleteValue(APP_NAME)
-	}
+	_ = SetClipboardText(string(scriptContent))
+	return targetPath, nil
 }
 
 // NewPureWinTrayIcon: 트레이 아이콘 인스턴스 생성
