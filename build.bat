@@ -11,14 +11,12 @@ echo [*] Generating Windows PE Resource (Icon ^& Manifest)...
 del /f /q rsrc_*.syso >nul 2>&1
 go run github.com/josephspurrier/goversioninfo/cmd/goversioninfo@latest -64 -o resource_windows_amd64.syso
 
-echo [*] Building chzzk-dock.exe with embedded icon...
-go build -ldflags="-H windowsgui -s -w" -o chzzk-dock.exe .
+echo [*] Building chzzk-dock.exe (with -trimpath ^& debug symbols for AV false positive prevention)...
+go build -trimpath -ldflags="-H windowsgui" -o chzzk-dock.exe .
 if %errorlevel% equ 0 (
-    echo.
-    echo [SUCCESS] chzzk-dock.exe build completed with icon!
+    echo [SUCCESS] chzzk-dock.exe build completed!
 ) else (
-    echo.
-    echo [ERROR] Build failed.
+    echo [ERROR] chzzk-dock.exe build failed.
 )
 echo.
 pause

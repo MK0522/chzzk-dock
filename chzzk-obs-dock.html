@@ -310,6 +310,17 @@
 <body class="dark font-sans text-white antialiased overflow-x-hidden">
   <div id="dock-wrapper">
 
+  <!-- 서버 오프라인 경고 배너 (서버 미실행 시 표시) -->
+  <div id="dock-server-offline-banner" class="hidden bg-rose-950/90 border-b border-rose-500/50 px-2.5 py-1.5 text-rose-200 text-xs flex items-center justify-between shadow-md">
+    <div class="flex items-center gap-1.5 truncate">
+      <span class="text-sm">⚠️</span>
+      <span class="text-[9.5px] leading-tight"><b>치지직 독 서버 미실행</b>: OBS [도구] ➡️ [스크립트] 등록 상태를 확인하세요.</span>
+    </div>
+    <button onclick="window.location.reload()" class="px-1.5 py-0.5 bg-rose-500/20 hover:bg-rose-500/40 text-rose-200 text-[9px] rounded border border-rose-500/40 cursor-pointer whitespace-nowrap">
+      재시도
+    </button>
+  </div>
+
   <!-- ===== MAIN VIEW ===== -->
   <div id="main-view" class="flex flex-col gap-2 px-2.5 pt-2 pb-1 animate-fade-in">
 
@@ -924,6 +935,33 @@
         </div>
       </div>
 
+      <!-- Chzzk-Dock 자동시작 (간결한 토글 스위치 카드) -->
+      <div class="section-card py-2.5 px-3 border border-[#1E2738] bg-[#0B1017]">
+        <div class="flex items-center justify-between">
+          <div class="min-w-0 pr-2">
+            <div class="flex items-center gap-1.5">
+              <span class="text-xs font-bold text-slate-100">Chzzk-Dock 자동시작</span>
+              <span id="obs-script-status-badge" class="text-[9px] px-1.5 py-0.2 rounded font-medium bg-emerald-950/80 text-[#00FFA3] border border-emerald-800/50">자동 감지됨</span>
+            </div>
+            <p class="text-[9.5px] text-slate-400 mt-0.5">
+              OBS 실행 시 독 서버 자동 시작 & 종료
+            </p>
+          </div>
+          <div class="flex items-center gap-2.5 flex-shrink-0">
+            <button type="button" onclick="browseAndInstallObsFolder()" class="text-slate-500 hover:text-[#00FFA3] text-[9px] transition-colors cursor-pointer" title="OBS 설치 폴더를 직접 변경하려면 클릭하세요">
+              폴더 변경
+            </button>
+            <label class="toggle-switch">
+              <input type="checkbox" id="toggle-obs-autostart" onchange="handleObsAutoStartToggle(this.checked)" />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+        <div id="install-uac-notice" class="hidden mt-2 text-[9px] text-amber-400 bg-amber-950/40 p-1.5 rounded border border-amber-800/60 leading-normal">
+          ⚠️ Windows 관리자 권한 승인 창(UAC)이 뜨면 <b>[예]</b>를 눌러주세요.
+        </div>
+      </div>
+
       <!-- 방법 A: 팝업 로그인 카드 -->
       <div class="section-card space-y-2.5">
         <div class="flex items-center justify-between">
@@ -1416,7 +1454,12 @@
       const donationsPanel = document.getElementById('donations-panel');
       if (donationsPanel && donationsPanel.classList.contains('open')) donationsPanel.classList.remove('open');
       const panel = document.getElementById('settings-panel');
-      if (panel) panel.classList.toggle('open');
+      if (panel) {
+        panel.classList.toggle('open');
+        if (panel.classList.contains('open')) {
+          checkObsScriptStatus();
+        }
+      }
       updatePanelScrollLock();
     }
 
@@ -2088,6 +2131,7 @@
 
       // ── 2. 백그라운드에서 연결 시도 (UI 차단 없음) ──
       initConnection();
+      checkObsScriptStatus();
     }
 
     // DOM 로드 완료 상태에 무관하게 즉시 또는 이벤트 시점에 100% 실행 보장
@@ -2181,10 +2225,14 @@
         const res = await apiFetch('/config');
         if (res.ok) {
           serverConfig = await res.json();
+          const offlineBanner = document.getElementById('dock-server-offline-banner');
+          if (offlineBanner) offlineBanner.classList.add('hidden');
           return;
         }
       } catch (e) {
-        showToast('⚠️ 로컬 서버 연결 실패', 'warn', 'server.py가 실행 중인지 확인하세요.');
+        const offlineBanner = document.getElementById('dock-server-offline-banner');
+        if (offlineBanner) offlineBanner.classList.remove('hidden');
+        showToast('⚠️ 독 서버 연결 실패', 'warn', 'chzzk-dock.exe 독 서버가 실행 중인지 확인하세요.');
       }
     }
 
@@ -2337,6 +2385,213 @@
         }
       } catch (e) {
         showToast('로그아웃 오류', 'error', e.message);
+      }
+    }
+
+    // ===== OBS Launcher Script Integration =====
+    let cachedLauncherScript = "";
+
+    async function getLauncherScriptContent() {
+      if (cachedLauncherScript) return cachedLauncherScript;
+      try {
+        const res = await apiFetch('/obs-script');
+        if (res.ok) {
+          cachedLauncherScript = await res.text();
+          return cachedLauncherScript;
+        }
+      } catch (e) {}
+      return "";
+    }
+
+    async function copyLauncherScriptCode() {
+      try {
+        const script = await getLauncherScriptContent();
+        if (script) {
+          await navigator.clipboard.writeText(script);
+          showToast('📋 OBS 스크립트 복사 완료', 'success', 'chzzk_dock_launcher.lua 코드가 클립보드에 복사되었습니다.');
+          const ta = document.getElementById('launcher-script-textarea');
+          if (ta) ta.value = script;
+          return;
+        }
+        showToast('스크립트 로드 실패', 'error', '서버에서 스크립트를 불러올 수 없습니다.');
+      } catch (e) {
+        showToast('복사 실패', 'error', e.message);
+      }
+    }
+
+    let currentObsStatus = { detected: false, path: '', installed: false };
+
+    async function checkObsScriptStatus() {
+      try {
+        const res = await apiFetch('/obs-script-status');
+        if (!res.ok) return;
+        const data = await res.json();
+        currentObsStatus = data;
+
+        const badge = document.getElementById('obs-script-status-badge');
+        const toggle = document.getElementById('toggle-obs-autostart');
+
+        if (toggle) {
+          toggle.checked = Boolean(data.installed);
+        }
+
+        if (badge) {
+          if (data.detected) {
+            badge.textContent = '자동 감지됨';
+            badge.className = 'text-[9px] px-1.5 py-0.2 rounded font-medium bg-emerald-950/80 text-[#00FFA3] border border-emerald-800/50';
+          } else {
+            badge.textContent = '경로 미감지';
+            badge.className = 'text-[9px] px-1.5 py-0.2 rounded font-medium bg-amber-950/80 text-amber-400 border border-amber-800/50';
+          }
+        }
+      } catch (e) {
+        console.warn('OBS script status check error:', e);
+      }
+    }
+
+    async function handleObsAutoStartToggle(checked) {
+      const toggle = document.getElementById('toggle-obs-autostart');
+      const notice = document.getElementById('install-uac-notice');
+
+      if (checked && !currentObsStatus.detected) {
+        // 경로가 감지되지 않은 상태에서 켠 경우 폴더 선택으로 유도
+        await browseAndInstallObsFolder();
+        return;
+      }
+
+      if (notice) notice.classList.remove('hidden');
+
+      try {
+        if (checked) {
+          const res = await apiFetch('/install-obs-script', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ custom_dir: currentObsStatus.path || '' })
+          });
+          const data = await res.json();
+          if (res.ok && data.code === 200) {
+            showToast('🎉 Chzzk-Dock 자동시작 활성화', 'success', 'OBS 실행 시 독 서버가 자동으로 시작됩니다.');
+            currentObsStatus.installed = true;
+            if (data.path) {
+              currentObsStatus.path = data.path;
+              currentObsStatus.detected = true;
+            }
+          } else {
+            if (toggle) toggle.checked = false;
+            showToast('활성화 실패', 'error', data.message || '스크립트 설치 실패');
+          }
+        } else {
+          const res = await apiFetch('/uninstall-obs-script', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ custom_dir: currentObsStatus.path || '' })
+          });
+          const data = await res.json();
+          if (res.ok && data.code === 200) {
+            showToast('Chzzk-Dock 자동시작 비활성화', 'info', 'OBS 연동 스크립트가 제거되었습니다.');
+            currentObsStatus.installed = false;
+          } else {
+            if (toggle) toggle.checked = true;
+            showToast('비활성화 실패', 'error', data.message || '스크립트 제거 실패');
+          }
+        }
+      } catch (e) {
+        if (toggle) toggle.checked = !checked;
+        showToast('설정 변경 오류', 'error', e.message);
+      } finally {
+        if (notice) notice.classList.add('hidden');
+      }
+    }
+
+    async function browseAndInstallObsFolder() {
+      const toggle = document.getElementById('toggle-obs-autostart');
+      try {
+        showToast('📂 OBS 폴더 선택 창을 엽니다...', 'info');
+        const res = await apiFetch('/browse-obs-folder', { method: 'POST' });
+        const data = await res.json();
+        if (res.ok && data.code === 200) {
+          if (!data.cancelled && data.resolved_path) {
+            currentObsStatus.path = data.resolved_path;
+            currentObsStatus.detected = true;
+            if (toggle) toggle.checked = true;
+            await handleObsAutoStartToggle(true);
+          } else {
+            if (toggle) toggle.checked = Boolean(currentObsStatus.installed);
+          }
+        } else {
+          if (toggle) toggle.checked = Boolean(currentObsStatus.installed);
+          showToast('폴더 선택 실패', 'error', data.message || '폴더 선택 다이얼로그 실행 실패');
+        }
+      } catch (e) {
+        if (toggle) toggle.checked = Boolean(currentObsStatus.installed);
+        showToast('폴더 선택 오류', 'error', e.message);
+      }
+    }
+
+    function toggleManualScriptOptions() {
+      const container = document.getElementById('manual-script-options-container');
+      const arrow = document.getElementById('manual-script-options-arrow');
+      const ta = document.getElementById('launcher-script-textarea');
+      if (!container) return;
+      const isHidden = container.classList.contains('hidden');
+      if (isHidden) {
+        container.classList.remove('hidden');
+        if (arrow) arrow.textContent = '▲';
+        if (ta && !ta.value) {
+          ta.value = '스크립트를 불러오는 중...';
+          getLauncherScriptContent().then(s => {
+            ta.value = s || '-- 스크립트를 불러오지 못했습니다.';
+          });
+        }
+      } else {
+        container.classList.add('hidden');
+        if (arrow) arrow.textContent = '▼';
+      }
+    }
+
+    async function exportLauncherScriptFile() {
+      try {
+        const res = await apiFetch('/export-script', { method: 'POST' });
+        if (res.ok) {
+          const data = await res.json();
+          showToast('💾 스크립트 파일 생성 완료!', 'success', '실행 파일 폴더에 chzzk_dock_launcher.lua가 생성되었습니다.');
+          return;
+        }
+      } catch (e) {}
+
+      // Fallback: 브라우저 다운로드
+      const script = await getLauncherScriptContent();
+      if (script) {
+        const blob = new Blob([script], { type: 'text/plain;charset=utf-8' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'chzzk_dock_launcher.lua';
+        a.click();
+        URL.revokeObjectURL(a.href);
+        showToast('💾 스크립트 다운로드 완료', 'success', 'chzzk_dock_launcher.lua 파일이 다운로드되었습니다.');
+      } else {
+        showToast('다운로드 실패', 'error', '스크립트를 불러올 수 없습니다.');
+      }
+    }
+
+    async function toggleScriptPreview() {
+      const container = document.getElementById('script-preview-container');
+      const arrow = document.getElementById('script-preview-arrow');
+      const ta = document.getElementById('launcher-script-textarea');
+      if (!container) return;
+
+      const isHidden = container.classList.contains('hidden');
+      if (isHidden) {
+        container.classList.remove('hidden');
+        if (arrow) arrow.textContent = '▲';
+        if (ta && !ta.value) {
+          ta.value = '스크립트를 불러오는 중...';
+          const script = await getLauncherScriptContent();
+          ta.value = script || '-- 스크립트를 불러오지 못했습니다.';
+        }
+      } else {
+        container.classList.add('hidden');
+        if (arrow) arrow.textContent = '▼';
       }
     }
 
