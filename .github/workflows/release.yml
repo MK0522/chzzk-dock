@@ -24,21 +24,40 @@ jobs:
       - name: Install Dependencies
         run: go mod tidy
 
+      - name: Install Inno Setup
+        run: |
+          choco install innosetup -y --no-progress
+
+      - name: Generate PE Resource
+        run: |
+          go run github.com/josephspurrier/goversioninfo/cmd/goversioninfo@latest -64 -o resource_windows_amd64.syso
+
       - name: Build Windows Executable
         run: |
-          go build -ldflags="-H windowsgui -s -w" -o chzzk-dock.exe .
+          go build -trimpath -ldflags="-H windowsgui" -o chzzk-dock.exe .
 
-      - name: Package Release Zip
+      - name: Build Inno Setup Installer
         run: |
-          Compress-Archive -Path chzzk-dock.exe, chzzk-obs-dock.html -DestinationPath chzzk-dock-windows-amd64.zip
+          if (Get-Command iscc -ErrorAction SilentlyContinue) {
+            iscc installer.iss
+          } elseif (Test-Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe") {
+            & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
+          } else {
+            throw "ISCC compiler not found"
+          }
+
+      - name: Package Portable Release Zip
+        run: |
+          Compress-Archive -Path chzzk-dock.exe, scripts, chzzk-obs-dock.html -DestinationPath chzzk-dock-windows-amd64-portable.zip
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
+            chzzk-dock-windows-amd64-installer.exe
+            chzzk-dock-windows-amd64-portable.zip
             chzzk-dock.exe
-            chzzk-dock-windows-amd64.zip
           draft: false
-          prerelease: true
+          prerelease: false
           generate_release_notes: true

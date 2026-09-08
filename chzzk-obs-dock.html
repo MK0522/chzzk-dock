@@ -352,8 +352,8 @@
         <span>후원/채팅</span>
       </button>
 
-      <button id="btn-quick-remote" onclick="showToast('리모컨 준비 중', 'info', '리모컨 기능은 추후 업데이트될 예정입니다.')" class="flex items-center justify-center gap-1.5 py-1.5 px-1 rounded-lg bg-[#0E121A] border border-[#1E2738]/60 hover:border-slate-600 text-xs font-medium text-slate-400 hover:text-slate-300 transition-all cursor-pointer shadow-sm group" title="리모컨 기능 (추후 지원 예정)">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500 group-hover:text-slate-400 transition-colors"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+      <button id="btn-quick-remote" onclick="toggleRemotePanel()" class="flex items-center justify-center gap-1.5 py-1.5 px-1 rounded-lg bg-[#121721] border border-[#1E2738] hover:border-[#00FFA3]/60 hover:bg-[#00FFA3]/5 text-xs font-bold text-slate-200 hover:text-[#00FFA3] transition-all cursor-pointer shadow-sm group" title="치지직 공식 리모컨 및 미디어 제어">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400 group-hover:text-[#00FFA3] transition-colors"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
         <span>리모컨</span>
       </button>
     </div>
@@ -562,7 +562,7 @@
 
     <!-- ===== Load & Save Action & Revert (UI 하단 종료점) ===== -->
     <div class="flex items-center gap-1.5 animate-slide-up pt-1 pb-0" style="animation-delay: 0.1s">
-      <button id="btn-load-settings" onclick="loadCurrentSettings()" class="px-2.5 py-2.5 rounded-lg bg-[#161F2E] border border-[#1E2738] hover:border-[#00FFA3]/50 text-slate-300 hover:text-[#00FFA3] transition-all text-xs font-medium flex items-center justify-center gap-1 cursor-pointer flex-shrink-0" title="치지직 현재 방송 설정 다시 불러오기">
+      <button id="btn-load-settings" onclick="if (checkLoginGuard('방송 설정 불러오기')) loadCurrentSettings()" class="px-2.5 py-2.5 rounded-lg bg-[#161F2E] border border-[#1E2738] hover:border-[#00FFA3]/50 text-slate-300 hover:text-[#00FFA3] transition-all text-xs font-medium flex items-center justify-center gap-1 cursor-pointer flex-shrink-0" title="치지직 현재 방송 설정 다시 불러오기">
         <svg id="load-spinner" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
         <span>불러오기</span>
       </button>
@@ -571,7 +571,7 @@
         <span id="save-dirty-badge" class="ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-extrabold bg-[#080A0D] text-[#00FFA3] shadow-sm animate-pulse" style="display:none;">● 변경됨</span>
         <svg id="save-spinner" class="animate-spin ml-1.5 inline-block" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="display:none;"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round"/></svg>
       </button>
-      <button id="btn-revert" onclick="revertBroadcastState()" class="px-2.5 py-2.5 rounded-lg bg-[#161F2E] border border-[#1E2738] hover:border-slate-500 text-slate-400 hover:text-white transition-all text-xs font-medium flex items-center justify-center gap-1 cursor-pointer disabled:opacity-30 disabled:pointer-events-none flex-shrink-0" title="수정 중인 설정을 기존 저장 상태로 되돌리기" disabled>
+      <button id="btn-revert" onclick="if (checkLoginGuard('되돌리기')) revertBroadcastState()" class="px-2.5 py-2.5 rounded-lg bg-[#161F2E] border border-[#1E2738] hover:border-slate-500 text-slate-400 hover:text-white transition-all text-xs font-medium flex items-center justify-center gap-1 cursor-pointer disabled:opacity-30 disabled:pointer-events-none flex-shrink-0" title="수정 중인 설정을 기존 저장 상태로 되돌리기" disabled>
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
         <span>되돌리기</span>
       </button>
@@ -809,6 +809,10 @@
         </span>
       </div>
       <div class="flex items-center gap-1 flex-shrink-0">
+        <button type="button" onclick="openDonationSettingsModal()" class="px-2 py-1 rounded-md bg-[#161F2E] border border-[#1E2738] hover:border-[#00FFA3]/50 text-[11px] text-slate-200 hover:text-[#00FFA3] flex items-center gap-1 transition-all cursor-pointer font-medium" title="치지직 후원/구독 세부 설정 열기 (스튜디오 실시간 연동)">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          <span>세부 설정</span>
+        </button>
         <button onclick="toggleDonationsPanel()" class="w-6 h-6 rounded-md bg-chzzk-card border border-chzzk-border flex items-center justify-center hover:border-chzzk-muted transition-colors flex-shrink-0">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5A6577" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
@@ -817,6 +821,15 @@
 
     <!-- Panel Content -->
     <div class="space-y-2.5">
+      <!-- 후원 세부 설정 진입 배너 카드 -->
+      <button type="button" onclick="openDonationSettingsModal()" class="w-full p-2.5 rounded-lg bg-gradient-to-r from-[#161F2E] to-[#1E2738] border border-[#1E2738] hover:border-[#00FFA3]/60 text-slate-200 hover:text-[#00FFA3] transition-all text-xs font-semibold flex items-center justify-between cursor-pointer group shadow-sm">
+        <div class="flex items-center gap-2">
+          <span class="text-sm">⚙️</span>
+          <span>후원 세부 설정 (최소금액·영상·미션·구독)</span>
+        </div>
+        <span class="text-[10px] text-slate-400 group-hover:text-[#00FFA3] font-mono">설정 ➔</span>
+      </button>
+
       <!-- 1. 후원 활성화 카드 -->
       <div class="p-2.5 rounded-lg bg-[#0F141C] border border-[#1E2738] space-y-2">
         <div class="flex items-center justify-between">
@@ -894,6 +907,340 @@
         <svg id="donations-bottom-refresh-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
         <span>후원 / 실시간 채팅 설정 불러오기</span>
       </button>
+    </div>
+  </div>
+
+  <!-- ===== CHZZK REMOTE CONTROL PANEL ===== -->
+  <div id="remote-panel" class="settings-panel px-2.5 py-3">
+    <!-- Panel Header -->
+    <div class="flex items-center justify-between mb-2.5 border-b border-chzzk-border pb-2">
+      <div class="flex items-center gap-1.5 min-w-0">
+        <span class="text-base">🎮</span>
+        <span class="text-xs font-bold text-white truncate">치지직 방송 리모컨</span>
+        <span class="text-[9px] bg-emerald-950/80 text-[#00FFA3] border border-emerald-800/60 px-1.5 py-0.5 rounded-full font-bold flex items-center gap-1 flex-shrink-0">
+          <span class="w-1.5 h-1.5 rounded-full bg-[#00FFA3] shadow-[0_0_6px_rgba(0,255,163,0.8)] animate-pulse"></span>
+          실시간
+        </span>
+      </div>
+      <div class="flex items-center gap-1 flex-shrink-0">
+        <!-- 독립 미니창 팝업 버튼 -->
+        <button type="button" onclick="openRemoteWebview()" class="px-2 py-1 rounded-md bg-[#161F2E] border border-[#1E2738] hover:border-[#00FFA3]/50 text-[11px] text-slate-200 hover:text-[#00FFA3] flex items-center gap-1 transition-all cursor-pointer font-medium" title="독립 플로팅 윈도우(700×760, 항상 위)로 리모컨 창 분리">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          <span>독립 창</span>
+        </button>
+        <button onclick="refreshRemoteData()" class="w-6 h-6 rounded-md bg-chzzk-card border border-chzzk-border flex items-center justify-center text-slate-300 hover:text-[#00FFA3] transition-colors" title="새로고침">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+        </button>
+        <button onclick="toggleRemotePanel()" class="w-6 h-6 rounded-md bg-chzzk-card border border-chzzk-border flex items-center justify-center hover:border-chzzk-muted transition-colors">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5A6577" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs: [🎬 영도] vs [🔔 피드] vs [🎯 미션] vs [🎉 파티] -->
+    <div class="grid grid-cols-4 gap-1 mb-2.5 p-0.5 bg-[#0B0F15] rounded-lg border border-[#1E2738]">
+      <button id="remote-tab-btn-media" onclick="switchRemoteTab('media')" class="py-1 text-[11px] font-bold rounded text-[#00FFA3] bg-[#161F2E] border border-[#00FFA3]/30 transition-all flex items-center justify-center gap-1">
+        <span>🎬</span> 영도
+      </button>
+      <button id="remote-tab-btn-feed" onclick="switchRemoteTab('feed')" class="py-1 text-[11px] font-medium rounded text-slate-400 hover:text-slate-200 transition-all flex items-center justify-center gap-1">
+        <span>🔔</span> 피드
+      </button>
+      <button id="remote-tab-btn-mission" onclick="switchRemoteTab('mission')" class="py-1 text-[11px] font-medium rounded text-slate-400 hover:text-slate-200 transition-all flex items-center justify-center gap-1">
+        <span>🎯</span> 미션
+      </button>
+      <button id="remote-tab-btn-party" onclick="switchRemoteTab('party')" class="py-1 text-[11px] font-medium rounded text-slate-400 hover:text-slate-200 transition-all flex items-center justify-center gap-1">
+        <span>🎉</span> 파티
+      </button>
+    </div>
+
+    <!-- ===== TAB 1: 영상 후원(영도) 미디어 플레이어 제어기 ===== -->
+    <div id="remote-tab-content-media" class="space-y-2.5">
+      <!-- 현재 재생 중 카드 -->
+      <div class="section-card space-y-2 border border-[#1E2738] p-2.5">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-[#00FFA3] animate-pulse"></span>
+            <span class="text-xs font-bold text-slate-100">현재 재생 중인 영상</span>
+          </div>
+          <span id="remote-media-badge" class="text-[9.5px] px-1.5 py-0.2 rounded font-medium bg-[#161F2E] text-slate-300 border border-[#1E2738]">
+            대기 중
+          </span>
+        </div>
+
+        <!-- 재생 영상 정보 블록 -->
+        <div class="bg-[#090D13] p-2.5 rounded-lg border border-[#1A2333] space-y-1">
+          <div id="remote-video-title" class="text-xs font-bold text-slate-200 truncate">
+            재생 중인 영상 후원이 없습니다
+          </div>
+          <div class="flex items-center justify-between text-[10.5px] text-slate-400">
+            <span id="remote-video-donator">후원자: -</span>
+            <span id="remote-video-time" class="font-mono text-[#00FFA3] font-bold">00:00 / 00:00</span>
+          </div>
+        </div>
+
+        <!-- 미디어 조작 컨트롤 바 (5열 단축 버튼) -->
+        <div class="grid grid-cols-5 gap-1 pt-0.5">
+          <button type="button" id="btn-remote-replay-prev" onclick="triggerQuickController('replay-prev')" class="sub-btn py-2 text-xs flex items-center justify-center gap-0.5 hover:border-[#00FFA3]/40" title="직전 재생된 영상 후원 다시 재생 (Replay)">
+            <span>⏮️</span> <span class="text-[10px] font-semibold">이전</span>
+          </button>
+          <button type="button" onclick="triggerQuickController('rewind')" class="sub-btn py-2 text-xs flex items-center justify-center gap-0.5 hover:border-[#00FFA3]/40" title="10초 뒤로">
+            <span>⏪</span> <span class="text-[10px] font-mono font-semibold">-10s</span>
+          </button>
+          <button type="button" id="btn-remote-playpause" onclick="triggerQuickController('pause')" class="sub-btn py-2 text-xs flex items-center justify-center gap-0.5 bg-[#161F2E] hover:border-[#00FFA3] text-[#00FFA3] font-bold" title="일시정지 / 재생">
+            <span id="remote-playpause-icon">⏸️</span> <span id="remote-playpause-text" class="text-[10px] font-semibold">정지</span>
+          </button>
+          <button type="button" onclick="triggerQuickController('skip')" class="sub-btn py-2 text-xs flex items-center justify-center gap-0.5 hover:border-[#00FFA3]/40" title="10초 앞으로 건너뛰기">
+            <span>⏩</span> <span class="text-[10px] font-mono font-semibold">+10s</span>
+          </button>
+          <button type="button" onclick="triggerQuickController('stop')" class="sub-btn py-2 text-xs flex items-center justify-center gap-0.5 hover:border-rose-400/50 hover:text-rose-300" title="현재 영상 즉시 종료하고 다음으로 넘기기">
+            <span>⏭️</span> <span class="text-[10px] font-semibold">다음</span>
+          </button>
+        </div>
+
+        <!-- 알림 볼륨 조절 슬라이더 -->
+        <div class="flex items-center justify-between gap-2 pt-2 border-t border-[#1E2738]/80">
+          <button type="button" onclick="toggleMuteAlert()" id="btn-remote-mute" class="text-slate-400 hover:text-[#00FFA3] text-xs p-1 cursor-pointer transition-colors" title="음소거 토글">
+            <span id="remote-mute-icon">🔊</span>
+          </button>
+          <input type="range" id="remote-quick-volume" min="0" max="100" value="80" oninput="onQuickVolumeChange(this.value)" class="w-full accent-[#00FFA3] cursor-pointer h-1.5 bg-[#1E2738] rounded-lg" />
+          <span id="remote-quick-volume-label" class="text-[10.5px] text-[#00FFA3] font-mono font-bold w-8 text-right">80%</span>
+        </div>
+      </div>
+
+      <!-- 영도 대기열 카드 -->
+      <div class="section-card space-y-2 border border-[#1E2738] p-2.5">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+            <span>📋</span> 영상 후원 대기열
+          </span>
+          <span id="remote-queue-count" class="text-[10px] px-2 py-0.5 rounded font-bold bg-[#161F2E] text-slate-300 border border-[#1E2738]">
+            대기 0건
+          </span>
+        </div>
+        <div id="remote-queue-list" class="space-y-1.5 max-h-[140px] overflow-y-auto pr-0.5">
+          <div class="text-center py-4 text-[11px] text-slate-400 bg-[#090D13] rounded-lg border border-[#1A2333]/60">
+            현재 대기열에 등록된 영상 후원이 없습니다
+          </div>
+        </div>
+      </div>
+
+      <!-- 빠른 테스트 알림 발송 카드 (치즈/영도/미션/구독 4종) -->
+      <div class="section-card p-2.5 space-y-2 bg-[#0D1219] border border-[#1E2738]">
+        <span class="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+          <span>⚡</span> OBS 알림창 실시간 사운드 테스트
+        </span>
+        <div class="grid grid-cols-4 gap-1">
+          <button type="button" onclick="sendDonationTest('donation', this)" class="sub-btn py-1.5 text-[10px] flex items-center justify-center gap-1 hover:border-[#00FFA3]/40" title="치지직 공식 치즈 후원 테스트 알림 송출">
+            <span>💬</span> <span>치즈</span>
+          </button>
+          <button type="button" onclick="sendDonationTest('video', this)" class="sub-btn py-1.5 text-[10px] flex items-center justify-center gap-1 hover:border-[#00FFA3]/40" title="치지직 공식 영상 후원 테스트 알림 송출">
+            <span>🎬</span> <span>영도</span>
+          </button>
+          <button type="button" onclick="sendDonationTest('mission', this)" class="sub-btn py-1.5 text-[10px] flex items-center justify-center gap-1 hover:border-[#00FFA3]/40" title="치지직 공식 미션 후원 테스트 알림 송출">
+            <span>🎯</span> <span>미션</span>
+          </button>
+          <button type="button" onclick="sendDonationTest('subscription', this)" class="sub-btn py-1.5 text-[10px] flex items-center justify-center gap-1 hover:border-[#00FFA3]/40" title="치지직 공식 구독 테스트 알림 송출">
+            <span>⭐</span> <span>구독</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== TAB 2: 실시간 후원 & 알림 피드 ===== -->
+    <div id="remote-tab-content-feed" class="space-y-2" style="display:none;">
+      <!-- 피드 필터 (6종: 전체, 치즈, 영도, 미션, 구독, 팔로우) -->
+      <div class="flex items-center justify-between gap-1 text-[10.5px]">
+        <span class="text-slate-400 font-medium">유형:</span>
+        <div class="flex items-center gap-1 flex-wrap justify-end">
+          <button type="button" id="feed-filter-all" onclick="filterFeed('ALL')" class="px-1.5 py-0.5 rounded bg-[#161F2E] text-[#00FFA3] font-bold border border-[#00FFA3]/40 cursor-pointer text-[10px]">전체</button>
+          <button type="button" id="feed-filter-cheese" onclick="filterFeed('CHEESE')" class="px-1.5 py-0.5 rounded bg-[#0F141C] text-slate-300 border border-[#1E2738] cursor-pointer text-[10px]">치즈</button>
+          <button type="button" id="feed-filter-video" onclick="filterFeed('VIDEO')" class="px-1.5 py-0.5 rounded bg-[#0F141C] text-slate-300 border border-[#1E2738] cursor-pointer text-[10px]">영도</button>
+          <button type="button" id="feed-filter-mission" onclick="filterFeed('MISSION')" class="px-1.5 py-0.5 rounded bg-[#0F141C] text-slate-300 border border-[#1E2738] cursor-pointer text-[10px]">미션</button>
+          <button type="button" id="feed-filter-subscription" onclick="filterFeed('SUBSCRIPTION')" class="px-1.5 py-0.5 rounded bg-[#0F141C] text-slate-300 border border-[#1E2738] cursor-pointer text-[10px]">구독</button>
+          <button type="button" id="feed-filter-follow" onclick="filterFeed('FOLLOW')" class="px-1.5 py-0.5 rounded bg-[#0F141C] text-slate-300 border border-[#1E2738] cursor-pointer text-[10px]">팔로우</button>
+        </div>
+      </div>
+
+      <!-- 실시간 알림 목록 컨테이너 -->
+      <div id="remote-feed-list" class="space-y-1.5 max-h-[380px] overflow-y-auto pr-0.5">
+        <div class="text-center py-10 text-[11px] text-slate-400 bg-[#090D13] rounded-lg border border-[#1A2333]/60">
+          최근 방송 후원 알림 내역이 없습니다
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== TAB 3: 미션 후원 제어 및 판정 ===== -->
+    <div id="remote-tab-content-mission" class="space-y-2" style="display:none;">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+          <span>🎯</span> 진행 중인 미션
+        </span>
+        <span id="remote-mission-count" class="text-[10px] px-2 py-0.5 rounded font-bold bg-[#161F2E] text-slate-300 border border-[#1E2738]">
+          0건 진행 중
+        </span>
+      </div>
+
+      <div id="remote-mission-list" class="space-y-2 max-h-[380px] overflow-y-auto pr-0.5">
+        <div class="text-center py-10 text-[11px] text-slate-400 bg-[#090D13] rounded-lg border border-[#1A2333]/60">
+          현재 진행 중인 미션 후원이 없습니다
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== TAB 4: 파티 후원 & 멤버 제어 (스튜디오 공식 규격) ===== -->
+    <div id="remote-tab-content-party" class="space-y-2.5" style="display:none;">
+      
+      <!-- 뷰 1: 파티 미생성 상태 (media_1788831475824.png) -->
+      <div id="party-view-create" class="section-card space-y-3 p-3 border border-[#1E2738]">
+        <div class="flex items-center justify-between border-b border-[#1E2738] pb-2">
+          <span class="text-xs font-bold text-slate-100 flex items-center gap-1.5">
+            <span>🎉</span> 파티 설정
+          </span>
+          <span class="text-[10px] px-2 py-0.5 rounded font-bold bg-[#161F2E] text-slate-400 border border-[#1E2738]">
+            파티 없음
+          </span>
+        </div>
+
+        <div class="space-y-1.5">
+          <div class="flex items-center justify-between">
+            <label class="text-xs text-slate-300 font-medium">파티명 <span class="text-[#5C3BFF] font-bold">*</span></label>
+            <span id="party-create-len" class="text-[10px] text-slate-400 font-mono">0/60</span>
+          </div>
+          <input type="text" id="input-party-create-name" maxlength="60" placeholder="파티명 입력" oninput="document.getElementById('party-create-len').textContent=this.value.length+'/60'" class="w-full bg-[#090D13] border border-[#1E2738] rounded-lg px-3 py-2 text-xs text-slate-200 focus:border-[#5C3BFF] outline-none" autocomplete="off" />
+        </div>
+
+        <button type="button" onclick="createPartySubmit()" class="w-full py-2.5 rounded-lg bg-[#5C3BFF] hover:bg-[#6E50FF] text-white font-bold text-xs shadow-md transition-colors cursor-pointer flex items-center justify-center gap-1.5">
+          <span>🎉</span> <span>파티 만들기</span>
+        </button>
+
+        <!-- 구분선 -->
+        <div class="relative flex py-1 items-center">
+          <div class="flex-grow border-t border-[#1E2738]"></div>
+          <span class="flex-shrink mx-2 text-[10px] text-slate-500 font-medium">또는 초대받은 링크로 합류</span>
+          <div class="flex-grow border-t border-[#1E2738]"></div>
+        </div>
+
+        <!-- 옵션 B: 초대 링크로 파티 합류하기 -->
+        <div class="space-y-1.5 pt-0.5">
+          <label class="text-xs text-slate-300 font-medium flex items-center gap-1">
+            <span>🔗</span> <span>초대받은 링크 또는 코드</span>
+          </label>
+          <div class="flex items-center gap-1.5">
+            <input type="text" id="input-party-join-link" placeholder="초대 링크 붙여넣기 (https://chzzk.naver.com/party-invite/...)" class="flex-1 bg-[#090D13] border border-[#1E2738] rounded-lg px-2.5 py-2 text-xs text-slate-200 focus:border-emerald-500 outline-none placeholder:text-slate-500 font-mono text-[10.5px]" autocomplete="off" />
+            <button type="button" onclick="joinPartyByInviteLink('input-party-join-link')" class="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-colors cursor-pointer flex items-center gap-1 flex-shrink-0 shadow-md">
+              <span>🤝</span> <span>합류하기</span>
+            </button>
+          </div>
+          <p class="text-[9.5px] text-slate-500 leading-normal">
+            * 다른 스트리머에게 공유받은 초대 URL 전체나 코드를 붙여넣으면 즉시 해당 파티에 게스트로 합류합니다.
+          </p>
+        </div>
+      </div>
+
+      <!-- 뷰 2: 파티 활성화 상태 (media_1788831491886.png) -->
+      <div id="party-view-manage" class="section-card space-y-3 p-3 border border-[#1E2738]" style="display:none;">
+        <div class="flex items-center justify-between border-b border-[#1E2738] pb-2">
+          <div class="flex items-center gap-1.5">
+            <span class="text-xs font-bold text-slate-100 flex items-center gap-1.5">
+              <span>🎉</span> 파티 설정
+            </span>
+            <span id="party-role-badge" class="text-[9px] px-1.5 py-0.2 rounded font-bold bg-[#161F2E] text-[#9E8BFF] border border-[#5C3BFF]/30">👑 방장</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span id="party-active-cheese" class="font-mono text-[#00FFA3] font-bold text-xs">0 치즈</span>
+            <span id="party-status-badge" class="text-[10px] px-2 py-0.5 rounded font-bold bg-emerald-950/80 text-[#00FFA3] border border-emerald-800/60">진행 중</span>
+          </div>
+        </div>
+
+        <!-- 파티명 수정 -->
+        <div class="space-y-1">
+          <div class="flex items-center justify-between">
+            <label class="text-xs text-slate-300 font-medium">파티명 <span class="text-[#5C3BFF] font-bold">*</span></label>
+            <span id="party-edit-len" class="text-[10px] text-slate-400 font-mono">0/60</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <input type="text" id="input-party-edit-name" maxlength="60" oninput="document.getElementById('party-edit-len').textContent=this.value.length+'/60'" class="flex-1 bg-[#090D13] border border-[#1E2738] rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:border-[#5C3BFF] outline-none" autocomplete="off" />
+            <button type="button" id="btn-party-rename" onclick="renamePartySubmit()" class="px-3 py-1.5 rounded-lg bg-[#5C3BFF]/20 hover:bg-[#5C3BFF] hover:text-white border border-[#5C3BFF]/40 text-[#9E8BFF] text-xs font-bold transition-all cursor-pointer">
+              저장
+            </button>
+          </div>
+        </div>
+
+        <!-- 파티 초대 링크 -->
+        <div class="space-y-1 pt-0.5">
+          <label class="text-xs text-slate-300 font-medium">파티 초대 링크</label>
+          <div class="flex items-center gap-1">
+            <input type="password" id="field-party-invite-url" readonly class="flex-1 bg-[#090D13] border border-[#1E2738] rounded-lg px-2 py-1.5 text-[10.5px] font-mono text-slate-300 select-all" placeholder="초대 링크 확인 중..." />
+            <button type="button" onclick="togglePartyLinkMask()" class="px-2 py-1.5 bg-[#161F2E] border border-[#1E2738] rounded-lg text-slate-300 text-xs hover:text-white cursor-pointer" title="초대 링크 보기/숨기기">👁️</button>
+            <button type="button" onclick="copyPartyInviteUrl()" class="px-2.5 py-1.5 bg-[#5C3BFF]/20 hover:bg-[#5C3BFF]/40 border border-[#5C3BFF]/30 rounded-lg text-[#9E8BFF] text-xs font-bold cursor-pointer">복사</button>
+            <button type="button" id="btn-party-reissue-token" onclick="reissuePartyInviteToken()" class="px-2.5 py-1.5 bg-[#5C3BFF] hover:bg-[#6E50FF] rounded-lg text-white text-xs font-bold cursor-pointer" title="초대 링크 재발급">재발급</button>
+          </div>
+        </div>
+
+        <!-- 파티 참여자 목록 -->
+        <div class="space-y-1.5 pt-0.5">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-medium text-slate-300 flex items-center gap-1">
+              <span>파티 참여자 목록</span>
+              <span id="party-member-count" class="font-bold text-[#5C3BFF]">1</span>
+            </span>
+            <button type="button" onclick="refreshPartyStatus(true)" class="text-slate-400 hover:text-slate-200 p-0.5 transition-colors cursor-pointer" title="참여자 목록 새로고침">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+            </button>
+          </div>
+          <div id="party-member-list" class="space-y-1 max-h-[140px] overflow-y-auto pr-0.5">
+            <div class="text-center py-3 text-[11px] text-slate-400 bg-[#090D13] rounded-lg border border-[#1A2333]/60">
+              게스트가 들어오면 이곳에 보여요.
+            </div>
+          </div>
+        </div>
+
+        <!-- 하단 액션 버튼들: 방장용 -->
+        <div id="party-host-actions" class="grid grid-cols-2 gap-2 pt-2 border-t border-[#1E2738]">
+          <button type="button" onclick="renewPartySubmit()" class="py-2 rounded-lg bg-[#5C3BFF]/20 hover:bg-[#5C3BFF]/30 border border-[#5C3BFF]/50 text-[#9E8BFF] text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1" title="현재 파티를 정리하고 새로 만들기">
+            <span>↩</span> <span>파티 새로 만들기</span>
+          </button>
+          <button type="button" onclick="finishPartySubmit()" class="py-2 rounded-lg bg-rose-950/40 hover:bg-rose-950/80 border border-rose-800/50 text-rose-300 text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1" title="파티 종료">
+            <span>⏹️</span> <span>파티 종료</span>
+          </button>
+        </div>
+
+        <!-- 하단 액션 버튼들: 게스트용 -->
+        <div id="party-guest-actions" class="grid grid-cols-2 gap-2 pt-2 border-t border-[#1E2738]" style="display:none;">
+          <button type="button" onclick="toggleJoinPartyBox()" class="py-2 rounded-lg bg-emerald-950/40 hover:bg-emerald-950/80 border border-emerald-700/50 text-[#00FFA3] text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1" title="다른 파티 초대 링크로 갈아타기">
+            <span>🔗</span> <span>다른 파티 합류</span>
+          </button>
+          <button type="button" onclick="leavePartySubmit()" class="py-2 rounded-lg bg-rose-950/40 hover:bg-rose-950/80 border border-rose-800/50 text-rose-300 text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1" title="현재 파티에서 퇴장">
+            <span>🚪</span> <span>파티 나가기</span>
+          </button>
+        </div>
+
+        <!-- 다른 파티 초대 링크 입력 인라인 박스 (게스트용) -->
+        <div id="party-switch-box" class="hidden p-2 rounded-lg bg-[#090D13] border border-emerald-900/40 space-y-1.5 mt-1">
+          <div class="flex items-center justify-between text-[11px] text-slate-300 font-medium">
+            <span>🔗 다른 파티 초대 링크 또는 코드</span>
+            <button type="button" onclick="toggleJoinPartyBox()" class="text-slate-400 hover:text-slate-200 text-xs cursor-pointer">✕</button>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <input type="text" id="input-party-manage-join-link" placeholder="초대 링크 붙여넣기" class="flex-1 bg-[#05080C] border border-[#1E2738] rounded-lg px-2.5 py-1.5 text-[10.5px] text-slate-200 focus:border-emerald-500 outline-none font-mono" autocomplete="off" />
+            <button type="button" onclick="joinPartyByInviteLink('input-party-manage-join-link')" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs cursor-pointer flex-shrink-0">
+              이동
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 파티 후원 테스트 발송 카드 -->
+      <div class="section-card p-2.5 space-y-2 bg-[#0D1219] border border-[#1E2738]">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+            <span>⚡</span> 파티 후원 테스트 알림
+          </span>
+          <button type="button" onclick="sendPartyDonationTest(this)" class="sub-btn px-3 py-1 text-[10.5px] flex items-center gap-1 hover:border-[#00FFA3]/40 text-[#00FFA3]" title="OBS 화면에 파티 후원 테스트 알림 송출">
+            <span>🎉</span> <span>파티 테스트 송출</span>
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -1081,7 +1428,276 @@
     </div>
 
     <div class="text-[10px] text-chzzk-muted text-center mt-3 py-1">
-      <p class="font-medium text-white/70">CHZZK OBS Dock v0.4.1</p>
+      <p class="font-medium text-white/70">CHZZK OBS Dock v0.5.0</p>
+    </div>
+  </div>
+
+  <!-- ===== 치지직 후원 세부 설정 (채팅/영상/미션 3대 설정 모달) ===== -->
+  <div id="modal-donation-settings" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-[9999] flex items-center justify-center p-2.5 hidden" onclick="if(event.target===this) closeDonationSettingsModal()">
+    <div class="bg-[#0B0F15] border border-[#1E2738] rounded-xl max-w-lg w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden" onclick="event.stopPropagation()">
+      <!-- 모달 헤더 -->
+      <div class="px-3.5 py-2.5 border-b border-[#1E2738] flex items-center justify-between bg-[#0D1219]">
+        <div class="flex items-center gap-2">
+          <span class="text-sm">⚙️</span>
+          <span class="text-xs font-bold text-slate-100">치지직 후원 세부 설정 (스튜디오 실시간 연동)</span>
+        </div>
+        <button type="button" onclick="closeDonationSettingsModal()" class="w-6 h-6 rounded-md hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center text-sm font-bold">
+          ✕
+        </button>
+      </div>
+
+      <!-- 모달 탭 (채팅 후원 / 영상 후원 / 미션 후원 / 구독 알림) -->
+      <div class="grid grid-cols-4 gap-1 p-1 bg-[#090D13] border-b border-[#1E2738] text-center">
+        <button type="button" id="dsetting-tab-chat" onclick="switchDonationSettingTab('chat')" class="py-1.5 text-xs font-bold rounded text-[#00FFA3] bg-[#161F2E] border border-[#00FFA3]/30 transition-all flex items-center justify-center gap-1">
+          <span>💬</span> 채팅
+        </button>
+        <button type="button" id="dsetting-tab-video" onclick="switchDonationSettingTab('video')" class="py-1.5 text-xs font-medium rounded text-slate-400 hover:text-slate-200 transition-all flex items-center justify-center gap-1">
+          <span>🎬</span> 영도
+        </button>
+        <button type="button" id="dsetting-tab-mission" onclick="switchDonationSettingTab('mission')" class="py-1.5 text-xs font-medium rounded text-slate-400 hover:text-slate-200 transition-all flex items-center justify-center gap-1">
+          <span>🎯</span> 미션
+        </button>
+        <button type="button" id="dsetting-tab-sub" onclick="switchDonationSettingTab('sub')" class="py-1.5 text-xs font-medium rounded text-slate-400 hover:text-slate-200 transition-all flex items-center justify-center gap-1">
+          <span>⭐</span> 구독
+        </button>
+      </div>
+
+      <!-- 모달 본체 (스크롤 가능) -->
+      <div class="p-3.5 space-y-4 overflow-y-auto max-h-[calc(90vh-110px)] text-xs text-slate-300">
+        
+        <!-- [1] 채팅 후원 설정 섹션 (media_1788830096337.png) -->
+        <div id="dsetting-panel-chat" class="space-y-3.5">
+          <!-- 사용 여부 설정 -->
+          <div class="flex items-center justify-between p-2.5 rounded-lg bg-[#090D13] border border-[#1A2333]">
+            <div>
+              <div class="font-bold text-slate-200">사용 여부 설정</div>
+              <div class="text-[10px] text-slate-400 mt-0.5">• OFF로 설정 시 시청자에게 후원 받을 수 없습니다.</div>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" id="dsetting-chat-active" onchange="toggleChatActive(this.checked)" class="sr-only peer">
+              <div class="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#5C3BFF]"></div>
+            </label>
+          </div>
+
+          <!-- 후원 조건 설정 (최소 후원 가능 금액) -->
+          <div class="p-2.5 rounded-lg bg-[#090D13] border border-[#1A2333] space-y-2">
+            <div class="font-bold text-slate-200">후원 조건 설정</div>
+            <div class="flex items-center gap-2">
+              <span class="text-[11px] text-slate-400">최소 후원 가능 금액</span>
+              <input type="number" id="dsetting-chat-min-amount" min="1000" step="100" class="w-28 bg-[#161F2E] border border-[#1E2738] rounded px-2 py-1 text-right font-mono font-bold text-white focus:border-[#00FFA3] outline-none" placeholder="1000" />
+              <span class="text-[11px] text-slate-300">이상</span>
+              <button type="button" onclick="saveChatDonationCondition()" class="ml-auto px-3 py-1 rounded bg-[#5C3BFF] hover:bg-[#6E50FF] text-white font-bold text-[11px] transition-colors">
+                저장
+              </button>
+            </div>
+            <div class="text-[10px] text-slate-400">• 설정한 금액부터 채팅 후원이 가능합니다. (최소 1,000 치즈)</div>
+          </div>
+
+          <!-- 후원 금액 표시 여부 설정 -->
+          <div class="flex items-center justify-between p-2.5 rounded-lg bg-[#090D13] border border-[#1A2333]">
+            <div>
+              <div class="font-bold text-slate-200">후원 금액 표시 여부 설정</div>
+              <div class="text-[10px] text-slate-400 mt-0.5">• OFF로 설정 시 채팅창 내에 표시되는 후원내역에 금액이 표시되지 않습니다.</div>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" id="dsetting-chat-exposure" onchange="toggleChatExposure(this.checked)" class="sr-only peer">
+              <div class="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#5C3BFF]"></div>
+            </label>
+          </div>
+
+          <!-- 고액 후원 봉투 허용 -->
+          <div class="flex items-center justify-between p-2.5 rounded-lg bg-[#090D13] border border-[#1A2333]">
+            <div>
+              <div class="font-bold text-slate-200">고액 후원 봉투 허용</div>
+              <div class="text-[10px] text-slate-400 mt-0.5">• 후원자가 후원 시 봉투를 선택해 보낼 수 있습니다.</div>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" id="dsetting-chat-envelope" onchange="toggleEnvelope(this.checked)" class="sr-only peer">
+              <div class="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#5C3BFF]"></div>
+            </label>
+          </div>
+        </div>
+
+        <!-- [2] 영상 후원 설정 섹션 (media_1788830117419.png) -->
+        <div id="dsetting-panel-video" class="space-y-3.5" style="display:none;">
+          <!-- 사용 여부 설정 -->
+          <div class="flex items-center justify-between p-2.5 rounded-lg bg-[#090D13] border border-[#1A2333]">
+            <div>
+              <div class="font-bold text-slate-200">사용 여부 설정</div>
+              <div class="text-[10px] text-slate-400 mt-0.5">• OFF로 설정 시 시청자에게 영상 후원을 받을 수 없습니다.</div>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" id="dsetting-video-active" onchange="toggleVideoActive(this.checked)" class="sr-only peer">
+              <div class="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#5C3BFF]"></div>
+            </label>
+          </div>
+
+          <!-- 영상 후원 상세 파라미터 카드 -->
+          <div class="p-2.5 rounded-lg bg-[#090D13] border border-[#1A2333] space-y-2.5">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] text-slate-400">최소 후원 치즈</span>
+              <div class="flex items-center gap-1.5">
+                <input type="number" id="dsetting-video-min-cheese" min="1000" step="100" class="w-24 bg-[#161F2E] border border-[#1E2738] rounded px-2 py-0.5 text-right font-mono font-bold text-white focus:border-[#00FFA3] outline-none" placeholder="1000" />
+                <span class="text-[11px] text-slate-300">치즈</span>
+              </div>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] text-slate-400">영상 1초당 필요 치즈</span>
+              <div class="flex items-center gap-1.5">
+                <input type="number" id="dsetting-video-sec-cheese" min="1" step="1" class="w-24 bg-[#161F2E] border border-[#1E2738] rounded px-2 py-0.5 text-right font-mono font-bold text-white focus:border-[#00FFA3] outline-none" placeholder="30" />
+                <span class="text-[11px] text-slate-300">치즈</span>
+              </div>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] text-slate-400">최대 영상 길이</span>
+              <div class="flex items-center gap-1.5">
+                <input type="number" id="dsetting-video-max-duration" min="10" step="5" class="w-24 bg-[#161F2E] border border-[#1E2738] rounded px-2 py-0.5 text-right font-mono font-bold text-white focus:border-[#00FFA3] outline-none" placeholder="60" />
+                <span class="text-[11px] text-slate-300">초</span>
+              </div>
+            </div>
+
+            <!-- 토글 2종 (자동재생, 제목표시) -->
+            <div class="pt-2 border-t border-[#1E2738] flex items-center justify-between">
+              <span class="text-[11px] text-slate-300">영상 후원 자동재생</span>
+              <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" id="dsetting-video-autoplay" class="sr-only peer">
+                <div class="w-8 h-4 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-[#5C3BFF]"></div>
+              </label>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] text-slate-300">영상 제목 표시</span>
+              <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" id="dsetting-video-title" class="sr-only peer">
+                <div class="w-8 h-4 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-[#5C3BFF]"></div>
+              </label>
+            </div>
+
+            <!-- 스팸 영상 필터 슬라이더 -->
+            <div class="pt-2 border-t border-[#1E2738] space-y-1">
+              <div class="flex items-center justify-between">
+                <span class="text-[11px] text-slate-300">스팸 영상 필터</span>
+                <span id="dsetting-spam-level-label" class="font-mono text-[11px] font-bold text-[#5C3BFF]">0레벨</span>
+              </div>
+              <input type="range" id="dsetting-video-spam" min="0" max="3" value="0" oninput="document.getElementById('dsetting-spam-level-label').textContent=this.value+'레벨'" class="w-full accent-[#5C3BFF] cursor-pointer h-1.5 bg-[#1E2738] rounded-lg" />
+              <div class="text-[9.5px] text-slate-400">• 유튜브 영상에만 해당되는 필터 기능입니다.</div>
+            </div>
+
+            <!-- 저장 버튼 -->
+            <div class="pt-2 flex justify-end">
+              <button type="button" onclick="saveVideoDonationSetting()" class="px-4 py-1.5 rounded bg-[#5C3BFF] hover:bg-[#6E50FF] text-white font-bold text-xs transition-colors">
+                영상 후원 설정 저장
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- [3] 미션 후원 설정 섹션 (media_1788830134506.png) -->
+        <div id="dsetting-panel-mission" class="space-y-3.5" style="display:none;">
+          <!-- 사용 여부 설정 -->
+          <div class="flex items-center justify-between p-2.5 rounded-lg bg-[#090D13] border border-[#1A2333]">
+            <div>
+              <div class="font-bold text-slate-200">사용 여부 설정</div>
+              <div class="text-[10px] text-slate-400 mt-0.5">• 설정을 끄면 미션 후원을 받을 수 없습니다.</div>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" id="dsetting-mission-active" onchange="toggleMissionActive(this.checked)" class="sr-only peer">
+              <div class="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#5C3BFF]"></div>
+            </label>
+          </div>
+
+          <!-- 상금 조건 및 응원금 설정 -->
+          <div class="p-2.5 rounded-lg bg-[#090D13] border border-[#1A2333] space-y-2.5">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] text-slate-400">최소 제시 가능 금액</span>
+              <div class="flex items-center gap-1.5">
+                <input type="number" id="dsetting-mission-min-amount" min="1000" step="100" class="w-24 bg-[#161F2E] border border-[#1E2738] rounded px-2 py-0.5 text-right font-mono font-bold text-white focus:border-[#00FFA3] outline-none" placeholder="1000" />
+                <span class="text-[11px] text-slate-300">이상</span>
+              </div>
+            </div>
+            <div class="flex items-center justify-between">
+              <div>
+                <span class="text-[11px] text-slate-400">실패 시 응원금 설정</span>
+                <span class="text-[9.5px] text-slate-400 block">• 10%에서 90%까지 설정 가능</span>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <input type="number" id="dsetting-mission-fail-rate" min="10" max="90" step="5" class="w-20 bg-[#161F2E] border border-[#1E2738] rounded px-2 py-0.5 text-right font-mono font-bold text-white focus:border-[#00FFA3] outline-none" placeholder="10" />
+                <span class="text-[11px] text-slate-300">%</span>
+              </div>
+            </div>
+
+            <div class="pt-2 border-t border-[#1E2738] flex items-center justify-between">
+              <div>
+                <div class="font-bold text-slate-200">후원 금액 표시 여부 설정</div>
+                <div class="text-[10px] text-slate-400">• OFF로 설정 시 채팅창 내에 미션 금액이 표시되지 않습니다.</div>
+              </div>
+              <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" id="dsetting-mission-exposure" class="sr-only peer">
+                <div class="w-8 h-4 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-[#5C3BFF]"></div>
+              </label>
+            </div>
+
+            <!-- 저장 버튼 -->
+            <div class="pt-2 flex justify-end">
+              <button type="button" onclick="saveMissionDonationSetting()" class="px-4 py-1.5 rounded bg-[#5C3BFF] hover:bg-[#6E50FF] text-white font-bold text-xs transition-colors">
+                미션 후원 설정 저장
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- [4] 구독 알림 설정 섹션 -->
+        <div id="dsetting-panel-sub" class="space-y-3.5" style="display:none;">
+          <!-- 사용 여부 설정 -->
+          <div class="flex items-center justify-between p-2.5 rounded-lg bg-[#090D13] border border-[#1A2333]">
+            <div>
+              <div class="font-bold text-slate-200">구독 알림 사용 여부</div>
+              <div class="text-[10px] text-slate-400 mt-0.5">• OFF로 설정 시 시청자 구독 알림이 송출되지 않습니다.</div>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" id="dsetting-sub-alert-active" onchange="toggleSubAlertActive(this.checked)" class="sr-only peer">
+              <div class="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#5C3BFF]"></div>
+            </label>
+          </div>
+
+          <!-- 구독 알림 상세 파라미터 카드 -->
+          <div class="p-2.5 rounded-lg bg-[#090D13] border border-[#1A2333] space-y-3">
+            <div class="space-y-1">
+              <div class="flex items-center justify-between">
+                <span class="text-[11px] text-slate-300 font-medium">구독 알림 사운드 볼륨</span>
+                <span id="dsetting-sub-alert-vol-label" class="font-mono text-[11px] font-bold text-[#5C3BFF]">70%</span>
+              </div>
+              <input type="range" id="dsetting-sub-alert-vol" min="0" max="100" value="70" oninput="document.getElementById('dsetting-sub-alert-vol-label').textContent=this.value+'%'" class="w-full accent-[#5C3BFF] cursor-pointer h-1.5 bg-[#1E2738] rounded-lg" />
+            </div>
+
+            <div class="pt-2 border-t border-[#1E2738] flex items-center justify-between">
+              <div>
+                <span class="text-[11px] text-slate-300 font-medium">구독 TTS 읽어주기</span>
+                <span class="text-[9.5px] text-slate-400 block">• 구독 메시지를 음성으로 읽어줍니다.</span>
+              </div>
+              <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" id="dsetting-sub-tts-active" class="sr-only peer">
+                <div class="w-8 h-4 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-[#5C3BFF]"></div>
+              </label>
+            </div>
+
+            <div class="space-y-1 pt-1">
+              <div class="flex items-center justify-between">
+                <span class="text-[11px] text-slate-300 font-medium">구독 TTS 음성 볼륨</span>
+                <span id="dsetting-sub-tts-vol-label" class="font-mono text-[11px] font-bold text-[#5C3BFF]">70%</span>
+              </div>
+              <input type="range" id="dsetting-sub-tts-vol" min="0" max="100" value="70" oninput="document.getElementById('dsetting-sub-tts-vol-label').textContent=this.value+'%'" class="w-full accent-[#5C3BFF] cursor-pointer h-1.5 bg-[#1E2738] rounded-lg" />
+            </div>
+
+            <!-- 저장 버튼 -->
+            <div class="pt-2 flex justify-end">
+              <button type="button" onclick="saveSubscriptionSetting()" class="px-4 py-1.5 rounded bg-[#5C3BFF] hover:bg-[#6E50FF] text-white font-bold text-xs transition-colors cursor-pointer">
+                구독 알림 설정 저장
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
     </div>
   </div>
 
@@ -1448,11 +2064,27 @@
       }
     }
 
+    function checkLoginGuard(actionName) {
+      const hasCookies = (serverConfig.nid_aut && serverConfig.nid_ses);
+      if (!userChannelId && !hasCookies) {
+        showToast('🔒 네이버 로그인 필요', 'warn', (actionName ? actionName + '을(를) 사용하려면 ' : '') + '네이버 로그인이 필요합니다. [설정]에서 먼저 로그인해 주세요.');
+        const btnSettings = document.getElementById('btn-settings');
+        if (btnSettings) {
+          btnSettings.classList.add('live-soft-glow');
+          setTimeout(() => btnSettings.classList.remove('live-soft-glow'), 2500);
+        }
+        return false;
+      }
+      return true;
+    }
+
     function toggleSettings() {
       const urlsPanel = document.getElementById('urls-panel');
       if (urlsPanel && urlsPanel.classList.contains('open')) urlsPanel.classList.remove('open');
       const donationsPanel = document.getElementById('donations-panel');
       if (donationsPanel && donationsPanel.classList.contains('open')) donationsPanel.classList.remove('open');
+      const remotePanel = document.getElementById('remote-panel');
+      if (remotePanel && remotePanel.classList.contains('open')) remotePanel.classList.remove('open');
       const panel = document.getElementById('settings-panel');
       if (panel) {
         panel.classList.toggle('open');
@@ -1464,11 +2096,14 @@
     }
 
     function toggleUrlsPanel() {
+      if (!checkLoginGuard('알림 URL & 방송 정보')) return;
       const panel = document.getElementById('urls-panel');
       const settingsPanel = document.getElementById('settings-panel');
       const donationsPanel = document.getElementById('donations-panel');
+      const remotePanel = document.getElementById('remote-panel');
       if (settingsPanel && settingsPanel.classList.contains('open')) settingsPanel.classList.remove('open');
       if (donationsPanel && donationsPanel.classList.contains('open')) donationsPanel.classList.remove('open');
+      if (remotePanel && remotePanel.classList.contains('open')) remotePanel.classList.remove('open');
       if (panel) {
         panel.classList.toggle('open');
         if (panel.classList.contains('open') && !streamingInfoLoaded) {
@@ -1479,11 +2114,14 @@
     }
 
     function toggleDonationsPanel() {
+      if (!checkLoginGuard('후원 / 채팅 설정')) return;
       const panel = document.getElementById('donations-panel');
       const settingsPanel = document.getElementById('settings-panel');
       const urlsPanel = document.getElementById('urls-panel');
+      const remotePanel = document.getElementById('remote-panel');
       if (settingsPanel && settingsPanel.classList.contains('open')) settingsPanel.classList.remove('open');
       if (urlsPanel && urlsPanel.classList.contains('open')) urlsPanel.classList.remove('open');
+      if (remotePanel && remotePanel.classList.contains('open')) remotePanel.classList.remove('open');
       if (panel) {
         panel.classList.toggle('open');
         if (panel.classList.contains('open') && !donationsLoaded) {
@@ -1491,6 +2129,1305 @@
         }
       }
       updatePanelScrollLock();
+    }
+
+    function toggleRemotePanel() {
+      if (!checkLoginGuard('치지직 공식 리모컨')) return;
+      const panel = document.getElementById('remote-panel');
+      const settingsPanel = document.getElementById('settings-panel');
+      const urlsPanel = document.getElementById('urls-panel');
+      const donationsPanel = document.getElementById('donations-panel');
+      if (settingsPanel && settingsPanel.classList.contains('open')) settingsPanel.classList.remove('open');
+      if (urlsPanel && urlsPanel.classList.contains('open')) urlsPanel.classList.remove('open');
+      if (donationsPanel && donationsPanel.classList.contains('open')) donationsPanel.classList.remove('open');
+      if (panel) {
+        panel.classList.toggle('open');
+        if (panel.classList.contains('open')) {
+          switchRemoteTab('media');
+          fetchNewsFeed();
+          refreshPartyStatus();
+        }
+      }
+      updatePanelScrollLock();
+    }
+
+    // ===== 치지직 내장형 리모컨 (Remote Controller) 로직 =====
+    let currentRemoteTab = 'media';
+    let isAlertMuted = false;
+    let previousAlertVolume = 80;
+    let isRemotePlaying = false;
+    let lastPlayedVideo = null;
+    let cachedNewsFeeds = [];
+    let currentPartySummary = null;
+    let cachedPartyInviteToken = '';
+    let isCurrentPartyHost = true;
+    let cachedSubscriptionSetting = null;
+
+    function switchRemoteTab(tab) {
+      currentRemoteTab = tab;
+      const tabs = ['media', 'feed', 'mission', 'party'];
+      tabs.forEach(t => {
+        const btn = document.getElementById(`remote-tab-btn-${t}`);
+        const content = document.getElementById(`remote-tab-content-${t}`);
+        if (t === tab) {
+          if (btn) {
+            btn.className = 'flex-1 py-1 text-[11px] font-bold rounded text-[#00FFA3] bg-[#161F2E] border border-[#00FFA3]/30 transition-all flex items-center justify-center gap-1';
+          }
+          if (content) content.style.display = 'block';
+        } else {
+          if (btn) {
+            btn.className = 'flex-1 py-1 text-[11px] font-medium rounded text-slate-400 hover:text-slate-200 transition-all flex items-center justify-center gap-1';
+          }
+          if (content) content.style.display = 'none';
+        }
+      });
+      if (tab === 'feed' || tab === 'mission') {
+        fetchNewsFeed();
+      } else if (tab === 'party') {
+        refreshPartyStatus();
+      }
+    }
+
+    function refreshRemoteData() {
+      showToast('🔄 리모컨 데이터 갱신', 'info', '최신 방송, 후원 대기열 및 파티 정보를 동기화했습니다.');
+      checkLiveStatus();
+      fetchNewsFeed();
+      refreshPartyStatus();
+    }
+
+    async function sendDonationTest(type, btnElement) {
+      if (!checkLoginGuard('테스트 알림')) return;
+      if (!userChannelId) {
+        showToast('채널 정보 없음', 'warn', '채널 ID를 확인 중입니다. 잠시 후 다시 시도해 주세요.');
+        return;
+      }
+      const typeNames = {
+        donation: '치즈 후원',
+        video: '영상 후원',
+        mission: '미션 후원',
+        subscription: '구독 알림',
+        party: '파티 후원'
+      };
+      const typeEndpoints = {
+        donation: 'donation-test',
+        video: 'video-donation-test',
+        mission: 'mission-donation-test',
+        subscription: 'subscription-test',
+        party: 'party-donation-test'
+      };
+      const name = typeNames[type] || '후원';
+      const endpoint = typeEndpoints[type] || `${type}-test`;
+
+      if (btnElement) {
+        btnElement.disabled = true;
+        btnElement.classList.add('opacity-50', 'cursor-not-allowed');
+      }
+
+      try {
+        const res = await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/chats/${endpoint}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({})
+        });
+
+        // 기존에 떠 있던 토스트를 제거하여 최종 결과 1개만 단일 노출
+        const existingToasts = document.querySelectorAll('#toast-container .toast');
+        existingToasts.forEach(t => t.remove());
+
+        if (res.ok) {
+          showToast(`🎉 ${name} 테스트 알림 송출 성공!`, 'success', 'OBS 화면 오버레이에 알림이 나타납니다.');
+        } else {
+          const data = await res.json().catch(() => ({}));
+          showToast(`${name} 테스트 실패`, 'error', data.message || `알림 전송 실패 (상태 코드: ${res.status})`);
+        }
+      } catch (e) {
+        const existingToasts = document.querySelectorAll('#toast-container .toast');
+        existingToasts.forEach(t => t.remove());
+        showToast('전송 오류', 'error', e.message);
+      } finally {
+        if (btnElement) {
+          setTimeout(() => {
+            btnElement.disabled = false;
+            btnElement.classList.remove('opacity-50', 'cursor-not-allowed');
+          }, 600);
+        }
+      }
+    }
+
+    // 미디어 조작 & 이전 영상 다시 재생 (Replay)
+    async function replayVideoDonation(donationId, newsFeedNo, title) {
+      if (!checkLoginGuard('영상 다시 재생')) return;
+      if (!userChannelId) {
+        showToast('채널 정보 없음', 'warn', '채널 ID를 확인 중입니다.');
+        return;
+      }
+      try {
+        const body = { command: 'PLAY' };
+        if (donationId) body.donationId = donationId;
+        if (newsFeedNo != null) body.newsFeedNo = newsFeedNo;
+
+        const res = await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/donations/command`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+
+        const existingToasts = document.querySelectorAll('#toast-container .toast');
+        existingToasts.forEach(t => t.remove());
+
+        if (res.ok) {
+          lastPlayedVideo = { donationId, newsFeedNo, title };
+          isRemotePlaying = true;
+          const badge = document.getElementById('remote-media-badge');
+          const titleEl = document.getElementById('remote-video-title');
+          const playIcon = document.getElementById('remote-playpause-icon');
+          const playText = document.getElementById('remote-playpause-text');
+          if (badge) {
+            badge.textContent = '재생 중';
+            badge.className = 'text-[9.5px] px-1.5 py-0.2 rounded font-medium bg-emerald-950/80 text-[#00FFA3] border border-emerald-800/60';
+          }
+          if (titleEl && title) titleEl.textContent = title;
+          if (playIcon) playIcon.textContent = '⏸️';
+          if (playText) playText.textContent = '정지';
+          showToast('▶️ 영상 다시 재생 시작', 'success', (title ? `"${title}" ` : '') + '영상 후원을 OBS에 재송출합니다.');
+        } else {
+          const data = await res.json().catch(() => ({}));
+          showToast('재생 실패', 'error', data.message || '영상 재생 명령 전달 실패');
+        }
+      } catch (e) {
+        showToast('오류 발생', 'error', e.message);
+      }
+    }
+
+    async function replayLastVideoDonation() {
+      if (lastPlayedVideo && (lastPlayedVideo.donationId || lastPlayedVideo.newsFeedNo != null)) {
+        replayVideoDonation(lastPlayedVideo.donationId, lastPlayedVideo.newsFeedNo, lastPlayedVideo.title);
+        return;
+      }
+      if (!cachedNewsFeeds || cachedNewsFeeds.length === 0) {
+        await fetchNewsFeed();
+      }
+      const vid = cachedNewsFeeds.find(f => f.newsFeedType === 'DONATION_VIDEO_CURRENCY');
+      if (vid) {
+        replayVideoDonation(vid.donationId, vid.newsFeedNo, vid.title || '영상 후원');
+      } else {
+        const existingToasts = document.querySelectorAll('#toast-container .toast');
+        existingToasts.forEach(t => t.remove());
+        showToast('이전 영상 없음', 'info', '다시 재생할 수 있는 이전 영상 후원 기록이 없습니다.');
+      }
+    }
+
+    async function triggerQuickController(action) {
+      if (!checkLoginGuard('미디어 제어')) return;
+
+      const badge = document.getElementById('remote-media-badge');
+      const playIcon = document.getElementById('remote-playpause-icon');
+      const playText = document.getElementById('remote-playpause-text');
+
+      if (action === 'replay-prev') {
+        replayLastVideoDonation();
+        return;
+      }
+
+      if (action === 'pause') {
+        isRemotePlaying = !isRemotePlaying;
+        if (isRemotePlaying) {
+          if (badge) {
+            badge.textContent = '재생 중';
+            badge.className = 'text-[9.5px] px-1.5 py-0.2 rounded font-medium bg-emerald-950/80 text-[#00FFA3] border border-emerald-800/60';
+          }
+          if (playIcon) playIcon.textContent = '⏸️';
+          if (playText) playText.textContent = '정지';
+          showToast('▶️ 영상 재생', 'info', '영상 후원 재생을 재개합니다.');
+        } else {
+          if (badge) {
+            badge.textContent = '일시정지됨';
+            badge.className = 'text-[9.5px] px-1.5 py-0.2 rounded font-medium bg-amber-950/80 text-amber-400 border border-amber-700/50';
+          }
+          if (playIcon) playIcon.textContent = '▶️';
+          if (playText) playText.textContent = '재생';
+          showToast('⏸️ 영상 정지', 'info', '영상 후원을 정지했습니다.');
+        }
+      } else if (action === 'rewind') {
+        showToast('⏪ 10초 뒤로', 'info', '재생 위치를 10초 전으로 이동했습니다.');
+      } else if (action === 'skip') {
+        showToast('⏩ 10초 스킵', 'info', '재생 위치를 10초 뒤로 건너뛰었습니다.');
+      } else if (action === 'stop') {
+        if (userChannelId) {
+          try {
+            await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/donations/command`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ command: 'SKIP' })
+            });
+          } catch (_) {}
+        }
+        if (badge) {
+          badge.textContent = '대기 중';
+          badge.className = 'text-[9.5px] px-1.5 py-0.2 rounded font-medium bg-[#161F2E] text-slate-300 border border-[#1E2738]';
+        }
+        isRemotePlaying = false;
+        if (playIcon) playIcon.textContent = '▶️';
+        if (playText) playText.textContent = '재생';
+        showToast('⏭️ 다음 영상으로 넘김', 'success', '현재 영상을 건너뛰고 다음 대기열로 이동합니다.');
+      }
+    }
+
+    function onQuickVolumeChange(val) {
+      const lbl = document.getElementById('remote-quick-volume-label');
+      const muteIcon = document.getElementById('remote-mute-icon');
+      if (lbl) lbl.textContent = val + '%';
+      if (Number(val) === 0) {
+        if (muteIcon) muteIcon.textContent = '🔇';
+        isAlertMuted = true;
+      } else {
+        if (muteIcon) muteIcon.textContent = '🔊';
+        isAlertMuted = false;
+        previousAlertVolume = Number(val);
+      }
+    }
+
+    function toggleMuteAlert() {
+      const slider = document.getElementById('remote-quick-volume');
+      const lbl = document.getElementById('remote-quick-volume-label');
+      const muteIcon = document.getElementById('remote-mute-icon');
+      if (!slider) return;
+
+      isAlertMuted = !isAlertMuted;
+      if (isAlertMuted) {
+        previousAlertVolume = Number(slider.value) || 80;
+        slider.value = 0;
+        if (lbl) lbl.textContent = '0%';
+        if (muteIcon) muteIcon.textContent = '🔇';
+        showToast('🔇 알림 음소거', 'info');
+      } else {
+        const restoreVal = previousAlertVolume > 0 ? previousAlertVolume : 80;
+        slider.value = restoreVal;
+        if (lbl) lbl.textContent = restoreVal + '%';
+        if (muteIcon) muteIcon.textContent = '🔊';
+        showToast(`🔊 알림 볼륨 복원: ${restoreVal}%`, 'info');
+      }
+    }
+
+    // ===== 실시간 후원 피드 & 대기열 & 미션 판정 로직 =====
+    let activeFeedFilter = 'ALL';
+
+    function filterFeed(type) {
+      activeFeedFilter = type;
+      const filters = ['all', 'cheese', 'video', 'mission', 'sub', 'follow'];
+      filters.forEach(f => {
+        const btn = document.getElementById(`feed-filter-${f}`);
+        if (!btn) return;
+        const isActive = (f === 'sub' && type === 'SUB') || (f === 'follow' && type === 'FOLLOW') || (f.toUpperCase() === type);
+        if (isActive) {
+          btn.className = 'px-2 py-0.5 rounded bg-[#161F2E] text-[#00FFA3] font-bold border border-[#00FFA3]/40 cursor-pointer';
+        } else {
+          btn.className = 'px-2 py-0.5 rounded bg-[#0F141C] text-slate-300 border border-[#1E2738] cursor-pointer';
+        }
+      });
+      renderRemoteFeed(cachedNewsFeeds);
+    }
+
+    async function fetchNewsFeed() {
+      if (!userChannelId) return;
+      try {
+        const res = await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/news-feeds?size=30`);
+        if (res.ok) {
+          const data = await res.json();
+          const items = data.content?.data || data.content || [];
+          cachedNewsFeeds = Array.isArray(items) ? items : [];
+          renderRemoteFeed(cachedNewsFeeds);
+          renderVideoQueue(cachedNewsFeeds);
+          renderMissionList(cachedNewsFeeds);
+
+          if (!lastPlayedVideo) {
+            const vid = cachedNewsFeeds.find(f => f.newsFeedType === 'DONATION_VIDEO_CURRENCY');
+            if (vid) {
+              lastPlayedVideo = { donationId: vid.donationId, newsFeedNo: vid.newsFeedNo, title: vid.title };
+            }
+          }
+        }
+      } catch (e) {
+        console.error('fetchNewsFeed failed:', e);
+      }
+    }
+
+    function renderRemoteFeed(items) {
+      const container = document.getElementById('remote-feed-list');
+      if (!container) return;
+
+      let filtered = items || [];
+      if (activeFeedFilter === 'CHEESE') {
+        filtered = filtered.filter(i => i.newsFeedType && (i.newsFeedType.includes('CHAT') || i.newsFeedType.includes('CHEESE')));
+      } else if (activeFeedFilter === 'VIDEO') {
+        filtered = filtered.filter(i => i.newsFeedType && i.newsFeedType.includes('VIDEO'));
+      } else if (activeFeedFilter === 'MISSION') {
+        filtered = filtered.filter(i => i.newsFeedType && i.newsFeedType.includes('MISSION'));
+      } else if (activeFeedFilter === 'SUB') {
+        filtered = filtered.filter(i => i.newsFeedType && i.newsFeedType.includes('SUBSCRIPTION'));
+      } else if (activeFeedFilter === 'FOLLOW') {
+        filtered = filtered.filter(i => i.newsFeedType && i.newsFeedType.includes('FOLLOW'));
+      }
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-10 text-[11px] text-slate-400 bg-[#090D13] rounded-lg border border-[#1A2333]/60">
+            최근 방송 후원 알림 내역이 없습니다
+          </div>`;
+        return;
+      }
+
+      const typeMeta = {
+        DONATION_CHAT_CURRENCY: { icon: '🧀', label: '치즈', color: 'text-amber-400' },
+        DONATION_VIDEO_CURRENCY: { icon: '🎬', label: '영도', color: 'text-indigo-400' },
+        DONATION_MISSION_SUGGESTION: { icon: '🎯', label: '미션', color: 'text-emerald-400' },
+        DONATION_MISSION_PARTICIPATION: { icon: '🎯', label: '미션참여', color: 'text-emerald-400' },
+        PARTY_DONATION: { icon: '🎉', label: '파티', color: 'text-pink-400' },
+        SUBSCRIPTION: { icon: '⭐', label: '구독', color: 'text-cyan-400' },
+        SUBSCRIPTION_GIFT: { icon: '🎁', label: '구독선물', color: 'text-cyan-400' },
+        FOLLOW_CHANNEL: { icon: '🔔', label: '팔로우', color: 'text-blue-400' }
+      };
+
+      container.innerHTML = filtered.map(item => {
+        const meta = typeMeta[item.newsFeedType] || { icon: '💬', label: '알림', color: 'text-slate-300' };
+        const nickname = item.user?.nickname || (item.anonymous ? '익명의 후원자' : '익명');
+        const amount = item.payAmount ? Number(item.payAmount).toLocaleString() + ' 치즈' : '';
+        const title = item.title || item.message || '';
+        const isVideo = item.newsFeedType === 'DONATION_VIDEO_CURRENCY';
+
+        const safeTitle = (title || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        const safeDonationId = item.donationId || '';
+        const safeNewsFeedNo = item.newsFeedNo != null ? item.newsFeedNo : 'null';
+
+        return `
+          <div class="p-2 rounded-lg bg-[#090D13] border border-[#1A2333] hover:border-[#1E2738] transition-colors text-xs space-y-1">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-1.5 min-w-0">
+                <span>${meta.icon}</span>
+                <span class="font-bold text-slate-200 truncate max-w-[120px]">${escapeHtml(nickname)}</span>
+                <span class="text-[9.5px] px-1 py-0.2 rounded font-medium bg-[#161F2E] ${meta.color}">${meta.label}</span>
+              </div>
+              <span class="font-mono font-bold text-[#00FFA3] text-[11px] flex-shrink-0">${amount}</span>
+            </div>
+            ${title ? `<div class="text-[11px] text-slate-300 break-words leading-tight bg-[#05080C]/70 p-1.5 rounded">${escapeHtml(title)}</div>` : ''}
+            ${isVideo ? `
+              <div class="flex justify-end pt-1">
+                <button type="button" onclick="replayVideoDonation('${safeDonationId}', ${safeNewsFeedNo}, '${safeTitle}')" class="px-2 py-0.5 rounded bg-[#161F2E] hover:bg-[#00FFA3]/20 text-[#00FFA3] border border-[#00FFA3]/40 text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer">
+                  <span>▶</span> <span>다시 재생</span>
+                </button>
+              </div>` : ''}
+          </div>`;
+      }).join('');
+    }
+
+    function renderVideoQueue(items) {
+      const container = document.getElementById('remote-queue-list');
+      const countBadge = document.getElementById('remote-queue-count');
+      if (!container) return;
+
+      const videoItems = (items || []).filter(i => i.newsFeedType === 'DONATION_VIDEO_CURRENCY');
+      if (countBadge) countBadge.textContent = `대기 ${videoItems.length}건`;
+
+      if (videoItems.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-4 text-[11px] text-slate-400 bg-[#090D13] rounded-lg border border-[#1A2333]/60">
+            현재 대기열에 등록된 영상 후원이 없습니다
+          </div>`;
+        return;
+      }
+
+      container.innerHTML = videoItems.map((item, idx) => {
+        const nickname = item.user?.nickname || '익명 후원자';
+        const amount = item.payAmount ? Number(item.payAmount).toLocaleString() + ' 치즈' : '';
+        const title = item.title || `영상 후원 #${idx + 1}`;
+        const safeTitle = title.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        const safeDonationId = item.donationId || '';
+        const safeNewsFeedNo = item.newsFeedNo != null ? item.newsFeedNo : 'null';
+
+        return `
+          <div class="p-2 rounded-lg bg-[#090D13] border border-[#1A2333] hover:border-[#1E2738] flex items-center justify-between gap-2 text-xs">
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-1.5">
+                <span class="text-[10px] text-slate-500 font-mono">#${idx + 1}</span>
+                <span class="font-bold text-slate-200 truncate text-[11.5px]">${escapeHtml(title)}</span>
+              </div>
+              <div class="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5">
+                <span>${escapeHtml(nickname)}</span>
+                <span class="font-mono text-[#00FFA3] font-semibold">${amount}</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-1 flex-shrink-0">
+              <button type="button" onclick="replayVideoDonation('${safeDonationId}', ${safeNewsFeedNo}, '${safeTitle}')" class="px-2 py-1 rounded bg-[#161F2E] hover:bg-[#00FFA3]/20 text-[#00FFA3] border border-[#00FFA3]/40 text-[10.5px] font-bold flex items-center gap-1 cursor-pointer transition-all" title="이 영상 다시 재생">
+                <span>▶</span> <span>재생</span>
+              </button>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    function renderMissionList(items) {
+      const container = document.getElementById('remote-mission-list');
+      const countBadge = document.getElementById('remote-mission-count');
+      if (!container) return;
+
+      const missionItems = (items || []).filter(i => i.newsFeedType && i.newsFeedType.includes('MISSION'));
+      if (countBadge) countBadge.textContent = `${missionItems.length}건 진행/완료`;
+
+      if (missionItems.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-10 text-[11px] text-slate-400 bg-[#090D13] rounded-lg border border-[#1A2333]/60">
+            현재 진행 중인 미션 후원이 없습니다
+          </div>`;
+        return;
+      }
+
+      container.innerHTML = missionItems.map(item => {
+        const nickname = item.user?.nickname || '후원자';
+        const amount = item.payAmount ? Number(item.payAmount).toLocaleString() + ' 치즈' : '';
+        const missionText = item.title || item.message || '미션 내용 없음';
+        let missionId = item.missionDonationId || item.donationId || '';
+        if (!missionId && item.extraJson) {
+          try {
+            missionId = JSON.parse(item.extraJson)?.missionDonation?.relatedMissionDonationId || '';
+          } catch (_) {}
+        }
+
+        return `
+          <div class="p-2.5 rounded-lg bg-[#090D13] border border-[#1A2333] space-y-2 text-xs">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-1.5">
+                <span>🎯</span>
+                <span class="font-bold text-slate-200">${escapeHtml(nickname)}</span>
+              </div>
+              <span class="font-mono text-[#00FFA3] font-bold text-[11px]">${amount}</span>
+            </div>
+            <div class="text-[11px] text-slate-300 bg-[#05080C] p-2 rounded border border-[#1E2738]/50 break-words leading-normal">
+              ${escapeHtml(missionText)}
+            </div>
+            ${missionId ? `
+              <div class="flex items-center justify-end gap-1.5 pt-0.5">
+                <button type="button" onclick="settleMission('${missionId}', 'succeed')" class="px-2.5 py-1 rounded bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-700/60 text-[#00FFA3] font-bold text-[10.5px] cursor-pointer transition-colors flex items-center gap-1">
+                  <span>✅</span> <span>성공 판정</span>
+                </button>
+                <button type="button" onclick="settleMission('${missionId}', 'fail')" class="px-2.5 py-1 rounded bg-rose-950/80 hover:bg-rose-900 border border-rose-700/60 text-rose-300 font-bold text-[10.5px] cursor-pointer transition-colors flex items-center gap-1">
+                  <span>❌</span> <span>실패 판정</span>
+                </button>
+              </div>` : ''}
+          </div>`;
+      }).join('');
+    }
+
+    async function settleMission(missionDonationId, outcome) {
+      if (!checkLoginGuard('미션 판정')) return;
+      if (!userChannelId) return;
+      try {
+        const res = await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/donations/mission/${outcome}?missionDonationId=${encodeURIComponent(missionDonationId)}`, {
+          method: 'PUT'
+        });
+        const existingToasts = document.querySelectorAll('#toast-container .toast');
+        existingToasts.forEach(t => t.remove());
+
+        if (res.ok) {
+          showToast(outcome === 'succeed' ? '🎉 미션 성공 판정 완료' : '⚠️ 미션 실패 처리 완료', 'success', '미션 결과가 스트리머/시청자에게 즉시 반영되었습니다.');
+          fetchNewsFeed();
+        } else {
+          const data = await res.json().catch(() => ({}));
+          showToast('미션 판정 실패', 'error', data.message || '판정 요청 전달 실패');
+        }
+      } catch (e) {
+        showToast('오류 발생', 'error', e.message);
+      }
+    }
+
+    // ===== 치지직 방송 파티 관리 로직 (스튜디오 공식 규격 & 한글 IME 보호 & 초대 합류) =====
+    async function refreshPartyStatus(showFeedback = false) {
+      if (!userChannelId) return;
+      try {
+        const [sumRes, partyRes] = await Promise.all([
+          apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/party/summary`).catch(() => null),
+          apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/party`).catch(() => null)
+        ]);
+
+        const viewCreate = document.getElementById('party-view-create');
+        const viewManage = document.getElementById('party-view-manage');
+        const activeCheese = document.getElementById('party-active-cheese');
+        const badge = document.getElementById('party-status-badge');
+        const editInput = document.getElementById('input-party-edit-name');
+        const editLen = document.getElementById('party-edit-len');
+        const btnRename = document.getElementById('btn-party-rename');
+        const btnReissue = document.getElementById('btn-party-reissue-token');
+        const roleBadge = document.getElementById('party-role-badge');
+        const hostActions = document.getElementById('party-host-actions');
+        const guestActions = document.getElementById('party-guest-actions');
+        const countEl = document.getElementById('party-member-count');
+        const listEl = document.getElementById('party-member-list');
+
+        let summary = null;
+        if (sumRes && sumRes.ok) {
+          const sData = await sumRes.json();
+          summary = sData.content;
+          currentPartySummary = summary;
+        }
+
+        let party = null;
+        if (partyRes && partyRes.ok) {
+          const pData = await partyRes.json();
+          party = pData.content;
+        }
+
+        const isPartyActive = summary && summary.partyId && summary.status !== 'FINISHED';
+
+        if (isPartyActive) {
+          // 파티 진행 중 뷰 전환
+          if (viewCreate) viewCreate.style.display = 'none';
+          if (viewManage) viewManage.style.display = 'block';
+
+          const partyName = summary.partyName || party?.partyName || '치지직 방송 파티';
+          const totalCheese = summary.totalDonationAmount || summary.cheese || 0;
+
+          if (activeCheese) activeCheese.textContent = Number(totalCheese).toLocaleString() + ' 치즈';
+          if (badge) {
+            badge.textContent = '진행 중';
+            badge.className = 'text-[10px] px-2 py-0.5 rounded font-bold bg-emerald-950/80 text-[#00FFA3] border border-emerald-800/60';
+          }
+
+          // [방장 vs 게스트 권한 판별]
+          const isHost = party?.info?.isHost ?? summary?.isHost ?? (party?.members?.some(m => m.channelId === userChannelId && m.isHost) ?? true);
+          isCurrentPartyHost = isHost;
+
+          if (roleBadge) {
+            if (isHost) {
+              roleBadge.textContent = '👑 방장';
+              roleBadge.className = 'text-[9px] px-1.5 py-0.2 rounded font-bold bg-[#161F2E] text-[#9E8BFF] border border-[#5C3BFF]/30';
+            } else {
+              roleBadge.textContent = '👤 게스트';
+              roleBadge.className = 'text-[9px] px-1.5 py-0.2 rounded font-bold bg-[#161F2E] text-cyan-400 border border-cyan-500/30';
+            }
+          }
+
+          // 방장만 파티명 수정 가능
+          if (editInput) {
+            editInput.readOnly = !isHost;
+            if (document.activeElement !== editInput) {
+              editInput.value = partyName;
+              if (editLen) editLen.textContent = `${partyName.length}/60`;
+            }
+          }
+          if (btnRename) btnRename.style.display = isHost ? 'inline-block' : 'none';
+          if (btnReissue) btnReissue.style.display = isHost ? 'inline-block' : 'none';
+          if (hostActions) hostActions.style.display = isHost ? 'grid' : 'none';
+          if (guestActions) guestActions.style.display = isHost ? 'none' : 'grid';
+
+          // 파티 초대 링크 동기화
+          fetchPartyInviteToken(summary.partyId);
+
+          // 참여자 목록 갱신
+          const members = party?.members || summary?.members || [];
+          if (countEl) countEl.textContent = members.length;
+          if (listEl) {
+            if (members.length === 0) {
+              listEl.innerHTML = `
+                <div class="text-center py-3 text-[11px] text-slate-400 bg-[#090D13] rounded-lg border border-[#1A2333]/60">
+                  게스트가 들어오면 이곳에 보여요.
+                </div>`;
+            } else {
+              listEl.innerHTML = members.map(m => `
+                <div class="flex items-center justify-between p-1.5 rounded bg-[#090D13] border border-[#1A2333] text-xs">
+                  <div class="flex items-center gap-1.5 min-w-0">
+                    <span class="w-1.5 h-1.5 rounded-full bg-[#00FFA3] flex-shrink-0"></span>
+                    <span class="font-medium text-slate-200 truncate max-w-[140px]">${escapeHtml(m.nickname || m.channelName || '멤버')}</span>
+                  </div>
+                  <span class="text-[10px] ${m.isHost ? 'text-[#9E8BFF] font-bold' : 'text-slate-400'} flex-shrink-0">${m.isHost ? '👑 방장' : '게스트'}</span>
+                </div>`).join('');
+            }
+          }
+        } else {
+          // 파티 미생성 뷰 전환
+          if (viewCreate) viewCreate.style.display = 'block';
+          if (viewManage) viewManage.style.display = 'none';
+          currentPartySummary = null;
+          cachedPartyInviteToken = '';
+          isCurrentPartyHost = true;
+        }
+
+        if (showFeedback) {
+          const existingToasts = document.querySelectorAll('#toast-container .toast');
+          existingToasts.forEach(t => t.remove());
+          showToast('🎉 파티 상태 갱신', 'info', '최신 파티 정보를 동기화했습니다.');
+        }
+      } catch (e) {
+        console.error('refreshPartyStatus error:', e);
+      }
+    }
+
+    // 초대 링크/텍스트에서 토큰 파싱 함수
+    function extractPartyInviteToken(raw) {
+      if (!raw || typeof raw !== 'string') return '';
+      let str = raw.trim();
+      const matchInvite = str.match(/party-invite\/([a-zA-Z0-9_-]+)/i);
+      if (matchInvite && matchInvite[1]) return matchInvite[1];
+      const matchTokenParam = str.match(/[?&]token=([a-zA-Z0-9_-]+)/i);
+      if (matchTokenParam && matchTokenParam[1]) return matchTokenParam[1];
+      str = str.replace(/^["'<(\[]+|["'>)\]]+$/g, '');
+      return str;
+    }
+
+    // [핵심 신규 기능] 초대받은 링크를 통한 파티 즉시 합류
+    async function joinPartyByInviteLink(inputId) {
+      if (!checkLoginGuard('파티 합류')) return;
+      if (!userChannelId) return;
+
+      const input = document.getElementById(inputId);
+      const raw = input ? input.value : '';
+      const token = extractPartyInviteToken(raw);
+
+      if (!token) {
+        showToast('초대 링크 확인', 'warn', '유효한 파티 초대 링크나 코드를 입력해 주세요.');
+        if (input) input.focus();
+        return;
+      }
+
+      // 이미 다른 파티에 참여 중인 경우 안내 및 확인
+      if (currentPartySummary && currentPartySummary.partyId && currentPartySummary.status !== 'FINISHED') {
+        const currentName = currentPartySummary.partyName || '현재 파티';
+        if (!confirm(`현재 참여 중인 "${currentName}"에서 퇴장하고 새 파티에 합류하시겠습니까?`)) {
+          return;
+        }
+        try {
+          if (isCurrentPartyHost) {
+            await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/party/finish`, { method: 'PUT' });
+          } else {
+            await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/parties/${currentPartySummary.partyId}/member/leave`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({})
+            });
+          }
+        } catch (_) {}
+      }
+
+      try {
+        // 파티 정보 사전 조회
+        let partyTitle = '파티';
+        try {
+          const sumRes = await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/party/invitation/${token}/summary`);
+          if (sumRes.ok) {
+            const sumData = await sumRes.json();
+            partyTitle = sumData.content?.partyInfo?.partyName || sumData.content?.partyName || partyTitle;
+          }
+        } catch (_) {}
+
+        // 파티 초대 수락 / 합류 API 호출
+        const res = await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/party/invitation/${token}/accept`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({})
+        });
+
+        const existingToasts = document.querySelectorAll('#toast-container .toast');
+        existingToasts.forEach(t => t.remove());
+
+        if (res.ok) {
+          showToast(`🎉 "${partyTitle}" 합류 완료!`, 'success', '파티 게스트로 성공적으로 참여했습니다.');
+          if (input) input.value = '';
+          const switchBox = document.getElementById('party-switch-box');
+          if (switchBox) switchBox.classList.add('hidden');
+          await refreshPartyStatus();
+        } else {
+          const data = await res.json().catch(() => ({}));
+          showToast('파티 합류 실패', 'error', data.message || '초대 링크가 만료되었거나 이미 종료된 파티입니다.');
+        }
+      } catch (e) {
+        const existingToasts = document.querySelectorAll('#toast-container .toast');
+        existingToasts.forEach(t => t.remove());
+        showToast('합류 오류 발생', 'error', e.message);
+      }
+    }
+
+    // 게스트용 파티 나가기
+    async function leavePartySubmit() {
+      if (!checkLoginGuard('파티 나가기')) return;
+      if (!userChannelId || !currentPartySummary?.partyId) return;
+      if (!confirm('정말 현재 파티에서 퇴장하시겠습니까?')) return;
+
+      try {
+        const res = await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/parties/${currentPartySummary.partyId}/member/leave`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({})
+        });
+        const existingToasts = document.querySelectorAll('#toast-container .toast');
+        existingToasts.forEach(t => t.remove());
+
+        if (res.ok) {
+          showToast('🚪 파티 퇴장 완료', 'info', '파티에서 정상적으로 퇴장했습니다.');
+          cachedPartyInviteToken = '';
+          currentPartySummary = null;
+          isCurrentPartyHost = true;
+          await refreshPartyStatus();
+        } else {
+          const data = await res.json().catch(() => ({}));
+          showToast('파티 퇴장 실패', 'error', data.message || '파티 나가기 실패');
+        }
+      } catch (e) {
+        showToast('오류 발생', 'error', e.message);
+      }
+    }
+
+    function toggleJoinPartyBox() {
+      const box = document.getElementById('party-switch-box');
+      if (!box) return;
+      box.classList.toggle('hidden');
+      if (!box.classList.contains('hidden')) {
+        const input = document.getElementById('input-party-manage-join-link');
+        if (input) input.focus();
+      }
+    }
+
+    async function fetchPartyInviteToken(partyId) {
+      if (!userChannelId || !partyId) return;
+      try {
+        const res = await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/parties/${partyId}/invitation/token`);
+        if (res.ok) {
+          const data = await res.json();
+          const token = typeof data.content === 'string' ? data.content : data.content?.token;
+          if (token) {
+            cachedPartyInviteToken = token;
+            const input = document.getElementById('field-party-invite-url');
+            if (input) input.value = `https://chzzk.naver.com/party-invite/${token}`;
+          }
+        }
+      } catch (e) {
+        console.error('fetchPartyInviteToken error:', e);
+      }
+    }
+
+    function togglePartyLinkMask() {
+      const input = document.getElementById('field-party-invite-url');
+      if (!input) return;
+      input.type = input.type === 'password' ? 'text' : 'password';
+    }
+
+    function copyPartyInviteUrl() {
+      const input = document.getElementById('field-party-invite-url');
+      if (!input || !input.value) {
+        showToast('복사 실패', 'warn', '복사할 초대 링크가 없습니다.');
+        return;
+      }
+      navigator.clipboard.writeText(input.value).then(() => {
+        const existingToasts = document.querySelectorAll('#toast-container .toast');
+        existingToasts.forEach(t => t.remove());
+        showToast('🔗 초대 링크 복사 완료', 'success', '클립보드에 파티 초대 링크가 복사되었습니다.');
+      }).catch(() => {
+        input.select();
+        document.execCommand('copy');
+        const existingToasts = document.querySelectorAll('#toast-container .toast');
+        existingToasts.forEach(t => t.remove());
+        showToast('🔗 초대 링크 복사 완료', 'success');
+      });
+    }
+
+    async function reissuePartyInviteToken() {
+      if (!checkLoginGuard('초대 링크 재발급')) return;
+      if (!userChannelId || !currentPartySummary?.partyId) {
+        showToast('재발급 불가', 'warn', '활성화된 파티 정보를 찾을 수 없습니다.');
+        return;
+      }
+      try {
+        const res = await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/parties/${currentPartySummary.partyId}/invitation/token`, {
+          method: 'PATCH'
+        });
+        const existingToasts = document.querySelectorAll('#toast-container .toast');
+        existingToasts.forEach(t => t.remove());
+
+        if (res.ok) {
+          showToast('🔄 초대 링크 재발급 완료', 'success', '새로운 파티 초대 링크가 발급되었습니다.');
+          await fetchPartyInviteToken(currentPartySummary.partyId);
+        } else {
+          const data = await res.json().catch(() => ({}));
+          showToast('재발급 실패', 'error', data.message || '초대 링크 재발급에 실패했습니다.');
+        }
+      } catch (e) {
+        showToast('오류 발생', 'error', e.message);
+      }
+    }
+
+    async function createPartySubmit() {
+      if (!checkLoginGuard('파티 만들기')) return;
+      if (!userChannelId) return;
+      const input = document.getElementById('input-party-create-name');
+      const partyName = input ? input.value.trim() : '';
+      if (!partyName) {
+        showToast('입력 확인', 'warn', '생성할 파티명을 입력해 주세요.');
+        if (input) input.focus();
+        return;
+      }
+
+      try {
+        const res = await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/party?partyName=${encodeURIComponent(partyName)}`, {
+          method: 'POST'
+        });
+        const existingToasts = document.querySelectorAll('#toast-container .toast');
+        existingToasts.forEach(t => t.remove());
+
+        if (res.ok) {
+          showToast('🎉 파티 생성 완료!', 'success', `"${partyName}" 파티가 성공적으로 생성되었습니다.`);
+          if (input) input.value = '';
+          const createLen = document.getElementById('party-create-len');
+          if (createLen) createLen.textContent = '0/60';
+          await refreshPartyStatus();
+        } else {
+          const data = await res.json().catch(() => ({}));
+          showToast('파티 생성 실패', 'error', data.message || '파티 생성 요청 실패');
+        }
+      } catch (e) {
+        showToast('오류 발생', 'error', e.message);
+      }
+    }
+
+    async function renamePartySubmit() {
+      if (!checkLoginGuard('파티명 변경')) return;
+      if (!userChannelId) return;
+      const input = document.getElementById('input-party-edit-name');
+      const partyName = input ? input.value.trim() : '';
+      if (!partyName) {
+        showToast('입력 확인', 'warn', '수정할 파티명을 입력해 주세요.');
+        if (input) input.focus();
+        return;
+      }
+
+      try {
+        const res = await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/party/name?partyName=${encodeURIComponent(partyName)}`, {
+          method: 'PUT'
+        });
+        const existingToasts = document.querySelectorAll('#toast-container .toast');
+        existingToasts.forEach(t => t.remove());
+
+        if (res.ok) {
+          showToast('💾 파티명 저장 완료', 'success', `"${partyName}"(으)로 파티명이 변경되었습니다.`);
+          await refreshPartyStatus();
+        } else {
+          const data = await res.json().catch(() => ({}));
+          showToast('파티명 변경 실패', 'error', data.message || '파티명 수정 요청 실패');
+        }
+      } catch (e) {
+        showToast('오류 발생', 'error', e.message);
+      }
+    }
+
+    async function renewPartySubmit() {
+      if (!checkLoginGuard('파티 새로 만들기')) return;
+      if (!userChannelId) return;
+      if (!confirm('현재 파티를 정리하고 새로운 파티를 생성하시겠습니까?')) return;
+
+      try {
+        const res = await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/party/renew`, {
+          method: 'POST'
+        });
+        const existingToasts = document.querySelectorAll('#toast-container .toast');
+        existingToasts.forEach(t => t.remove());
+
+        if (res.ok) {
+          showToast('🔄 파티 새로 만들기 완료', 'success', '새로운 파티 준비 상태로 전환되었습니다.');
+          await refreshPartyStatus();
+        } else {
+          const data = await res.json().catch(() => ({}));
+          showToast('파티 갱신 실패', 'error', data.message || '파티 새로 만들기 실패');
+        }
+      } catch (e) {
+        showToast('오류 발생', 'error', e.message);
+      }
+    }
+
+    async function finishPartySubmit() {
+      if (!checkLoginGuard('파티 종료')) return;
+      if (!userChannelId) return;
+      if (!confirm('정말 현재 파티를 종료하시겠습니까?')) return;
+
+      try {
+        const res = await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/party/finish`, {
+          method: 'PUT'
+        });
+        const existingToasts = document.querySelectorAll('#toast-container .toast');
+        existingToasts.forEach(t => t.remove());
+
+        if (res.ok) {
+          showToast('⏹️ 파티 종료 완료', 'info', '진행 중이던 파티가 정상적으로 종료되었습니다.');
+          cachedPartyInviteToken = '';
+          currentPartySummary = null;
+          isCurrentPartyHost = true;
+          await refreshPartyStatus();
+        } else {
+          const data = await res.json().catch(() => ({}));
+          showToast('파티 종료 실패', 'error', data.message || '파티 종료 실패');
+        }
+      } catch (e) {
+        showToast('오류 발생', 'error', e.message);
+      }
+    }
+
+    function sendPartyDonationTest(btn) {
+      sendDonationTest('party', btn);
+    }
+
+    // ===== 후원 세부 설정 모달 (스튜디오 실시간 연동) =====
+    function openDonationSettingsModal() {
+      if (!checkLoginGuard('후원 설정')) return;
+      const modal = document.getElementById('modal-donation-settings');
+      if (!modal) return;
+      modal.classList.remove('hidden');
+      switchDonationSettingTab('chat');
+      loadAllDonationSettings();
+    }
+
+    function closeDonationSettingsModal() {
+      const modal = document.getElementById('modal-donation-settings');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    function switchDonationSettingTab(tab) {
+      const tabs = ['chat', 'video', 'mission', 'sub'];
+      tabs.forEach(t => {
+        const btn = document.getElementById(`dsetting-tab-${t}`);
+        const panel = document.getElementById(`dsetting-panel-${t}`);
+        if (t === tab) {
+          if (btn) {
+            btn.className = 'py-1.5 text-xs font-bold rounded text-[#00FFA3] bg-[#161F2E] border border-[#00FFA3]/30 transition-all flex items-center justify-center gap-1';
+          }
+          if (panel) panel.style.display = 'block';
+        } else {
+          if (btn) {
+            btn.className = 'py-1.5 text-xs font-medium rounded text-slate-400 hover:text-slate-200 transition-all flex items-center justify-center gap-1';
+          }
+          if (panel) panel.style.display = 'none';
+        }
+      });
+    }
+
+    async function loadAllDonationSettings() {
+      if (!userChannelId) return;
+      try {
+        const [chatRes, vidRes, misRes, subRes] = await Promise.all([
+          apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/donations/chat-setting`).catch(() => null),
+          apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/donations/video-setting`).catch(() => null),
+          apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/donations/mission/setting`).catch(() => null),
+          apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/donations/subscription-alert-setting`).catch(() => null)
+        ]);
+
+        if (chatRes && chatRes.ok) {
+          const d = (await chatRes.json()).content;
+          if (d) {
+            const chatActive = document.getElementById('dsetting-chat-active');
+            const chatMin = document.getElementById('dsetting-chat-min-amount');
+            const chatExposure = document.getElementById('dsetting-chat-exposure');
+            const chatEnvelope = document.getElementById('dsetting-chat-envelope');
+            if (chatActive) chatActive.checked = d.donationActive !== false;
+            if (chatMin) chatMin.value = d.chatMinCurrencyPayAmount || 1000;
+            if (chatExposure) chatExposure.checked = Number(d.exposureDonationAmount) > 0;
+            if (chatEnvelope) chatEnvelope.checked = !!d.allowHighDonationEnvelope;
+          }
+        }
+
+        if (vidRes && vidRes.ok) {
+          const d = (await vidRes.json()).content;
+          if (d) {
+            const vidActive = document.getElementById('dsetting-video-active');
+            const vidMin = document.getElementById('dsetting-video-min-cheese');
+            const vidSec = document.getElementById('dsetting-video-sec-cheese');
+            const vidDur = document.getElementById('dsetting-video-max-duration');
+            const vidAuto = document.getElementById('dsetting-video-autoplay');
+            const vidTitle = document.getElementById('dsetting-video-title');
+            const vidSpam = document.getElementById('dsetting-video-spam');
+            const vidSpamLbl = document.getElementById('dsetting-spam-level-label');
+
+            if (vidActive) vidActive.checked = d.donationActive !== false;
+            if (vidMin) vidMin.value = d.minCurrencyPayAmount || 1000;
+            if (vidSec) vidSec.value = d.payAmountPerSecond || 30;
+            if (vidDur) vidDur.value = d.maxDurationLength || 60;
+            if (vidAuto) vidAuto.checked = !!d.isAutoPlay;
+            if (vidTitle) vidTitle.checked = !!d.isTitleExpose;
+            if (vidSpam) vidSpam.value = d.spamFilterLevel || 0;
+            if (vidSpamLbl) vidSpamLbl.textContent = (d.spamFilterLevel || 0) + '레벨';
+          }
+        }
+
+        if (misRes && misRes.ok) {
+          const d = (await misRes.json()).content;
+          if (d) {
+            const misActive = document.getElementById('dsetting-mission-active');
+            const misMin = document.getElementById('dsetting-mission-min-amount');
+            const misFail = document.getElementById('dsetting-mission-fail-rate');
+            const misExposure = document.getElementById('dsetting-mission-exposure');
+
+            if (misActive) misActive.checked = d.donationActive !== false;
+            if (misMin) misMin.value = d.minCurrencyPayAmount || 1000;
+            if (misFail) misFail.value = d.failCheeringRate || 10;
+            if (misExposure) misExposure.checked = d.exposureAmount !== false;
+          }
+        }
+
+        if (subRes && subRes.ok) {
+          const d = (await subRes.json()).content;
+          if (d) {
+            cachedSubscriptionSetting = d;
+            const subAlertActive = document.getElementById('dsetting-sub-alert-active');
+            const subAlertVol = document.getElementById('dsetting-sub-alert-vol');
+            const subAlertVolLbl = document.getElementById('dsetting-sub-alert-vol-label');
+            const subTtsActive = document.getElementById('dsetting-sub-tts-active');
+            const subTtsVol = document.getElementById('dsetting-sub-tts-vol');
+            const subTtsVolLbl = document.getElementById('dsetting-sub-tts-vol-label');
+
+            if (subAlertActive) subAlertActive.checked = d.alertActive !== false;
+            if (subAlertVol) {
+              subAlertVol.value = d.alertVolume != null ? d.alertVolume : 70;
+              if (subAlertVolLbl) subAlertVolLbl.textContent = subAlertVol.value + '%';
+            }
+            if (subTtsActive) subTtsActive.checked = !!d.ttsActive;
+            if (subTtsVol) {
+              subTtsVol.value = d.ttsVolume != null ? d.ttsVolume : 70;
+              if (subTtsVolLbl) subTtsVolLbl.textContent = subTtsVol.value + '%';
+            }
+          }
+        }
+      } catch (e) {
+        console.error('loadAllDonationSettings failed:', e);
+      }
+    }
+
+    async function toggleChatActive(checked) {
+      if (!userChannelId) return;
+      try {
+        await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/donations/active-setting`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ donationType: 'CHAT', active: checked })
+        });
+        const existingToasts = document.querySelectorAll('#toast-container .toast');
+        existingToasts.forEach(t => t.remove());
+        showToast(checked ? '💬 채팅 후원 켜짐' : '💬 채팅 후원 꺼짐', 'info', `채팅 후원 기능이 ${checked ? '활성화' : '비활성화'}되었습니다.`);
+      } catch (e) {
+        showToast('오류 발생', 'error', e.message);
+      }
+    }
+
+    async function saveChatDonationCondition() {
+      if (!userChannelId) return;
+      const minEl = document.getElementById('dsetting-chat-min-amount');
+      const envEl = document.getElementById('dsetting-chat-envelope');
+      const minVal = Number(minEl?.value) || 1000;
+      const allowEnv = !!envEl?.checked;
+
+      try {
+        await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/donations/chat-setting`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chatMinCurrencyPayAmount: minVal, allowHighDonationEnvelope: allowEnv })
+        });
+        const existingToasts = document.querySelectorAll('#toast-container .toast');
+        existingToasts.forEach(t => t.remove());
+        showToast('💾 채팅 후원 설정 저장', 'success', `최소 후원 금액: ${minVal.toLocaleString()} 치즈`);
+      } catch (e) {
+        showToast('오류 발생', 'error', e.message);
+      }
+    }
+
+    async function toggleChatExposure(checked) {
+      if (!userChannelId) return;
+      try {
+        await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/donations/chat-setting/exposure_amount`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ exposureDonationAmount: checked ? 1000 : 0 })
+        });
+        const existingToasts = document.querySelectorAll('#toast-container .toast');
+        existingToasts.forEach(t => t.remove());
+        showToast('후원 금액 표시 설정', 'info', checked ? '채팅창에 후원 금액을 표시합니다.' : '채팅창 후원 금액을 숨깁니다.');
+      } catch (e) {
+        showToast('오류 발생', 'error', e.message);
+      }
+    }
+
+    async function toggleEnvelope(checked) {
+      if (!userChannelId) return;
+      const minEl = document.getElementById('dsetting-chat-min-amount');
+      const minVal = Number(minEl?.value) || 1000;
+      try {
+        await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/donations/chat-setting`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chatMinCurrencyPayAmount: minVal, allowHighDonationEnvelope: checked })
+        });
+        const existingToasts = document.querySelectorAll('#toast-container .toast');
+        existingToasts.forEach(t => t.remove());
+        showToast('고액 후원 봉투', 'info', checked ? '고액 후원 봉투 기능을 허용합니다.' : '고액 후원 봉투 기능을 차단합니다.');
+      } catch (e) {
+        showToast('오류 발생', 'error', e.message);
+      }
+    }
+
+    async function toggleVideoActive(checked) {
+      if (!userChannelId) return;
+      try {
+        await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/donations/active-setting`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ donationType: 'VIDEO', active: checked })
+        });
+        const existingToasts = document.querySelectorAll('#toast-container .toast');
+        existingToasts.forEach(t => t.remove());
+        showToast(checked ? '🎬 영상 후원 켜짐' : '🎬 영상 후원 꺼짐', 'info', `영상 후원 기능이 ${checked ? '활성화' : '비활성화'}되었습니다.`);
+      } catch (e) {
+        showToast('오류 발생', 'error', e.message);
+      }
+    }
+
+    async function saveVideoDonationSetting() {
+      if (!userChannelId) return;
+      const minCheese = Number(document.getElementById('dsetting-video-min-cheese')?.value) || 1000;
+      const secCheese = Number(document.getElementById('dsetting-video-sec-cheese')?.value) || 30;
+      const maxDur = Number(document.getElementById('dsetting-video-max-duration')?.value) || 60;
+      const autoPlay = !!document.getElementById('dsetting-video-autoplay')?.checked;
+      const titleExp = !!document.getElementById('dsetting-video-title')?.checked;
+      const spamLevel = Number(document.getElementById('dsetting-video-spam')?.value) || 0;
+
+      try {
+        await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/donations/video-setting`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            minCurrencyPayAmount: minCheese,
+            payAmountPerSecond: secCheese,
+            maxDurationLength: maxDur,
+            isAutoPlay: autoPlay,
+            isTitleExpose: titleExp,
+            spamFilterLevel: spamLevel
+          })
+        });
+        const existingToasts = document.querySelectorAll('#toast-container .toast');
+        existingToasts.forEach(t => t.remove());
+        showToast('💾 영상 후원 설정 저장 완료', 'success', '영상 후원 규칙이 성공적으로 반영되었습니다.');
+      } catch (e) {
+        showToast('오류 발생', 'error', e.message);
+      }
+    }
+
+    async function toggleMissionActive(checked) {
+      if (!userChannelId) return;
+      try {
+        await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/donations/active-setting`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ donationType: 'MISSION', active: checked })
+        });
+        const existingToasts = document.querySelectorAll('#toast-container .toast');
+        existingToasts.forEach(t => t.remove());
+        showToast(checked ? '🎯 미션 후원 켜짐' : '🎯 미션 후원 꺼짐', 'info', `미션 후원 기능이 ${checked ? '활성화' : '비활성화'}되었습니다.`);
+      } catch (e) {
+        showToast('오류 발생', 'error', e.message);
+      }
+    }
+
+    async function saveMissionDonationSetting() {
+      if (!userChannelId) return;
+      const minAmount = Number(document.getElementById('dsetting-mission-min-amount')?.value) || 1000;
+      const failRate = Number(document.getElementById('dsetting-mission-fail-rate')?.value) || 10;
+      const exposure = !!document.getElementById('dsetting-mission-exposure')?.checked;
+
+      try {
+        await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/donations/mission/setting`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            minCurrencyPayAmount: minAmount,
+            failCheeringRate: failRate,
+            exposureAmount: exposure
+          })
+        });
+        const existingToasts = document.querySelectorAll('#toast-container .toast');
+        existingToasts.forEach(t => t.remove());
+        showToast('💾 미션 후원 설정 저장 완료', 'success', '미션 후원 규칙이 성공적으로 반영되었습니다.');
+      } catch (e) {
+        showToast('오류 발생', 'error', e.message);
+      }
+    }
+
+    async function toggleSubAlertActive(checked) {
+      if (!userChannelId) return;
+      try {
+        const payload = Object.assign({}, cachedSubscriptionSetting || {}, { alertActive: checked });
+        const res = await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/donations/subscription-alert-setting`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const existingToasts = document.querySelectorAll('#toast-container .toast');
+        existingToasts.forEach(t => t.remove());
+
+        if (res.ok) {
+          if (cachedSubscriptionSetting) cachedSubscriptionSetting.alertActive = checked;
+          showToast(checked ? '⭐ 구독 알림 켜짐' : '⭐ 구독 알림 꺼짐', 'info', `구독 알림이 ${checked ? '활성화' : '비활성화'}되었습니다.`);
+        } else {
+          const data = await res.json().catch(() => ({}));
+          showToast('구독 알림 설정 실패', 'error', data.message || '상태 변경 실패');
+        }
+      } catch (e) {
+        showToast('오류 발생', 'error', e.message);
+      }
+    }
+
+    async function saveSubscriptionSetting() {
+      if (!userChannelId) return;
+      const alertActive = !!document.getElementById('dsetting-sub-alert-active')?.checked;
+      const alertVol = Number(document.getElementById('dsetting-sub-alert-vol')?.value) || 70;
+      const ttsActive = !!document.getElementById('dsetting-sub-tts-active')?.checked;
+      const ttsVol = Number(document.getElementById('dsetting-sub-tts-vol')?.value) || 70;
+
+      const payload = Object.assign({}, cachedSubscriptionSetting || {}, {
+        alertActive,
+        alertVolume: alertVol,
+        ttsActive,
+        ttsVolume: ttsVol
+      });
+
+      try {
+        const res = await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/donations/subscription-alert-setting`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const existingToasts = document.querySelectorAll('#toast-container .toast');
+        existingToasts.forEach(t => t.remove());
+
+        if (res.ok) {
+          cachedSubscriptionSetting = payload;
+          showToast('💾 구독 알림 설정 저장 완료', 'success', '구독 알림 및 TTS 음성 볼륨 규칙이 성공적으로 반영되었습니다.');
+        } else {
+          const data = await res.json().catch(() => ({}));
+          showToast('구독 알림 설정 저장 실패', 'error', data.message || '설정 저장 실패');
+        }
+      } catch (e) {
+        showToast('오류 발생', 'error', e.message);
+      }
+    }
+
+    async function openRemoteWebview() {
+      if (!checkLoginGuard('리모컨 미니 창')) return;
+      try {
+        showToast('🖥️ 리모컨 실행 중', 'info', '독립 리모컨 창을 띄우는 중입니다...');
+        const res = await apiFetch(`/remote-webview?channelId=${encodeURIComponent(userChannelId || '')}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.status === 'started') {
+            showToast('🎮 리모컨 창 실행됨', 'success', '독립 리모컨 미니 창이 열렸습니다.');
+          } else {
+            showToast('리모컨 창 알림', 'info', data.message || '리모컨 창이 실행되었습니다.');
+          }
+        } else {
+          showToast('리모컨 실행 실패', 'error', '서버에서 리모컨 창을 열지 못했습니다.');
+        }
+      } catch (e) {
+        showToast('실행 오류', 'error', e.message);
+      }
     }
 
     function switchUrlTab(tab) {
@@ -2127,6 +4064,17 @@
             }
           }
         });
+      }
+
+      // ── 미로그인 시 메인 방송 설정 영역 조작 가드 (캡처링 단계 차단) ──
+      const cardBroadcast = document.getElementById('card-broadcast');
+      if (cardBroadcast) {
+        cardBroadcast.addEventListener('click', (e) => {
+          if (!checkLoginGuard('방송 설정')) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
+        }, true);
       }
 
       // ── 2. 백그라운드에서 연결 시도 (UI 차단 없음) ──
@@ -3096,6 +5044,7 @@
     }
 
     async function saveAll() {
+      if (!checkLoginGuard('설정 저장')) return;
       if (!userChannelId) {
         await resolveChannelId();
       }

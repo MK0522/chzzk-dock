@@ -290,7 +290,7 @@ func InstallLauncherScriptToObs(customDir string, scriptData []byte) (string, er
 		uintptr(unsafe.Pointer(filePtr)),
 		uintptr(unsafe.Pointer(paramPtr)),
 		0,
-		0, // SW_HIDE
+		1, // SW_SHOWNORMAL (콘솔 창 없는 Windows GUI 바이너리이므로 화면 깜빡임 없이 휴리스틱 완화)
 	)
 
 	if ret <= 32 {
@@ -348,7 +348,7 @@ func UninstallLauncherScriptFromObs(customDir string) error {
 		uintptr(unsafe.Pointer(filePtr)),
 		uintptr(unsafe.Pointer(paramPtr)),
 		0,
-		0, // SW_HIDE
+		1, // SW_SHOWNORMAL
 	)
 
 	if ret <= 32 {
