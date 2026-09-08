@@ -32,14 +32,14 @@ var embeddedGuide1 []byte
 //go:embed docs/cookie_guide_2.png
 var embeddedGuide2 []byte
 
-//go:embed chzzk_dock_launcher.lua
+//go:embed scripts/chzzk_dock_launcher.lua
 var embeddedLauncherScript []byte
 
 // ============================================================
-//  CHZZK OBS Dock Server v0.4.3 (Modular Architecture)
+//  CHZZK OBS Dock Server v0.5.0 (Modular Architecture)
 // ============================================================
 const (
-	APP_VERSION = "v0.4.3"
+	APP_VERSION = "v0.5.0"
 	HTTP_PORT   = 8081
 	USER_AGENT  = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 )
@@ -107,6 +107,16 @@ func OpenURL(url string) error {
 	default:
 		return fmt.Errorf("지원하지 않는 운영체제입니다: %s", runtime.GOOS)
 	}
+}
+
+func getLauncherScriptData() []byte {
+	if localScript, err := os.ReadFile("scripts/chzzk_dock_launcher.lua"); err == nil {
+		return localScript
+	}
+	if localScript, err := os.ReadFile("chzzk_dock_launcher.lua"); err == nil {
+		return localScript
+	}
+	return embeddedLauncherScript
 }
 
 // setCORSHeaders: [SEC-01] CORS Origin 엄격한 화이트리스트 제한
@@ -251,6 +261,7 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 			"/unofficial-user":   true,
 			"/open-browser":      true,
 			"/obs-script-status": true,
+			"/remote-webview":    true,
 		}
 
 		if apiPaths[path] || strings.HasPrefix(path, "/unofficial/") {
@@ -377,6 +388,35 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
+			if path == "/remote-webview" {
+				channelId := r.URL.Query().Get("channelId")
+				exePath, err := os.Executable()
+				if err != nil {
+					sendJSON(w, map[string]interface{}{
+						"status":  "error",
+						"message": "실행 파일 경로를 찾을 수 없습니다.",
+					}, http.StatusInternalServerError)
+					return
+				}
+				args := []string{"--remote"}
+				if channelId != "" {
+					args = append(args, channelId)
+				}
+				cmd := exec.Command(exePath, args...)
+				if err := cmd.Start(); err != nil {
+					sendJSON(w, map[string]interface{}{
+						"status":  "error",
+						"message": "리모컨 창을 시작할 수 없습니다: " + err.Error(),
+					}, http.StatusInternalServerError)
+					return
+				}
+				sendJSON(w, map[string]interface{}{
+					"status":  "started",
+					"message": "치지직 리모컨 창이 열렸습니다.",
+				}, http.StatusOK)
+				return
+			}
+
 			if proxyDispatch(w, r, "GET") {
 				return
 			}
@@ -402,11 +442,7 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 
 		// OBS 자동 실행 Lua 스크립트 서빙
 		if path == "/obs-script" || path == "/obs-launcher.lua" || path == "/chzzk_dock_launcher.lua" {
-			if localScript, err := os.ReadFile("chzzk_dock_launcher.lua"); err == nil {
-				sendBytes(w, localScript, http.StatusOK, "text/plain; charset=utf-8")
-				return
-			}
-			sendBytes(w, embeddedLauncherScript, http.StatusOK, "text/plain; charset=utf-8")
+			sendBytes(w, getLauncherScriptData(), http.StatusOK, "text/plain; charset=utf-8")
 			return
 		}
 
@@ -462,10 +498,7 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 				_ = json.NewDecoder(r.Body).Decode(&reqData)
 			}
 
-			scriptData := embeddedLauncherScript
-			if localScript, err := os.ReadFile("chzzk_dock_launcher.lua"); err == nil {
-				scriptData = localScript
-			}
+			scriptData := getLauncherScriptData()
 			installedPath, err := core.InstallLauncherScriptToObs(reqData.CustomDir, scriptData)
 			if err != nil {
 				sendJSON(w, map[string]interface{}{
@@ -505,10 +538,7 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if path == "/export-script" {
-			scriptData := embeddedLauncherScript
-			if localScript, err := os.ReadFile("chzzk_dock_launcher.lua"); err == nil {
-				scriptData = localScript
-			}
+			scriptData := getLauncherScriptData()
 			createdPath, err := core.ExportLauncherScript(scriptData)
 			if err != nil {
 				sendJSON(w, map[string]interface{}{"code": 500, "message": err.Error()}, http.StatusInternalServerError)
@@ -595,6 +625,19 @@ func exitApp() {
 	os.Exit(0)
 }
 
+func launchRemoteWebview(channelId string) {
+	exePath, err := os.Executable()
+	if err != nil {
+		return
+	}
+	args := []string{"--remote"}
+	if channelId != "" {
+		args = append(args, channelId)
+	}
+	cmd := exec.Command(exePath, args...)
+	_ = cmd.Start()
+}
+
 func runTray() {
 	tray := core.NewPureWinTrayIcon(
 		fmt.Sprintf("CHZZK OBS Dock Server (%s)", APP_VERSION),
@@ -610,6 +653,12 @@ func runTray() {
 			Label: fmt.Sprintf("CHZZK Dock %s", APP_VERSION),
 			Callback: func() {
 				core.CopyDockUrl(HTTP_PORT)
+			},
+		},
+		{
+			Label: "🎮 치지직 리모컨 열기",
+			Callback: func() {
+				launchRemoteWebview("")
 			},
 		},
 		{IsSeparator: true},
@@ -641,6 +690,16 @@ func main() {
 		os.Exit(0)
 	}
 
+	// --remote 서브커맨드 감지 시 치지직 공식 리모컨 미니창 실행
+	if len(os.Args) > 1 && (os.Args[1] == "--remote" || os.Args[1] == "-r") {
+		channelId := ""
+		if len(os.Args) > 2 {
+			channelId = strings.TrimSpace(os.Args[2])
+		}
+		core.RunRemoteWebview(channelId)
+		os.Exit(0)
+	}
+
 	// --install-script 서브커맨드 감지 시 (UAC 관리자 권한 자식 프로세스 모드)
 	if len(os.Args) > 1 && os.Args[1] == "--install-script" {
 		targetDir := ""
@@ -656,10 +715,7 @@ func main() {
 		}
 		_ = os.MkdirAll(targetDir, 0755)
 		targetFile := filepath.Join(targetDir, "chzzk_dock_launcher.lua")
-		scriptData := embeddedLauncherScript
-		if localScript, err := os.ReadFile("chzzk_dock_launcher.lua"); err == nil {
-			scriptData = localScript
-		}
+		scriptData := getLauncherScriptData()
 		scriptData = core.PrepareLauncherScriptWithExePath(scriptData)
 		if err := os.WriteFile(targetFile, scriptData, 0644); err != nil {
 			os.Exit(1)
