@@ -1,14 +1,13 @@
 -- ==============================================================================
 --  CHZZK OBS Dock Launcher (OBS Studio Lua Script)
 --  - OBS 실행 시 chzzk-dock.exe를 자동으로 백그라운드 실행
---  - OBS 종료 시 chzzk-dock.exe를 자동으로 안전하게 종료
+--  - 독 서버 자동 종료는 chzzk-dock.exe 자체 워치독이 담당
 -- ==============================================================================
 
 local obs = obslua
 local BAKED_EXE_PATH = "" -- Go 설치 프로세스에서 실제 chzzk-dock.exe 경로를 자동 주입
 local exe_path = ""
 local auto_start = true
-local auto_stop = true
 
 local function file_exists(path)
     if not path or path == "" then return false end
@@ -35,16 +34,26 @@ local function alert_error(msg)
 end
 
 function script_description()
-    return [[
+    local cur_path = script_path() or "(알 수 없음)"
+    return string.format([[
 <h2>🎮 치지직 OBS 독 자동 실행기 (CHZZK Dock Launcher)</h2>
-<p>OBS Studio가 켜질 때 <b>치지직 독 서버(chzzk-dock.exe)</b>를 자동으로 실행하고, OBS가 꺼질 때 자동으로 종료합니다.</p>
+<p>OBS Studio가 켜질 때 <b>치지직 독 서버(chzzk-dock.exe)</b>를 자동으로 백그라운드 실행합니다.</p>
+<p><i>(서버 종료는 독 서버 자체에 내장된 OBS 감지 워치독이 안전하게 전담합니다.)</i></p>
 <hr/>
-<p><b>사용법 및 상태:</b></p>
+<p><b>📌 사용법:</b></p>
 <ol>
-  <li>아래 [실행 파일 경로]가 올바른지 확인하세요. (최초 설치 시 자동 입력됩니다.)</li>
-  <li>정상 설정되면 평소처럼 OBS만 켜고 끄시면 독 서버가 100% 자동 동작합니다!</li>
+  <li>최초 1회 등록 시 아래 [chzzk-dock.exe 경로]가 자동으로 설정됩니다.</li>
+  <li>평소처럼 OBS만 켜시면 독 서버가 100%%%% 자동 실행됩니다.</li>
 </ol>
-]]
+<p style="color: #ffaa00;">⚠️ <b>주의사항:</b> 독 서버 실행 파일의 이름이 반드시 <code>chzzk-dock.exe</code>여야 정상 감지됩니다. 파일명을 임의로 변경하지 마세요.</p>
+<hr/>
+<p><b>🗑️ 스크립트 삭제/제거 방법:</b></p>
+<ol>
+  <li><b>[필수]</b> OBS 상단 메뉴 [도구] ➔ [스크립트] 창 좌측 목록에서 <code>chzzk_dock_launcher.lua</code>를 선택하고 <b>[-]</b> 버튼을 먼저 눌러 등록을 해제하세요.</li>
+  <li>등록 해제 후 아래 경로에 위치한 스크립트 파일을 삭제하시면 됩니다:</li>
+</ol>
+<p><code>%s</code></p>
+]], cur_path)
 end
 
 local function get_default_exe_path()
@@ -64,7 +73,7 @@ local function get_default_exe_path()
     return ""
 end
 
-local function start_dock_server()
+local function launch_server_process()
     local target = exe_path
     if target == "" then
         target = get_default_exe_path()
@@ -76,26 +85,21 @@ local function start_dock_server()
         return
     end
 
-    -- 이미 실행 중인지 확인
-    local check_cmd = 'tasklist /fi "imagename eq chzzk-dock.exe" | findstr /i "chzzk-dock.exe" >nul'
-    local is_running = (os.execute(check_cmd) == 0)
-
-    if not is_running then
-        print("[CHZZK Dock] 치지직 독 서버 시작 중: " .. target)
-        -- Windows 창 숨김 백그라운드 실행
-        local launch_cmd = 'start "" /b "' .. target .. '"'
-        local ret = os.execute(launch_cmd)
-        if ret ~= 0 then
-            alert_error("치지직 독 서버 실행에 실패했습니다.\n\n명령: " .. launch_cmd)
-        end
-    else
-        print("[CHZZK Dock] 치지직 독 서버가 이미 실행 중입니다.")
+    print("[CHZZK Dock] 치지직 독 서버 시작 요청 (비동기): " .. target)
+    -- Windows 창 숨김 백그라운드 비동기 실행:
+    -- chzzk-dock.exe는 자체 Win32 Mutex를 가지고 있어 이미 실행 중이면 1ms 내에 조용히 자동 종료됩니다.
+    local launch_cmd = 'start "" /b "' .. target .. '"'
+    local ret = os.execute(launch_cmd)
+    if ret ~= 0 then
+        alert_error("치지직 독 서버 실행에 실패했습니다.\n\n명령: " .. launch_cmd)
     end
 end
 
-local function stop_dock_server()
-    print("[CHZZK Dock] 치지직 독 서버 종료 중...")
-    os.execute('taskkill /f /im chzzk-dock.exe >nul 2>&1')
+local function deferred_start()
+    obs.timer_remove(deferred_start)
+    if auto_start then
+        launch_server_process()
+    end
 end
 
 function script_load(settings)
@@ -103,21 +107,22 @@ function script_load(settings)
         exe_path = get_default_exe_path()
     end
 
+    -- OBS UI 렌더링 및 메인 스레드 블로킹 방지:
+    -- OBS 초기화 완료 100ms 후 비동기 타이머로 분기 실행하여 OBS 기동 프리징을 완전히 방지합니다.
     if auto_start then
-        start_dock_server()
+        obs.timer_add(deferred_start, 100)
     end
 end
 
 function script_unload()
-    if auto_stop then
-        stop_dock_server()
-    end
+    -- 비동기 타이머가 대기 중인 경우 타이머 해제
+    obs.timer_remove(deferred_start)
+    -- 독 서버의 자동 종료는 백엔드 자체 워치독이 담당하므로 별도의 강제 종료(taskkill)를 수행하지 않습니다.
 end
 
 function script_update(settings)
     exe_path = obs.obs_data_get_string(settings, "exe_path")
     auto_start = obs.obs_data_get_bool(settings, "auto_start")
-    auto_stop = obs.obs_data_get_bool(settings, "auto_stop")
 
     if exe_path == "" then
         exe_path = get_default_exe_path()
@@ -128,17 +133,6 @@ end
 function script_defaults(settings)
     obs.obs_data_set_default_string(settings, "exe_path", get_default_exe_path())
     obs.obs_data_set_default_bool(settings, "auto_start", true)
-    obs.obs_data_set_default_bool(settings, "auto_stop", true)
-end
-
-function btn_start_clicked(props, prop)
-    start_dock_server()
-    return true
-end
-
-function btn_stop_clicked(props, prop)
-    stop_dock_server()
-    return true
 end
 
 function script_properties()
@@ -154,10 +148,6 @@ function script_properties()
     )
 
     obs.obs_properties_add_bool(props, "auto_start", "OBS 시작 시 독 서버 자동 실행")
-    obs.obs_properties_add_bool(props, "auto_stop", "OBS 종료 시 독 서버 자동 종료")
-
-    obs.obs_properties_add_button(props, "btn_start", "▶️ 지금 서버 켜기", btn_start_clicked)
-    obs.obs_properties_add_button(props, "btn_stop", "⏹️ 지금 서버 끄기", btn_stop_clicked)
 
     return props
 end

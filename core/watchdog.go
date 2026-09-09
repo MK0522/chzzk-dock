@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 	"unsafe"
@@ -63,12 +64,37 @@ func IsObsRunning() bool {
 	return false
 }
 
+var (
+	watchdogMu         sync.RWMutex
+	currentWatchdogSec int = 60
+)
+
+// GetWatchdogTimeoutSec: 현재 설정된 OBS 미실행 대기 시간(초)을 반환합니다.
+func GetWatchdogTimeoutSec() int {
+	watchdogMu.RLock()
+	defer watchdogMu.RUnlock()
+	return currentWatchdogSec
+}
+
+// SetWatchdogTimeoutSec: OBS 미실행 대기 시간(초)을 동적으로 변경합니다.
+func SetWatchdogTimeoutSec(sec int) {
+	watchdogMu.Lock()
+	defer watchdogMu.Unlock()
+	if sec <= 0 {
+		sec = 60
+	}
+	currentWatchdogSec = sec
+}
+
 // StartObsWatchdog: OBS 생명주기 감시 고루틴 실행
 // - OBS가 실행 중인 상태에서 꺼지면 3초 후 자체 종료 (자폭)
-// - 단독 실행 시 유예 시간(graceDuration) 동안 OBS 실행을 대기함
-func StartObsWatchdog(graceDuration time.Duration) {
+// - 단독 실행 시 유예 시간(설정된 WatchdogTimeoutSec) 동안 OBS 실행을 대기함
+func StartObsWatchdog() {
+	settings := LoadSettings()
+	SetWatchdogTimeoutSec(settings.WatchdogTimeoutSec)
+
 	go func() {
-		fmt.Printf("[Watchdog] OBS 프로세스 감시 시작 (초기 대기 유예 시간: %v)\n", graceDuration)
+		fmt.Printf("[Watchdog] OBS 프로세스 감시 시작 (대기 유예 시간: %d초)\n", GetWatchdogTimeoutSec())
 		
 		obsEverDetected := false
 		startTime := time.Now()
@@ -84,16 +110,17 @@ func StartObsWatchdog(graceDuration time.Duration) {
 					obsEverDetected = true
 				}
 			} else {
-				// OBS가 꺼진 경우
+				// OBS가 켜져 있다가 꺼진 경우 -> 3초 후 즉시 자폭
 				if obsEverDetected {
 					fmt.Println("[Watchdog] OBS Studio 종료 감지 -> 3초 후 치지직 독 서버를 자동으로 안전하게 종료합니다.")
 					time.Sleep(3 * time.Second)
 					os.Exit(0)
 				}
 
-				// 시작 후 한 번도 OBS가 안 켜졌고, 유예 시간을 초과한 경우
-				if graceDuration > 0 && time.Since(startTime) > graceDuration {
-					fmt.Println("[Watchdog] 유예 시간 내에 OBS Studio가 실행되지 않음 -> 서버 자동 종료")
+				// 시작 후 한 번도 OBS가 안 켜졌고, 동적으로 설정된 유예 시간을 초과한 경우
+				timeoutSec := GetWatchdogTimeoutSec()
+				if timeoutSec > 0 && time.Since(startTime) > time.Duration(timeoutSec)*time.Second {
+					fmt.Printf("[Watchdog] 대기 유예 시간(%d초) 내에 OBS Studio가 실행되지 않음 -> 서버 자동 종료\n", timeoutSec)
 					os.Exit(0)
 				}
 			}
