@@ -36,10 +36,10 @@ var embeddedGuide2 []byte
 var embeddedLauncherScript []byte
 
 // ============================================================
-//  CHZZK OBS Dock Server v0.5.0 (Modular Architecture)
+//  CHZZK OBS Dock Server v0.5.1 (Modular Architecture)
 // ============================================================
 const (
-	APP_VERSION = "v0.5.0"
+	APP_VERSION = "v0.5.1"
 	HTTP_PORT   = 8081
 	USER_AGENT  = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 )
@@ -65,8 +65,10 @@ func sendJSON(w http.ResponseWriter, data interface{}, status int) {
 }
 
 var (
-	shell32DLL        = syscall.NewLazyDLL("shell32.dll")
-	procShellExecuteW = shell32DLL.NewProc("ShellExecuteW")
+	shell32DLL                  = syscall.NewLazyDLL("shell32.dll")
+	procShellExecuteW           = shell32DLL.NewProc("ShellExecuteW")
+	user32DLL                   = syscall.NewLazyDLL("user32.dll")
+	procAllowSetForegroundWindow = user32DLL.NewProc("AllowSetForegroundWindow")
 )
 
 // OpenURL: 시스템 기본 브라우저로 입력된 URL을 엽니다.
@@ -262,6 +264,7 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 			"/open-browser":      true,
 			"/obs-script-status": true,
 			"/remote-webview":    true,
+			"/watchdog-timeout":  true,
 		}
 
 		if apiPaths[path] || strings.HasPrefix(path, "/unofficial/") {
@@ -299,9 +302,11 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 			}
 
 			if path == "/login-webview" {
+				core.LogInfo("[HTTP] /login-webview 요청 수신")
 				webviewLock.Lock()
 				if webviewProcess != nil && webviewProcess.ProcessState == nil {
 					webviewLock.Unlock()
+					core.LogWarn("[HTTP] /login-webview: 이미 네이버 로그인 창이 열려 있습니다.")
 					sendJSON(w, map[string]interface{}{
 						"status":  "already_open",
 						"message": "이미 네이버 로그인 창이 열려 있습니다.",
@@ -312,6 +317,7 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 				exePath, err := os.Executable()
 				if err != nil {
 					webviewLock.Unlock()
+					core.LogError("[HTTP] /login-webview: 실행 파일 경로 확인 실패: %v", err)
 					sendJSON(w, map[string]interface{}{
 						"status":  "error",
 						"message": "실행 파일 경로를 찾을 수 없습니다.",
@@ -322,14 +328,17 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 				cmd := exec.Command(exePath, "--login")
 				if err := cmd.Start(); err != nil {
 					webviewLock.Unlock()
+					core.LogError("[HTTP] /login-webview: 로그인 서브프로세스 시작 실패: %v", err)
 					sendJSON(w, map[string]interface{}{
 						"status":  "error",
 						"message": "로그인 웹뷰를 시작할 수 없습니다.",
 					}, http.StatusInternalServerError)
 					return
 				}
+				procAllowSetForegroundWindow.Call(uintptr(cmd.Process.Pid))
 				webviewProcess = cmd
 				webviewLock.Unlock()
+				core.LogInfo("[HTTP] /login-webview: 로그인 서브프로세스 시작 완료 (PID: %d)", cmd.Process.Pid)
 
 				sendJSON(w, map[string]interface{}{
 					"status":  "started",
@@ -339,6 +348,7 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 			}
 
 			if path == "/login-wait" {
+				core.LogInfo("[HTTP] /login-wait 대기 시작")
 				if webviewProcess != nil {
 					done := make(chan error, 1)
 					go func() {
@@ -347,12 +357,15 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 
 					select {
 					case <-done:
+						core.LogInfo("[HTTP] /login-wait: 로그인 프로세스 종료 감지")
 					case <-time.After(180 * time.Second):
+						core.LogWarn("[HTTP] /login-wait: 180초 대기 타임아웃")
 					}
 				}
 
 				cfg := core.LoadConfig()
 				if cfg.NidAut != "" && cfg.NidSes != "" {
+					core.LogInfo("[HTTP] /login-wait: 네이버 로그인 세션 쿠키 연동 성공")
 					sendJSON(w, map[string]interface{}{
 						"status": "completed",
 						"config": map[string]string{
@@ -361,6 +374,7 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 						},
 					}, http.StatusOK)
 				} else {
+					core.LogWarn("[HTTP] /login-wait: 쿠키 미취득 상태로 창 닫힘")
 					sendJSON(w, map[string]interface{}{
 						"status":  "closed",
 						"message": "로그인 창이 닫혔습니다.",
@@ -410,9 +424,19 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 					}, http.StatusInternalServerError)
 					return
 				}
+				procAllowSetForegroundWindow.Call(uintptr(cmd.Process.Pid))
 				sendJSON(w, map[string]interface{}{
 					"status":  "started",
 					"message": "치지직 리모컨 창이 열렸습니다.",
+				}, http.StatusOK)
+				return
+			}
+
+			if path == "/watchdog-timeout" {
+				timeoutSec := core.GetWatchdogTimeoutSec()
+				sendJSON(w, map[string]interface{}{
+					"code":        200,
+					"timeout_sec": timeoutSec,
 				}, http.StatusOK)
 				return
 			}
@@ -515,28 +539,6 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if path == "/uninstall-obs-script" {
-			var reqData struct {
-				CustomDir string `json:"custom_dir"`
-			}
-			if r.Body != nil {
-				_ = json.NewDecoder(r.Body).Decode(&reqData)
-			}
-
-			if err := core.UninstallLauncherScriptFromObs(reqData.CustomDir); err != nil {
-				sendJSON(w, map[string]interface{}{
-					"code":    500,
-					"message": "스크립트 삭제 실패: " + err.Error(),
-				}, http.StatusInternalServerError)
-				return
-			}
-			sendJSON(w, map[string]interface{}{
-				"code":    200,
-				"message": "OBS 스크립트가 성공적으로 제거되었습니다.",
-			}, http.StatusOK)
-			return
-		}
-
 		if path == "/export-script" {
 			scriptData := getLauncherScriptData()
 			createdPath, err := core.ExportLauncherScript(scriptData)
@@ -565,27 +567,58 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			saved := core.SaveConfig(bodyMap)
+			_ = saved
 			sendJSON(w, map[string]interface{}{
 				"code":    200,
 				"message": "성공적으로 저장되었습니다.",
-				"config":  saved,
+				"config": map[string]string{
+					"nid_aut": "••••••••••••••••••••••••••••••••",
+					"nid_ses": "••••••••••••••••••••••••••••••••",
+				},
 			}, http.StatusOK)
 			return
 		}
 
 		if path == "/logout" {
 			core.ClearConfig()
-			// WebView2 세션 프로필 디렉토리 초기화 (다음 로그인 시 깨끗한 로그인 화면 보장)
-			appData := os.Getenv("LOCALAPPDATA")
-			if appData == "" {
-				appData = os.Getenv("USERPROFILE")
-			}
-			profileDir := filepath.Join(appData, "ChzzkObsDock", "webview_profile")
-			_ = os.RemoveAll(profileDir)
+			// 자격 증명 금고(Windows Credential Manager) 및 메모리 캐시 즉시 파기.
+			// 단, 네이버 2단계 인증 '이 기기 기억하기' 및 브라우저 편의 상태 유지를 위해
+			// webview2_profile 폴더는 보존합니다.
 
 			sendJSON(w, map[string]interface{}{
 				"code":    200,
 				"message": "성공적으로 로그아웃되었습니다.",
+			}, http.StatusOK)
+			return
+		}
+
+		if path == "/watchdog-timeout" {
+			var reqData struct {
+				TimeoutSec int `json:"timeout_sec"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&reqData); err != nil {
+				sendJSON(w, map[string]interface{}{
+					"code":    400,
+					"message": "잘못된 요청 형식입니다.",
+				}, http.StatusBadRequest)
+				return
+			}
+			if reqData.TimeoutSec < 5 || reqData.TimeoutSec > 86400 {
+				sendJSON(w, map[string]interface{}{
+					"code":    400,
+					"message": "대기 시간은 5초에서 86400초(24시간) 사이여야 합니다.",
+				}, http.StatusBadRequest)
+				return
+			}
+			core.SetWatchdogTimeoutSec(reqData.TimeoutSec)
+			_ = core.SaveSettings(core.AppSettings{WatchdogTimeoutSec: reqData.TimeoutSec})
+			if trayInstance != nil {
+				trayInstance.UpdateTooltip(fmt.Sprintf("CHZZK OBS Dock Server (%s) - 대기: %s", APP_VERSION, getWatchdogLabel(reqData.TimeoutSec)))
+			}
+			sendJSON(w, map[string]interface{}{
+				"code":        200,
+				"message":     "대기 시간이 성공적으로 변경되었습니다.",
+				"timeout_sec": reqData.TimeoutSec,
 			}, http.StatusOK)
 			return
 		}
@@ -625,22 +658,36 @@ func exitApp() {
 	os.Exit(0)
 }
 
-func launchRemoteWebview(channelId string) {
-	exePath, err := os.Executable()
-	if err != nil {
-		return
+func getWatchdogLabel(sec int) string {
+	switch sec {
+	case 10:
+		return "10초"
+	case 30:
+		return "30초"
+	case 60:
+		return "1분 (기본값)"
+	case 300:
+		return "5분"
+	case 600:
+		return "10분"
+	default:
+		return fmt.Sprintf("%d초 (직접 입력)", sec)
 	}
-	args := []string{"--remote"}
-	if channelId != "" {
-		args = append(args, channelId)
+}
+
+func updateWatchdogTimeoutFromTray(sec int) {
+	core.SetWatchdogTimeoutSec(sec)
+	_ = core.SaveSettings(core.AppSettings{WatchdogTimeoutSec: sec})
+	if trayInstance != nil {
+		trayInstance.UpdateTooltip(fmt.Sprintf("CHZZK OBS Dock Server (%s) - 대기: %s", APP_VERSION, getWatchdogLabel(sec)))
+		trayInstance.ShowNotification("CHZZK OBS Dock", fmt.Sprintf("OBS 자동 종료 대기 시간이 %s(으)로 설정되었습니다.", getWatchdogLabel(sec)))
 	}
-	cmd := exec.Command(exePath, args...)
-	_ = cmd.Start()
 }
 
 func runTray() {
+	sec := core.GetWatchdogTimeoutSec()
 	tray := core.NewPureWinTrayIcon(
-		fmt.Sprintf("CHZZK OBS Dock Server (%s)", APP_VERSION),
+		fmt.Sprintf("CHZZK OBS Dock Server (%s) - 대기: %s", APP_VERSION, getWatchdogLabel(sec)),
 		"icon.ico",
 		embeddedIcon,
 	)
@@ -650,15 +697,75 @@ func runTray() {
 
 	tray.MenuItems = []core.MenuItem{
 		{
-			Label: fmt.Sprintf("CHZZK Dock %s", APP_VERSION),
+			Label: fmt.Sprintf("CHZZK Dock %s (주소 복사)", APP_VERSION),
 			Callback: func() {
 				core.CopyDockUrl(HTTP_PORT)
 			},
 		},
+		{IsSeparator: true},
 		{
-			Label: "🎮 치지직 리모컨 열기",
+			DynamicLabel: func() string {
+				sec := core.GetWatchdogTimeoutSec()
+				return fmt.Sprintf("OBS 자동 종료 대기: %s", getWatchdogLabel(sec))
+			},
+			SubItems: []core.MenuItem{
+				{
+					Label: "10초",
+					CheckFn: func() bool { return core.GetWatchdogTimeoutSec() == 10 },
+					Callback: func() { updateWatchdogTimeoutFromTray(10) },
+				},
+				{
+					Label: "30초",
+					CheckFn: func() bool { return core.GetWatchdogTimeoutSec() == 30 },
+					Callback: func() { updateWatchdogTimeoutFromTray(30) },
+				},
+				{
+					Label: "1분 (기본값)",
+					CheckFn: func() bool { return core.GetWatchdogTimeoutSec() == 60 },
+					Callback: func() { updateWatchdogTimeoutFromTray(60) },
+				},
+				{
+					Label: "5분",
+					CheckFn: func() bool { return core.GetWatchdogTimeoutSec() == 300 },
+					Callback: func() { updateWatchdogTimeoutFromTray(300) },
+				},
+				{
+					Label: "10분",
+					CheckFn: func() bool { return core.GetWatchdogTimeoutSec() == 600 },
+					Callback: func() { updateWatchdogTimeoutFromTray(600) },
+				},
+				{IsSeparator: true},
+				{
+					DynamicLabel: func() string {
+						sec := core.GetWatchdogTimeoutSec()
+						isPreset := (sec == 10 || sec == 30 || sec == 60 || sec == 300 || sec == 600)
+						if !isPreset {
+							return fmt.Sprintf("직접 입력 (%d초)", sec)
+						}
+						return "직접 입력 (독 UI 설정)"
+					},
+					CheckFn: func() bool {
+						sec := core.GetWatchdogTimeoutSec()
+						return !(sec == 10 || sec == 30 || sec == 60 || sec == 300 || sec == 600)
+					},
+					DisabledFn: func() bool {
+						return true
+					},
+					Callback: nil,
+				},
+			},
+		},
+		{IsSeparator: true},
+		{
+			Label: "로그 확인하기",
 			Callback: func() {
-				launchRemoteWebview("")
+				_ = core.ViewLogsInNotepad()
+			},
+		},
+		{
+			Label: "로그 저장 (.txt)",
+			Callback: func() {
+				_, _ = core.SaveLogsWithDialog()
 			},
 		},
 		{IsSeparator: true},
@@ -685,7 +792,7 @@ func showMessageBox(title, msg string) {
 // ============================================================
 func main() {
 	// --login 서브커맨드 감지 시 로그인 웹뷰 팝업 창 전담 모드로 실행
-	if len(os.Args) > 1 && (os.Args[1] == "--login" || os.Args[1] == "-l" || os.Args[1] == "webview_login.py") {
+	if len(os.Args) > 1 && (os.Args[1] == "--login" || os.Args[1] == "-l") {
 		core.RunLoginWebview()
 		os.Exit(0)
 	}
@@ -723,25 +830,25 @@ func main() {
 		os.Exit(0)
 	}
 
-	// --uninstall-script 서브커맨드 감지 시 (UAC 관리자 권한 자식 프로세스 모드)
-	if len(os.Args) > 1 && os.Args[1] == "--uninstall-script" {
-		targetDir := ""
-		if len(os.Args) > 2 {
-			targetDir = strings.Trim(os.Args[2], `"`)
+	// [단일 인스턴스 보장] 이미 독 서버가 실행 중인 경우 조용히 즉시 종료
+	kernel32 := syscall.NewLazyDLL("kernel32.dll")
+	mutexNamePtr, _ := syscall.UTF16PtrFromString(`Local\ChzzkObsDock_Server_Mutex`)
+	mutexHandle, _, _ := kernel32.NewProc("CreateMutexW").Call(0, 0, uintptr(unsafe.Pointer(mutexNamePtr)))
+	lastErr, _, _ := kernel32.NewProc("GetLastError").Call()
+	if lastErr == 183 { // ERROR_ALREADY_EXISTS
+		core.LogInfo("[Main] 이미 치지직 독 서버 인스턴스가 실행 중입니다. 중복 실행 방지를 위해 즉시 종료합니다.")
+		if mutexHandle != 0 {
+			kernel32.NewProc("CloseHandle").Call(mutexHandle)
 		}
-		if targetDir == "" {
-			var err error
-			targetDir, err = core.FindObsScriptsDir()
-			if err != nil {
-				os.Exit(1)
-			}
-		}
-		targetFile := filepath.Join(targetDir, "chzzk_dock_launcher.lua")
-		_ = os.Remove(targetFile)
 		os.Exit(0)
 	}
+	defer func() {
+		if mutexHandle != 0 {
+			kernel32.NewProc("CloseHandle").Call(mutexHandle)
+		}
+	}()
 
-	// [WATCHDOG] OBS 프로세스 감시 및 자동 자폭 활성화 (기본 3분 유예 시간)
+	// [WATCHDOG] OBS 프로세스 감시 및 자동 자폭 활성화 (설정 기반, 기본 1분 유예 시간)
 	enableWatchdog := true
 	for _, arg := range os.Args[1:] {
 		if arg == "--no-watchdog" || arg == "--standalone" {
@@ -751,7 +858,7 @@ func main() {
 	}
 
 	if enableWatchdog {
-		core.StartObsWatchdog(3 * time.Minute)
+		core.StartObsWatchdog()
 	}
 
 	addr := fmt.Sprintf("127.0.0.1:%d", HTTP_PORT)
@@ -759,6 +866,7 @@ func main() {
 	if err != nil {
 		msg := fmt.Sprintf("CHZZK Dock 서버가 이미 실행 중이거나 포트(%d)가 사용 중입니다.\n\n작업 표시줄 트레이 아이콘이나 기존 실행 중인 프로그램을 확인해 주세요.", HTTP_PORT)
 		fmt.Printf("\n[오류] %s\n\n", msg)
+		core.LogError("서버 포트 바인딩 실패 (%s): %v", addr, err)
 		showMessageBox("CHZZK OBS Dock - 실행 오류", msg)
 		os.Exit(1)
 	}
@@ -769,6 +877,7 @@ func main() {
 		WriteTimeout: 15 * time.Second,
 	}
 
+	core.LogInfo("CHZZK OBS Dock Server (%s) 시작됨 (포트: %d)", APP_VERSION, HTTP_PORT)
 	fmt.Println(strings.Repeat("=", 60))
 	fmt.Printf("  CHZZK OBS Dock Server (%s)\n", APP_VERSION)
 	fmt.Printf("  HTTP (통합 방송 독) : http://localhost:%d\n", HTTP_PORT)

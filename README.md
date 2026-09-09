@@ -7,7 +7,7 @@ OBS Studio 안에서 사용자 브라우저 독(`http://localhost:8081`)을 추�
 | Chzzk OBS Dock | Twitch Info Dock |
 | :---: | :---: |
 | <img src="docs/preview.png" width="380" alt="Chzzk OBS Dock"> | <img src="docs/twitch.jpg" width="380" alt="Twitch Info Dock"> |
-> 현재 개발 버전: `v0.5.0`
+> 현재 개발 버전: `v0.5.1`
 
 ---
 
@@ -29,19 +29,23 @@ OBS Studio 안에서 사용자 브라우저 독(`http://localhost:8081`)을 추�
   - 스튜디오 공식 파티 1:1 연동 (파티 생성, 파티명 변경, 누적 치즈액, 참여자 인원수 확인)
   - **초대 링크 합류**: 다른 스트리머가 보낸 초대 링크/토큰을 입력하면 즉시 해당 파티에 게스트로 합류
   - **역할 자동 분기**: `👑 방장` vs `🤝 게스트`를 자동 판별하여 게스트 전용 UI(`파티 나가기`, `다른 파티 합류`) 및 권한 보호 제공
-- 🎛️ **치지직 공식 리모컨 무로그인 독립 창 (Edge WebView2)**
+- 🎛️ **치지직 공식 리모컨 무로그인 독립 창 (테스트중) (Edge WebView2)**
   - 네이버 계정 쿠키 자동 주입으로 별도 로그인 없이 0초 만에 공식 리모컨 미니 창 로드
-  - 커스텀 미니 툴바: **📌 항상 위 고정(Always-on-top)** 토글, 새로고침, 마지막 창 위치/크기 영속적 기억
+  - **올인원 프레임리스 다크 윈도우**: 📌 항상 위 고정(Always-on-top) 토글, 새로고침, 최소화/최대화/닫기 일체형 타이틀바 및 마지막 창 위치/크기/상태 영속적 기억
+  - 치지직 공식 리모컨 상단 헤더, 피드 본문, 우측 볼륨 패널 3단 높이 정밀 보정 (글자/헤더 겹침 및 잘림 해소)
   - 독 내부 미디어 단축 컨트롤러: `[⏮️ 이전]`, `[⏪ -10s]`, `[⏸️ 정지/재생]`, `[⏩ +10s]`, `[⏭️ 다음]`
 - ⚡ **OBS 자동 연동 및 프로세스 와치독 (Watchdog)**
   - 독 설정에서 스위치 하나로 `scripts/chzzk_dock_launcher.lua` 자동 설치/삭제
-  - OBS 실행 시 서버 자동 기동, OBS 종료 시 백엔드 3초 후 안전 자동 종료 (리소스 낭비 제로)
+  - OBS 실행 시 서버 자동 기동, OBS 종료 시 백엔드 안전 자동 종료 (유예 시간 10초~10분 사용자 맞춤 설정)
+- 📋 **인메모리 실시간 로깅 & 트레이 진단 도구**
+  - 디스크 파일을 오염시키지 않는 초경량 인메모리 로깅 및 시스템 트레이 메뉴에서 `로그 확인하기(메모장 열기)` / `로그 저장(.txt)` 지원
+  - 치명적 오류 발생 시 Windows 네이티브 알림 팝업 안내
 - 🔐 **OS 커널 레벨 무결점 로컬 보안 (Zero-File Security)**
   - 민감한 네이버 세션 쿠키를 디스크 파일(`config.json`)에 평문 저장하지 않고 **Windows 자격 증명 관리자(Windows Credential Manager)** 시스템 금고에 직접 암호화 보관
   - Local CSRF 방어(`X-Requested-With` 헤더 강제 검증), DNS Rebinding 방어, 엄격한 CORS Origin 화이트리스트
   - 비공식 API 과호출 방지를 위한 3초 인메모리 캐시 Rate Limiter
 - 🚀 **Zero-CGO Pure Go 단일 실행 파일 (`chzzk-dock.exe`)**
-  - Python 인터프리터나 CGO 컴파일러 없이 순수 Go 단일 바이너리로 컴파일되어 초경량·초고속 동작
+  - Python 인터프리터나 CGO 컴파일러 없이 순수 Go 단일 바이너리로 컴파일되어 초경량·초고속 동작 (무콘솔 GUI 서브시스템 적용)
 
 ---
 
@@ -67,7 +71,7 @@ OBS Studio 안에서 사용자 브라우저 독(`http://localhost:8081`)을 추�
 
 ### 4. 수동 단독 실행
 - `chzzk-dock.exe`를 더블 클릭하여 단독 실행할 수 있습니다.
-- OBS가 실행되지 않은 상태에서는 3분 동안 OBS 실행을 대기하며, OBS가 종료되면 3초 후 자동 종료됩니다.
+- OBS가 실행되지 않은 상태에서는 3분 동안 OBS 실행을 대기하며, OBS가 종료되면 설정된 유예 시간(기본 10초) 후 안전 자동 종료됩니다.
 - 와치독 자동 종료 없이 상시 구동하려면 `--no-watchdog` 또는 `--standalone` 옵션으로 실행하세요.
 
 ---
@@ -116,8 +120,8 @@ Go 1.22 이상 환경에서 `build.bat`을 실행하거나 아래 명령어로 �
 # 1. PE 리소스 생성 (아이콘, 매니페스트, 메타데이터 번들링)
 go run github.com/josephspurrier/goversioninfo/cmd/goversioninfo@latest -64 -o resource_windows_amd64.syso
 
-# 2. 단일 바이너리 빌드 (콘솔 창 숨김 및 로컬 경로 제거)
-go build -trimpath -ldflags="-H windowsgui" -o chzzk-dock.exe .
+# 2. 단일 바이너리 빌드 (콘솔 창 숨김, 심볼 제거 및 로컬 경로 제거)
+go build -trimpath -ldflags="-H windowsgui -s -w" -o chzzk-dock.exe .
 ```
 
 ---
@@ -125,3 +129,7 @@ go build -trimpath -ldflags="-H windowsgui" -o chzzk-dock.exe .
 ## ⚠️ 면책 조항 (Disclaimer)
 
 본 소프트웨어는 네이버(치지직)의 공식 배포 서비스가 아니며, 개인 방송 환경의 편의를 위해 제작된 독립 오픈소스 도구입니다. 본 프로그램 사용으로 인해 발생하는 모든 책임은 사용자 본인에게 있습니다.
+
+---
+
+> 🤖 **안내**: 본 `README.md` 문서는 AI에 의해 작성 및 정리되었습니다.

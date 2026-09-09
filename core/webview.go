@@ -39,7 +39,9 @@ var (
 )
 
 const (
+	WM_MOVE_WV    = 0x0003
 	WM_SIZE_WV    = 0x0005
+	WM_CLOSE_WV   = 0x0010
 	WM_DESTROY_WV = 0x0002
 	WM_TIMER_WV   = 0x0113
 	TIMER_ID_WV   = 2001
@@ -169,6 +171,12 @@ func inspectCookies(listPtr uintptr) (aut, ses string, found bool) {
 
 func loginWndProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr {
 	switch msg {
+	case WM_MOVE_WV:
+		if activeChromium != nil {
+			_ = activeChromium.NotifyParentWindowPositionChanged()
+		}
+		return 0
+
 	case WM_SIZE_WV:
 		if activeChromium != nil {
 			activeChromium.Resize()
@@ -190,13 +198,19 @@ func loginWndProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintp
 							"nid_aut": aut,
 							"nid_ses": ses,
 						})
-						fmt.Println("[Webview Login] 세션 쿠키 추출 완료 (NID_AUT, NID_SES) -> 자격 증명 관리자에 저장됨.")
+						LogInfo("[Webview Login] 세션 쿠키 추출 완료 (NID_AUT, NID_SES) -> 자격 증명 관리자에 저장됨.")
 						procKillTimer.Call(uintptr(hwnd), TIMER_ID_WV)
-						procDestroyWindow.Call(uintptr(hwnd))
+						// 안전하게 창 닫기: 메인 스레드에 WM_CLOSE 포스팅
+						procPostMessageW.Call(uintptr(hwnd), WM_CLOSE_WV, 0, 0)
 					}
 				})
 			}
 		}
+		return 0
+
+	case WM_CLOSE_WV:
+		procKillTimer.Call(uintptr(hwnd), TIMER_ID_WV)
+		procDestroyWindow.Call(uintptr(hwnd))
 		return 0
 
 	case WM_DESTROY_WV:
@@ -211,14 +225,21 @@ func loginWndProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintp
 // RunLoginWebview: Windows 공식 WebView2 런타임 및 ICoreWebView2CookieManager 기반 로그인 창 실행
 func RunLoginWebview() {
 	runtime.LockOSThread()
+	LogInfo("[Webview Login] 네이버 로그인 웹뷰 시작 요청됨")
 
 	// [단일 인스턴스 보장]
 	mutexNamePtr, _ := syscall.UTF16PtrFromString(`Local\ChzzkObsDock_Login_Mutex`)
 	mutexHandle, _, _ := kernel32.NewProc("CreateMutexW").Call(0, 0, uintptr(unsafe.Pointer(mutexNamePtr)))
 	lastErr, _, _ := kernel32.NewProc("GetLastError").Call()
 
+	className, _ := syscall.UTF16PtrFromString("ChzzkLoginWindowClass")
+
 	if lastErr == 183 { // ERROR_ALREADY_EXISTS
-		fmt.Println("[Webview] 이미 로그인 창이 실행 중입니다. 중복 실행을 건너뜁니다.")
+		LogWarn("[Webview] 이미 로그인 창이 실행 중입니다. 중복 실행을 건너뜁니다.")
+		existingHwnd, _, _ := procFindWindowW.Call(uintptr(unsafe.Pointer(className)), 0)
+		if existingHwnd != 0 {
+			ForceForegroundWindow(existingHwnd, true)
+		}
 		if mutexHandle != 0 {
 			kernel32.NewProc("CloseHandle").Call(mutexHandle)
 		}
@@ -236,52 +257,92 @@ func RunLoginWebview() {
 	if appData == "" {
 		appData = os.Getenv("USERPROFILE")
 	}
-	profileDir := filepath.Join(appData, "ChzzkObsDock", "webview2_profile")
+	// 치지직 로그인 및 공식 리모컨 창이 공유하는 일원화된 브라우저 프로필
+	profileDir := filepath.Join(appData, "ChzzkObsDock", "webview_profile")
 	_ = os.MkdirAll(profileDir, 0755)
 
-	className, _ := syscall.UTF16PtrFromString("ChzzkLoginWindowClass")
 	windowTitle, _ := syscall.UTF16PtrFromString("네이버 로그인 - CHZZK OBS Dock")
-
 	hInst, _, _ := procGetModuleHandleW.Call(0)
+	hIcon := LoadAppIcon()
 
 	wc := WNDCLASSW{
 		Style:         0x0002 | 0x0001, // CS_HREDRAW | CS_VREDRAW
 		LpfnWndProc:   syscall.NewCallback(loginWndProc),
 		HInstance:     syscall.Handle(hInst),
+		HIcon:         hIcon,
 		HCursor:       syscall.Handle(0),
 		LpszClassName: className,
 	}
 	procRegisterClassW.Call(uintptr(unsafe.Pointer(&wc)))
 
-	// 480 x 680 중앙 배치 윈도우 생성
+	// 화면 중앙 좌표 계산
+	winW, winH := 480, 700
+	winX, winY := 150, 150
+	screenW, _, _ := procGetSystemMetrics.Call(SM_CXSCREEN)
+	screenH, _, _ := procGetSystemMetrics.Call(SM_CYSCREEN)
+	if screenW > 0 && screenH > 0 {
+		winX = (int(screenW) - winW) / 2
+		winY = (int(screenH) - winH) / 2
+	}
+
 	hwnd, _, _ := procCreateWindowExW.Call(
-		0,
+		0x00000008, // WS_EX_TOPMOST
 		uintptr(unsafe.Pointer(className)),
 		uintptr(unsafe.Pointer(windowTitle)),
 		0x00CF0000, // WS_OVERLAPPEDWINDOW
-		150, 150, 480, 680,
+		uintptr(winX), uintptr(winY), uintptr(winW), uintptr(winH),
 		0, 0, hInst, 0,
 	)
 
 	if hwnd == 0 {
-		fmt.Println("[Webview Error] 로그인 윈도우 생성 실패")
+		LogError("[Webview Error] 로그인 윈도우 생성 실패")
 		return
 	}
 
+	// 타이틀바 및 작업표시줄 아이콘 설정
+	if hIcon != 0 {
+		procSendMessageW.Call(hwnd, uintptr(WM_SETICON), uintptr(ICON_SMALL), uintptr(hIcon))
+		procSendMessageW.Call(hwnd, uintptr(WM_SETICON), uintptr(ICON_BIG), uintptr(hIcon))
+	}
+
+	applyDarkTheme(hwnd)
+	ForceForegroundWindow(hwnd, true)
+
 	chromium := edge.NewChromium()
 	chromium.DataPath = profileDir
+
+	// [OBS 후킹 및 GPU 가속 충돌 방지 핵심 인자]
+	chromium.AdditionalBrowserArgs = []string{
+		"--disable-gpu",
+		"--disable-software-rasterizer",
+		"--disable-features=CalculateNativeWinOcclusion",
+	}
 	activeChromium = chromium
 
+	// 프로세스 실패(크래시) 감지 콜백
+	chromium.ProcessFailedCallback = func(sender *edge.ICoreWebView2, args *edge.ICoreWebView2ProcessFailedEventArgs) {
+		LogError("[Webview Login] WebView2 렌더러 프로세스 장애 발생. 다시 시도해 주세요.")
+	}
+
+	// 페이지 로딩 완료 감지 콜백
+	chromium.NavigationCompletedCallback = func(sender *edge.ICoreWebView2, args *edge.ICoreWebView2NavigationCompletedEventArgs) {
+		src, _ := sender.GetSource()
+		LogInfo("[Webview Login] 페이지 로드 완료: %s", src)
+	}
+
 	if !chromium.Embed(hwnd) {
-		fmt.Println("[Webview Error] WebView2 임베딩 실패 (WebView2 Runtime이 설치되어 있는지 확인하세요)")
+		LogError("[Webview Error] WebView2 임베딩 실패 (Microsoft Edge WebView2 Runtime이 설치되어 있는지 확인하세요)")
 		procDestroyWindow.Call(hwnd)
 		return
 	}
 
-	procShowWindow.Call(hwnd, 5) // SW_SHOW
-	procUpdateWindow.Call(hwnd)
-
+	// 컨트롤러 가시성 보장 및 포커스 부여
+	_ = chromium.Show()
+	chromium.Focus()
 	chromium.Resize()
+	ForceForegroundWindow(hwnd, true)
+
+	LogInfo("[Webview Login] 로그인 페이지로 이동: %s", LOGIN_URL)
 	chromium.Navigate(LOGIN_URL)
 
 	// 1초마다 로그인 완료 쿠키 감지 타이머 가동
@@ -297,6 +358,7 @@ func RunLoginWebview() {
 		procDispatchMessageW.Call(uintptr(unsafe.Pointer(&m)))
 	}
 
-	time.Sleep(300 * time.Millisecond)
+	time.Sleep(100 * time.Millisecond)
+	LogInfo("[Webview Login] 로그인 윈도우 루프 종료")
 }
 

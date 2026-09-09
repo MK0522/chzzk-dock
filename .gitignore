@@ -19,3 +19,9 @@ server_debug.txt
 .vscode/
 .DS_Store
 Thumbs.db
+.agents/
+.gemini/
+
+# Test files (Do not upload to GitHub)
+*_test.go
+

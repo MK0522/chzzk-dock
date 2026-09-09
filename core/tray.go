@@ -32,6 +32,7 @@ var (
 	procGetMessageW         = user32.NewProc("GetMessageW")
 	procTranslateMessage    = user32.NewProc("TranslateMessage")
 	procDispatchMessageW    = user32.NewProc("DispatchMessageW")
+	procSendMessageW        = user32.NewProc("SendMessageW")
 	procShell_NotifyIconW   = shell32.NewProc("Shell_NotifyIconW")
 	procGetModuleHandleW    = kernel32.NewProc("GetModuleHandleW")
 
@@ -56,17 +57,26 @@ const (
 	NIF_TIP         = 0x00000004
 	NIF_INFO        = 0x00000010
 	NIIF_INFO       = 0x00000001
+	NIIF_WARNING    = 0x00000002
+	NIIF_ERROR      = 0x00000003
 	IMAGE_ICON      = 1
 	LR_LOADFROMFILE = 0x00000010
 	LR_DEFAULTSIZE  = 0x00000040
 	TPM_RIGHTBUTTON = 0x0002
 	TPM_RETURNCMD   = 0x0100
 	MF_STRING       = 0x0000
+	MF_POPUP        = 0x0010
 	MF_SEPARATOR    = 0x0800
 	MF_CHECKED      = 0x0008
+	MF_GRAYED       = 0x0001
+	MF_DISABLED     = 0x0002
 
 	GMEM_MOVEABLE  = 0x0002
 	CF_UNICODETEXT = 13
+
+	WM_SETICON = 0x0080
+	ICON_SMALL = 0
+	ICON_BIG   = 1
 )
 
 type POINT struct {
@@ -115,10 +125,13 @@ type NOTIFYICONDATAW struct {
 }
 
 type MenuItem struct {
-	Label       string
-	Callback    func()
-	CheckFn     func() bool
-	IsSeparator bool
+	Label        string
+	DynamicLabel func() string
+	Callback     func()
+	CheckFn      func() bool
+	DisabledFn   func() bool
+	IsSeparator  bool
+	SubItems     []MenuItem
 }
 
 type PureWinTrayIcon struct {
@@ -152,12 +165,14 @@ func ExportLauncherScript(scriptContent []byte) (string, error) {
 
 // NewPureWinTrayIcon: 트레이 아이콘 인스턴스 생성
 func NewPureWinTrayIcon(tooltip, iconPath string, iconBytes []byte) *PureWinTrayIcon {
-	return &PureWinTrayIcon{
+	tray := &PureWinTrayIcon{
 		Tooltip:   tooltip,
 		IconPath:  iconPath,
 		IconBytes: iconBytes,
 		MenuItems: make([]MenuItem, 0),
 	}
+	GlobalTray = tray
+	return tray
 }
 
 func (t *PureWinTrayIcon) createIcon() syscall.Handle {
@@ -206,6 +221,37 @@ func (t *PureWinTrayIcon) createIcon() syscall.Handle {
 	return syscall.Handle(hicon)
 }
 
+// LoadAppIcon: 현재 실행 파일의 PE 리소스(ID: 1) 또는 icon.ico에서 HICON 로드
+func LoadAppIcon() syscall.Handle {
+	hInst, _, _ := procGetModuleHandleW.Call(0)
+	// 1. 컴파일 시 임베드된 PE 리소스 아이콘 (goversioninfo 기본 ID 1)
+	hIcon, _, _ := procLoadIconW.Call(hInst, uintptr(1))
+	if hIcon != 0 {
+		return syscall.Handle(hIcon)
+	}
+
+	// 2. 로컬 icon.ico 파일 확인
+	if _, err := os.Stat("icon.ico"); err == nil {
+		pathPtr, err := syscall.UTF16PtrFromString("icon.ico")
+		if err == nil {
+			h, _, _ := procLoadImageW.Call(
+				0,
+				uintptr(unsafe.Pointer(pathPtr)),
+				uintptr(IMAGE_ICON),
+				0, 0,
+				uintptr(LR_LOADFROMFILE|LR_DEFAULTSIZE),
+			)
+			if h != 0 {
+				return syscall.Handle(h)
+			}
+		}
+	}
+
+	// 3. 시스템 기본 어플리케이션 아이콘 (IDI_APPLICATION = 32512)
+	h, _, _ := procLoadIconW.Call(0, uintptr(32512))
+	return syscall.Handle(h)
+}
+
 func (t *PureWinTrayIcon) showMenu() {
 	hmenu, _, _ := procCreatePopupMenu.Call()
 	if hmenu == 0 {
@@ -216,22 +262,44 @@ func (t *PureWinTrayIcon) showMenu() {
 	cmdMap := make(map[uint32]func())
 	var cmdID uint32 = 1000
 
-	for _, item := range t.MenuItems {
-		if item.IsSeparator {
-			procAppendMenuW.Call(hmenu, uintptr(MF_SEPARATOR), 0, 0)
-		} else {
-			var flags uint32 = MF_STRING
-			if item.CheckFn != nil && item.CheckFn() {
-				flags |= MF_CHECKED
+	var appendMenuItems func(hTarget uintptr, items []MenuItem)
+	appendMenuItems = func(hTarget uintptr, items []MenuItem) {
+		for _, item := range items {
+			if item.IsSeparator {
+				procAppendMenuW.Call(hTarget, uintptr(MF_SEPARATOR), 0, 0)
+				continue
 			}
-			labelPtr, _ := syscall.UTF16PtrFromString(item.Label)
-			procAppendMenuW.Call(hmenu, uintptr(flags), uintptr(cmdID), uintptr(unsafe.Pointer(labelPtr)))
-			if item.Callback != nil {
-				cmdMap[cmdID] = item.Callback
+
+			label := item.Label
+			if item.DynamicLabel != nil {
+				label = item.DynamicLabel()
 			}
-			cmdID++
+			labelPtr, _ := syscall.UTF16PtrFromString(label)
+
+			if len(item.SubItems) > 0 {
+				hSub, _, _ := procCreatePopupMenu.Call()
+				if hSub != 0 {
+					appendMenuItems(hSub, item.SubItems)
+					procAppendMenuW.Call(hTarget, uintptr(MF_POPUP), hSub, uintptr(unsafe.Pointer(labelPtr)))
+				}
+			} else {
+				var flags uint32 = MF_STRING
+				if item.CheckFn != nil && item.CheckFn() {
+					flags |= MF_CHECKED
+				}
+				if item.DisabledFn != nil && item.DisabledFn() {
+					flags |= MF_GRAYED | MF_DISABLED
+				}
+				procAppendMenuW.Call(hTarget, uintptr(flags), uintptr(cmdID), uintptr(unsafe.Pointer(labelPtr)))
+				if item.Callback != nil {
+					cmdMap[cmdID] = item.Callback
+				}
+				cmdID++
+			}
 		}
 	}
+
+	appendMenuItems(hmenu, t.MenuItems)
 
 	var pt POINT
 	procGetCursorPos.Call(uintptr(unsafe.Pointer(&pt)))
@@ -254,7 +322,7 @@ func (t *PureWinTrayIcon) showMenu() {
 	}
 }
 
-// ShowNotification: 트레이 풍선 알림 표시
+// ShowNotification: 트레이 풍선 알림 표시 (정보)
 func (t *PureWinTrayIcon) ShowNotification(title, msg string) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -273,6 +341,60 @@ func (t *PureWinTrayIcon) ShowNotification(title, msg string) {
 	t.Nid.DwInfoFlags = NIIF_INFO
 
 	procShell_NotifyIconW.Call(uintptr(NIM_MODIFY), uintptr(unsafe.Pointer(t.Nid)))
+}
+
+// ShowErrorNotification: 트레이 풍선 알림 표시 (오류 - 빨간색 X)
+func (t *PureWinTrayIcon) ShowErrorNotification(title, msg string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	if t.Nid == nil {
+		return
+	}
+
+	t.Nid.UFlags |= NIF_INFO
+
+	titleUTF16, _ := syscall.UTF16FromString(title)
+	msgUTF16, _ := syscall.UTF16FromString(msg)
+
+	copy(t.Nid.SzInfoTitle[:], titleUTF16)
+	copy(t.Nid.SzInfo[:], msgUTF16)
+	t.Nid.DwInfoFlags = NIIF_ERROR
+
+	procShell_NotifyIconW.Call(uintptr(NIM_MODIFY), uintptr(unsafe.Pointer(t.Nid)))
+}
+
+// UpdateTooltip: 트레이 아이콘의 마우스 호버 툴팁을 동적으로 변경
+func (t *PureWinTrayIcon) UpdateTooltip(tip string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	if t.Nid == nil {
+		return
+	}
+	t.Tooltip = tip
+	tipUTF16, err := syscall.UTF16FromString(tip)
+	if err != nil {
+		return
+	}
+	var szTip [128]uint16
+	copy(szTip[:], tipUTF16)
+	t.Nid.SzTip = szTip
+	t.Nid.UFlags |= NIF_TIP
+	procShell_NotifyIconW.Call(uintptr(NIM_MODIFY), uintptr(unsafe.Pointer(t.Nid)))
+}
+
+// ShowAlert: 오류 발생 시 윈도우 알림 (트레이 풍선 알림 또는 백업 MessageBoxW) 표시
+func ShowAlert(title, msg string) {
+	if GlobalTray != nil && GlobalTray.Nid != nil {
+		GlobalTray.ShowErrorNotification(title, msg)
+	} else {
+		user32 := syscall.NewLazyDLL("user32.dll")
+		procMessageBoxW := user32.NewProc("MessageBoxW")
+		titlePtr, _ := syscall.UTF16PtrFromString(title)
+		msgPtr, _ := syscall.UTF16PtrFromString(msg)
+		procMessageBoxW.Call(0, uintptr(unsafe.Pointer(msgPtr)), uintptr(unsafe.Pointer(titlePtr)), 0x10) // MB_ICONERROR
+	}
 }
 
 // SetClipboardText: [SYS-501] Win32 네이티브 API(OpenClipboard / SetClipboardData)를 사용하여

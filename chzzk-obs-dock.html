@@ -192,19 +192,6 @@
     }
     .section-card:hover { border-color: #243044; }
 
-    .instant-card {
-      background: linear-gradient(180deg, rgba(16, 26, 31, 0.95) 0%, rgba(11, 17, 24, 0.95) 100%);
-      border: 2px solid rgba(0, 255, 163, 0.65);
-      border-radius: 10px;
-      padding: 10px 12px;
-      box-shadow: 0 0 16px rgba(0, 255, 163, 0.12), inset 0 0 12px rgba(0, 255, 163, 0.03);
-      transition: border-color 0.2s, box-shadow 0.2s;
-    }
-    .instant-card:hover {
-      border-color: rgba(0, 255, 163, 0.9);
-      box-shadow: 0 0 20px rgba(0, 255, 163, 0.22), inset 0 0 16px rgba(0, 255, 163, 0.05);
-    }
-
     .chzzk-input {
       background: #0B0F15; border: 1px solid #1E2738; border-radius: 6px;
       color: #F1F5F9; font-size: 12px; padding: 6.5px 10px; width: 100%;
@@ -327,7 +314,7 @@
     <!-- Header -->
     <div class="flex items-center justify-between pb-1.5 border-b border-chzzk-border/40">
       <div class="flex items-center gap-1.5 min-w-0">
-        <button id="header-live-icon" onclick="openChannelInBrowser()" class="w-6 h-6 rounded-md bg-[#6EE7B7]/10 border border-[#6EE7B7]/25 hover:border-[#6EE7B7]/50 flex items-center justify-center flex-shrink-0 cursor-pointer transition-all" title="치지직 방송 꺼짐 (OFF) - 클릭 시 라이브 화면 열기">
+        <button id="header-live-icon" onclick="manualCheckLiveStatus()" class="w-6 h-6 rounded-md bg-[#6EE7B7]/10 border border-[#6EE7B7]/25 hover:border-[#6EE7B7]/50 flex items-center justify-center flex-shrink-0 cursor-pointer transition-all" title="방송 상태(ON/OFF) 즉시 확인 (5초 쿨타임)">
           <svg id="header-live-svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6EE7B7" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="opacity-70"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
         </button>
         <a id="header-channel-name" href="javascript:void(0)" onclick="openChannelInBrowser()" class="text-[11px] font-medium text-[#A7F3D0]/80 bg-[#6EE7B7]/5 hover:bg-[#6EE7B7]/15 border border-[#6EE7B7]/20 hover:border-[#6EE7B7]/40 px-2 py-0.5 rounded-md transition-all truncate max-w-[140px] cursor-pointer select-none" style="display:none;" title="클릭 시 치지직 라이브 화면을 브라우저로 엽니다"></a>
@@ -567,7 +554,7 @@
         <span>불러오기</span>
       </button>
       <button id="btn-save" class="save-btn flex-1 !w-auto py-2.5 text-xs font-bold" onclick="saveAll()">
-        <span id="save-text">설정 저장</span>
+        <span id="save-text">적용</span>
         <span id="save-dirty-badge" class="ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-extrabold bg-[#080A0D] text-[#00FFA3] shadow-sm animate-pulse" style="display:none;">● 변경됨</span>
         <svg id="save-spinner" class="animate-spin ml-1.5 inline-block" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="display:none;"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round"/></svg>
       </button>
@@ -923,13 +910,10 @@
         </span>
       </div>
       <div class="flex items-center gap-1 flex-shrink-0">
-        <!-- 독립 미니창 팝업 버튼 -->
-        <button type="button" onclick="openRemoteWebview()" class="px-2 py-1 rounded-md bg-[#161F2E] border border-[#1E2738] hover:border-[#00FFA3]/50 text-[11px] text-slate-200 hover:text-[#00FFA3] flex items-center gap-1 transition-all cursor-pointer font-medium" title="독립 플로팅 윈도우(700×760, 항상 위)로 리모컨 창 분리">
+        <!-- 치지직 공식 리모컨 팝업 버튼 -->
+        <button type="button" onclick="openRemoteWebview()" class="px-2 py-1 rounded-md bg-[#161F2E] border border-[#1E2738] hover:border-[#00FFA3]/50 text-[11px] text-slate-200 hover:text-[#00FFA3] flex items-center gap-1 transition-all cursor-pointer font-medium" title="네이버 치지직 공식 리모컨 창 열기 (실시간 WebSocket, 항상 위 지원)">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-          <span>독립 창</span>
-        </button>
-        <button onclick="refreshRemoteData()" class="w-6 h-6 rounded-md bg-chzzk-card border border-chzzk-border flex items-center justify-center text-slate-300 hover:text-[#00FFA3] transition-colors" title="새로고침">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+          <span>치지직 리모컨</span>
         </button>
         <button onclick="toggleRemotePanel()" class="w-6 h-6 rounded-md bg-chzzk-card border border-chzzk-border flex items-center justify-center hover:border-chzzk-muted transition-colors">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5A6577" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -1069,20 +1053,54 @@
       </div>
     </div>
 
-    <!-- ===== TAB 3: 미션 후원 제어 및 판정 ===== -->
-    <div id="remote-tab-content-mission" class="space-y-2" style="display:none;">
-      <div class="flex items-center justify-between">
+    <!-- ===== TAB 3: 미션 후원 제어 및 판정 (진행/완료 분리 & 정렬 지원) ===== -->
+    <div id="remote-tab-content-mission" class="space-y-2.5" style="display:none;">
+      <!-- 정렬 옵션 및 헤더 -->
+      <div class="flex items-center justify-between pb-1 border-b border-[#1E2738]/50">
         <span class="text-xs font-bold text-slate-200 flex items-center gap-1.5">
-          <span>🎯</span> 진행 중인 미션
+          <span>🎯</span> 미션 후원 관리
         </span>
-        <span id="remote-mission-count" class="text-[10px] px-2 py-0.5 rounded font-bold bg-[#161F2E] text-slate-300 border border-[#1E2738]">
-          0건 진행 중
-        </span>
+        <div class="flex items-center gap-1 bg-[#090D13] p-0.5 rounded-md border border-[#1E2738]">
+          <button type="button" id="mission-sort-latest" onclick="setMissionSort('LATEST')" class="px-2 py-0.5 rounded text-[10px] font-bold bg-[#161F2E] text-[#00FFA3] border border-[#00FFA3]/40 transition-all cursor-pointer">
+            최신순
+          </button>
+          <button type="button" id="mission-sort-amount" onclick="setMissionSort('AMOUNT')" class="px-2 py-0.5 rounded text-[10px] font-medium text-slate-400 hover:text-slate-200 transition-all cursor-pointer">
+            금액순
+          </button>
+        </div>
       </div>
 
-      <div id="remote-mission-list" class="space-y-2 max-h-[380px] overflow-y-auto pr-0.5">
-        <div class="text-center py-10 text-[11px] text-slate-400 bg-[#090D13] rounded-lg border border-[#1A2333]/60">
-          현재 진행 중인 미션 후원이 없습니다
+      <!-- 상단: 진행 중인 미션 -->
+      <div class="space-y-1.5">
+        <div class="flex items-center justify-between">
+          <span class="text-[11px] font-bold text-[#00FFA3] flex items-center gap-1">
+            <span>⚡</span> 진행 중인 미션
+          </span>
+          <span id="remote-mission-active-count" class="text-[9.5px] px-1.5 py-0.2 rounded font-bold bg-emerald-950/80 text-[#00FFA3] border border-emerald-800/50">
+            0건
+          </span>
+        </div>
+        <div id="remote-mission-active-list" class="space-y-2 max-h-[190px] overflow-y-auto pr-0.5">
+          <div class="text-center py-6 text-[10.5px] text-slate-400 bg-[#090D13] rounded-lg border border-[#1A2333]/60">
+            현재 진행 중인 미션이 없습니다
+          </div>
+        </div>
+      </div>
+
+      <!-- 하단: 완료된 미션 -->
+      <div class="space-y-1.5 pt-1 border-t border-[#1E2738]/60">
+        <div class="flex items-center justify-between">
+          <span class="text-[11px] font-bold text-slate-300 flex items-center gap-1">
+            <span>🏁</span> 완료된 미션
+          </span>
+          <span id="remote-mission-completed-count" class="text-[9.5px] px-1.5 py-0.2 rounded font-bold bg-[#161F2E] text-slate-400 border border-[#1E2738]">
+            0건
+          </span>
+        </div>
+        <div id="remote-mission-completed-list" class="space-y-2 max-h-[180px] overflow-y-auto pr-0.5">
+          <div class="text-center py-6 text-[10.5px] text-slate-500 bg-[#090D13] rounded-lg border border-[#1A2333]/60">
+            완료된 미션 내역이 없습니다
+          </div>
         </div>
       </div>
     </div>
@@ -1282,30 +1300,36 @@
         </div>
       </div>
 
-      <!-- Chzzk-Dock 자동시작 (간결한 토글 스위치 카드) -->
+      <!-- Chzzk-Dock 자동시작 (스크립트 설치 관리 카드) -->
       <div class="section-card py-2.5 px-3 border border-[#1E2738] bg-[#0B1017]">
         <div class="flex items-center justify-between">
           <div class="min-w-0 pr-2">
             <div class="flex items-center gap-1.5">
               <span class="text-xs font-bold text-slate-100">Chzzk-Dock 자동시작</span>
-              <span id="obs-script-status-badge" class="text-[9px] px-1.5 py-0.2 rounded font-medium bg-emerald-950/80 text-[#00FFA3] border border-emerald-800/50">자동 감지됨</span>
+              <span id="obs-script-status-badge" class="text-[9px] px-1.5 py-0.5 rounded font-medium bg-gray-800 text-gray-400 border border-gray-700">확인 중...</span>
             </div>
             <p class="text-[9.5px] text-slate-400 mt-0.5">
-              OBS 실행 시 독 서버 자동 시작 & 종료
+              OBS 실행 시 독 서버 자동 시작 &amp; 종료
             </p>
           </div>
-          <div class="flex items-center gap-2.5 flex-shrink-0">
+          <div class="flex items-center gap-2 flex-shrink-0">
             <button type="button" onclick="browseAndInstallObsFolder()" class="text-slate-500 hover:text-[#00FFA3] text-[9px] transition-colors cursor-pointer" title="OBS 설치 폴더를 직접 변경하려면 클릭하세요">
               폴더 변경
             </button>
-            <label class="toggle-switch">
-              <input type="checkbox" id="toggle-obs-autostart" onchange="handleObsAutoStartToggle(this.checked)" />
-              <span class="toggle-slider"></span>
-            </label>
+            <button type="button" id="btn-obs-script-action" onclick="handleObsScriptAction()" class="px-2.5 py-1 text-[11px] font-bold rounded transition-all cursor-pointer bg-[#161F2E] border border-[#243044] text-slate-300 hover:text-white">
+              확인 중...
+            </button>
           </div>
         </div>
-        <div id="install-uac-notice" class="hidden mt-2 text-[9px] text-amber-400 bg-amber-950/40 p-1.5 rounded border border-amber-800/60 leading-normal">
-          ⚠️ Windows 관리자 권한 승인 창(UAC)이 뜨면 <b>[예]</b>를 눌러주세요.
+
+        <!-- OBS 스크립트 1회 등록 가이드 박스 -->
+        <div id="obs-script-guide-box" class="mt-2.5 pt-2 border-t border-[#1E2738]/80 text-[10px] text-slate-400 leading-relaxed">
+          <div class="flex items-start gap-1.5 text-slate-300">
+            <span class="text-emerald-400 flex-shrink-0">💡</span>
+            <div>
+              <span class="font-bold text-slate-200">최초 1회 등록 필수:</span> OBS 상단 메뉴 <span class="text-[#00FFA3] font-semibold">[도구] ➔ [스크립트]</span>의 <span class="text-white font-bold">[+]</span> 버튼을 눌러 설치된 <code class="text-slate-300 bg-slate-800 px-1 py-0.5 rounded">chzzk_dock_launcher.lua</code>를 등록해 두시면, 이후 OBS 실행 시 독 서버가 자동 시작됩니다.
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1408,16 +1432,27 @@
         </button>
       </div>
 
-      <!-- 백그라운드 자동 동기화 옵션 (기본: OFF) -->
-      <div class="section-card flex items-center justify-between p-2.5 bg-chzzk-card/70 border border-chzzk-border">
+      <!-- OBS 자동 종료 대기 시간 설정 -->
+      <div class="section-card p-2.5 bg-chzzk-card/70 border border-chzzk-border space-y-2">
         <div>
-          <div class="text-[11px] font-semibold text-white/90">백그라운드 자동 동기화</div>
-          <div class="text-[9px] text-chzzk-muted">60초마다 연결 상태를 백그라운드에서 주기적으로 체크합니다.</div>
+          <div class="text-[11px] font-semibold text-white/90">⏱️ OBS 자동 종료 대기 시간</div>
+          <div class="text-[9px] text-chzzk-muted">OBS Studio 미실행 시 서버가 자동으로 종료될 때까지 대기하는 시간입니다.</div>
         </div>
-        <label class="toggle-switch relative inline-flex items-center cursor-pointer">
-          <input type="checkbox" id="toggle-auto-sync" onchange="toggleAutoSync(this.checked)" class="sr-only peer" />
-          <div class="w-7 h-4 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-[#00FFA3]"></div>
-        </label>
+        <div class="flex items-center gap-2">
+          <select id="select-watchdog-timeout" onchange="onWatchdogTimeoutChange(this.value)" class="chzzk-input text-[11px] py-1 flex-1">
+            <option value="10">10초</option>
+            <option value="30">30초</option>
+            <option value="60" selected>1분 (기본값)</option>
+            <option value="300">5분</option>
+            <option value="600">10분</option>
+            <option value="custom">직접 입력</option>
+          </select>
+          <div id="custom-watchdog-container" class="hidden flex items-center gap-1.5 flex-1">
+            <input id="input-custom-watchdog" type="number" min="5" max="86400" class="chzzk-input text-[11px] py-1 w-20 text-center" placeholder="초(sec)" />
+            <span class="text-[11px] text-chzzk-muted">초</span>
+            <button onclick="saveCustomWatchdogTimeout()" class="sub-btn !bg-chzzk-card hover:!border-chzzk-accent text-chzzk-accent text-[10px] py-1 px-2 font-medium">저장</button>
+          </div>
+        </div>
       </div>
 
       <!-- [LEG-01] 비공식 API 면책 조항 및 Rate Limiting 안내 -->
@@ -1428,7 +1463,7 @@
     </div>
 
     <div class="text-[10px] text-chzzk-muted text-center mt-3 py-1">
-      <p class="font-medium text-white/70">CHZZK OBS Dock v0.5.0</p>
+      <p class="font-medium text-white/70">CHZZK OBS Dock v0.5.1</p>
     </div>
   </div>
 
@@ -1742,10 +1777,7 @@
     let isLoggingIn = false;
 
     // ===== Font Scale & Screen Zoom (화면 및 글꼴 배율: 1.0, 1.2, 1.35) =====
-    let currentFontScale = 1.2;
-
     function setFontScale(scale, save = true) {
-      currentFontScale = scale;
       document.body.style.zoom = String(scale);
 
       const scales = [1.0, 1.2, 1.35];
@@ -2029,7 +2061,7 @@
       if (openLive) {
         // 방송 중 (ON / LIVE): 진한 네온 그린 점등 애니메이션 + LIVE 뱃지
         iconBtn.className = 'w-6 h-6 rounded-md bg-[#00FFA3]/20 border-2 border-[#00FFA3] flex items-center justify-center flex-shrink-0 cursor-pointer transition-all live-soft-glow';
-        iconBtn.title = '치지직 방송 중 (LIVE ON-AIR) - 클릭 시 기본 브라우저로 라이브 열기';
+        iconBtn.title = '치지직 방송 중 (ON) - 클릭 시 즉시 새로고침 (5초 쿨타임)';
         iconSvg.setAttribute('stroke', '#00FFA3');
         iconSvg.classList.remove('opacity-70');
 
@@ -2042,7 +2074,7 @@
         // 방송 꺼짐 (OFF): 차분한 연한 연두/슬레이트 소등 상태
         iconBtn.className = 'w-6 h-6 rounded-md bg-[#6EE7B7]/10 border border-[#6EE7B7]/25 hover:border-[#6EE7B7]/50 flex items-center justify-center flex-shrink-0 cursor-pointer transition-all';
         iconBtn.classList.remove('live-soft-glow');
-        iconBtn.title = '치지직 방송 꺼짐 (OFF) - 클릭 시 기본 브라우저로 라이브 열기';
+        iconBtn.title = '치지직 방송 꺼짐 (OFF) - 클릭 시 즉시 새로고침 (5초 쿨타임)';
         iconSvg.setAttribute('stroke', '#6EE7B7');
         iconSvg.classList.add('opacity-70');
 
@@ -2052,6 +2084,28 @@
           elChannelName.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-[#6EE7B7]/40 flex-shrink-0"></span><span class="truncate">${escapeHtml(currentChannelName)}</span><span class="text-[8.5px] bg-[#6EE7B7]/15 text-[#A7F3D0] border border-[#6EE7B7]/30 font-medium px-1 py-0.2 rounded-sm flex-shrink-0">OFF</span>`;
           elChannelName.title = `[방송 꺼짐] ${currentChannelName} (클릭 시 기본 브라우저로 라이브 열기)`;
         }
+      }
+    }
+
+    let lastLiveCheckTime = 0;
+    async function manualCheckLiveStatus() {
+      const now = Date.now();
+      const elapsed = (now - lastLiveCheckTime) / 1000;
+      if (elapsed < 5) {
+        const remain = Math.ceil(5 - elapsed);
+        showToast('쿨타임 대기 중', 'info', `${remain}초 후에 다시 확인할 수 있습니다.`);
+        return;
+      }
+      lastLiveCheckTime = now;
+
+      const iconSvg = document.getElementById('header-live-svg');
+      if (iconSvg) iconSvg.classList.add('animate-spin');
+
+      try {
+        await checkLiveStatus();
+        showToast('방송 상태 확인 완료', 'info', isCurrentlyLive ? '현재 방송 중(ON)입니다.' : '현재 방송 꺼짐(OFF)입니다.');
+      } finally {
+        if (iconSvg) iconSvg.classList.remove('animate-spin');
       }
     }
 
@@ -2152,7 +2206,6 @@
     }
 
     // ===== 치지직 내장형 리모컨 (Remote Controller) 로직 =====
-    let currentRemoteTab = 'media';
     let isAlertMuted = false;
     let previousAlertVolume = 80;
     let isRemotePlaying = false;
@@ -2164,7 +2217,6 @@
     let cachedSubscriptionSetting = null;
 
     function switchRemoteTab(tab) {
-      currentRemoteTab = tab;
       const tabs = ['media', 'feed', 'mission', 'party'];
       tabs.forEach(t => {
         const btn = document.getElementById(`remote-tab-btn-${t}`);
@@ -2186,13 +2238,6 @@
       } else if (tab === 'party') {
         refreshPartyStatus();
       }
-    }
-
-    function refreshRemoteData() {
-      showToast('🔄 리모컨 데이터 갱신', 'info', '최신 방송, 후원 대기열 및 파티 정보를 동기화했습니다.');
-      checkLiveStatus();
-      fetchNewsFeed();
-      refreshPartyStatus();
     }
 
     async function sendDonationTest(type, btnElement) {
@@ -2565,62 +2610,174 @@
       }).join('');
     }
 
-    function renderMissionList(items) {
-      const container = document.getElementById('remote-mission-list');
-      const countBadge = document.getElementById('remote-mission-count');
-      if (!container) return;
+    let currentMissionSort = 'LATEST';
+    let locallySettledMissions = {};
 
-      const missionItems = (items || []).filter(i => i.newsFeedType && i.newsFeedType.includes('MISSION'));
-      if (countBadge) countBadge.textContent = `${missionItems.length}건 진행/완료`;
-
-      if (missionItems.length === 0) {
-        container.innerHTML = `
-          <div class="text-center py-10 text-[11px] text-slate-400 bg-[#090D13] rounded-lg border border-[#1A2333]/60">
-            현재 진행 중인 미션 후원이 없습니다
-          </div>`;
-        return;
+    function setMissionSort(sortType) {
+      currentMissionSort = sortType;
+      const btnLatest = document.getElementById('mission-sort-latest');
+      const btnAmount = document.getElementById('mission-sort-amount');
+      if (btnLatest && btnAmount) {
+        if (sortType === 'LATEST') {
+          btnLatest.className = 'px-2 py-0.5 rounded text-[10px] font-bold bg-[#161F2E] text-[#00FFA3] border border-[#00FFA3]/40 transition-all cursor-pointer';
+          btnAmount.className = 'px-2 py-0.5 rounded text-[10px] font-medium text-slate-400 hover:text-slate-200 transition-all cursor-pointer';
+        } else {
+          btnAmount.className = 'px-2 py-0.5 rounded text-[10px] font-bold bg-[#161F2E] text-[#00FFA3] border border-[#00FFA3]/40 transition-all cursor-pointer';
+          btnLatest.className = 'px-2 py-0.5 rounded text-[10px] font-medium text-slate-400 hover:text-slate-200 transition-all cursor-pointer';
+        }
       }
+      renderMissionList(cachedNewsFeeds);
+    }
 
-      container.innerHTML = missionItems.map(item => {
-        const nickname = item.user?.nickname || '후원자';
-        const amount = item.payAmount ? Number(item.payAmount).toLocaleString() + ' 치즈' : '';
-        const missionText = item.title || item.message || '미션 내용 없음';
+    function renderMissionList(items) {
+      const activeContainer = document.getElementById('remote-mission-active-list');
+      const completedContainer = document.getElementById('remote-mission-completed-list');
+      const activeCountBadge = document.getElementById('remote-mission-active-count');
+      const completedCountBadge = document.getElementById('remote-mission-completed-count');
+      if (!activeContainer || !completedContainer) return;
+
+      const missionItems = (items || []).filter(i => i.newsFeedType && i.newsFeedType.includes('MISSION')).map(item => {
         let missionId = item.missionDonationId || item.donationId || '';
-        if (!missionId && item.extraJson) {
+        let extra = null;
+        if (item.extraJson) {
           try {
-            missionId = JSON.parse(item.extraJson)?.missionDonation?.relatedMissionDonationId || '';
+            extra = JSON.parse(item.extraJson);
+            if (!missionId) missionId = extra?.missionDonation?.relatedMissionDonationId || '';
           } catch (_) {}
         }
+        return { item, missionId, extra };
+      });
 
-        return `
-          <div class="p-2.5 rounded-lg bg-[#090D13] border border-[#1A2333] space-y-2 text-xs">
-            <div class="flex items-center justify-between">
-              <div class="flex items-center gap-1.5">
-                <span>🎯</span>
-                <span class="font-bold text-slate-200">${escapeHtml(nickname)}</span>
-              </div>
-              <span class="font-mono text-[#00FFA3] font-bold text-[11px]">${amount}</span>
-            </div>
-            <div class="text-[11px] text-slate-300 bg-[#05080C] p-2 rounded border border-[#1E2738]/50 break-words leading-normal">
-              ${escapeHtml(missionText)}
-            </div>
-            ${missionId ? `
-              <div class="flex items-center justify-end gap-1.5 pt-0.5">
-                <button type="button" onclick="settleMission('${missionId}', 'succeed')" class="px-2.5 py-1 rounded bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-700/60 text-[#00FFA3] font-bold text-[10.5px] cursor-pointer transition-colors flex items-center gap-1">
-                  <span>✅</span> <span>성공 판정</span>
-                </button>
-                <button type="button" onclick="settleMission('${missionId}', 'fail')" class="px-2.5 py-1 rounded bg-rose-950/80 hover:bg-rose-900 border border-rose-700/60 text-rose-300 font-bold text-[10.5px] cursor-pointer transition-colors flex items-center gap-1">
-                  <span>❌</span> <span>실패 판정</span>
-                </button>
-              </div>` : ''}
+      // 정렬 처리 (최신순 vs 금액순)
+      missionItems.sort((a, b) => {
+        if (currentMissionSort === 'AMOUNT') {
+          const amtA = Number(a.item.payAmount) || 0;
+          const amtB = Number(b.item.payAmount) || 0;
+          return amtB - amtA;
+        }
+        const aTime = a.item.donationTime || a.item.createTime || a.item.newsFeedNo || 0;
+        const bTime = b.item.donationTime || b.item.createTime || b.item.newsFeedNo || 0;
+        return bTime > aTime ? 1 : bTime < aTime ? -1 : 0;
+      });
+
+      // 진행 중 vs 완료 분리
+      const activeList = [];
+      const completedList = [];
+
+      missionItems.forEach(entry => {
+        const { item, missionId, extra } = entry;
+        const localStatus = missionId ? locallySettledMissions[missionId] : null;
+
+        let isCompleted = false;
+        let outcome = localStatus || null;
+
+        if (localStatus) {
+          isCompleted = true;
+        } else {
+          const rawStatus = (item.status || extra?.missionDonation?.status || extra?.status || '').toUpperCase();
+          if (['SUCCESS', 'SUCCEED'].includes(rawStatus) || (item.newsFeedType && item.newsFeedType.includes('SUCCEED'))) {
+            isCompleted = true;
+            outcome = 'succeed';
+          } else if (['FAIL', 'FAILED', 'REJECT', 'REJECTED'].includes(rawStatus) || (item.newsFeedType && item.newsFeedType.includes('FAIL'))) {
+            isCompleted = true;
+            outcome = 'fail';
+          } else if (['COMPLETED', 'SETTLED', 'CANCELED'].includes(rawStatus) || (item.newsFeedType && item.newsFeedType.includes('SETTLED'))) {
+            isCompleted = true;
+            outcome = 'completed';
+          }
+        }
+
+        if (isCompleted) {
+          completedList.push({ ...entry, outcome });
+        } else {
+          activeList.push(entry);
+        }
+      });
+
+      if (activeCountBadge) activeCountBadge.textContent = `${activeList.length}건`;
+      if (completedCountBadge) completedCountBadge.textContent = `${completedList.length}건`;
+
+      // 1) 진행 중인 미션 렌더링
+      if (activeList.length === 0) {
+        activeContainer.innerHTML = `
+          <div class="text-center py-6 text-[10.5px] text-slate-400 bg-[#090D13] rounded-lg border border-[#1A2333]/60">
+            현재 진행 중인 미션이 없습니다
           </div>`;
-      }).join('');
+      } else {
+        activeContainer.innerHTML = activeList.map(entry => {
+          const { item, missionId } = entry;
+          const nickname = item.user?.nickname || '후원자';
+          const amount = item.payAmount ? Number(item.payAmount).toLocaleString() + ' 치즈' : '';
+          const missionText = item.title || item.message || '미션 내용 없음';
+
+          return `
+            <div class="p-2 rounded-lg bg-[#090D13] border border-[#1A2333] space-y-1.5 text-xs">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-1.5 min-w-0">
+                  <span>🎯</span>
+                  <span class="font-bold text-slate-200 truncate">${escapeHtml(nickname)}</span>
+                </div>
+                <span class="font-mono text-[#00FFA3] font-bold text-[11px] flex-shrink-0">${amount}</span>
+              </div>
+              <div class="text-[11px] text-slate-300 bg-[#05080C] p-2 rounded border border-[#1E2738]/50 break-words leading-normal">
+                ${escapeHtml(missionText)}
+              </div>
+              ${missionId ? `
+                <div class="flex items-center justify-end gap-1.5 pt-0.5">
+                  <button type="button" onclick="settleMission('${missionId}', 'succeed')" class="px-2.5 py-1 rounded bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-700/60 text-[#00FFA3] font-bold text-[10.5px] cursor-pointer transition-colors flex items-center gap-1">
+                    <span>✅</span> <span>성공 판정</span>
+                  </button>
+                  <button type="button" onclick="settleMission('${missionId}', 'fail')" class="px-2.5 py-1 rounded bg-rose-950/80 hover:bg-rose-900 border border-rose-700/60 text-rose-300 font-bold text-[10.5px] cursor-pointer transition-colors flex items-center gap-1">
+                    <span>❌</span> <span>실패 판정</span>
+                  </button>
+                </div>` : ''}
+            </div>`;
+        }).join('');
+      }
+
+      // 2) 완료된 미션 렌더링
+      if (completedList.length === 0) {
+        completedContainer.innerHTML = `
+          <div class="text-center py-6 text-[10.5px] text-slate-500 bg-[#090D13] rounded-lg border border-[#1A2333]/60">
+            완료된 미션 내역이 없습니다
+          </div>`;
+      } else {
+        completedContainer.innerHTML = completedList.map(entry => {
+          const { item, outcome } = entry;
+          const nickname = item.user?.nickname || '후원자';
+          const amount = item.payAmount ? Number(item.payAmount).toLocaleString() + ' 치즈' : '';
+          const missionText = item.title || item.message || '미션 내용 없음';
+
+          let statusBadge = '<span class="text-[9.5px] px-1.5 py-0.2 rounded font-bold bg-slate-800 text-slate-300 border border-slate-700">🏁 완료</span>';
+          if (outcome === 'succeed') {
+            statusBadge = '<span class="text-[9.5px] px-1.5 py-0.2 rounded font-bold bg-emerald-950 text-emerald-400 border border-emerald-800/60">✅ 성공</span>';
+          } else if (outcome === 'fail') {
+            statusBadge = '<span class="text-[9.5px] px-1.5 py-0.2 rounded font-bold bg-rose-950 text-rose-400 border border-rose-800/60">❌ 실패</span>';
+          }
+
+          return `
+            <div class="p-2 rounded-lg bg-[#070A0F] border border-[#161F2E] space-y-1.5 text-xs opacity-80 hover:opacity-100 transition-opacity">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-1.5 min-w-0">
+                  <span class="text-slate-400">🎯</span>
+                  <span class="font-medium text-slate-300 truncate">${escapeHtml(nickname)}</span>
+                  ${statusBadge}
+                </div>
+                <span class="font-mono text-slate-400 text-[10.5px] flex-shrink-0">${amount}</span>
+              </div>
+              <div class="text-[10.5px] text-slate-400 bg-[#05080C]/80 p-1.5 rounded border border-[#1A2333]/40 break-words leading-tight">
+                ${escapeHtml(missionText)}
+              </div>
+            </div>`;
+        }).join('');
+      }
     }
 
     async function settleMission(missionDonationId, outcome) {
       if (!checkLoginGuard('미션 판정')) return;
       if (!userChannelId) return;
       try {
+        locallySettledMissions[missionDonationId] = outcome;
         const res = await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/donations/mission/${outcome}?missionDonationId=${encodeURIComponent(missionDonationId)}`, {
           method: 'PUT'
         });
@@ -2631,11 +2788,15 @@
           showToast(outcome === 'succeed' ? '🎉 미션 성공 판정 완료' : '⚠️ 미션 실패 처리 완료', 'success', '미션 결과가 스트리머/시청자에게 즉시 반영되었습니다.');
           fetchNewsFeed();
         } else {
+          delete locallySettledMissions[missionDonationId];
           const data = await res.json().catch(() => ({}));
           showToast('미션 판정 실패', 'error', data.message || '판정 요청 전달 실패');
+          renderMissionList(cachedNewsFeeds);
         }
       } catch (e) {
+        delete locallySettledMissions[missionDonationId];
         showToast('오류 발생', 'error', e.message);
+        renderMissionList(cachedNewsFeeds);
       }
     }
 
@@ -3413,6 +3574,9 @@
     async function openRemoteWebview() {
       if (!checkLoginGuard('리모컨 미니 창')) return;
       try {
+        if (!userChannelId) {
+          await resolveChannelId();
+        }
         showToast('🖥️ 리모컨 실행 중', 'info', '독립 리모컨 창을 띄우는 중입니다...');
         const res = await apiFetch(`/remote-webview?channelId=${encodeURIComponent(userChannelId || '')}`);
         if (res.ok) {
@@ -4080,6 +4244,7 @@
       // ── 2. 백그라운드에서 연결 시도 (UI 차단 없음) ──
       initConnection();
       checkObsScriptStatus();
+      loadWatchdogTimeout();
     }
 
     // DOM 로드 완료 상태에 무관하게 즉시 또는 이벤트 시점에 100% 실행 보장
@@ -4141,7 +4306,6 @@
     }
 
     function handleSessionExpired() {
-      const dot = document.getElementById('header-status-dot');
       const text = document.getElementById('header-status-text');
       const badgeA = document.getElementById('badge-method-a');
       const badgeB = document.getElementById('badge-method-b');
@@ -4151,10 +4315,7 @@
       const elChannelName = document.getElementById('header-channel-name');
 
       if (elChannelName) elChannelName.style.display = 'none';
-      const liveBadge = document.getElementById('header-live-badge');
-      if (liveBadge) liveBadge.style.display = 'none';
       clearTimeout(liveCheckTimeout);
-      if (dot) { dot.className = 'w-2.5 h-2.5 rounded-full bg-[#FF4D6A] shadow-[0_0_8px_rgba(255,77,106,0.8)] transition-all flex-shrink-0'; dot.title = '로그인 필요 / 세션 만료'; }
       if (text) { text.textContent = '로그인 필요'; text.className = 'font-medium text-[#FF4D6A]'; }
       if (badgeA) { badgeA.textContent = "⚠️ 로그인 필요"; badgeA.className = "text-[9px] px-1.5 py-0.5 rounded font-bold bg-amber-950 text-amber-400 border border-amber-800/60"; }
       if (badgeB) { badgeB.textContent = "⚠️ 미연동"; badgeB.className = "text-[9px] px-1.5 py-0.5 rounded font-bold bg-amber-950 text-amber-400 border border-amber-800/60"; }
@@ -4202,7 +4363,6 @@
     }
 
     async function updateConnectionStatus() {
-      const dot = document.getElementById('header-status-dot');
       const text = document.getElementById('header-status-text');
       const badgeA = document.getElementById('badge-method-a');
       const badgeB = document.getElementById('badge-method-b');
@@ -4250,7 +4410,6 @@
             }
             checkLiveStatus();
 
-            if (dot) { dot.className = 'w-2.5 h-2.5 rounded-full bg-[#00FFA3] shadow-[0_0_8px_rgba(0,255,163,0.9)] animate-pulse flex-shrink-0'; dot.title = '치지직 연결됨'; }
             if (text) { text.textContent = '연동됨'; text.className = 'font-medium text-[#00FFA3]'; }
             if (badgeA) { badgeA.textContent = "✅ 쿠키 연동됨"; badgeA.className = "text-[9px] px-1.5 py-0.5 rounded font-bold bg-emerald-950 text-[#00FFA3] border border-emerald-800/60"; }
             if (badgeB) { badgeB.textContent = "✅ 등록됨"; badgeB.className = "text-[9px] px-1.5 py-0.5 rounded font-bold bg-emerald-950 text-[#00FFA3] border border-emerald-800/60"; }
@@ -4277,7 +4436,6 @@
       } catch (e) {
         // 이미 연동되어 있는 상태라면 일시적 네트워크 에러로 오류 UI로 덮어쓰지 않음
         if (!userChannelId) {
-          if (dot) { dot.className = 'w-2.5 h-2.5 rounded-full bg-[#FF4D6A] shadow-[0_0_8px_rgba(255,77,106,0.8)] transition-all flex-shrink-0'; dot.title = '서버 연결 실패'; }
           if (text) { text.textContent = '오류'; text.className = 'font-medium text-[#FF4D6A]'; }
           if (elChannelName) elChannelName.style.display = 'none';
         }
@@ -4285,24 +4443,85 @@
       return userChannelId;
     }
 
-    // ===== 백그라운드 자동 동기화 옵션 제어 (기본 OFF) =====
-    let autoSyncInterval = null;
+    // ===== OBS 자동 종료 대기 시간 설정 제어 =====
+    async function loadWatchdogTimeout() {
+      try {
+        const res = await apiFetch('/watchdog-timeout');
+        if (res.ok) {
+          const data = await res.json();
+          const sec = data.timeout_sec;
+          const select = document.getElementById('select-watchdog-timeout');
+          const customContainer = document.getElementById('custom-watchdog-container');
+          const customInput = document.getElementById('input-custom-watchdog');
+          if (!select) return;
 
-    function toggleAutoSync(enabled) {
-      if (autoSyncInterval) {
-        clearInterval(autoSyncInterval);
-        autoSyncInterval = null;
-      }
-
-      if (enabled) {
-        showToast('자동 동기화 켬', 'info', '60초마다 연결 상태를 동기화합니다.');
-        autoSyncInterval = setInterval(async () => {
-          if (!isLoggingIn) {
-            await updateConnectionStatus();
+          const presets = ['10', '30', '60', '300', '600'];
+          if (presets.includes(String(sec))) {
+            select.value = String(sec);
+            if (customContainer) customContainer.classList.add('hidden');
+          } else {
+            select.value = 'custom';
+            if (customInput) customInput.value = sec;
+            if (customContainer) customContainer.classList.remove('hidden');
           }
-        }, 60000);
+        }
+      } catch (e) {
+        console.warn('[CHZZK Dock] OBS 대기 시간 로드 예외:', e);
+      }
+    }
+
+    async function onWatchdogTimeoutChange(val) {
+      const customContainer = document.getElementById('custom-watchdog-container');
+      const customInput = document.getElementById('input-custom-watchdog');
+      if (val === 'custom') {
+        if (customContainer) customContainer.classList.remove('hidden');
+        if (customInput) {
+          customInput.focus();
+          if (!customInput.value) customInput.value = '45';
+        }
       } else {
-        showToast('자동 동기화 끔', 'info', '수동 새로고침 모드로 동작합니다.');
+        if (customContainer) customContainer.classList.add('hidden');
+        const sec = parseInt(val, 10);
+        if (!isNaN(sec)) {
+          await saveWatchdogTimeout(sec);
+        }
+      }
+    }
+
+    async function saveCustomWatchdogTimeout() {
+      const customInput = document.getElementById('input-custom-watchdog');
+      if (!customInput) return;
+      let sec = parseInt(customInput.value, 10);
+      if (isNaN(sec) || sec < 5) {
+        showToast('입력 오류', 'warn', '대기 시간은 최소 5초 이상이어야 합니다.');
+        return;
+      }
+      if (sec > 86400) {
+        showToast('입력 오류', 'warn', '대기 시간은 최대 24시간(86400초) 이하이어야 합니다.');
+        return;
+      }
+      await saveWatchdogTimeout(sec);
+    }
+
+    async function saveWatchdogTimeout(sec) {
+      try {
+        const res = await apiFetch('/watchdog-timeout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ timeout_sec: sec })
+        });
+        if (res.ok) {
+          let label = `${sec}초`;
+          if (sec === 60) label = '1분';
+          else if (sec === 300) label = '5분';
+          else if (sec === 600) label = '10분';
+          else if (sec >= 60 && sec % 60 === 0) label = `${sec / 60}분`;
+          showToast('⏱️ 대기 시간 변경', 'info', `OBS 자동 종료 대기 시간이 ${label}(으)로 설정되었습니다.`);
+        } else {
+          showToast('설정 저장 실패', 'warn', '서버에 설정을 저장하지 못했습니다.');
+        }
+      } catch (e) {
+        showToast('통신 오류', 'warn', '서버 통신 실패: ' + e.message);
       }
     }
 
@@ -4336,38 +4555,32 @@
       }
     }
 
-    // ===== OBS Launcher Script Integration =====
-    let cachedLauncherScript = "";
+    let currentObsStatus = { detected: false, path: '', installed: false };
 
-    async function getLauncherScriptContent() {
-      if (cachedLauncherScript) return cachedLauncherScript;
-      try {
-        const res = await apiFetch('/obs-script');
-        if (res.ok) {
-          cachedLauncherScript = await res.text();
-          return cachedLauncherScript;
-        }
-      } catch (e) {}
-      return "";
-    }
+    function updateObsScriptUI() {
+      const badge = document.getElementById('obs-script-status-badge');
+      const btn = document.getElementById('btn-obs-script-action');
+      if (!badge || !btn) return;
 
-    async function copyLauncherScriptCode() {
-      try {
-        const script = await getLauncherScriptContent();
-        if (script) {
-          await navigator.clipboard.writeText(script);
-          showToast('📋 OBS 스크립트 복사 완료', 'success', 'chzzk_dock_launcher.lua 코드가 클립보드에 복사되었습니다.');
-          const ta = document.getElementById('launcher-script-textarea');
-          if (ta) ta.value = script;
-          return;
+      if (currentObsStatus.installed) {
+        badge.textContent = '설치됨';
+        badge.className = 'text-[9px] px-1.5 py-0.5 rounded font-bold bg-emerald-950/80 text-[#00FFA3] border border-emerald-800/50';
+        btn.textContent = '✔️ 설치됨';
+        btn.disabled = true;
+        btn.className = 'px-2.5 py-1 text-[11px] font-bold rounded bg-[#161F2E] border border-[#243044] text-emerald-400 opacity-80 cursor-default';
+      } else {
+        if (currentObsStatus.detected) {
+          badge.textContent = '미설치';
+          badge.className = 'text-[9px] px-1.5 py-0.5 rounded font-medium bg-slate-800 text-slate-300 border border-slate-700';
+        } else {
+          badge.textContent = '경로 미감지';
+          badge.className = 'text-[9px] px-1.5 py-0.5 rounded font-medium bg-amber-950/80 text-amber-400 border border-amber-800/50';
         }
-        showToast('스크립트 로드 실패', 'error', '서버에서 스크립트를 불러올 수 없습니다.');
-      } catch (e) {
-        showToast('복사 실패', 'error', e.message);
+        btn.textContent = '📥 스크립트 설치';
+        btn.disabled = false;
+        btn.className = 'px-2.5 py-1 text-[11px] font-bold rounded transition-all cursor-pointer bg-emerald-950/50 border border-emerald-500/50 text-[#00FFA3] hover:bg-emerald-900/60 hover:text-white';
       }
     }
-
-    let currentObsStatus = { detected: false, path: '', installed: false };
 
     async function checkObsScriptStatus() {
       try {
@@ -4375,84 +4588,51 @@
         if (!res.ok) return;
         const data = await res.json();
         currentObsStatus = data;
-
-        const badge = document.getElementById('obs-script-status-badge');
-        const toggle = document.getElementById('toggle-obs-autostart');
-
-        if (toggle) {
-          toggle.checked = Boolean(data.installed);
-        }
-
-        if (badge) {
-          if (data.detected) {
-            badge.textContent = '자동 감지됨';
-            badge.className = 'text-[9px] px-1.5 py-0.2 rounded font-medium bg-emerald-950/80 text-[#00FFA3] border border-emerald-800/50';
-          } else {
-            badge.textContent = '경로 미감지';
-            badge.className = 'text-[9px] px-1.5 py-0.2 rounded font-medium bg-amber-950/80 text-amber-400 border border-amber-800/50';
-          }
-        }
+        updateObsScriptUI();
       } catch (e) {
         console.warn('OBS script status check error:', e);
       }
     }
 
-    async function handleObsAutoStartToggle(checked) {
-      const toggle = document.getElementById('toggle-obs-autostart');
-      const notice = document.getElementById('install-uac-notice');
+    async function handleObsScriptAction() {
+      const btn = document.getElementById('btn-obs-script-action');
+      if (currentObsStatus.installed) return;
 
-      if (checked && !currentObsStatus.detected) {
-        // 경로가 감지되지 않은 상태에서 켠 경우 폴더 선택으로 유도
+      if (!currentObsStatus.detected) {
         await browseAndInstallObsFolder();
         return;
       }
 
-      if (notice) notice.classList.remove('hidden');
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = '설치 중...';
+      }
 
       try {
-        if (checked) {
-          const res = await apiFetch('/install-obs-script', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ custom_dir: currentObsStatus.path || '' })
-          });
-          const data = await res.json();
-          if (res.ok && data.code === 200) {
-            showToast('🎉 Chzzk-Dock 자동시작 활성화', 'success', 'OBS 실행 시 독 서버가 자동으로 시작됩니다.');
-            currentObsStatus.installed = true;
-            if (data.path) {
-              currentObsStatus.path = data.path;
-              currentObsStatus.detected = true;
-            }
-          } else {
-            if (toggle) toggle.checked = false;
-            showToast('활성화 실패', 'error', data.message || '스크립트 설치 실패');
+        const res = await apiFetch('/install-obs-script', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ custom_dir: currentObsStatus.path || '' })
+        });
+        const data = await res.json();
+        if (res.ok && data.code === 200) {
+          showToast('🎉 스크립트 파일 설치 완료', 'success', 'OBS [도구] ➔ [스크립트] ➔ [+] 버튼으로 chzzk_dock_launcher.lua를 등록해 주세요.');
+          currentObsStatus.installed = true;
+          if (data.path) {
+            currentObsStatus.path = data.path;
+            currentObsStatus.detected = true;
           }
         } else {
-          const res = await apiFetch('/uninstall-obs-script', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ custom_dir: currentObsStatus.path || '' })
-          });
-          const data = await res.json();
-          if (res.ok && data.code === 200) {
-            showToast('Chzzk-Dock 자동시작 비활성화', 'info', 'OBS 연동 스크립트가 제거되었습니다.');
-            currentObsStatus.installed = false;
-          } else {
-            if (toggle) toggle.checked = true;
-            showToast('비활성화 실패', 'error', data.message || '스크립트 제거 실패');
-          }
+          showToast('설치 실패', 'error', data.message || '스크립트 설치 실패');
         }
       } catch (e) {
-        if (toggle) toggle.checked = !checked;
-        showToast('설정 변경 오류', 'error', e.message);
+        showToast('설치 오류', 'error', e.message);
       } finally {
-        if (notice) notice.classList.add('hidden');
+        updateObsScriptUI();
       }
     }
 
     async function browseAndInstallObsFolder() {
-      const toggle = document.getElementById('toggle-obs-autostart');
       try {
         showToast('📂 OBS 폴더 선택 창을 엽니다...', 'info');
         const res = await apiFetch('/browse-obs-folder', { method: 'POST' });
@@ -4461,85 +4641,18 @@
           if (!data.cancelled && data.resolved_path) {
             currentObsStatus.path = data.resolved_path;
             currentObsStatus.detected = true;
-            if (toggle) toggle.checked = true;
-            await handleObsAutoStartToggle(true);
+            updateObsScriptUI();
+            await handleObsScriptAction();
           } else {
-            if (toggle) toggle.checked = Boolean(currentObsStatus.installed);
+            updateObsScriptUI();
           }
         } else {
-          if (toggle) toggle.checked = Boolean(currentObsStatus.installed);
+          updateObsScriptUI();
           showToast('폴더 선택 실패', 'error', data.message || '폴더 선택 다이얼로그 실행 실패');
         }
       } catch (e) {
-        if (toggle) toggle.checked = Boolean(currentObsStatus.installed);
+        updateObsScriptUI();
         showToast('폴더 선택 오류', 'error', e.message);
-      }
-    }
-
-    function toggleManualScriptOptions() {
-      const container = document.getElementById('manual-script-options-container');
-      const arrow = document.getElementById('manual-script-options-arrow');
-      const ta = document.getElementById('launcher-script-textarea');
-      if (!container) return;
-      const isHidden = container.classList.contains('hidden');
-      if (isHidden) {
-        container.classList.remove('hidden');
-        if (arrow) arrow.textContent = '▲';
-        if (ta && !ta.value) {
-          ta.value = '스크립트를 불러오는 중...';
-          getLauncherScriptContent().then(s => {
-            ta.value = s || '-- 스크립트를 불러오지 못했습니다.';
-          });
-        }
-      } else {
-        container.classList.add('hidden');
-        if (arrow) arrow.textContent = '▼';
-      }
-    }
-
-    async function exportLauncherScriptFile() {
-      try {
-        const res = await apiFetch('/export-script', { method: 'POST' });
-        if (res.ok) {
-          const data = await res.json();
-          showToast('💾 스크립트 파일 생성 완료!', 'success', '실행 파일 폴더에 chzzk_dock_launcher.lua가 생성되었습니다.');
-          return;
-        }
-      } catch (e) {}
-
-      // Fallback: 브라우저 다운로드
-      const script = await getLauncherScriptContent();
-      if (script) {
-        const blob = new Blob([script], { type: 'text/plain;charset=utf-8' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = 'chzzk_dock_launcher.lua';
-        a.click();
-        URL.revokeObjectURL(a.href);
-        showToast('💾 스크립트 다운로드 완료', 'success', 'chzzk_dock_launcher.lua 파일이 다운로드되었습니다.');
-      } else {
-        showToast('다운로드 실패', 'error', '스크립트를 불러올 수 없습니다.');
-      }
-    }
-
-    async function toggleScriptPreview() {
-      const container = document.getElementById('script-preview-container');
-      const arrow = document.getElementById('script-preview-arrow');
-      const ta = document.getElementById('launcher-script-textarea');
-      if (!container) return;
-
-      const isHidden = container.classList.contains('hidden');
-      if (isHidden) {
-        container.classList.remove('hidden');
-        if (arrow) arrow.textContent = '▲';
-        if (ta && !ta.value) {
-          ta.value = '스크립트를 불러오는 중...';
-          const script = await getLauncherScriptContent();
-          ta.value = script || '-- 스크립트를 불러오지 못했습니다.';
-        }
-      } else {
-        container.classList.add('hidden');
-        if (arrow) arrow.textContent = '▼';
       }
     }
 
@@ -4651,26 +4764,6 @@
       }
     }
 
-    function showImageModal(src, title) {
-      const modal = document.getElementById('image-modal');
-      const img = document.getElementById('image-modal-img');
-      const titleEl = document.getElementById('image-modal-title');
-      if (modal && img) {
-        img.src = src;
-        if (titleEl) titleEl.textContent = title || '참고 이미지';
-        modal.classList.remove('hidden');
-      }
-    }
-
-    function closeImageModal() {
-      const modal = document.getElementById('image-modal');
-      if (modal) modal.classList.add('hidden');
-    }
-
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') closeImageModal();
-    });
-
     async function saveManualCookies() {
       const nidAut = document.getElementById('cookie-nid-aut').value.trim();
       const nidSes = document.getElementById('cookie-nid-ses').value.trim();
@@ -4710,9 +4803,7 @@
 
     // ===== Main Settings Operations =====
     async function loadCurrentSettings(silent = false) {
-      const refreshIcon = document.getElementById('header-refresh-icon');
       const loadSpinner = document.getElementById('load-spinner');
-      if (refreshIcon) refreshIcon.classList.add('animate-spin');
       if (loadSpinner) loadSpinner.classList.add('animate-spin');
 
       try {
@@ -4823,13 +4914,11 @@
       if (loaded) {
         if (!silent) showToast('현재 방송 설정을 불러왔습니다', 'success');
         // 설정 로드 성공 시 헤더 상태도 '연동됨(초록불)'으로 확정
-        const dot = document.getElementById('header-status-dot');
         const text = document.getElementById('header-status-text');
         const badgeA = document.getElementById('badge-method-a');
         const badgeB = document.getElementById('badge-method-b');
         const btnWebview = document.getElementById('btn-webview-login');
 
-        if (dot) { dot.className = 'w-2.5 h-2.5 rounded-full bg-[#00FFA3] shadow-[0_0_8px_rgba(0,255,163,0.9)] animate-pulse'; dot.title = '치지직 연결됨'; }
         if (text) { text.textContent = '연동됨'; text.className = 'font-medium text-[#00FFA3]'; }
         if (badgeA) { badgeA.textContent = "✅ 쿠키 연동됨"; badgeA.className = "text-[9px] px-1.5 py-0.5 rounded font-bold bg-emerald-950 text-[#00FFA3] border border-emerald-800/60"; }
         if (badgeB) { badgeB.textContent = "✅ 등록됨"; badgeB.className = "text-[9px] px-1.5 py-0.5 rounded font-bold bg-emerald-950 text-[#00FFA3] border border-emerald-800/60"; }
@@ -4842,9 +4931,6 @@
         if (!silent) showToast('설정 불러오기 실패', 'error', '네이버 로그인 쿠키 상태를 확인해 주세요.');
       }
     } finally {
-      if (refreshIcon) {
-        setTimeout(() => refreshIcon.classList.remove('animate-spin'), 350);
-      }
       if (loadSpinner) {
         setTimeout(() => loadSpinner.classList.remove('animate-spin'), 350);
       }
@@ -4853,9 +4939,7 @@
 
     // ===== Donations & Realtime Chat Mode Loading =====
     async function fetchDonationsAndChatMode(silent = false) {
-      const iconTop = document.getElementById('donations-refresh-icon');
       const iconBottom = document.getElementById('donations-bottom-refresh-icon');
-      if (iconTop) iconTop.classList.add('animate-spin');
       if (iconBottom) iconBottom.classList.add('animate-spin');
 
       try {
@@ -4933,7 +5017,6 @@
           if (!silent) showToast('후원/채팅 설정 불러오기 실패', 'error', '네이버 로그인 쿠키 상태를 확인해 주세요.');
         }
       } finally {
-        if (iconTop) setTimeout(() => iconTop.classList.remove('animate-spin'), 350);
         if (iconBottom) setTimeout(() => iconBottom.classList.remove('animate-spin'), 350);
       }
     }
@@ -5058,7 +5141,7 @@
       const spinner = document.getElementById('save-spinner');
 
       btn.disabled = true;
-      saveText.textContent = '저장 중...';
+      saveText.textContent = '적용 중...';
       spinner.style.display = 'inline-block';
 
       let liveSuccess = false;
@@ -5076,7 +5159,7 @@
           } else {
             showToast('입력 확인', 'warn', '방송 제목을 입력해 주세요.');
             btn.disabled = false;
-            saveText.textContent = '설정 저장';
+            saveText.textContent = '적용';
             spinner.style.display = 'none';
             return;
           }
@@ -5216,19 +5299,19 @@
       spinner.style.display = 'none';
 
       if (liveSuccess && chatSuccess) {
-        saveText.textContent = '✅ 저장 완료!';
-        showToast('🎉 방송, 채팅 & 후원 설정 저장 완료!', 'success');
-        setTimeout(() => { saveText.textContent = '설정 저장'; }, 1500);
+        saveText.textContent = '✅ 적용 완료!';
+        showToast('🎉 방송, 채팅 & 후원 설정 적용 완료!', 'success');
+        setTimeout(() => { saveText.textContent = '적용'; }, 1500);
       } else if (liveSuccess) {
-        saveText.textContent = '✅ 저장 완료!';
-        showToast('방송 정보만 저장되었습니다.', 'warn');
-        setTimeout(() => { saveText.textContent = '설정 저장'; }, 1500);
+        saveText.textContent = '✅ 적용 완료!';
+        showToast('방송 정보만 적용되었습니다.', 'warn');
+        setTimeout(() => { saveText.textContent = '적용'; }, 1500);
       } else if (chatSuccess) {
-        saveText.textContent = '✅ 저장 완료!';
-        showToast('채팅 설정만 저장되었습니다.', 'warn');
-        setTimeout(() => { saveText.textContent = '설정 저장'; }, 1500);
+        saveText.textContent = '✅ 적용 완료!';
+        showToast('채팅 설정만 적용되었습니다.', 'warn');
+        setTimeout(() => { saveText.textContent = '적용'; }, 1500);
       } else {
-        saveText.textContent = '설정 저장';
+        saveText.textContent = '적용';
       }
     }
 
