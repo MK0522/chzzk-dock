@@ -1,7 +1,6 @@
 package core
 
 import (
-	"fmt"
 	"os"
 	"strings"
 	"sync"
@@ -87,41 +86,58 @@ func SetWatchdogTimeoutSec(sec int) {
 }
 
 // StartObsWatchdog: OBS 생명주기 감시 고루틴 실행
-// - OBS가 실행 중인 상태에서 꺼지면 3초 후 자체 종료 (자폭)
-// - 단독 실행 시 유예 시간(설정된 WatchdogTimeoutSec) 동안 OBS 실행을 대기함
-func StartObsWatchdog() {
+// - OBS 실행 감지 후, OBS가 종료되면 설정된 대기 시간(GetWatchdogTimeoutSec) 동안 대기 후 자동 종료
+// - 대기 시간 내에 OBS가 재실행되면 카운트다운을 즉시 취소하고 연동 복구
+func StartObsWatchdog(silentMode bool) {
 	settings := LoadSettings()
 	SetWatchdogTimeoutSec(settings.WatchdogTimeoutSec)
 
 	go func() {
-		fmt.Printf("[Watchdog] OBS 프로세스 감시 시작 (대기 유예 시간: %d초)\n", GetWatchdogTimeoutSec())
-		
+		LogInfo("[Watchdog] OBS 프로세스 감시 시작 (종료 대기 유예 시간: %d초, Silent: %v)", GetWatchdogTimeoutSec(), silentMode)
+
 		obsEverDetected := false
+		var obsStoppedAt time.Time
 		startTime := time.Now()
 
 		for {
-			time.Sleep(3 * time.Second)
+			time.Sleep(1 * time.Second)
 
 			running := IsObsRunning()
 
 			if running {
 				if !obsEverDetected {
-					fmt.Println("[Watchdog] OBS Studio 프로세스(obs64.exe) 감지 완료 -> 연동 모드 활성화")
+					LogInfo("[Watchdog] OBS Studio 프로세스(obs64.exe) 감지 완료 -> 연동 모드 활성화")
 					obsEverDetected = true
 				}
-			} else {
-				// OBS가 켜져 있다가 꺼진 경우 -> 3초 후 즉시 자폭
-				if obsEverDetected {
-					fmt.Println("[Watchdog] OBS Studio 종료 감지 -> 3초 후 치지직 독 서버를 자동으로 안전하게 종료합니다.")
-					time.Sleep(3 * time.Second)
-					os.Exit(0)
+				if !obsStoppedAt.IsZero() {
+					LogInfo("[Watchdog] OBS Studio 재실행 감지 -> 자동 종료 카운트다운 취소 및 정상 모드 복구")
+					obsStoppedAt = time.Time{}
 				}
-
-				// 시작 후 한 번도 OBS가 안 켜졌고, 동적으로 설정된 유예 시간을 초과한 경우
-				timeoutSec := GetWatchdogTimeoutSec()
-				if timeoutSec > 0 && time.Since(startTime) > time.Duration(timeoutSec)*time.Second {
-					fmt.Printf("[Watchdog] 대기 유예 시간(%d초) 내에 OBS Studio가 실행되지 않음 -> 서버 자동 종료\n", timeoutSec)
-					os.Exit(0)
+			} else {
+				if obsEverDetected {
+					// OBS가 실행 중이었다가 종료된 경우
+					if obsStoppedAt.IsZero() {
+						obsStoppedAt = time.Now()
+						timeoutSec := GetWatchdogTimeoutSec()
+						LogInfo("[Watchdog] OBS Studio 프로세스 종료 감지! 설정된 대기 시간(%d초) 카운트다운을 시작합니다.", timeoutSec)
+					} else {
+						timeoutSec := GetWatchdogTimeoutSec()
+						if timeoutSec > 0 && time.Since(obsStoppedAt) >= time.Duration(timeoutSec)*time.Second {
+							LogInfo("[Watchdog] OBS Studio 종료 후 대기 시간(%d초) 만료 -> 치지직 독 서버를 안전하게 자동 종료합니다.", timeoutSec)
+							DestroyDockWindow()
+							if GlobalTray != nil {
+								GlobalTray.Stop()
+							}
+							os.Exit(0)
+						}
+					}
+				} else if silentMode {
+					// 백그라운드 스크립트 실행 모드에서 시작 후 한 번도 OBS가 안 켜진 경우 고아 프로세스 방지
+					timeoutSec := GetWatchdogTimeoutSec()
+					if timeoutSec > 0 && time.Since(startTime) > time.Duration(timeoutSec)*time.Second {
+						LogInfo("[Watchdog] 백그라운드 대기 시간(%d초) 내에 OBS Studio가 실행되지 않음 -> 서버 자동 종료", timeoutSec)
+						os.Exit(0)
+					}
 				}
 			}
 		}

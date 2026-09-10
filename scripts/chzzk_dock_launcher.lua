@@ -87,8 +87,8 @@ local function launch_server_process()
 
     print("[CHZZK Dock] 치지직 독 서버 시작 요청 (비동기): " .. target)
     -- Windows 창 숨김 백그라운드 비동기 실행:
-    -- chzzk-dock.exe는 자체 Win32 Mutex를 가지고 있어 이미 실행 중이면 1ms 내에 조용히 자동 종료됩니다.
-    local launch_cmd = 'start "" /b "' .. target .. '"'
+    -- OBS 시작 시에는 --silent 플래그로 조용히 백그라운드 구동하며, exe를 직접 더블클릭할 때만 웹뷰 화면이 팝업됩니다.
+    local launch_cmd = 'start "" /b "' .. target .. '" --silent'
     local ret = os.execute(launch_cmd)
     if ret ~= 0 then
         alert_error("치지직 독 서버 실행에 실패했습니다.\n\n명령: " .. launch_cmd)

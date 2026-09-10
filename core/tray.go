@@ -472,6 +472,11 @@ func (t *PureWinTrayIcon) Run() {
 
 	wndProcCallback := syscall.NewCallback(func(hwnd syscall.Handle, msg uint32, wparam, lparam uintptr) uintptr {
 		if msg == WM_TRAYICON {
+			// WM_LBUTTONDBLCLK (0x0203): 트레이 아이콘 더블클릭 시 독 화면 열기
+			if lparam == 0x0203 {
+				ShowDockWindow()
+				return 0
+			}
 			// WM_RBUTTONUP (0x0205), WM_RBUTTONDOWN (0x0204), WM_LBUTTONUP (0x0202), WM_CONTEXTMENU (0x007B)
 			if lparam == 0x0205 || lparam == 0x0204 || lparam == 0x0202 || lparam == 0x007B {
 				t.showMenu()
