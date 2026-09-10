@@ -36,19 +36,22 @@ var embeddedGuide2 []byte
 var embeddedLauncherScript []byte
 
 // ============================================================
-//  CHZZK OBS Dock Server v0.5.1 (Modular Architecture)
+//  CHZZK OBS Dock Server v0.5.2 (Modular Architecture)
 // ============================================================
 const (
-	APP_VERSION = "v0.5.1"
-	HTTP_PORT   = 8081
-	USER_AGENT  = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+	APP_VERSION       = "v0.5.2"
+	DEFAULT_HTTP_PORT = 8081
+	USER_AGENT        = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 )
 
 var (
-	webviewProcess *exec.Cmd
-	webviewLock    sync.Mutex
-	trayInstance   *core.PureWinTrayIcon
-	httpClient     = &http.Client{Timeout: 10 * time.Second}
+	activeHttpPort     = DEFAULT_HTTP_PORT
+	isFallbackPort     = false
+	portFallbackReason = ""
+	webviewProcess     *exec.Cmd
+	webviewLock        sync.Mutex
+	trayInstance       *core.PureWinTrayIcon
+	httpClient         = &http.Client{Timeout: 10 * time.Second}
 )
 
 func sendBytes(w http.ResponseWriter, body []byte, status int, contentType string) {
@@ -125,8 +128,8 @@ func getLauncherScriptData() []byte {
 func setCORSHeaders(w http.ResponseWriter, r *http.Request) {
 	origin := r.Header.Get("Origin")
 	allowedOrigins := map[string]bool{
-		fmt.Sprintf("http://localhost:%d", HTTP_PORT): true,
-		fmt.Sprintf("http://127.0.0.1:%d", HTTP_PORT): true,
+		fmt.Sprintf("http://localhost:%d", activeHttpPort): true,
+		fmt.Sprintf("http://127.0.0.1:%d", activeHttpPort): true,
 	}
 	if allowedOrigins[origin] {
 		w.Header().Set("Access-Control-Allow-Origin", origin)
@@ -151,6 +154,15 @@ func proxyUnofficialRequest(w http.ResponseWriter, r *http.Request, method, path
 	cfg := core.LoadConfig()
 	nidAut := cfg.NidAut
 	nidSes := cfg.NidSes
+
+	// 쿠키가 필요한 엔드포인트인데 NID_AUT만 있고 NID_SES가 누락된 경우 즉시 자동 갱신 시도
+	if !isPublic && nidAut != "" && nidSes == "" {
+		if _, newSes, err := core.RefreshNaverSession(nidAut); err == nil && newSes != "" {
+			cfg = core.LoadConfig()
+			nidAut = cfg.NidAut
+			nidSes = cfg.NidSes
+		}
+	}
 
 	// 쿠키가 필요한 엔드포인트인 경우에만 로그인 쿠키 검증
 	if !isPublic && (nidAut == "" || nidSes == "") {
@@ -217,6 +229,59 @@ func proxyUnofficialRequest(w http.ResponseWriter, r *http.Request, method, path
 		contentType = "application/json"
 	}
 
+	// 401 Unauthorized이거나 /unofficial-user에서 loggedIn: false가 반환된 경우, NID_AUT로 1회 무중단 자동 갱신 및 재시도
+	isUserStatusLoggedOut := false
+	if !isPublic && resp.StatusCode == http.StatusOK && strings.Contains(targetURL, "getUserStatus") {
+		var statusResp struct {
+			Content struct {
+				LoggedIn bool `json:"loggedIn"`
+			} `json:"content"`
+		}
+		if err := json.Unmarshal(respBytes, &statusResp); err == nil && !statusResp.Content.LoggedIn {
+			isUserStatusLoggedOut = true
+		}
+	}
+
+	if !isPublic && nidAut != "" && (resp.StatusCode == http.StatusUnauthorized || isUserStatusLoggedOut) {
+		core.LogWarn("[Auth] 네이버 세션 만료 감지 (HTTP %d, loggedOut=%v). NID_AUT 기반 자동 갱신 시도...", resp.StatusCode, isUserStatusLoggedOut)
+		if _, newSes, err := core.RefreshNaverSession(nidAut); err == nil && newSes != "" {
+			cfg = core.LoadConfig()
+			nidAut = cfg.NidAut
+			nidSes = cfg.NidSes
+
+			var retryBodyReader io.Reader
+			if len(body) > 0 {
+				retryBodyReader = strings.NewReader(string(body))
+			}
+			retryReq, rErr := http.NewRequest(method, targetURL, retryBodyReader)
+			if rErr == nil {
+				retryReq.Header.Set("User-Agent", USER_AGENT)
+				if len(body) > 0 {
+					retryReq.Header.Set("Content-Type", "application/json")
+				}
+				retryReq.Header.Set("Cookie", fmt.Sprintf("NID_AUT=%s; NID_SES=%s", nidAut, nidSes))
+				retryReq.Header.Set("Origin", "https://chzzk.naver.com")
+				retryReq.Header.Set("Referer", "https://chzzk.naver.com/")
+
+				if retryResp, doErr := httpClient.Do(retryReq); doErr == nil {
+					defer retryResp.Body.Close()
+					if retryBytes, readErr := io.ReadAll(retryResp.Body); readErr == nil {
+						core.LogInfo("[Auth] 세션 자동 갱신 후 재요청 성공 (HTTP %d)", retryResp.StatusCode)
+						respBytes = retryBytes
+						resp.StatusCode = retryResp.StatusCode
+						contentType = retryResp.Header.Get("Content-Type")
+						if contentType == "" {
+							contentType = "application/json"
+						}
+					}
+				}
+			}
+		} else {
+			core.LogWarn("[Auth] 네이버 세션 자동 갱신 실패: %v", err)
+			core.InvalidateConfigCache()
+		}
+	}
+
 	core.SetCachedApiResponse(method, targetURL, respBytes, resp.StatusCode, contentType)
 	sendBytes(w, respBytes, resp.StatusCode, contentType)
 }
@@ -263,8 +328,10 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 			"/unofficial-user":   true,
 			"/open-browser":      true,
 			"/obs-script-status": true,
-			"/remote-webview":    true,
-			"/watchdog-timeout":  true,
+			"/remote-webview":      true,
+			"/watchdog-timeout":    true,
+			"/port-status":         true,
+			"/startup-popup-status": true,
 		}
 
 		if apiPaths[path] || strings.HasPrefix(path, "/unofficial/") {
@@ -285,6 +352,7 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 			}
 
 			if path == "/config" {
+				core.InvalidateConfigCache()
 				cfg := core.LoadConfig()
 				autMask := ""
 				sesMask := ""
@@ -363,6 +431,7 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 					}
 				}
 
+				core.InvalidateConfigCache()
 				cfg := core.LoadConfig()
 				if cfg.NidAut != "" && cfg.NidSes != "" {
 					core.LogInfo("[HTTP] /login-wait: 네이버 로그인 세션 쿠키 연동 성공")
@@ -437,6 +506,26 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 				sendJSON(w, map[string]interface{}{
 					"code":        200,
 					"timeout_sec": timeoutSec,
+				}, http.StatusOK)
+				return
+			}
+
+			if path == "/port-status" {
+				sendJSON(w, map[string]interface{}{
+					"code":            200,
+					"active_port":     activeHttpPort,
+					"configured_port": core.GetConfiguredPort(),
+					"is_fallback":     isFallbackPort,
+					"fallback_reason": portFallbackReason,
+					"default_port":    DEFAULT_HTTP_PORT,
+				}, http.StatusOK)
+				return
+			}
+
+			if path == "/startup-popup-status" {
+				sendJSON(w, map[string]interface{}{
+					"code":           200,
+					"popup_on_start": core.GetPopupOnStart(),
 				}, http.StatusOK)
 				return
 			}
@@ -592,6 +681,33 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		if path == "/save-startup-popup" {
+			var reqData struct {
+				PopupOnStart bool `json:"popup_on_start"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&reqData); err != nil {
+				sendJSON(w, map[string]interface{}{
+					"code":    400,
+					"message": "잘못된 요청 형식입니다.",
+				}, http.StatusBadRequest)
+				return
+			}
+			if err := core.SetPopupOnStartSetting(reqData.PopupOnStart); err != nil {
+				sendJSON(w, map[string]interface{}{
+					"code":    500,
+					"message": "설정 저장에 실패했습니다.",
+				}, http.StatusInternalServerError)
+				return
+			}
+			core.LogInfo("[Settings] 시작 시 독 팝업창 자동 열기 설정이 %v(으)로 저장되었습니다.", reqData.PopupOnStart)
+			sendJSON(w, map[string]interface{}{
+				"code":           200,
+				"popup_on_start": reqData.PopupOnStart,
+				"message":        "시작 팝업 설정이 저장되었습니다.",
+			}, http.StatusOK)
+			return
+		}
+
 		if path == "/watchdog-timeout" {
 			var reqData struct {
 				TimeoutSec int `json:"timeout_sec"`
@@ -611,14 +727,143 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			core.SetWatchdogTimeoutSec(reqData.TimeoutSec)
-			_ = core.SaveSettings(core.AppSettings{WatchdogTimeoutSec: reqData.TimeoutSec})
+			st := core.LoadSettings()
+			st.WatchdogTimeoutSec = reqData.TimeoutSec
+			_ = core.SaveSettings(st)
 			if trayInstance != nil {
-				trayInstance.UpdateTooltip(fmt.Sprintf("CHZZK OBS Dock Server (%s) - 대기: %s", APP_VERSION, getWatchdogLabel(reqData.TimeoutSec)))
+				portLabel := fmt.Sprintf("포트: %d", activeHttpPort)
+				if isFallbackPort {
+					portLabel = fmt.Sprintf("대체 포트: %d (점유 충돌)", activeHttpPort)
+				}
+				trayInstance.UpdateTooltip(fmt.Sprintf("CHZZK OBS Dock Server (%s) - %s, OBS와 함께 종료: %s", APP_VERSION, portLabel, getWatchdogTrayLabel(reqData.TimeoutSec)))
 			}
 			sendJSON(w, map[string]interface{}{
 				"code":        200,
 				"message":     "대기 시간이 성공적으로 변경되었습니다.",
 				"timeout_sec": reqData.TimeoutSec,
+			}, http.StatusOK)
+			return
+		}
+
+		if path == "/check-port" {
+			var reqData struct {
+				Port int `json:"port"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&reqData); err != nil {
+				sendJSON(w, map[string]interface{}{
+					"code":    400,
+					"message": "잘못된 요청 형식입니다.",
+				}, http.StatusBadRequest)
+				return
+			}
+
+			if reqData.Port < 1024 || reqData.Port > 65535 {
+				appErr := core.NewAppError(
+					core.ErrNetInvalidPortRange,
+					"포트 번호 범위 오류",
+					fmt.Sprintf("포트 번호는 1024 ~ 65535 사이여야 합니다 (입력값: %d).", reqData.Port),
+					fmt.Sprintf("Invalid port range: %d", reqData.Port),
+					nil,
+				)
+				core.LogWarn(appErr.DevFormat())
+				sendJSON(w, map[string]interface{}{
+					"code":       400,
+					"error_code": appErr.Code,
+					"available":  false,
+					"port":       reqData.Port,
+					"message":    appErr.UserMsg,
+				}, http.StatusBadRequest)
+				return
+			}
+
+			// 현재 활성화된 독 서버의 포트와 동일하다면 사용 중인 독 포트로 안내
+			if reqData.Port == activeHttpPort {
+				sendJSON(w, map[string]interface{}{
+					"code":      200,
+					"available": true,
+					"port":      reqData.Port,
+					"message":   fmt.Sprintf("현재 CHZZK OBS Dock에서 정상 작동 중인 포트(%d)입니다.", reqData.Port),
+				}, http.StatusOK)
+				return
+			}
+
+			available, pid, procName, err := core.CheckPortAvailable(reqData.Port)
+			if !available {
+				displayName := procName
+				if displayName == "" {
+					displayName = "알 수 없는 프로그램"
+				}
+				errMsg := fmt.Sprintf("포트 %d번은 이미 다른 프로그램('%s', PID %d)에서 사용 중입니다.", reqData.Port, displayName, pid)
+				if pid == 0 {
+					errMsg = fmt.Sprintf("포트 %d번은 이미 다른 프로그램에서 사용 중입니다.", reqData.Port)
+				}
+				if err != nil {
+					core.LogWarn("[PortCheck] Port %d unavailable: %v (PID: %d, Proc: %s)", reqData.Port, err, pid, procName)
+				}
+				sendJSON(w, map[string]interface{}{
+					"code":        409,
+					"available":   false,
+					"port":        reqData.Port,
+					"occupied_by": displayName,
+					"pid":         pid,
+					"message":     errMsg,
+				}, http.StatusOK)
+				return
+			}
+
+			sendJSON(w, map[string]interface{}{
+				"code":      200,
+				"available": true,
+				"port":      reqData.Port,
+				"message":   fmt.Sprintf("포트 %d번은 사용 가능합니다.", reqData.Port),
+			}, http.StatusOK)
+			return
+		}
+
+		if path == "/save-port" {
+			var reqData struct {
+				Port int `json:"port"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&reqData); err != nil {
+				sendJSON(w, map[string]interface{}{
+					"code":    400,
+					"message": "잘못된 요청 형식입니다.",
+				}, http.StatusBadRequest)
+				return
+			}
+
+			if reqData.Port < 1024 || reqData.Port > 65535 {
+				sendJSON(w, map[string]interface{}{
+					"code":       400,
+					"error_code": core.ErrNetInvalidPortRange,
+					"message":    fmt.Sprintf("포트 번호는 1024 ~ 65535 사이여야 합니다 (입력값: %d).", reqData.Port),
+				}, http.StatusBadRequest)
+				return
+			}
+
+			if err := core.SaveConfiguredPort(reqData.Port); err != nil {
+				appErr := core.NewAppError(
+					core.ErrSysSettingsIoFailed,
+					"설정 저장 실패",
+					"포트 설정을 저장하는 중 오류가 발생했습니다.",
+					fmt.Sprintf("Failed to save port %d to settings.json", reqData.Port),
+					err,
+				)
+				core.LogError(appErr.DevFormat())
+				sendJSON(w, map[string]interface{}{
+					"code":       500,
+					"error_code": appErr.Code,
+					"message":    appErr.UserMsg,
+				}, http.StatusInternalServerError)
+				return
+			}
+
+			core.LogInfo("[Settings] 기본 HTTP 서버 포트 설정이 %d번으로 저장되었습니다.", reqData.Port)
+			sendJSON(w, map[string]interface{}{
+				"code":             200,
+				"port":             reqData.Port,
+				"restart_required": reqData.Port != activeHttpPort,
+				"message":          fmt.Sprintf("기본 포트가 %d번으로 설정되었습니다.\n프로그램을 재시작하면 새 포트로 작동합니다.", reqData.Port),
 			}, http.StatusOK)
 			return
 		}
@@ -652,6 +897,7 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 //  시스템 트레이 및 앱 생명주기 관리
 // ============================================================
 func exitApp() {
+	core.DestroyDockWindow()
 	if trayInstance != nil {
 		trayInstance.Stop()
 	}
@@ -665,72 +911,137 @@ func getWatchdogLabel(sec int) string {
 	case 30:
 		return "30초"
 	case 60:
-		return "1분 (기본값)"
+		return "1분"
 	case 300:
 		return "5분"
 	case 600:
 		return "10분"
 	default:
-		return fmt.Sprintf("%d초 (직접 입력)", sec)
+		return fmt.Sprintf("%d초", sec)
+	}
+}
+
+func getWatchdogTrayLabel(sec int) string {
+	switch sec {
+	case 10:
+		return "10초 뒤 종료"
+	case 30:
+		return "30초 뒤 종료"
+	case 60:
+		return "1분 뒤 종료 (기본값)"
+	case 300:
+		return "5분 뒤 종료"
+	case 600:
+		return "10분 뒤 종료"
+	default:
+		return fmt.Sprintf("%d초 뒤 종료 (직접 입력)", sec)
 	}
 }
 
 func updateWatchdogTimeoutFromTray(sec int) {
 	core.SetWatchdogTimeoutSec(sec)
-	_ = core.SaveSettings(core.AppSettings{WatchdogTimeoutSec: sec})
+	st := core.LoadSettings()
+	st.WatchdogTimeoutSec = sec
+	_ = core.SaveSettings(st)
 	if trayInstance != nil {
-		trayInstance.UpdateTooltip(fmt.Sprintf("CHZZK OBS Dock Server (%s) - 대기: %s", APP_VERSION, getWatchdogLabel(sec)))
-		trayInstance.ShowNotification("CHZZK OBS Dock", fmt.Sprintf("OBS 자동 종료 대기 시간이 %s(으)로 설정되었습니다.", getWatchdogLabel(sec)))
+		portLabel := fmt.Sprintf("포트: %d", activeHttpPort)
+		if isFallbackPort {
+			portLabel = fmt.Sprintf("대체 포트: %d (점유 충돌)", activeHttpPort)
+		}
+		trayInstance.UpdateTooltip(fmt.Sprintf("CHZZK OBS Dock Server (%s) - %s, OBS와 함께 종료: %s", APP_VERSION, portLabel, getWatchdogTrayLabel(sec)))
+		trayInstance.ShowNotification("CHZZK OBS Dock", fmt.Sprintf("OBS 종료 시 %s 뒤 함께 종료되도록 설정되었습니다.", getWatchdogLabel(sec)))
 	}
 }
 
-func runTray() {
+func runTray(silentMode bool) {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
+	// 1. 독 독립 윈도우(WebView2) 생성
+	// - silentMode(OBS 연동 등)가 아니고, 설정에서 '시작 시 팝업 열기'가 켜져 있을 때만 화면에 즉시 표시
+	showWindow := !silentMode && core.GetPopupOnStart()
+	core.InitDockWindow(activeHttpPort, APP_VERSION, showWindow)
+
+	// 2. 트레이 아이콘 설정
 	sec := core.GetWatchdogTimeoutSec()
+	portLabel := fmt.Sprintf("포트: %d", activeHttpPort)
+	if isFallbackPort {
+		portLabel = fmt.Sprintf("대체 포트: %d (점유 충돌)", activeHttpPort)
+	}
+
 	tray := core.NewPureWinTrayIcon(
-		fmt.Sprintf("CHZZK OBS Dock Server (%s) - 대기: %s", APP_VERSION, getWatchdogLabel(sec)),
+		fmt.Sprintf("CHZZK OBS Dock Server (%s) - %s, OBS와 함께 종료: %s", APP_VERSION, portLabel, getWatchdogTrayLabel(sec)),
 		"icon.ico",
 		embeddedIcon,
 	)
 
 	tray.StartNotificationTitle = "CHZZK OBS Dock"
-	tray.StartNotificationMsg = fmt.Sprintf("치지직 OBS 독 서버가 시작되었습니다.\n독 URL: http://localhost:%d", HTTP_PORT)
+	if isFallbackPort {
+		tray.StartNotificationMsg = fmt.Sprintf("기본 포트 충돌로 임시 포트(%d)로 시작되었습니다.\n독 URL: http://localhost:%d", activeHttpPort, activeHttpPort)
+	} else {
+		tray.StartNotificationMsg = fmt.Sprintf("치지직 OBS 독 서버가 시작되었습니다.\n독 URL: http://localhost:%d", activeHttpPort)
+	}
 
 	tray.MenuItems = []core.MenuItem{
 		{
+			Label: "🖥️ CHZZK 독 팝업창 열기",
+			Callback: func() {
+				core.ShowDockWindow()
+			},
+		},
+		{
 			Label: fmt.Sprintf("CHZZK Dock %s (주소 복사)", APP_VERSION),
 			Callback: func() {
-				core.CopyDockUrl(HTTP_PORT)
+				core.CopyDockUrl(activeHttpPort)
+			},
+		},
+		{IsSeparator: true},
+		{
+			Label: "시작 시 독 팝업창 자동 열기",
+			CheckFn: func() bool {
+				return core.GetPopupOnStart()
+			},
+			Callback: func() {
+				newVal := !core.GetPopupOnStart()
+				_ = core.SetPopupOnStartSetting(newVal)
+				if trayInstance != nil {
+					statusStr := "활성화"
+					if !newVal {
+						statusStr = "비활성화 (트레이 시작)"
+					}
+					trayInstance.ShowNotification("CHZZK OBS Dock", fmt.Sprintf("시작 시 독 팝업창 자동 열기가 %s되었습니다.", statusStr))
+				}
 			},
 		},
 		{IsSeparator: true},
 		{
 			DynamicLabel: func() string {
 				sec := core.GetWatchdogTimeoutSec()
-				return fmt.Sprintf("OBS 자동 종료 대기: %s", getWatchdogLabel(sec))
+				return fmt.Sprintf("OBS와 함께 종료: %s", getWatchdogTrayLabel(sec))
 			},
 			SubItems: []core.MenuItem{
 				{
-					Label: "10초",
+					Label: "10초 뒤 종료",
 					CheckFn: func() bool { return core.GetWatchdogTimeoutSec() == 10 },
 					Callback: func() { updateWatchdogTimeoutFromTray(10) },
 				},
 				{
-					Label: "30초",
+					Label: "30초 뒤 종료",
 					CheckFn: func() bool { return core.GetWatchdogTimeoutSec() == 30 },
 					Callback: func() { updateWatchdogTimeoutFromTray(30) },
 				},
 				{
-					Label: "1분 (기본값)",
+					Label: "1분 뒤 종료 (기본값)",
 					CheckFn: func() bool { return core.GetWatchdogTimeoutSec() == 60 },
 					Callback: func() { updateWatchdogTimeoutFromTray(60) },
 				},
 				{
-					Label: "5분",
+					Label: "5분 뒤 종료",
 					CheckFn: func() bool { return core.GetWatchdogTimeoutSec() == 300 },
 					Callback: func() { updateWatchdogTimeoutFromTray(300) },
 				},
 				{
-					Label: "10분",
+					Label: "10분 뒤 종료",
 					CheckFn: func() bool { return core.GetWatchdogTimeoutSec() == 600 },
 					Callback: func() { updateWatchdogTimeoutFromTray(600) },
 				},
@@ -740,7 +1051,7 @@ func runTray() {
 						sec := core.GetWatchdogTimeoutSec()
 						isPreset := (sec == 10 || sec == 30 || sec == 60 || sec == 300 || sec == 600)
 						if !isPreset {
-							return fmt.Sprintf("직접 입력 (%d초)", sec)
+							return fmt.Sprintf("직접 입력 (%d초 뒤 종료)", sec)
 						}
 						return "직접 입력 (독 UI 설정)"
 					},
@@ -830,13 +1141,81 @@ func main() {
 		os.Exit(0)
 	}
 
-	// [단일 인스턴스 보장] 이미 독 서버가 실행 중인 경우 조용히 즉시 종료
+	// [SILENT / HEADLESS] 백그라운드 무화면 실행 모드 확인 (OBS 연동 스크립트 등)
+	silentMode := false
+	for _, arg := range os.Args[1:] {
+		if arg == "--silent" || arg == "--background" || arg == "-s" {
+			silentMode = true
+			break
+		}
+	}
+
+	// [단일 인스턴스 보장] 버전별 고유 Mutex를 통한 다중 버전 공존 및 중복 실행 감지
 	kernel32 := syscall.NewLazyDLL("kernel32.dll")
-	mutexNamePtr, _ := syscall.UTF16PtrFromString(`Local\ChzzkObsDock_Server_Mutex`)
+	user32 := syscall.NewLazyDLL("user32.dll")
+	verKey := core.GetVersionKey(APP_VERSION)
+	mutexName := fmt.Sprintf(`Local\ChzzkObsDock_%s_Server_Mutex`, verKey)
+	mutexNamePtr, _ := syscall.UTF16PtrFromString(mutexName)
 	mutexHandle, _, _ := kernel32.NewProc("CreateMutexW").Call(0, 0, uintptr(unsafe.Pointer(mutexNamePtr)))
 	lastErr, _, _ := kernel32.NewProc("GetLastError").Call()
 	if lastErr == 183 { // ERROR_ALREADY_EXISTS
-		core.LogInfo("[Main] 이미 치지직 독 서버 인스턴스가 실행 중입니다. 중복 실행 방지를 위해 즉시 종료합니다.")
+		// 백그라운드/스크립트 모드로 중복 실행된 경우 조용히 종료
+		if silentMode {
+			if mutexHandle != 0 {
+				kernel32.NewProc("CloseHandle").Call(mutexHandle)
+			}
+			os.Exit(0)
+		}
+
+		core.LogInfo("[Main] 치지직 독 (%s) 인스턴스가 이미 실행 중입니다. 사용자에게 독 화면 표시 여부를 확인합니다.", APP_VERSION)
+
+		displayVer := APP_VERSION
+		if !strings.HasPrefix(displayVer, "v") {
+			displayVer = "v" + displayVer
+		}
+
+		// Win32 MessageBoxW 확인 다이얼로그 (MB_YESNO | MB_ICONQUESTION | MB_TOPMOST)
+		titlePtr, _ := syscall.UTF16PtrFromString("CHZZK OBS Dock 알림")
+		msgText := fmt.Sprintf(
+			"이미 CHZZK OBS Dock (%s) 프로그램이 백그라운드에서 실행 중입니다.\n\n현재 실행 중인 방송 독 화면을 여시겠습니까?",
+			displayVer,
+		)
+		msgPtr, _ := syscall.UTF16PtrFromString(msgText)
+		procMessageBoxW := user32.NewProc("MessageBoxW")
+		ret, _, _ := procMessageBoxW.Call(
+			0,
+			uintptr(unsafe.Pointer(msgPtr)),
+			uintptr(unsafe.Pointer(titlePtr)),
+			uintptr(0x00000004|0x00000020|0x00040000), // MB_YESNO | MB_ICONQUESTION | MB_TOPMOST
+		)
+
+		if ret == 6 { // IDYES: 사용자가 [예]를 선택한 경우에만 기존 창 표시
+			className := fmt.Sprintf("ChzzkDockWindowClass_%s", verKey)
+			classNamePtr, _ := syscall.UTF16PtrFromString(className)
+
+			procFindWindowW := user32.NewProc("FindWindowW")
+			procPostMessageW := user32.NewProc("PostMessageW")
+			procShowWindow := user32.NewProc("ShowWindow")
+
+			var existingHwnd uintptr
+			for i := 0; i < 20; i++ {
+				existingHwnd, _, _ = procFindWindowW.Call(uintptr(unsafe.Pointer(classNamePtr)), 0)
+				if existingHwnd != 0 {
+					break
+				}
+				time.Sleep(50 * time.Millisecond)
+			}
+
+			if existingHwnd != 0 {
+				showMsgId := core.GetShowDockMessageId(verKey)
+				if showMsgId != 0 {
+					procPostMessageW.Call(existingHwnd, uintptr(showMsgId), 0, 0)
+				}
+				procShowWindow.Call(existingHwnd, 9 /* SW_RESTORE */)
+				core.ForceForegroundWindow(existingHwnd, false)
+			}
+		}
+
 		if mutexHandle != 0 {
 			kernel32.NewProc("CloseHandle").Call(mutexHandle)
 		}
@@ -858,17 +1237,79 @@ func main() {
 	}
 
 	if enableWatchdog {
-		core.StartObsWatchdog()
+		core.StartObsWatchdog(silentMode)
 	}
 
-	addr := fmt.Sprintf("127.0.0.1:%d", HTTP_PORT)
+	// [세션 자동 복구] 프로그램 시작 시 저장된 NID_AUT 기반 네이버 세션 유효성 자동 검증 및 무중단 갱신
+	go func() {
+		cfg := core.LoadConfig()
+		if cfg.NidAut != "" {
+			core.CheckAndRefreshSessionOnStartup(cfg.NidAut, cfg.NidSes)
+		}
+	}()
+
+	// CLI 포트 지정 지원 (--port <num> 또는 -p <num>)
+	cliPort := 0
+	for i := 1; i < len(os.Args); i++ {
+		if (os.Args[i] == "--port" || os.Args[i] == "-p") && i+1 < len(os.Args) {
+			var p int
+			if _, err := fmt.Sscanf(os.Args[i+1], "%d", &p); err == nil && p >= 1024 && p <= 65535 {
+				cliPort = p
+			}
+		}
+	}
+
+	targetPort := DEFAULT_HTTP_PORT
+	if cliPort > 0 {
+		targetPort = cliPort
+	} else {
+		targetPort = core.GetConfiguredPort()
+		if targetPort < 1024 || targetPort > 65535 {
+			targetPort = DEFAULT_HTTP_PORT
+		}
+	}
+
+	addr := fmt.Sprintf("127.0.0.1:%d", targetPort)
 	listener, err := net.Listen("tcp", addr)
+	activeHttpPort = targetPort
+
 	if err != nil {
-		msg := fmt.Sprintf("CHZZK Dock 서버가 이미 실행 중이거나 포트(%d)가 사용 중입니다.\n\n작업 표시줄 트레이 아이콘이나 기존 실행 중인 프로그램을 확인해 주세요.", HTTP_PORT)
-		fmt.Printf("\n[오류] %s\n\n", msg)
-		core.LogError("서버 포트 바인딩 실패 (%s): %v", addr, err)
-		showMessageBox("CHZZK OBS Dock - 실행 오류", msg)
-		os.Exit(1)
+		pid, procName := core.FindProcessUsingPort(targetPort)
+		if procName == "" {
+			procName = "알 수 없는 프로그램"
+		}
+		core.LogWarn("[Main] 지정 포트(%d)가 '%s'(PID: %d)에 의해 사용 중입니다 (%v). 안전한 대체 포트를 자동 할당합니다.", targetPort, procName, pid, err)
+
+		// 안전한 대체 포트(49152 ~ 65535) 자동 탐색 및 바인딩
+		fallbackPort, fallbackListener, fbErr := core.FindSafeFallbackPort()
+		if fbErr != nil {
+			core.LogError("[Main] 대체 포트 할당 실패: %v", fbErr)
+			showMessageBox("CHZZK OBS Dock - 안내", "포트 충돌 후 대체 가능한 안전 포트를 찾지 못했습니다.\n네트워크 환경을 확인한 후 다시 실행해 주세요.")
+			os.Exit(1)
+		}
+
+		listener = fallbackListener
+		activeHttpPort = fallbackPort
+		isFallbackPort = true
+		portFallbackReason = fmt.Sprintf("지정 포트(%d)가 '%s'(PID: %d)에 의해 사용 중이어서 안전한 임시 포트(%d)로 자동 전환되었습니다.", targetPort, procName, pid, fallbackPort)
+
+		core.LogInfo("[Main] 안전한 대체 포트 %d번으로 서버를 시작합니다.", fallbackPort)
+
+		occupantLine := fmt.Sprintf("• 점유 프로그램: %s (PID: %d)\n", procName, pid)
+		if pid == 0 {
+			occupantLine = "• 점유 프로그램: 다른 프로그램에서 사용 중\n"
+		}
+
+		notifyMsg := fmt.Sprintf(
+			"기본 포트(%d)가 다른 프로그램에 의해 사용 중이어서\n"+
+				"안전한 임시 포트(%d)로 서버가 시작되었습니다.\n\n"+
+				"%s"+
+				"• 현재 독 주소: http://localhost:%d\n\n"+
+				"OBS 브라우저 독 또는 웹 브라우저에서 위 새 주소로 접속해 주세요.\n"+
+				"(독 설정 화면에서 원하시는 포트로 변경할 수 있습니다.)",
+			targetPort, fallbackPort, occupantLine, fallbackPort,
+		)
+		go showMessageBox("CHZZK OBS Dock - 안내", notifyMsg)
 	}
 
 	server := &http.Server{
@@ -877,10 +1318,10 @@ func main() {
 		WriteTimeout: 15 * time.Second,
 	}
 
-	core.LogInfo("CHZZK OBS Dock Server (%s) 시작됨 (포트: %d)", APP_VERSION, HTTP_PORT)
+	core.LogInfo("CHZZK OBS Dock Server (%s) 시작됨 (포트: %d, Fallback: %v)", APP_VERSION, activeHttpPort, isFallbackPort)
 	fmt.Println(strings.Repeat("=", 60))
 	fmt.Printf("  CHZZK OBS Dock Server (%s)\n", APP_VERSION)
-	fmt.Printf("  HTTP (통합 방송 독) : http://localhost:%d\n", HTTP_PORT)
+	fmt.Printf("  HTTP (통합 방송 독) : http://localhost:%d\n", activeHttpPort)
 	fmt.Println(strings.Repeat("=", 60))
 
 	go func() {
@@ -889,5 +1330,8 @@ func main() {
 		}
 	}()
 
-	runTray()
+	// 로컬 HTTP 서버 준비를 위한 초단위 이하(150ms) 확실한 지연시간 부여
+	time.Sleep(150 * time.Millisecond)
+
+	runTray(silentMode)
 }

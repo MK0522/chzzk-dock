@@ -281,6 +281,15 @@
     }
     .sub-btn:hover { background: #243044; color: #00FFA3; border-color: rgba(0, 255, 163, 0.3); }
 
+    input[type=number]::-webkit-inner-spin-button,
+    input[type=number]::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    input[type=number] {
+      -moz-appearance: textfield;
+    }
+
     .settings-panel {
       position: fixed; inset: 0; background: #0B0E11; z-index: 100;
       opacity: 0; pointer-events: none; visibility: hidden;
@@ -1435,16 +1444,16 @@
       <!-- OBS 자동 종료 대기 시간 설정 -->
       <div class="section-card p-2.5 bg-chzzk-card/70 border border-chzzk-border space-y-2">
         <div>
-          <div class="text-[11px] font-semibold text-white/90">⏱️ OBS 자동 종료 대기 시간</div>
-          <div class="text-[9px] text-chzzk-muted">OBS Studio 미실행 시 서버가 자동으로 종료될 때까지 대기하는 시간입니다.</div>
+          <div class="text-[11px] font-semibold text-white/90">⏱️ OBS와 함께 종료 (대기 시간)</div>
+          <div class="text-[9px] text-chzzk-muted">OBS Studio 종료 감지 시 지정된 시간 뒤 치지직 독 서버를 자동으로 함께 종료합니다.</div>
         </div>
         <div class="flex items-center gap-2">
           <select id="select-watchdog-timeout" onchange="onWatchdogTimeoutChange(this.value)" class="chzzk-input text-[11px] py-1 flex-1">
-            <option value="10">10초</option>
-            <option value="30">30초</option>
-            <option value="60" selected>1분 (기본값)</option>
-            <option value="300">5분</option>
-            <option value="600">10분</option>
+            <option value="10">10초 뒤 종료</option>
+            <option value="30">30초 뒤 종료</option>
+            <option value="60" selected>1분 뒤 종료 (기본값)</option>
+            <option value="300">5분 뒤 종료</option>
+            <option value="600">10분 뒤 종료</option>
             <option value="custom">직접 입력</option>
           </select>
           <div id="custom-watchdog-container" class="hidden flex items-center gap-1.5 flex-1">
@@ -1452,6 +1461,55 @@
             <span class="text-[11px] text-chzzk-muted">초</span>
             <button onclick="saveCustomWatchdogTimeout()" class="sub-btn !bg-chzzk-card hover:!border-chzzk-accent text-chzzk-accent text-[10px] py-1 px-2 font-medium">저장</button>
           </div>
+        </div>
+      </div>
+
+      <!-- 서버 포트 설정 & 충돌 방지 검사 -->
+      <div class="section-card p-2.5 bg-chzzk-card/70 border border-chzzk-border space-y-2">
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="text-[11px] font-semibold text-white/90">🌐 서버 포트 설정 (HTTP Port)</div>
+            <div class="text-[9px] text-chzzk-muted">기본 포트: 8081 (충돌 시 안전한 랜덤 포트 자동 전환)</div>
+          </div>
+          <span id="badge-port-status" class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950/80 text-emerald-400 border border-emerald-500/30 font-mono">
+            현재 포트: 8081
+          </span>
+        </div>
+
+        <div id="port-fallback-banner" class="hidden p-2 rounded bg-amber-950/40 border border-amber-500/30 text-[10px] text-amber-300 leading-relaxed">
+          <div class="font-bold flex items-center gap-1 text-amber-300">
+            <span>⚠️</span> <span>임시 대체 포트 사용 중</span>
+          </div>
+          <p id="port-fallback-reason" class="text-[9.5px] text-amber-200/80 mt-1"></p>
+        </div>
+
+        <div class="space-y-1.5 pt-0.5">
+          <div class="flex items-center gap-1.5">
+            <div class="relative flex-1 min-w-[90px]">
+              <input id="input-custom-port" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="5" class="chzzk-input text-[11px] py-1.5 w-full text-center font-mono placeholder:text-slate-500" placeholder="포트 (1024~65535)" />
+            </div>
+            <button type="button" onclick="checkCustomPort()" class="!w-auto px-3 py-1.5 rounded bg-[#161F2E] border border-[#243044] hover:border-chzzk-accent text-chzzk-accent text-[11px] font-semibold whitespace-nowrap cursor-pointer transition-colors">
+              🔍 점검
+            </button>
+            <button type="button" onclick="saveCustomPort()" class="!w-auto px-3 py-1.5 rounded bg-[#161F2E] border border-[#243044] hover:border-emerald-400 text-emerald-400 text-[11px] font-semibold whitespace-nowrap cursor-pointer transition-colors">
+              💾 저장
+            </button>
+          </div>
+          <div id="port-check-result" class="text-[10px] leading-tight min-h-[14px] text-chzzk-muted px-0.5 font-medium"></div>
+        </div>
+      </div>
+
+      <!-- 프로그램 시작 시 독 팝업창 자동 열기 설정 -->
+      <div class="section-card p-2.5 bg-chzzk-card/70 border border-chzzk-border space-y-2">
+        <div class="flex items-center justify-between">
+          <div class="pr-2">
+            <div class="text-[11px] font-semibold text-white/90">🖥️ 시작 시 독 팝업창 자동 열기</div>
+            <div class="text-[9px] text-chzzk-muted leading-tight mt-0.5">프로그램(exe) 직접 실행 시 독 화면을 바로 띄웁니다. (끄면 트레이로만 조용히 시작)</div>
+          </div>
+          <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
+            <input type="checkbox" id="toggle-popup-on-start" onchange="savePopupOnStartSetting(this.checked)" class="sr-only peer">
+            <div class="w-8 h-4.5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-chzzk-accent"></div>
+          </label>
         </div>
       </div>
 
@@ -1463,7 +1521,7 @@
     </div>
 
     <div class="text-[10px] text-chzzk-muted text-center mt-3 py-1">
-      <p class="font-medium text-white/70">CHZZK OBS Dock v0.5.1</p>
+      <p class="font-medium text-white/70">CHZZK OBS Dock v0.5.2</p>
     </div>
   </div>
 
@@ -2144,6 +2202,8 @@
         panel.classList.toggle('open');
         if (panel.classList.contains('open')) {
           checkObsScriptStatus();
+          loadPortStatus();
+          loadPopupOnStartSetting();
         }
       }
       updatePanelScrollLock();
@@ -4245,6 +4305,8 @@
       initConnection();
       checkObsScriptStatus();
       loadWatchdogTimeout();
+      loadPortStatus();
+      loadPopupOnStartSetting();
     }
 
     // DOM 로드 완료 상태에 무관하게 즉시 또는 이벤트 시점에 100% 실행 보장
@@ -4280,9 +4342,9 @@
 
       // 모든 재시도 실패 후 최종 상태 확인
       if (!serverConfig.nid_aut && !serverConfig.nid_ses) {
-        showToast('⚙ 로그인 설정 필요', 'warn', '⚙ 상단 로그인 설정 버튼을 눌러 연동을 진행하세요.');
+        showToast('⚙ 로그인 필요', 'warn', '치지직 로그인이 필요합니다. [설정] ➔ 로그인 버튼을 눌러 연동해 주세요.');
       } else {
-        showToast('⚠️ 치지직 연결 실패', 'warn', '치지직 서버 응답이 지연되고 있습니다. 잠시 후 새로고침해 주세요.');
+        showToast('⚠️ 치지직 연결 지연', 'warn', '치지직 서버 응답이 지연되고 있습니다. 잠시 후 다시 시도해 주세요.');
       }
     }
 
@@ -4305,7 +4367,29 @@
       }
     }
 
-    function handleSessionExpired() {
+    async function handleSessionExpired() {
+      // 백엔드에 저장된 NID_AUT가 있는지 확인 (백엔드 자동 갱신 중일 수 있으므로 즉시 파기 방지)
+      try {
+        const cRes = await fetch('/config', { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+        if (cRes.ok) {
+          const cfg = await cRes.json();
+          if (cfg && cfg.nid_aut) {
+            // 백엔드가 NID_AUT를 보유하고 있다면 갱신된 세션으로 재확인
+            const userRes = await apiFetch('/unofficial-user');
+            if (userRes.ok) {
+              const uData = await userRes.json();
+              const uContent = uData.content || uData;
+              if (uContent && (uContent.loggedIn === true || uContent.userIdHash)) {
+                return;
+              }
+            }
+          }
+        }
+      } catch (e) {}
+
+      serverConfig = { nid_aut: '', nid_ses: '' };
+      userChannelId = '';
+      currentChannelName = '';
       const text = document.getElementById('header-status-text');
       const badgeA = document.getElementById('badge-method-a');
       const badgeB = document.getElementById('badge-method-b');
@@ -4516,12 +4600,173 @@
           else if (sec === 300) label = '5분';
           else if (sec === 600) label = '10분';
           else if (sec >= 60 && sec % 60 === 0) label = `${sec / 60}분`;
-          showToast('⏱️ 대기 시간 변경', 'info', `OBS 자동 종료 대기 시간이 ${label}(으)로 설정되었습니다.`);
+          showToast('⏱️ 자동 종료 설정', 'info', `OBS 종료 시 ${label} 뒤 함께 종료되도록 설정되었습니다.`);
         } else {
           showToast('설정 저장 실패', 'warn', '서버에 설정을 저장하지 못했습니다.');
         }
       } catch (e) {
         showToast('통신 오류', 'warn', '서버 통신 실패: ' + e.message);
+      }
+    }
+
+    // ===== 서버 포트 관리 및 충돌 점검 제어 =====
+    let currentActivePort = 8081;
+    let currentConfiguredPort = 8081;
+
+    async function loadPortStatus() {
+      try {
+        const res = await apiFetch('/port-status');
+        if (!res.ok) return;
+        const data = await res.json();
+        currentActivePort = data.active_port || 8081;
+        currentConfiguredPort = data.configured_port || 8081;
+
+        const badge = document.getElementById('badge-port-status');
+        const banner = document.getElementById('port-fallback-banner');
+        const reasonEl = document.getElementById('port-fallback-reason');
+        const inputPort = document.getElementById('input-custom-port');
+
+        if (badge) {
+          if (data.is_fallback) {
+            badge.className = 'px-2 py-0.5 rounded text-[10px] font-bold bg-amber-950/80 text-amber-400 border border-amber-500/30 font-mono';
+            badge.textContent = `현재 포트: ${currentActivePort} (대체)`;
+          } else {
+            badge.className = 'px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950/80 text-emerald-400 border border-emerald-500/30 font-mono';
+            badge.textContent = `현재 포트: ${currentActivePort}`;
+          }
+        }
+
+        if (banner && reasonEl) {
+          if (data.is_fallback) {
+            banner.classList.remove('hidden');
+            reasonEl.textContent = data.fallback_reason || '기본 포트 충돌로 인해 임시 포트로 실행 중입니다.';
+          } else {
+            banner.classList.add('hidden');
+          }
+        }
+
+        if (inputPort && !inputPort.value) {
+          inputPort.value = currentConfiguredPort;
+        }
+      } catch (e) {
+        console.warn('[CHZZK Dock] 포트 상태 조회 예외:', e);
+      }
+    }
+
+    async function checkCustomPort() {
+      const input = document.getElementById('input-custom-port');
+      const resultEl = document.getElementById('port-check-result');
+      if (!input || !resultEl) return;
+
+      const port = parseInt(input.value, 10);
+      if (isNaN(port) || port < 1024 || port > 65535) {
+        resultEl.className = 'text-[10px] leading-tight text-rose-400 font-medium';
+        resultEl.textContent = '❌ 포트 번호는 1024 ~ 65535 사이의 숫자여야 합니다.';
+        return;
+      }
+
+      resultEl.className = 'text-[10px] leading-tight text-chzzk-muted font-medium';
+      resultEl.textContent = `⏳ 포트 ${port}번 점유 여부 확인 중...`;
+
+      try {
+        const res = await apiFetch('/check-port', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ port })
+        });
+        const data = await res.json();
+
+        if (data.available) {
+          resultEl.className = 'text-[10px] leading-tight text-emerald-400 font-medium';
+          resultEl.textContent = `✅ ${data.message || `포트 ${port}번은 사용 가능합니다.`}`;
+        } else {
+          resultEl.className = 'text-[10px] leading-tight text-rose-400 font-medium';
+          const occupied = data.occupied_by ? ` ('${data.occupied_by}', PID ${data.pid})` : '';
+          resultEl.textContent = `❌ 포트 ${port}번은 이미 다른 프로그램${occupied}에서 사용 중입니다.`;
+        }
+      } catch (e) {
+        resultEl.className = 'text-[10px] leading-tight text-rose-400 font-medium';
+        resultEl.textContent = '❌ 포트 점검 요청 실패: ' + e.message;
+      }
+    }
+
+    async function saveCustomPort() {
+      const input = document.getElementById('input-custom-port');
+      const resultEl = document.getElementById('port-check-result');
+      if (!input) return;
+
+      const port = parseInt(input.value, 10);
+      if (isNaN(port) || port < 1024 || port > 65535) {
+        showToast('포트 번호 오류', 'warn', '포트 번호는 1024 ~ 65535 사이여야 합니다.');
+        return;
+      }
+
+      if (resultEl) {
+        resultEl.className = 'text-[10px] leading-tight text-chzzk-muted font-medium';
+        resultEl.textContent = `⏳ 포트 ${port}번 저장 중...`;
+      }
+
+      try {
+        const res = await apiFetch('/save-port', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ port })
+        });
+        const data = await res.json();
+
+        if (res.ok && data.code === 200) {
+          currentConfiguredPort = port;
+          if (resultEl) {
+            resultEl.className = 'text-[10px] leading-tight text-emerald-400 font-medium';
+            resultEl.textContent = `💾 기본 포트 ${port}번 저장 완료 (프로그램 재시작 시 적용)`;
+          }
+          showToast('🌐 포트 설정 저장됨', 'success', `기본 포트가 ${port}번으로 설정되었습니다. 독 재시작 시 새 포트로 작동합니다.`);
+        } else {
+          const msg = data.message || '포트 저장에 실패했습니다.';
+          if (resultEl) {
+            resultEl.className = 'text-[10px] leading-tight text-rose-400 font-medium';
+            resultEl.textContent = `❌ ${msg}`;
+          }
+          showToast('포트 저장 실패', 'error', msg);
+        }
+      } catch (e) {
+        if (resultEl) {
+          resultEl.className = 'text-[10px] leading-tight text-rose-400 font-medium';
+          resultEl.textContent = '❌ 포트 저장 요청 실패: ' + e.message;
+        }
+        showToast('통신 오류', 'error', e.message);
+      }
+    }
+
+    // ===== 시작 시 독 팝업창 자동 열기 설정 제어 =====
+    async function loadPopupOnStartSetting() {
+      try {
+        const res = await apiFetch('/startup-popup-status');
+        if (!res.ok) return;
+        const data = await res.json();
+        const toggleEl = document.getElementById('toggle-popup-on-start');
+        if (toggleEl && data && typeof data.popup_on_start === 'boolean') {
+          toggleEl.checked = data.popup_on_start;
+        }
+      } catch (e) {
+        console.warn('Failed to load startup popup setting:', e);
+      }
+    }
+
+    async function savePopupOnStartSetting(checked) {
+      try {
+        const res = await apiFetch('/save-startup-popup', {
+          method: 'POST',
+          body: JSON.stringify({ popup_on_start: checked })
+        });
+        const data = await res.json();
+        if (res.ok && data.code === 200) {
+          showToast('설정 저장 완료', 'success', checked ? '프로그램 시작 시 독 팝업창이 자동으로 열립니다.' : '프로그램 시작 시 팝업창을 띄우지 않고 트레이로만 실행됩니다.');
+        } else {
+          showToast('설정 저장 실패', 'error', data.message || '설정 저장에 실패했습니다.');
+        }
+      } catch (e) {
+        showToast('통신 오류', 'error', e.message);
       }
     }
 

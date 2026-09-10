@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"syscall"
 	"time"
 	"unsafe"
@@ -185,10 +186,28 @@ func loginWndProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintp
 
 	case WM_TIMER_WV:
 		if wParam == TIMER_ID_WV && activeChromium != nil && !cookieCaptured {
+			// '로그인 상태 유지' 체크박스(#loginStay) 자동 활성화 보장
+			activeChromium.Eval(`(function() {
+				try {
+					var stay = document.getElementById("loginStay") || 
+					           document.getElementById("keep") || 
+					           document.querySelector('input[name="nvlong"]');
+					if (stay && !stay.checked) {
+						stay.click();
+						if (!stay.checked) {
+							stay.checked = true;
+							stay.value = "on";
+							stay.setAttribute("aria-checked", "true");
+							stay.dispatchEvent(new Event("change", { bubbles: true }));
+						}
+					}
+				} catch(e) {}
+			})();`)
+
 			cm, err := activeChromium.GetCookieManager()
 			if err == nil && cm != nil {
-				_ = callGetCookies(cm, "https://chzzk.naver.com", func(listPtr uintptr, err error) {
-					if err != nil || listPtr == 0 {
+				handleList := func(listPtr uintptr, err error) {
+					if err != nil || listPtr == 0 || cookieCaptured {
 						return
 					}
 					aut, ses, found := inspectCookies(listPtr)
@@ -203,7 +222,11 @@ func loginWndProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintp
 						// 안전하게 창 닫기: 메인 스레드에 WM_CLOSE 포스팅
 						procPostMessageW.Call(uintptr(hwnd), WM_CLOSE_WV, 0, 0)
 					}
-				})
+				}
+				_ = callGetCookies(cm, "https://chzzk.naver.com", handleList)
+				if !cookieCaptured {
+					_ = callGetCookies(cm, "https://nid.naver.com", handleList)
+				}
 			}
 		}
 		return 0
@@ -328,6 +351,25 @@ func RunLoginWebview() {
 	chromium.NavigationCompletedCallback = func(sender *edge.ICoreWebView2, args *edge.ICoreWebView2NavigationCompletedEventArgs) {
 		src, _ := sender.GetSource()
 		LogInfo("[Webview Login] 페이지 로드 완료: %s", src)
+		// 네이버 로그인 페이지 접속 시 '로그인 상태 유지' 체크박스 활성화 보장
+		if strings.Contains(src, "nidlogin.login") {
+			chromium.Eval(`(function() {
+				try {
+					var stay = document.getElementById("loginStay") || 
+					           document.getElementById("keep") || 
+					           document.querySelector('input[name="nvlong"]');
+					if (stay && !stay.checked) {
+						stay.click();
+						if (!stay.checked) {
+							stay.checked = true;
+							stay.value = "on";
+							stay.setAttribute("aria-checked", "true");
+							stay.dispatchEvent(new Event("change", { bubbles: true }));
+						}
+					}
+				} catch(e) {}
+			})();`)
+		}
 	}
 
 	if !chromium.Embed(hwnd) {
@@ -335,6 +377,40 @@ func RunLoginWebview() {
 		procDestroyWindow.Call(hwnd)
 		return
 	}
+
+	// [로그인 상태 유지 자동화] NID_AUT 장기 쿠키 발급을 위한 로그인 상태 유지 체크박스(#loginStay) 자동 활성화 스크립트 등록
+	keepLoginScript := `
+	(function() {
+		function autoCheckKeep() {
+			try {
+				var stay = document.getElementById("loginStay") || 
+				           document.getElementById("keep") || 
+				           document.querySelector('input[name="nvlong"]');
+				if (stay && !stay.checked) {
+					stay.click();
+					if (!stay.checked) {
+						stay.checked = true;
+						stay.value = "on";
+						stay.setAttribute("aria-checked", "true");
+						stay.dispatchEvent(new Event("change", { bubbles: true }));
+					}
+				}
+			} catch(e) {}
+		}
+		if (document.readyState === 'loading') {
+			document.addEventListener('DOMContentLoaded', autoCheckKeep);
+		} else {
+			autoCheckKeep();
+		}
+		var attempts = 0;
+		var timer = setInterval(function() {
+			autoCheckKeep();
+			attempts++;
+			if (attempts > 30) clearInterval(timer);
+		}, 100);
+	})();
+	`
+	chromium.Init(keepLoginScript)
 
 	// 컨트롤러 가시성 보장 및 포커스 부여
 	_ = chromium.Show()
