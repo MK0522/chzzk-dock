@@ -282,6 +282,13 @@ func RunLoginWebview() {
 	}
 	// 치지직 로그인 및 공식 리모컨 창이 공유하는 일원화된 브라우저 프로필
 	profileDir := filepath.Join(appData, "ChzzkObsDock", "webview_profile")
+
+	cfg := LoadConfig()
+	if cfg.NidAut == "" {
+		// 로그아웃 상태이거나 신규 로그인 시, 이전 계정 캐시로 인한 원치 않는 자동 로그인을 원천 차단하기 위해
+		// webview_profile 폴더를 완전히 삭제하고 새로 생성하여 항상 깨끗한 로그인 화면을 보장합니다.
+		_ = os.RemoveAll(profileDir)
+	}
 	_ = os.MkdirAll(profileDir, 0755)
 
 	windowTitle, _ := syscall.UTF16PtrFromString("네이버 로그인 - CHZZK OBS Dock")
