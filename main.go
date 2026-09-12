@@ -144,7 +144,7 @@ func isPublicEndpoint(path, customURL string) bool {
 	if customURL != "" {
 		target = customURL
 	}
-	return strings.Contains(target, "/auto-complete/") || strings.Contains(target, "/service/")
+	return strings.Contains(target, "/auto-complete/") || strings.Contains(target, "/service/") || strings.Contains(target, "/polling/")
 }
 
 // proxyUnofficialRequest: 치지직 비공식 API 프록시 (Rate Limiter 및 세션 헤더 포함)
@@ -176,7 +176,7 @@ func proxyUnofficialRequest(w http.ResponseWriter, r *http.Request, method, path
 	var targetURL string
 	if customURL != "" {
 		targetURL = customURL
-	} else if strings.HasPrefix(path, "/manage/") || strings.HasPrefix(path, "/service/") {
+	} else if strings.HasPrefix(path, "/manage/") || strings.HasPrefix(path, "/service/") || strings.HasPrefix(path, "/polling/") {
 		targetURL = "https://api.chzzk.naver.com" + path
 	} else {
 		targetURL = "https://api.chzzk.naver.com/manage/v1" + path
