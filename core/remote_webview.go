@@ -299,21 +299,37 @@ const remoteToolbarScript = `
 
     document.documentElement.appendChild(bar);
 
-    // 2. Minimal CSS: Ensure Header Title/Tabs are not cut off by the 32px titlebar
+    // 2. Layout CSS: Prevent top/bottom clipping caused by 32px titlebar
     var style = document.createElement('style');
     style.innerHTML = [
-      // Shift Chzzk fixed header down by 32px so title and tabs are fully visible
-      'header[class*="_header_"], header[class*="header"], [class*="_header_3o1tv"] {',
-      '  top: 32px !important;',
+      // [Core Fix] Push entire page content below 32px titlebar and constrain height
+      // to prevent bottom overflow (volume slider, TTS skip, alert stop buttons)
+      'html { margin-top: 32px !important; height: calc(100vh - 32px) !important; overflow: hidden !important; }',
+      'body { height: 100% !important; overflow: hidden !important; margin: 0 !important; }',
+      // Next.js / SPA root container: fill available height with scrollable overflow
+      '#__next, [id^="__next"], body > div:first-child {',
+      '  height: 100% !important;',
+      '  max-height: 100% !important;',
+      '  overflow-y: auto !important;',
+      '  overflow-x: hidden !important;',
       '}',
-      // Ensure feed content starts below the shifted header (52px header + 32px bar = 84px)
-      'main[class*="_main_"], [class*="_main_3o1tv"] {',
-      '  padding-top: 84px !important;',
+      // [Version-Independent Selectors] Use tag/role-based selectors instead of
+      // brittle webpack CSS module hashes (_header_3o1tv, _container_169h1)
+      // that break on every Chzzk Studio frontend deployment.
+      // Chzzk Studio uses a fixed header that already has position:fixed/sticky,
+      // so we don't need to manually shift it — the html margin-top handles it.
+
+      // Right sidebar panel: ensure it fills available height properly
+      'body > div aside, [role="complementary"], [class*="_aside_"], [class*="_sidebar_"] {',
+      '  max-height: calc(100vh - 32px) !important;',
+      '  overflow-y: auto !important;',
       '}',
-      // Ensure right sidebar content starts below the 32px titlebar (17px original + 32px bar = 49px)
-      'div[class*="_container_169h1"], [class*="_container_169h1_2"] {',
-      '  padding-top: 49px !important;',
-      '}',
+
+      // Custom scrollbar styling for clean dark UI
+      '::-webkit-scrollbar { width: 4px; }',
+      '::-webkit-scrollbar-track { background: transparent; }',
+      '::-webkit-scrollbar-thumb { background: #1E2738; border-radius: 4px; }',
+      '::-webkit-scrollbar-thumb:hover { background: #2D3F5A; }',
 
       // Frameless Window Titlebar Buttons Hover & Active
       '#chzzk-btn-pin:hover, #chzzk-btn-reload:hover { background: #223045 !important; color: #F1F5F9 !important; border-color: #384A68 !important; }',

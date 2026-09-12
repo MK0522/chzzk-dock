@@ -32,11 +32,11 @@ var (
 	ole32DLL          = syscall.NewLazyDLL("ole32.dll")
 	procCoTaskMemFree = ole32DLL.NewProc("CoTaskMemFree")
 
-	procShowWindow       = user32.NewProc("ShowWindow")
-	procUpdateWindow     = user32.NewProc("UpdateWindow")
-	procSetTimer         = user32.NewProc("SetTimer")
-	procKillTimer        = user32.NewProc("KillTimer")
-	procPostQuitMessage  = user32.NewProc("PostQuitMessage")
+	procShowWindow      = user32.NewProc("ShowWindow")
+	procUpdateWindow    = user32.NewProc("UpdateWindow")
+	procSetTimer        = user32.NewProc("SetTimer")
+	procKillTimer       = user32.NewProc("KillTimer")
+	procPostQuitMessage = user32.NewProc("PostQuitMessage")
 )
 
 const (
@@ -52,6 +52,40 @@ var (
 	activeChromium *edge.Chromium
 	cookieCaptured = false
 )
+
+// ClearWebViewSession: 브라우저 정적 자원(HTML/CSS/JS 및 V8 컴파일 캐시)은 보존하면서,
+// 계정 전환 및 자동 로그인을 차단하기 위해 세션/쿠키/로컬 스토리지 데이터만 선별적으로 안전하게 제거합니다.
+func ClearWebViewSession(profileDir string) {
+	if profileDir == "" {
+		return
+	}
+	defaultDir := filepath.Join(profileDir, "EBWebView", "Default")
+	if _, err := os.Stat(defaultDir); os.IsNotExist(err) {
+		return
+	}
+
+	patterns := []string{
+		filepath.Join(defaultDir, "Network", "Cookies*"),
+		filepath.Join(defaultDir, "Cookies*"),
+		filepath.Join(defaultDir, "Local Storage"),
+		filepath.Join(defaultDir, "Session Storage"),
+		filepath.Join(defaultDir, "IndexedDB"),
+		filepath.Join(defaultDir, "Web Data*"),
+		filepath.Join(defaultDir, "Login Data*"),
+	}
+
+	for _, pattern := range patterns {
+		matches, err := filepath.Glob(pattern)
+		if err == nil && len(matches) > 0 {
+			for _, m := range matches {
+				_ = os.RemoveAll(m)
+			}
+		} else {
+			_ = os.RemoveAll(pattern)
+		}
+	}
+	LogInfo("[Webview] 브라우저 정적 캐시 보존 및 세션/쿠키 데이터 선별 초기화 완료")
+}
 
 // COM vtable definitions for ICoreWebView2GetCookiesCompletedHandler
 type ICoreWebView2GetCookiesCompletedHandler interface {
@@ -285,9 +319,9 @@ func RunLoginWebview() {
 
 	cfg := LoadConfig()
 	if cfg.NidAut == "" {
-		// 로그아웃 상태이거나 신규 로그인 시, 이전 계정 캐시로 인한 원치 않는 자동 로그인을 원천 차단하기 위해
-		// webview_profile 폴더를 완전히 삭제하고 새로 생성하여 항상 깨끗한 로그인 화면을 보장합니다.
-		_ = os.RemoveAll(profileDir)
+		// 로그아웃 상태이거나 신규 로그인 시, 이전 계정 캐시로 인한 원치 않는 자동 로그인을 차단하되,
+		// 정적 리소스(JS/CSS/이미지/V8 캐시)는 보존하여 첫 실행 콜드 스타트 지연을 원천 방지합니다.
+		ClearWebViewSession(profileDir)
 	}
 	_ = os.MkdirAll(profileDir, 0755)
 
@@ -295,12 +329,16 @@ func RunLoginWebview() {
 	hInst, _, _ := procGetModuleHandleW.Call(0)
 	hIcon := LoadAppIcon()
 
+	// 눈부신 화이트 플래시(White Flash) 방지: 치지직 다크 테마 배경 브러시 (#18181B)
+	darkBrush, _, _ := procCreateSolidBrush.Call(uintptr(0x001B1818))
+
 	wc := WNDCLASSW{
 		Style:         0x0002 | 0x0001, // CS_HREDRAW | CS_VREDRAW
 		LpfnWndProc:   syscall.NewCallback(loginWndProc),
 		HInstance:     syscall.Handle(hInst),
 		HIcon:         hIcon,
 		HCursor:       syscall.Handle(0),
+		HbrBackground: syscall.Handle(darkBrush),
 		LpszClassName: className,
 	}
 	procRegisterClassW.Call(uintptr(unsafe.Pointer(&wc)))
@@ -336,7 +374,6 @@ func RunLoginWebview() {
 	}
 
 	applyDarkTheme(hwnd)
-	ForceForegroundWindow(hwnd, true)
 
 	chromium := edge.NewChromium()
 	chromium.DataPath = profileDir
@@ -344,7 +381,6 @@ func RunLoginWebview() {
 	// [OBS 후킹 및 GPU 가속 충돌 방지 핵심 인자]
 	chromium.AdditionalBrowserArgs = []string{
 		"--disable-gpu",
-		"--disable-software-rasterizer",
 		"--disable-features=CalculateNativeWinOcclusion",
 	}
 	activeChromium = chromium
@@ -419,14 +455,14 @@ func RunLoginWebview() {
 	`
 	chromium.Init(keepLoginScript)
 
-	// 컨트롤러 가시성 보장 및 포커스 부여
+	LogInfo("[Webview Login] 로그인 페이지로 이동: %s", LOGIN_URL)
+	chromium.Navigate(LOGIN_URL)
+
+	// 컨트롤러 가시성 보장 및 포커스 부여 후 부드럽게 윈도우 활성화
 	_ = chromium.Show()
 	chromium.Focus()
 	chromium.Resize()
 	ForceForegroundWindow(hwnd, true)
-
-	LogInfo("[Webview Login] 로그인 페이지로 이동: %s", LOGIN_URL)
-	chromium.Navigate(LOGIN_URL)
 
 	// 1초마다 로그인 완료 쿠키 감지 타이머 가동
 	procSetTimer.Call(hwnd, TIMER_ID_WV, 1000, 0)
