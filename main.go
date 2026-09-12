@@ -36,10 +36,10 @@ var embeddedGuide2 []byte
 var embeddedLauncherScript []byte
 
 // ============================================================
-//  CHZZK OBS Dock Server v0.5.3 (Modular Architecture)
+//  CHZZK OBS Dock Server v0.5.4 (Modular Architecture)
 // ============================================================
 const (
-	APP_VERSION       = "v0.5.3"
+	APP_VERSION       = "v0.5.4"
 	DEFAULT_HTTP_PORT = 8081
 	USER_AGENT        = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 )
@@ -671,13 +671,13 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 		if path == "/logout" {
 			core.ClearConfig()
 			// 자격 증명 금고(Windows Credential Manager) 및 메모리 캐시 즉시 파기.
-			// 다른 계정으로의 원활한 재로그인(계정 전환)을 위해 WebView2 브라우저 프로필도 완전 삭제합니다.
+			// 브라우저 정적 캐시(JS/CSS)는 보존하고 세션/쿠키만 선별 삭제하여 다음 로그인 시 초고속 로딩 보장
 			appData := os.Getenv("LOCALAPPDATA")
 			if appData == "" {
 				appData = os.Getenv("USERPROFILE")
 			}
 			profileDir := filepath.Join(appData, "ChzzkObsDock", "webview_profile")
-			_ = os.RemoveAll(profileDir)
+			core.ClearWebViewSession(profileDir)
 
 			sendJSON(w, map[string]interface{}{
 				"code":    200,
