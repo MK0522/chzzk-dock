@@ -47,10 +47,6 @@ jobs:
             throw "ISCC compiler not found"
           }
 
-      - name: Package Portable Release Zip
-        run: |
-          Compress-Archive -Path chzzk-dock.exe, scripts, chzzk-obs-dock.html -DestinationPath chzzk-dock-windows-amd64-portable.zip
-
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
@@ -58,7 +54,6 @@ jobs:
           tag_name: ${{ github.ref_name }}
           files: |
             chzzk-dock-windows-amd64-installer.exe
-            chzzk-dock-windows-amd64-portable.zip
             chzzk-dock.exe
           draft: false
           prerelease: false
