@@ -1332,207 +1332,238 @@
         </div>
       </div>
 
-      <!-- Chzzk-Dock 자동시작 (스크립트 설치 관리 카드) -->
-      <div class="section-card py-2.5 px-3 border border-[#1E2738] bg-[#0B1017]">
-        <div class="flex items-center justify-between">
-          <div class="min-w-0 pr-2">
-            <div class="flex items-center gap-1.5">
-              <span class="text-xs font-bold text-slate-100">Chzzk-Dock 자동시작</span>
-              <span id="obs-script-status-badge" class="text-[9px] px-1.5 py-0.5 rounded font-medium bg-gray-800 text-gray-400 border border-gray-700">확인 중...</span>
-            </div>
-            <p class="text-[9.5px] text-slate-400 mt-0.5">
-              OBS 실행 시 독 서버 자동 시작 &amp; 종료
-            </p>
+      <!-- [그룹 1] 🔐 치지직 로그인 및 계정 연동 (접기/펼치기 아코디언) -->
+      <div class="rounded-lg border border-[#1E2738] bg-[#090D14] overflow-hidden">
+        <button type="button" onclick="toggleSettingsGroup('login')" class="w-full px-3 py-2 flex items-center justify-between bg-[#111722] hover:bg-[#161F2E] transition-colors cursor-pointer text-left select-none">
+          <div class="flex items-center gap-1.5 min-w-0">
+            <span class="text-xs">🔐</span>
+            <span class="text-xs font-bold text-slate-100">치지직 로그인 및 계정 연동</span>
+            <span id="group-login-badge" class="text-[9px] px-1.5 py-0.5 rounded font-bold bg-gray-800 text-gray-400">대기 중</span>
           </div>
-          <div class="flex items-center gap-2 flex-shrink-0">
-            <button type="button" onclick="browseAndInstallObsFolder()" class="text-slate-500 hover:text-[#00FFA3] text-[9px] transition-colors cursor-pointer" title="OBS 설치 폴더를 직접 변경하려면 클릭하세요">
-              폴더 변경
+          <span id="group-login-arrow" class="text-[10px] text-slate-400 transition-transform duration-200 ml-1">▼</span>
+        </button>
+        <div id="group-login-content" class="p-2 space-y-2.5 border-t border-[#1E2738]/60">
+          <!-- 방법 A: 팝업 로그인 카드 -->
+          <div class="section-card space-y-2.5">
+            <div class="flex items-center justify-between">
+              <div class="text-[11px] font-semibold text-[#00FFA3]">방법 A. 팝업 로그인 (자동)</div>
+              <span id="badge-method-a" class="text-[9px] px-1.5 py-0.5 rounded font-bold bg-gray-800 text-gray-400">대기 중</span>
+            </div>
+            <button id="btn-webview-login" onclick="startWebviewLogin()" class="save-btn text-xs py-2.5 bg-gradient-to-r from-emerald-400 to-teal-400 !text-[#080A0D] font-extrabold shadow-md">
+              🌐 네이버 로그인 팝업 열기 (자동)
             </button>
-            <button type="button" id="btn-obs-script-action" onclick="handleObsScriptAction()" class="px-2.5 py-1 text-[11px] font-bold rounded transition-all cursor-pointer bg-[#161F2E] border border-[#243044] text-slate-300 hover:text-white">
-              확인 중...
+          </div>
+
+          <!-- 방법 B: 쿠키 수동 입력 카드 -->
+          <div class="section-card space-y-2">
+            <div class="flex items-center justify-between mb-1">
+              <div class="flex items-center gap-1.5">
+                <div class="text-[11px] font-semibold text-amber-400">방법 B. 쿠키 수동 입력</div>
+                <button type="button" onclick="toggleCookieHelp()" class="text-[10px] px-1.5 py-0.5 rounded bg-amber-400/15 hover:bg-amber-400/25 text-amber-300 font-medium transition-colors inline-flex items-center gap-1 border border-amber-400/30" title="쿠키 값 확인 및 복사 방법 안내">
+                  <span>❓ 도움말</span>
+                </button>
+              </div>
+              <span id="badge-method-b" class="text-[9px] px-1.5 py-0.5 rounded font-bold bg-gray-800 text-gray-400">미입력</span>
+            </div>
+
+            <!-- 쿠키 확인 가이드 (도움말 아코디언) -->
+            <div id="cookie-help-box" class="hidden p-2.5 rounded-lg bg-[#0a0d13] border border-amber-400/30 text-[10px] space-y-2 text-gray-300 leading-relaxed shadow-inner">
+              <div class="font-bold text-amber-300 flex items-center justify-between text-[11px] border-b border-gray-800 pb-1.5">
+                <span class="flex items-center gap-1"><span>📖</span> 네이버 쿠키(NID_AUT, NID_SES) 복사 방법</span>
+                <button type="button" onclick="toggleCookieHelp()" class="text-gray-400 hover:text-gray-200 text-xs px-1 font-mono">✕</button>
+              </div>
+              <ol class="list-decimal list-inside space-y-1.5 text-gray-300 text-[10px]">
+                <li>
+                  브라우저(Chrome, Edge, Whale 등)에서
+                  <button type="button" onclick="openExternalUrl('https://chzzk.naver.com', '치지직')" class="text-emerald-400 font-semibold underline hover:text-emerald-300 inline-flex items-center gap-0.5">
+                    <span>치지직(chzzk.naver.com)</span><span class="text-[8px]">↗</span>
+                  </button>
+                  에 접속하여 로그인합니다.
+                </li>
+                <li>
+                  키보드 <kbd class="px-1.5 py-0.5 bg-gray-800 border border-gray-700 rounded text-amber-300 font-mono text-[9px] font-bold">F12</kbd> (또는 웹페이지 우클릭 ➔ <strong>[검사]</strong>)를 눌러 <strong>개발자 도구</strong>를 엽니다.
+                </li>
+                <li>
+                  상단 탭 메뉴에서 <strong class="text-white bg-gray-800 px-1 py-0.5 rounded">[애플리케이션]</strong>(Application) 또는 <strong class="text-white bg-gray-800 px-1 py-0.5 rounded">[저장공간]</strong>(Storage) 탭을 클릭합니다.
+                  <span class="text-gray-400 block pl-3 text-[9px]">* 창 폭이 좁아 탭이 안 보이면 상단 우측 <strong>»</strong> 화살표 아이콘을 클릭하세요.</span>
+                </li>
+                <li>
+                  좌측 트리 메뉴에서 <strong class="text-white">[저장용량]</strong> ➔ <strong class="text-white">[쿠키]</strong> ➔ <strong class="text-emerald-400">https://chzzk.naver.com</strong>(또는 naver.com)을 선택합니다.
+                </li>
+                <li>
+                  우측 표 목록에서 이름이 <code class="text-amber-300 bg-gray-900 border border-gray-700 px-1 py-0.5 rounded font-mono font-bold">NID_AUT</code>와 <code class="text-amber-300 bg-gray-900 border border-gray-700 px-1 py-0.5 rounded font-mono font-bold">NID_SES</code>인 항목을 찾습니다.
+                  <!-- 참고 이미지 1 -->
+                  <div class="my-2 bg-[#06090e] rounded-lg border border-gray-800 p-2 shadow-sm">
+                    <div class="text-[9.5px] text-amber-300 font-bold mb-1.5 flex items-center justify-between">
+                      <span class="flex items-center gap-1"><span>📸</span> [참고 1] 개발자 도구 쿠키 확인 화면</span>
+                      <button type="button" onclick="openExternalUrl('http://localhost:8081/guide-image/1', '가이드 1 원본')" class="text-[9px] text-emerald-400 hover:text-emerald-300 font-medium">🔍 새창 확대</button>
+                    </div>
+                    <img src="/guide-image/1" alt="쿠키 확인 개발자도구" class="w-full rounded border border-gray-800 cursor-pointer hover:border-amber-400 transition-colors" onclick="openExternalUrl(this.src, '가이드 1 원본')" title="클릭하여 원본 크기로 보기" />
+                  </div>
+                </li>
+                <li>
+                  각 항목의 <strong>[값(Value)]</strong> 필드를 더블클릭하여 복사(<kbd class="px-1 py-0.5 bg-gray-800 border border-gray-700 rounded text-amber-300 font-mono text-[9px]">Ctrl+C</kbd>)한 뒤, 아래 입력칸에 붙여넣습니다.
+                  <!-- 참고 이미지 2 -->
+                  <div class="my-2 bg-[#06090e] rounded-lg border border-gray-800 p-2 shadow-sm">
+                    <div class="text-[9.5px] text-amber-300 font-bold mb-1.5 flex items-center justify-between">
+                      <span class="flex items-center gap-1"><span>📸</span> [참고 2] 쿠키 값 더블클릭 복사 화면</span>
+                      <button type="button" onclick="openExternalUrl('http://localhost:8081/guide-image/2', '가이드 2 원본')" class="text-[9px] text-emerald-400 hover:text-emerald-300 font-medium">🔍 새창 확대</button>
+                    </div>
+                    <img src="/guide-image/2" alt="쿠키 복사 화면" class="w-full rounded border border-gray-800 cursor-pointer hover:border-amber-400 transition-colors" onclick="openExternalUrl(this.src, '가이드 2 원본')" title="클릭하여 원본 크기로 보기" />
+                  </div>
+                </li>
+                <li>
+                  아래 <strong>[쿠키 직접 저장]</strong> 버튼을 누르면 연동이 완료됩니다!
+                </li>
+              </ol>
+              <div class="text-[9px] text-amber-200/80 bg-amber-950/40 p-1.5 rounded border border-amber-800/40 flex items-start gap-1">
+                <span>🛡️</span>
+                <span>입력된 쿠키는 외부 서버로 일절 전송되지 않으며, 오직 내 컴퓨터의 <strong>Windows 자격 증명 관리자(보안 금고)</strong>에만 안전하게 암호화 보관됩니다.</span>
+              </div>
+            </div>
+
+            <div class="space-y-1">
+              <label class="text-[9px] text-chzzk-muted font-medium">NID_AUT</label>
+              <input id="cookie-nid-aut" type="password" class="chzzk-input text-[11px]" placeholder="NID_AUT 쿠키 값" />
+            </div>
+            <div class="space-y-1">
+              <label class="text-[9px] text-chzzk-muted font-medium">NID_SES</label>
+              <input id="cookie-nid-ses" type="password" class="chzzk-input text-[11px]" placeholder="NID_SES 쿠키 값" />
+            </div>
+            <button onclick="saveManualCookies()" class="sub-btn !bg-chzzk-card hover:!border-amber-400 text-amber-400 font-semibold py-1.5">
+              💾 쿠키 직접 저장
             </button>
           </div>
         </div>
+      </div>
 
-        <!-- OBS 스크립트 1회 등록 가이드 박스 -->
-        <div id="obs-script-guide-box" class="mt-2.5 pt-2 border-t border-[#1E2738]/80 text-[10px] text-slate-400 leading-relaxed">
-          <div class="flex items-start gap-1.5 text-slate-300">
-            <span class="text-emerald-400 flex-shrink-0">💡</span>
+      <!-- [그룹 2] ⚙️ 독 관리 및 실행 제어 (접기/펼치기 아코디언) -->
+      <div class="rounded-lg border border-[#1E2738] bg-[#090D14] overflow-hidden">
+        <button type="button" onclick="toggleSettingsGroup('management')" class="w-full px-3 py-2 flex items-center justify-between bg-[#111722] hover:bg-[#161F2E] transition-colors cursor-pointer text-left select-none">
+          <div class="flex items-center gap-1.5 min-w-0">
+            <span class="text-xs">⚙️</span>
+            <span class="text-xs font-bold text-slate-100">독 관리 및 실행 제어</span>
+            <span class="text-[9px] text-slate-400 font-normal truncate">(종료, 포트, 팝업, 자동시작)</span>
+          </div>
+          <span id="group-management-arrow" class="text-[10px] text-slate-400 transition-transform duration-200 ml-1">▼</span>
+        </button>
+        <div id="group-management-content" class="p-2 space-y-2.5 border-t border-[#1E2738]/60">
+          <!-- Chzzk-Dock 자동시작 (스크립트 설치 관리 카드) -->
+          <div class="section-card py-2.5 px-3 border border-[#1E2738] bg-[#0B1017]">
+            <div class="flex items-center justify-between">
+              <div class="min-w-0 pr-2">
+                <div class="flex items-center gap-1.5">
+                  <span class="text-xs font-bold text-slate-100">Chzzk-Dock 자동시작</span>
+                  <span id="obs-script-status-badge" class="text-[9px] px-1.5 py-0.5 rounded font-medium bg-gray-800 text-gray-400 border border-gray-700">확인 중...</span>
+                </div>
+                <p class="text-[9.5px] text-slate-400 mt-0.5">
+                  OBS 실행 시 독 서버 자동 시작 &amp; 종료
+                </p>
+              </div>
+              <div class="flex items-center gap-2 flex-shrink-0">
+                <button type="button" onclick="browseAndInstallObsFolder()" class="text-slate-500 hover:text-[#00FFA3] text-[9px] transition-colors cursor-pointer" title="OBS 설치 폴더를 직접 변경하려면 클릭하세요">
+                  폴더 변경
+                </button>
+                <button type="button" id="btn-obs-script-action" onclick="handleObsScriptAction()" class="px-2.5 py-1 text-[11px] font-bold rounded transition-all cursor-pointer bg-[#161F2E] border border-[#243044] text-slate-300 hover:text-white">
+                  확인 중...
+                </button>
+              </div>
+            </div>
+
+            <!-- OBS 스크립트 1회 등록 가이드 박스 -->
+            <div id="obs-script-guide-box" class="mt-2.5 pt-2 border-t border-[#1E2738]/80 text-[10px] text-slate-400 leading-relaxed">
+              <div class="flex items-start gap-1.5 text-slate-300">
+                <span class="text-emerald-400 flex-shrink-0">💡</span>
+                <div>
+                  <span class="font-bold text-slate-200">최초 1회 등록 필수:</span> OBS 상단 메뉴 <span class="text-[#00FFA3] font-semibold">[도구] ➔ [스크립트]</span>의 <span class="text-white font-bold">[+]</span> 버튼을 눌러 설치된 <code class="text-slate-300 bg-slate-800 px-1 py-0.5 rounded">chzzk_dock_launcher.lua</code>를 등록해 두시면, 이후 OBS 실행 시 독 서버가 자동 시작됩니다.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- OBS 자동 종료 대기 시간 설정 -->
+          <div class="section-card p-2.5 bg-chzzk-card/70 border border-chzzk-border space-y-2.5">
             <div>
-              <span class="font-bold text-slate-200">최초 1회 등록 필수:</span> OBS 상단 메뉴 <span class="text-[#00FFA3] font-semibold">[도구] ➔ [스크립트]</span>의 <span class="text-white font-bold">[+]</span> 버튼을 눌러 설치된 <code class="text-slate-300 bg-slate-800 px-1 py-0.5 rounded">chzzk_dock_launcher.lua</code>를 등록해 두시면, 이후 OBS 실행 시 독 서버가 자동 시작됩니다.
+              <div class="text-[11px] font-semibold text-white/90">⏱️ OBS와 함께 종료 (대기 시간)</div>
+              <div class="text-[9px] text-chzzk-muted">OBS Studio 종료 감지 시 지정된 시간 뒤 치지직 독 서버를 자동으로 함께 종료합니다.</div>
+            </div>
+            <div class="flex items-center gap-2">
+              <select id="select-watchdog-timeout" onchange="onWatchdogTimeoutChange(this.value)" class="chzzk-input text-[11px] py-1 flex-1">
+                <option value="10">10초 뒤 종료</option>
+                <option value="30">30초 뒤 종료</option>
+                <option value="60" selected>1분 뒤 종료 (기본값)</option>
+                <option value="300">5분 뒤 종료</option>
+                <option value="600">10분 뒤 종료</option>
+                <option value="custom">직접 입력</option>
+              </select>
+              <div id="custom-watchdog-container" class="hidden flex items-center gap-1.5 flex-1">
+                <input id="input-custom-watchdog" type="number" min="5" max="86400" class="chzzk-input text-[11px] py-1 w-20 text-center" placeholder="초(sec)" />
+                <span class="text-[11px] text-chzzk-muted">초</span>
+                <button onclick="saveCustomWatchdogTimeout()" class="sub-btn !bg-chzzk-card hover:!border-chzzk-accent text-chzzk-accent text-[10px] py-1 px-2 font-medium">저장</button>
+              </div>
+            </div>
+
+            <!-- [SYS-03] 자동 종료 시 Windows 알림 토글 -->
+            <div class="pt-2 border-t border-[#1E2738]/80 flex items-center justify-between">
+              <div class="pr-2">
+                <div class="text-[10.5px] font-semibold text-white/90">🔔 자동 종료 시 Windows 알림 받기</div>
+                <div class="text-[9px] text-chzzk-muted leading-tight mt-0.5">OBS 종료 또는 미감지로 독이 자동 종료될 때 알림을 표시합니다.</div>
+              </div>
+              <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                <input type="checkbox" id="toggle-shutdown-notify" onchange="saveShutdownNotifySetting(this.checked)" class="sr-only peer" checked>
+                <div class="w-8 h-4.5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-chzzk-accent"></div>
+              </label>
             </div>
           </div>
-        </div>
-      </div>
 
-      <!-- 방법 A: 팝업 로그인 카드 -->
-      <div class="section-card space-y-2.5">
-        <div class="flex items-center justify-between">
-          <div class="text-[11px] font-semibold text-[#00FFA3]">방법 A. 팝업 로그인 (자동)</div>
-          <span id="badge-method-a" class="text-[9px] px-1.5 py-0.5 rounded font-bold bg-gray-800 text-gray-400">대기 중</span>
-        </div>
-        <button id="btn-webview-login" onclick="startWebviewLogin()" class="save-btn text-xs py-2.5 bg-gradient-to-r from-emerald-400 to-teal-400 !text-[#080A0D] font-extrabold shadow-md">
-          🌐 네이버 로그인 팝업 열기 (자동)
-        </button>
-      </div>
-
-      <!-- 방법 B: 쿠키 수동 입력 카드 -->
-      <div class="section-card space-y-2">
-        <div class="flex items-center justify-between mb-1">
-          <div class="flex items-center gap-1.5">
-            <div class="text-[11px] font-semibold text-amber-400">방법 B. 쿠키 수동 입력</div>
-            <button type="button" onclick="toggleCookieHelp()" class="text-[10px] px-1.5 py-0.5 rounded bg-amber-400/15 hover:bg-amber-400/25 text-amber-300 font-medium transition-colors inline-flex items-center gap-1 border border-amber-400/30" title="쿠키 값 확인 및 복사 방법 안내">
-              <span>❓ 도움말</span>
-            </button>
-          </div>
-          <span id="badge-method-b" class="text-[9px] px-1.5 py-0.5 rounded font-bold bg-gray-800 text-gray-400">미입력</span>
-        </div>
-
-        <!-- 쿠키 확인 가이드 (도움말 아코디언) -->
-        <div id="cookie-help-box" class="hidden p-2.5 rounded-lg bg-[#0a0d13] border border-amber-400/30 text-[10px] space-y-2 text-gray-300 leading-relaxed shadow-inner">
-          <div class="font-bold text-amber-300 flex items-center justify-between text-[11px] border-b border-gray-800 pb-1.5">
-            <span class="flex items-center gap-1"><span>📖</span> 네이버 쿠키(NID_AUT, NID_SES) 복사 방법</span>
-            <button type="button" onclick="toggleCookieHelp()" class="text-gray-400 hover:text-gray-200 text-xs px-1 font-mono">✕</button>
-          </div>
-          <ol class="list-decimal list-inside space-y-1.5 text-gray-300 text-[10px]">
-            <li>
-              브라우저(Chrome, Edge, Whale 등)에서
-              <button type="button" onclick="openExternalUrl('https://chzzk.naver.com', '치지직')" class="text-emerald-400 font-semibold underline hover:text-emerald-300 inline-flex items-center gap-0.5">
-                <span>치지직(chzzk.naver.com)</span><span class="text-[8px]">↗</span>
-              </button>
-              에 접속하여 로그인합니다.
-            </li>
-            <li>
-              키보드 <kbd class="px-1.5 py-0.5 bg-gray-800 border border-gray-700 rounded text-amber-300 font-mono text-[9px] font-bold">F12</kbd> (또는 웹페이지 우클릭 ➔ <strong>[검사]</strong>)를 눌러 <strong>개발자 도구</strong>를 엽니다.
-            </li>
-            <li>
-              상단 탭 메뉴에서 <strong class="text-white bg-gray-800 px-1 py-0.5 rounded">[애플리케이션]</strong>(Application) 또는 <strong class="text-white bg-gray-800 px-1 py-0.5 rounded">[저장공간]</strong>(Storage) 탭을 클릭합니다.
-              <span class="text-gray-400 block pl-3 text-[9px]">* 창 폭이 좁아 탭이 안 보이면 상단 우측 <strong>»</strong> 화살표 아이콘을 클릭하세요.</span>
-            </li>
-            <li>
-              좌측 트리 메뉴에서 <strong class="text-white">[저장용량]</strong> ➔ <strong class="text-white">[쿠키]</strong> ➔ <strong class="text-emerald-400">https://chzzk.naver.com</strong>(또는 naver.com)을 선택합니다.
-            </li>
-            <li>
-              우측 표 목록에서 이름이 <code class="text-amber-300 bg-gray-900 border border-gray-700 px-1 py-0.5 rounded font-mono font-bold">NID_AUT</code>와 <code class="text-amber-300 bg-gray-900 border border-gray-700 px-1 py-0.5 rounded font-mono font-bold">NID_SES</code>인 항목을 찾습니다.
-              <!-- 참고 이미지 1 -->
-              <div class="my-2 bg-[#06090e] rounded-lg border border-gray-800 p-2 shadow-sm">
-                <div class="text-[9.5px] text-amber-300 font-bold mb-1.5 flex items-center justify-between">
-                  <span class="flex items-center gap-1"><span>📸</span> [참고 1] 개발자 도구 쿠키 확인 화면</span>
-                  <button type="button" onclick="openExternalUrl(window.location.origin + '/guide-image/1', '[참고 1] 개발자 도구 쿠키 확인 화면')" class="text-[8.5px] bg-amber-400/20 hover:bg-amber-400/30 text-amber-300 px-2 py-0.5 rounded flex items-center gap-1 font-semibold border border-amber-400/30 transition-colors" title="기본 브라우저 새창으로 크게 보기">
-                    <span>🔍 새창으로 확대 ↗</span>
-                  </button>
-                </div>
-                <img src="/guide-image/1" alt="개발자 도구 쿠키 확인 화면" onclick="openExternalUrl(window.location.origin + '/guide-image/1', '[참고 1] 개발자 도구 쿠키 확인 화면')" class="w-full rounded border border-gray-700/70 hover:border-amber-400 cursor-pointer transition-all shadow-md" title="클릭 시 기본 브라우저 새창으로 크게 열립니다" />
-                <div class="text-[8.5px] text-gray-400 mt-1 leading-tight">
-                  빨간색 번호 순서대로 <strong class="text-red-400">[1]</strong> 애플리케이션 ➔ <strong class="text-red-400">[2]</strong> 저장용량/쿠키 ➔ <strong class="text-red-400">[3]</strong> NID_AUT / NID_SES를 확인합니다.
-                </div>
+          <!-- 서버 포트 설정 & 충돌 방지 검사 -->
+          <div class="section-card p-2.5 bg-chzzk-card/70 border border-chzzk-border space-y-2">
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="text-[11px] font-semibold text-white/90">🌐 서버 포트 설정 (HTTP Port)</div>
+                <div class="text-[9px] text-chzzk-muted">기본 포트: 8081 (충돌 시 안전한 랜덤 포트 자동 전환)</div>
               </div>
-            </li>
-            <li>
-              각 항목을 클릭한 뒤 하단 <strong class="text-white">Cookie Value</strong> 영역에서 값을 전체 드래그하거나 우클릭 ➔ <strong>[복사]</strong>(<kbd class="px-1.5 py-0.5 bg-gray-800 border border-gray-700 rounded text-gray-200 font-mono text-[9px]">Ctrl+C</kbd>)하여 아래 입력란에 각각 붙여넣습니다.
-              <!-- 참고 이미지 2 -->
-              <div class="my-2 bg-[#06090e] rounded-lg border border-gray-800 p-2 shadow-sm">
-                <div class="text-[9.5px] text-amber-300 font-bold mb-1.5 flex items-center justify-between">
-                  <span class="flex items-center gap-1"><span>📸</span> [참고 2] Cookie Value 값 복사 방법</span>
-                  <button type="button" onclick="openExternalUrl(window.location.origin + '/guide-image/2', '[참고 2] Cookie Value 값 복사 방법')" class="text-[8.5px] bg-amber-400/20 hover:bg-amber-400/30 text-amber-300 px-2 py-0.5 rounded flex items-center gap-1 font-semibold border border-amber-400/30 transition-colors" title="기본 브라우저 새창으로 크게 보기">
-                    <span>🔍 새창으로 확대 ↗</span>
-                  </button>
-                </div>
-                <img src="/guide-image/2" alt="Cookie Value 값 복사 화면" onclick="openExternalUrl(window.location.origin + '/guide-image/2', '[참고 2] Cookie Value 값 복사 방법')" class="w-full rounded border border-gray-700/70 hover:border-amber-400 cursor-pointer transition-all shadow-md" title="클릭 시 기본 브라우저 새창으로 크게 열립니다" />
-                <div class="text-[8.5px] text-gray-400 mt-1 leading-tight">
-                  하단 <strong>Cookie Value</strong> 입력창의 긴 문자열을 우클릭하여 <strong>[복사]</strong>합니다.
-                </div>
-              </div>
-            </li>
-          </ol>
-          <div class="pt-1.5 border-t border-gray-800/80 text-[9px] text-gray-400 flex items-start gap-1">
-            <span class="text-emerald-400">🔒</span>
-            <span>입력된 쿠키는 외부 서버로 일절 전송되지 않으며, 오직 내 컴퓨터의 <strong>Windows 자격 증명 관리자(보안 금고)</strong>에만 안전하게 암호화 보관됩니다.</span>
-          </div>
-        </div>
-
-        <div class="space-y-1">
-          <label class="text-[9px] text-chzzk-muted font-medium">NID_AUT</label>
-          <input id="cookie-nid-aut" type="password" class="chzzk-input text-[11px]" placeholder="NID_AUT 쿠키 값" />
-        </div>
-        <div class="space-y-1">
-          <label class="text-[9px] text-chzzk-muted font-medium">NID_SES</label>
-          <input id="cookie-nid-ses" type="password" class="chzzk-input text-[11px]" placeholder="NID_SES 쿠키 값" />
-        </div>
-        <button onclick="saveManualCookies()" class="sub-btn !bg-chzzk-card hover:!border-amber-400 text-amber-400 font-semibold py-1.5">
-          💾 쿠키 직접 저장
-        </button>
-      </div>
-
-      <!-- OBS 자동 종료 대기 시간 설정 -->
-      <div class="section-card p-2.5 bg-chzzk-card/70 border border-chzzk-border space-y-2">
-        <div>
-          <div class="text-[11px] font-semibold text-white/90">⏱️ OBS와 함께 종료 (대기 시간)</div>
-          <div class="text-[9px] text-chzzk-muted">OBS Studio 종료 감지 시 지정된 시간 뒤 치지직 독 서버를 자동으로 함께 종료합니다.</div>
-        </div>
-        <div class="flex items-center gap-2">
-          <select id="select-watchdog-timeout" onchange="onWatchdogTimeoutChange(this.value)" class="chzzk-input text-[11px] py-1 flex-1">
-            <option value="10">10초 뒤 종료</option>
-            <option value="30">30초 뒤 종료</option>
-            <option value="60" selected>1분 뒤 종료 (기본값)</option>
-            <option value="300">5분 뒤 종료</option>
-            <option value="600">10분 뒤 종료</option>
-            <option value="custom">직접 입력</option>
-          </select>
-          <div id="custom-watchdog-container" class="hidden flex items-center gap-1.5 flex-1">
-            <input id="input-custom-watchdog" type="number" min="5" max="86400" class="chzzk-input text-[11px] py-1 w-20 text-center" placeholder="초(sec)" />
-            <span class="text-[11px] text-chzzk-muted">초</span>
-            <button onclick="saveCustomWatchdogTimeout()" class="sub-btn !bg-chzzk-card hover:!border-chzzk-accent text-chzzk-accent text-[10px] py-1 px-2 font-medium">저장</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- 서버 포트 설정 & 충돌 방지 검사 -->
-      <div class="section-card p-2.5 bg-chzzk-card/70 border border-chzzk-border space-y-2">
-        <div class="flex items-center justify-between">
-          <div>
-            <div class="text-[11px] font-semibold text-white/90">🌐 서버 포트 설정 (HTTP Port)</div>
-            <div class="text-[9px] text-chzzk-muted">기본 포트: 8081 (충돌 시 안전한 랜덤 포트 자동 전환)</div>
-          </div>
-          <span id="badge-port-status" class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950/80 text-emerald-400 border border-emerald-500/30 font-mono">
-            현재 포트: 8081
-          </span>
-        </div>
-
-        <div id="port-fallback-banner" class="hidden p-2 rounded bg-amber-950/40 border border-amber-500/30 text-[10px] text-amber-300 leading-relaxed">
-          <div class="font-bold flex items-center gap-1 text-amber-300">
-            <span>⚠️</span> <span>임시 대체 포트 사용 중</span>
-          </div>
-          <p id="port-fallback-reason" class="text-[9.5px] text-amber-200/80 mt-1"></p>
-        </div>
-
-        <div class="space-y-1.5 pt-0.5">
-          <div class="flex items-center gap-1.5">
-            <div class="relative flex-1 min-w-[90px]">
-              <input id="input-custom-port" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="5" class="chzzk-input text-[11px] py-1.5 w-full text-center font-mono placeholder:text-slate-500" placeholder="포트 (1024~65535)" />
+              <span id="badge-port-status" class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950/80 text-emerald-400 border border-emerald-500/30 font-mono">
+                현재 포트: 8081
+              </span>
             </div>
-            <button type="button" onclick="checkCustomPort()" class="!w-auto px-3 py-1.5 rounded bg-[#161F2E] border border-[#243044] hover:border-chzzk-accent text-chzzk-accent text-[11px] font-semibold whitespace-nowrap cursor-pointer transition-colors">
-              🔍 점검
-            </button>
-            <button type="button" onclick="saveCustomPort()" class="!w-auto px-3 py-1.5 rounded bg-[#161F2E] border border-[#243044] hover:border-emerald-400 text-emerald-400 text-[11px] font-semibold whitespace-nowrap cursor-pointer transition-colors">
-              💾 저장
-            </button>
-          </div>
-          <div id="port-check-result" class="text-[10px] leading-tight min-h-[14px] text-chzzk-muted px-0.5 font-medium"></div>
-        </div>
-      </div>
 
-      <!-- 프로그램 시작 시 독 팝업창 자동 열기 설정 -->
-      <div class="section-card p-2.5 bg-chzzk-card/70 border border-chzzk-border space-y-2">
-        <div class="flex items-center justify-between">
-          <div class="pr-2">
-            <div class="text-[11px] font-semibold text-white/90">🖥️ 시작 시 독 팝업창 자동 열기</div>
-            <div class="text-[9px] text-chzzk-muted leading-tight mt-0.5">프로그램(exe) 직접 실행 시 독 화면을 바로 띄웁니다. (끄면 트레이로만 조용히 시작)</div>
+            <div id="port-fallback-banner" class="hidden p-2 rounded bg-amber-950/40 border border-amber-500/30 text-[10px] text-amber-300 leading-relaxed">
+              <div class="font-bold flex items-center gap-1 text-amber-300">
+                <span>⚠️</span> <span>임시 대체 포트 사용 중</span>
+              </div>
+              <p id="port-fallback-reason" class="text-[9.5px] text-amber-200/80 mt-1"></p>
+            </div>
+
+            <div class="space-y-1.5 pt-0.5">
+              <div class="flex items-center gap-1.5">
+                <div class="relative flex-1 min-w-[90px]">
+                  <input id="input-custom-port" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="5" class="chzzk-input text-[11px] py-1.5 w-full text-center font-mono placeholder:text-slate-500" placeholder="포트 (1024~65535)" />
+                </div>
+                <button type="button" onclick="checkCustomPort()" class="!w-auto px-3 py-1.5 rounded bg-[#161F2E] border border-[#243044] hover:border-chzzk-accent text-chzzk-accent text-[11px] font-semibold whitespace-nowrap cursor-pointer transition-colors">
+                  🔍 점검
+                </button>
+                <button type="button" onclick="saveCustomPort()" class="!w-auto px-3 py-1.5 rounded bg-[#161F2E] border border-[#243044] hover:border-emerald-400 text-emerald-400 text-[11px] font-semibold whitespace-nowrap cursor-pointer transition-colors">
+                  💾 저장
+                </button>
+              </div>
+              <div id="port-check-result" class="text-[10px] leading-tight min-h-[14px] text-chzzk-muted px-0.5 font-medium"></div>
+            </div>
           </div>
-          <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
-            <input type="checkbox" id="toggle-popup-on-start" onchange="savePopupOnStartSetting(this.checked)" class="sr-only peer">
-            <div class="w-8 h-4.5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-chzzk-accent"></div>
-          </label>
+
+          <!-- 프로그램 시작 시 독 팝업창 자동 열기 설정 -->
+          <div class="section-card p-2.5 bg-chzzk-card/70 border border-chzzk-border space-y-2">
+            <div class="flex items-center justify-between">
+              <div class="pr-2">
+                <div class="text-[11px] font-semibold text-white/90">🖥️ 시작 시 독 팝업창 자동 열기</div>
+                <div class="text-[9px] text-chzzk-muted leading-tight mt-0.5">프로그램(exe) 직접 실행 시 독 화면을 바로 띄웁니다. (끄면 트레이로만 조용히 시작)</div>
+              </div>
+              <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                <input type="checkbox" id="toggle-popup-on-start" onchange="savePopupOnStartSetting(this.checked)" class="sr-only peer">
+                <div class="w-8 h-4.5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-chzzk-accent"></div>
+              </label>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1544,7 +1575,7 @@
     </div>
 
     <div class="text-[10px] text-chzzk-muted text-center mt-3 py-1">
-      <p class="font-medium text-white/70">CHZZK OBS Dock v0.5.4</p>
+      <p class="font-medium text-white/70">CHZZK OBS Dock {{APP_VERSION}}</p>
     </div>
   </div>
 
@@ -2250,6 +2281,7 @@
           checkObsScriptStatus();
           loadPortStatus();
           loadPopupOnStartSetting();
+          loadShutdownNotifySetting();
         }
       }
       updatePanelScrollLock();
@@ -4482,6 +4514,11 @@
       if (text) { text.textContent = '로그인 필요'; text.className = 'font-medium text-[#FF4D6A]'; }
       if (badgeA) { badgeA.textContent = "⚠️ 로그인 필요"; badgeA.className = "text-[9px] px-1.5 py-0.5 rounded font-bold bg-amber-950 text-amber-400 border border-amber-800/60"; }
       if (badgeB) { badgeB.textContent = "⚠️ 미연동"; badgeB.className = "text-[9px] px-1.5 py-0.5 rounded font-bold bg-amber-950 text-amber-400 border border-amber-800/60"; }
+      const groupLoginBadge = document.getElementById('group-login-badge');
+      if (groupLoginBadge) {
+        groupLoginBadge.textContent = "로그인 필요";
+        groupLoginBadge.className = "text-[9px] px-1.5 py-0.5 rounded font-bold bg-amber-950 text-amber-400 border border-amber-800/60";
+      }
       if (btnWebview) {
         btnWebview.innerHTML = "🔑 네이버 로그인 시작 (자동)";
         btnWebview.className = "save-btn text-xs py-2.5 bg-gradient-to-r from-emerald-400 to-teal-400 !text-[#080A0D] font-extrabold shadow-md";
@@ -4576,6 +4613,11 @@
             if (text) { text.textContent = '연동됨'; text.className = 'font-medium text-[#00FFA3]'; }
             if (badgeA) { badgeA.textContent = "✅ 쿠키 연동됨"; badgeA.className = "text-[9px] px-1.5 py-0.5 rounded font-bold bg-emerald-950 text-[#00FFA3] border border-emerald-800/60"; }
             if (badgeB) { badgeB.textContent = "✅ 등록됨"; badgeB.className = "text-[9px] px-1.5 py-0.5 rounded font-bold bg-emerald-950 text-[#00FFA3] border border-emerald-800/60"; }
+            const groupLoginBadge = document.getElementById('group-login-badge');
+            if (groupLoginBadge) {
+              groupLoginBadge.textContent = "연동됨";
+              groupLoginBadge.className = "text-[9px] px-1.5 py-0.5 rounded font-bold bg-emerald-950 text-[#00FFA3] border border-emerald-800/60";
+            }
             if (btnWebview) {
               btnWebview.innerHTML = "🚪 치지직 연동 해제 (로그아웃)";
               btnWebview.className = "save-btn text-xs py-2 bg-rose-900/60 hover:bg-rose-800 text-rose-200 border border-rose-600/60 transition-colors";
@@ -4849,6 +4891,53 @@
       }
     }
 
+    // ===== 자동 종료 시 Windows 알림 설정 제어 [SYS-03] =====
+    async function loadShutdownNotifySetting() {
+      try {
+        const res = await apiFetch('/shutdown-notify-status');
+        if (!res.ok) return;
+        const data = await res.json();
+        const toggleEl = document.getElementById('toggle-shutdown-notify');
+        if (toggleEl && data && typeof data.notify_on_shutdown === 'boolean') {
+          toggleEl.checked = data.notify_on_shutdown;
+        }
+      } catch (e) {
+        console.warn('Failed to load shutdown notify setting:', e);
+      }
+    }
+
+    async function saveShutdownNotifySetting(checked) {
+      try {
+        const res = await apiFetch('/save-shutdown-notify', {
+          method: 'POST',
+          body: JSON.stringify({ notify_on_shutdown: checked })
+        });
+        const data = await res.json();
+        if (res.ok && data.code === 200) {
+          showToast('설정 저장 완료', 'success', checked ? 'OBS 종료 또는 미감지로 자동 종료 시 알림을 받습니다.' : '자동 종료 시 알림 없이 조용히 종료됩니다.');
+        } else {
+          showToast('설정 저장 실패', 'error', data.message || '설정 저장에 실패했습니다.');
+        }
+      } catch (e) {
+        showToast('통신 오류', 'error', e.message);
+      }
+    }
+
+    // ===== 설정창 아코디언 그룹 접기/펼치기 제어 =====
+    function toggleSettingsGroup(group) {
+      const content = document.getElementById(`group-${group}-content`);
+      const arrow = document.getElementById(`group-${group}-arrow`);
+      if (!content) return;
+      const isHidden = content.classList.contains('hidden');
+      if (isHidden) {
+        content.classList.remove('hidden');
+        if (arrow) arrow.style.transform = 'rotate(0deg)';
+      } else {
+        content.classList.add('hidden');
+        if (arrow) arrow.style.transform = 'rotate(-90deg)';
+      }
+    }
+
     // ===== Webview Login (이벤트 기반 비동기 대기 / 더블클릭 방지) =====
 
 
@@ -4879,7 +4968,7 @@
       }
     }
 
-    let currentObsStatus = { detected: false, path: '', installed: false };
+    let currentObsStatus = { detected: false, path: '', installed: false, needs_update: false };
 
     function updateObsScriptUI() {
       const badge = document.getElementById('obs-script-status-badge');
@@ -4887,11 +4976,19 @@
       if (!badge || !btn) return;
 
       if (currentObsStatus.installed) {
-        badge.textContent = '설치됨';
-        badge.className = 'text-[9px] px-1.5 py-0.5 rounded font-bold bg-emerald-950/80 text-[#00FFA3] border border-emerald-800/50';
-        btn.textContent = '✔️ 설치됨';
-        btn.disabled = true;
-        btn.className = 'px-2.5 py-1 text-[11px] font-bold rounded bg-[#161F2E] border border-[#243044] text-emerald-400 opacity-80 cursor-default';
+        if (currentObsStatus.needs_update) {
+          badge.textContent = '업데이트 필요';
+          badge.className = 'text-[9px] px-1.5 py-0.5 rounded font-bold bg-amber-950/80 text-amber-400 border border-amber-800/50';
+          btn.textContent = '🔄 스크립트 업데이트';
+          btn.disabled = false;
+          btn.className = 'px-2.5 py-1 text-[11px] font-bold rounded transition-all cursor-pointer bg-amber-950/50 border border-amber-500/50 text-amber-300 hover:bg-amber-900/60 hover:text-white';
+        } else {
+          badge.textContent = '설치됨 (최신)';
+          badge.className = 'text-[9px] px-1.5 py-0.5 rounded font-bold bg-emerald-950/80 text-[#00FFA3] border border-emerald-800/50';
+          btn.textContent = '✔️ 설치됨';
+          btn.disabled = true;
+          btn.className = 'px-2.5 py-1 text-[11px] font-bold rounded bg-[#161F2E] border border-[#243044] text-emerald-400 opacity-80 cursor-default';
+        }
       } else {
         if (currentObsStatus.detected) {
           badge.textContent = '미설치';
@@ -4920,16 +5017,17 @@
 
     async function handleObsScriptAction() {
       const btn = document.getElementById('btn-obs-script-action');
-      if (currentObsStatus.installed) return;
+      if (currentObsStatus.installed && !currentObsStatus.needs_update) return;
 
       if (!currentObsStatus.detected) {
         await browseAndInstallObsFolder();
         return;
       }
 
+      const isUpdate = (currentObsStatus.installed && currentObsStatus.needs_update);
       if (btn) {
         btn.disabled = true;
-        btn.textContent = '설치 중...';
+        btn.textContent = isUpdate ? '업데이트 중...' : '설치 중...';
       }
 
       try {
@@ -4940,17 +5038,22 @@
         });
         const data = await res.json();
         if (res.ok && data.code === 200) {
-          showToast('🎉 스크립트 파일 설치 완료', 'success', 'OBS [도구] ➔ [스크립트] ➔ [+] 버튼으로 chzzk_dock_launcher.lua를 등록해 주세요.');
+          if (isUpdate) {
+            showToast('🎉 스크립트 업데이트 완료', 'success', '최신 버전의 chzzk_dock_launcher.lua가 적용되었습니다.');
+          } else {
+            showToast('🎉 스크립트 파일 설치 완료', 'success', 'OBS [도구] ➔ [스크립트] ➔ [+] 버튼으로 chzzk_dock_launcher.lua를 등록해 주세요.');
+          }
           currentObsStatus.installed = true;
+          currentObsStatus.needs_update = false;
           if (data.path) {
             currentObsStatus.path = data.path;
             currentObsStatus.detected = true;
           }
         } else {
-          showToast('설치 실패', 'error', data.message || '스크립트 설치 실패');
+          showToast(isUpdate ? '업데이트 실패' : '설치 실패', 'error', data.message || '스크립트 적용 실패');
         }
       } catch (e) {
-        showToast('설치 오류', 'error', e.message);
+        showToast(isUpdate ? '업데이트 오류' : '설치 오류', 'error', e.message);
       } finally {
         updateObsScriptUI();
       }
