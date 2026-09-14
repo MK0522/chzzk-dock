@@ -2,6 +2,7 @@ package main
 
 import (
 	_ "embed"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -36,10 +37,10 @@ var embeddedGuide2 []byte
 var embeddedLauncherScript []byte
 
 // ============================================================
-//  CHZZK OBS Dock Server v0.5.4 (Modular Architecture)
+//  CHZZK OBS Dock Server v0.5.5 (Modular Architecture)
 // ============================================================
 const (
-	APP_VERSION       = "v0.5.4"
+	APP_VERSION       = "v0.5.5"
 	DEFAULT_HTTP_PORT = 8081
 	USER_AGENT        = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 )
@@ -65,6 +66,25 @@ func sendJSON(w http.ResponseWriter, data interface{}, status int) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(data)
+}
+
+var (
+	renderedHTMLCache []byte
+	renderedHTMLOnce  sync.Once
+)
+
+func getRenderedHTML() []byte {
+	if localHTML, err := os.ReadFile("chzzk-obs-dock.html"); err == nil {
+		return bytes.ReplaceAll(localHTML, []byte("{{APP_VERSION}}"), []byte(APP_VERSION))
+	}
+	renderedHTMLOnce.Do(func() {
+		renderedHTMLCache = bytes.ReplaceAll(embeddedHTML, []byte("{{APP_VERSION}}"), []byte(APP_VERSION))
+	})
+	return renderedHTMLCache
+}
+
+func getTrayTooltip() string {
+	return fmt.Sprintf("ChzzkDock-%s, port:%d", APP_VERSION, activeHttpPort)
 }
 
 var (
@@ -322,16 +342,17 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 	case http.MethodGet:
 		// API 엔드포인트 라우팅
 		apiPaths := map[string]bool{
-			"/config":            true,
-			"/login-webview":     true,
-			"/login-wait":        true,
-			"/unofficial-user":   true,
-			"/open-browser":      true,
-			"/obs-script-status": true,
-			"/remote-webview":      true,
-			"/watchdog-timeout":    true,
-			"/port-status":         true,
-			"/startup-popup-status": true,
+			"/config":                 true,
+			"/login-webview":          true,
+			"/login-wait":             true,
+			"/unofficial-user":        true,
+			"/open-browser":           true,
+			"/obs-script-status":      true,
+			"/remote-webview":         true,
+			"/watchdog-timeout":       true,
+			"/port-status":            true,
+			"/startup-popup-status":   true,
+			"/shutdown-notify-status": true,
 		}
 
 		if apiPaths[path] || strings.HasPrefix(path, "/unofficial/") {
@@ -341,12 +362,13 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 
 			if path == "/obs-script-status" {
 				scriptsDir, detected := core.DetectObsScriptsDir()
-				installed := core.IsScriptInstalled(scriptsDir)
+				installed, needsUpdate := core.CheckScriptStatus(scriptsDir, getLauncherScriptData())
 				sendJSON(w, map[string]interface{}{
-					"code":      200,
-					"detected":  detected,
-					"path":      scriptsDir,
-					"installed": installed,
+					"code":         200,
+					"detected":     detected,
+					"path":         scriptsDir,
+					"installed":    installed,
+					"needs_update": needsUpdate,
 				}, http.StatusOK)
 				return
 			}
@@ -530,6 +552,14 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
+			if path == "/shutdown-notify-status" {
+				sendJSON(w, map[string]interface{}{
+					"code":               200,
+					"notify_on_shutdown": core.GetNotifyOnShutdown(),
+				}, http.StatusOK)
+				return
+			}
+
 			if proxyDispatch(w, r, "GET") {
 				return
 			}
@@ -559,14 +589,19 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// OBS 독 정적 HTML 페이지 서빙
-		if path == "/" || path == "/index.html" || path == "/chzzk-obs-dock.html" {
-			// 로컬 디스크 파일 우선 확인, 없으면 내장 에셋 서빙
-			if localHTML, err := os.ReadFile("chzzk-obs-dock.html"); err == nil {
-				sendBytes(w, localHTML, http.StatusOK, "text/html; charset=utf-8")
+		// 기존 인스턴스 독 화면 전면 활성화 엔드포인트 (중복 실행 방지 연동)
+		if path == "/show-ui" || path == "/api/show-ui" {
+			if !core.CheckSecurity(w, r) {
 				return
 			}
-			sendBytes(w, embeddedHTML, http.StatusOK, "text/html; charset=utf-8")
+			core.ShowDockWindow()
+			sendJSON(w, map[string]interface{}{"code": 200, "message": "UI 표시 완료"}, http.StatusOK)
+			return
+		}
+
+		// OBS 독 정적 HTML 페이지 서빙 (SSR 버전 동적 주입)
+		if path == "/" || path == "/index.html" || path == "/chzzk-obs-dock.html" {
+			sendBytes(w, getRenderedHTML(), http.StatusOK, "text/html; charset=utf-8")
 			return
 		}
 
@@ -713,6 +748,33 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		if path == "/save-shutdown-notify" {
+			var reqData struct {
+				NotifyOnShutdown bool `json:"notify_on_shutdown"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&reqData); err != nil {
+				sendJSON(w, map[string]interface{}{
+					"code":    400,
+					"message": "잘못된 요청 형식입니다.",
+				}, http.StatusBadRequest)
+				return
+			}
+			if err := core.SetNotifyOnShutdownSetting(reqData.NotifyOnShutdown); err != nil {
+				sendJSON(w, map[string]interface{}{
+					"code":    500,
+					"message": "설정 저장에 실패했습니다.",
+				}, http.StatusInternalServerError)
+				return
+			}
+			core.LogInfo("[Settings] 자동 종료 시 알림 설정이 %v(으)로 저장되었습니다.", reqData.NotifyOnShutdown)
+			sendJSON(w, map[string]interface{}{
+				"code":               200,
+				"notify_on_shutdown": reqData.NotifyOnShutdown,
+				"message":            "자동 종료 알림 설정이 저장되었습니다.",
+			}, http.StatusOK)
+			return
+		}
+
 		if path == "/watchdog-timeout" {
 			var reqData struct {
 				TimeoutSec int `json:"timeout_sec"`
@@ -736,11 +798,7 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 			st.WatchdogTimeoutSec = reqData.TimeoutSec
 			_ = core.SaveSettings(st)
 			if trayInstance != nil {
-				portLabel := fmt.Sprintf("포트: %d", activeHttpPort)
-				if isFallbackPort {
-					portLabel = fmt.Sprintf("대체 포트: %d (점유 충돌)", activeHttpPort)
-				}
-				trayInstance.UpdateTooltip(fmt.Sprintf("CHZZK OBS Dock Server (%s) - %s, OBS와 함께 종료: %s", APP_VERSION, portLabel, getWatchdogTrayLabel(reqData.TimeoutSec)))
+				trayInstance.UpdateTooltip(getTrayTooltip())
 			}
 			sendJSON(w, map[string]interface{}{
 				"code":        200,
@@ -949,11 +1007,7 @@ func updateWatchdogTimeoutFromTray(sec int) {
 	st.WatchdogTimeoutSec = sec
 	_ = core.SaveSettings(st)
 	if trayInstance != nil {
-		portLabel := fmt.Sprintf("포트: %d", activeHttpPort)
-		if isFallbackPort {
-			portLabel = fmt.Sprintf("대체 포트: %d (점유 충돌)", activeHttpPort)
-		}
-		trayInstance.UpdateTooltip(fmt.Sprintf("CHZZK OBS Dock Server (%s) - %s, OBS와 함께 종료: %s", APP_VERSION, portLabel, getWatchdogTrayLabel(sec)))
+		trayInstance.UpdateTooltip(getTrayTooltip())
 		trayInstance.ShowNotification("CHZZK OBS Dock", fmt.Sprintf("OBS 종료 시 %s 뒤 함께 종료되도록 설정되었습니다.", getWatchdogLabel(sec)))
 	}
 }
@@ -968,14 +1022,8 @@ func runTray(silentMode bool) {
 	core.InitDockWindow(activeHttpPort, APP_VERSION, showWindow)
 
 	// 2. 트레이 아이콘 설정
-	sec := core.GetWatchdogTimeoutSec()
-	portLabel := fmt.Sprintf("포트: %d", activeHttpPort)
-	if isFallbackPort {
-		portLabel = fmt.Sprintf("대체 포트: %d (점유 충돌)", activeHttpPort)
-	}
-
 	tray := core.NewPureWinTrayIcon(
-		fmt.Sprintf("CHZZK OBS Dock Server (%s) - %s, OBS와 함께 종료: %s", APP_VERSION, portLabel, getWatchdogTrayLabel(sec)),
+		getTrayTooltip(),
 		"icon.ico",
 		embeddedIcon,
 	)
@@ -1103,6 +1151,50 @@ func showMessageBox(title, msg string) {
 	procMessageBoxW.Call(0, uintptr(unsafe.Pointer(msgPtr)), uintptr(unsafe.Pointer(titlePtr)), 0x10)
 }
 
+func activateExistingInstance(user32 *syscall.LazyDLL) {
+	className := "ChzzkDockWindowClass"
+	classNamePtr, _ := syscall.UTF16PtrFromString(className)
+
+	procFindWindowW := user32.NewProc("FindWindowW")
+	procPostMessageW := user32.NewProc("PostMessageW")
+	procShowWindow := user32.NewProc("ShowWindow")
+
+	var existingHwnd uintptr
+	for i := 0; i < 15; i++ {
+		existingHwnd, _, _ = procFindWindowW.Call(uintptr(unsafe.Pointer(classNamePtr)), 0)
+		if existingHwnd != 0 {
+			break
+		}
+		time.Sleep(30 * time.Millisecond)
+	}
+
+	if existingHwnd != 0 {
+		showMsgId := core.GetShowDockMessageId()
+		if showMsgId != 0 {
+			procPostMessageW.Call(existingHwnd, uintptr(showMsgId), 0, 0)
+		}
+		procShowWindow.Call(existingHwnd, 9 /* SW_RESTORE */)
+		core.ForceForegroundWindow(existingHwnd, false)
+	}
+
+	// 백엔드 HTTP /show-ui 호출 (기존 인스턴스가 숨겨져 있거나 아직 윈도우 핸들이 미생성된 경우 백엔드가 직접 창 복원)
+	go func() {
+		client := &http.Client{Timeout: 1 * time.Second}
+		portsToTry := []int{core.GetConfiguredPort(), DEFAULT_HTTP_PORT}
+		for _, p := range portsToTry {
+			if p > 0 {
+				req, err := http.NewRequest("GET", fmt.Sprintf("http://127.0.0.1:%d/show-ui", p), nil)
+				if err == nil {
+					req.Header.Set("X-Requested-With", "ChzzkDock")
+					_, _ = client.Do(req)
+				}
+			}
+		}
+	}()
+
+	time.Sleep(150 * time.Millisecond)
+}
+
 // ============================================================
 //  Main Entrypoint
 // ============================================================
@@ -1155,16 +1247,15 @@ func main() {
 		}
 	}
 
-	// [단일 인스턴스 보장] 버전별 고유 Mutex를 통한 다중 버전 공존 및 중복 실행 감지
+	// [단일 인스턴스 보장] Chzzk OBS Dock 전역 단일 Mutex
 	kernel32 := syscall.NewLazyDLL("kernel32.dll")
 	user32 := syscall.NewLazyDLL("user32.dll")
-	verKey := core.GetVersionKey(APP_VERSION)
-	mutexName := fmt.Sprintf(`Local\ChzzkObsDock_%s_Server_Mutex`, verKey)
+	mutexName := `Local\ChzzkDock`
 	mutexNamePtr, _ := syscall.UTF16PtrFromString(mutexName)
-	mutexHandle, _, _ := kernel32.NewProc("CreateMutexW").Call(0, 0, uintptr(unsafe.Pointer(mutexNamePtr)))
-	lastErr, _, _ := kernel32.NewProc("GetLastError").Call()
-	if lastErr == 183 { // ERROR_ALREADY_EXISTS
-		// 백그라운드/스크립트 모드로 중복 실행된 경우 조용히 종료
+	mutexHandle, _, errCall := kernel32.NewProc("CreateMutexW").Call(0, 0, uintptr(unsafe.Pointer(mutexNamePtr)))
+	errno, isErrno := errCall.(syscall.Errno)
+	if isErrno && errno == 183 { // ERROR_ALREADY_EXISTS
+		// 1. 백그라운드/스크립트 무음 모드(--silent 등)인 경우 조용히 즉시 종료
 		if silentMode {
 			if mutexHandle != 0 {
 				kernel32.NewProc("CloseHandle").Call(mutexHandle)
@@ -1172,54 +1263,10 @@ func main() {
 			os.Exit(0)
 		}
 
-		core.LogInfo("[Main] 치지직 독 (%s) 인스턴스가 이미 실행 중입니다. 사용자에게 독 화면 표시 여부를 확인합니다.", APP_VERSION)
+		core.LogInfo("[Main] 치지직 독 인스턴스가 이미 실행 중입니다. 기존 인스턴스 독 화면을 최상단으로 활성화합니다.")
 
-		displayVer := APP_VERSION
-		if !strings.HasPrefix(displayVer, "v") {
-			displayVer = "v" + displayVer
-		}
-
-		// Win32 MessageBoxW 확인 다이얼로그 (MB_YESNO | MB_ICONQUESTION | MB_TOPMOST)
-		titlePtr, _ := syscall.UTF16PtrFromString("CHZZK OBS Dock 알림")
-		msgText := fmt.Sprintf(
-			"이미 CHZZK OBS Dock (%s) 프로그램이 백그라운드에서 실행 중입니다.\n\n현재 실행 중인 방송 독 화면을 여시겠습니까?",
-			displayVer,
-		)
-		msgPtr, _ := syscall.UTF16PtrFromString(msgText)
-		procMessageBoxW := user32.NewProc("MessageBoxW")
-		ret, _, _ := procMessageBoxW.Call(
-			0,
-			uintptr(unsafe.Pointer(msgPtr)),
-			uintptr(unsafe.Pointer(titlePtr)),
-			uintptr(0x00000004|0x00000020|0x00040000), // MB_YESNO | MB_ICONQUESTION | MB_TOPMOST
-		)
-
-		if ret == 6 { // IDYES: 사용자가 [예]를 선택한 경우에만 기존 창 표시
-			className := fmt.Sprintf("ChzzkDockWindowClass_%s", verKey)
-			classNamePtr, _ := syscall.UTF16PtrFromString(className)
-
-			procFindWindowW := user32.NewProc("FindWindowW")
-			procPostMessageW := user32.NewProc("PostMessageW")
-			procShowWindow := user32.NewProc("ShowWindow")
-
-			var existingHwnd uintptr
-			for i := 0; i < 20; i++ {
-				existingHwnd, _, _ = procFindWindowW.Call(uintptr(unsafe.Pointer(classNamePtr)), 0)
-				if existingHwnd != 0 {
-					break
-				}
-				time.Sleep(50 * time.Millisecond)
-			}
-
-			if existingHwnd != 0 {
-				showMsgId := core.GetShowDockMessageId(verKey)
-				if showMsgId != 0 {
-					procPostMessageW.Call(existingHwnd, uintptr(showMsgId), 0, 0)
-				}
-				procShowWindow.Call(existingHwnd, 9 /* SW_RESTORE */)
-				core.ForceForegroundWindow(existingHwnd, false)
-			}
-		}
+		// 2. 일반 실행인 경우: 기존 인스턴스의 독 UI 화면을 화면 앞으로 복원/활성화
+		activateExistingInstance(user32)
 
 		if mutexHandle != 0 {
 			kernel32.NewProc("CloseHandle").Call(mutexHandle)
@@ -1283,7 +1330,18 @@ func main() {
 		if procName == "" {
 			procName = "알 수 없는 프로그램"
 		}
-		core.LogWarn("[Main] 지정 포트(%d)가 '%s'(PID: %d)에 의해 사용 중입니다 (%v). 안전한 대체 포트를 자동 할당합니다.", targetPort, procName, pid, err)
+
+		// [중요] 점유 프로그램이 chzzk-dock.exe인 경우 (기존 인스턴스가 이미 서버를 구동 중인 상태)
+		if strings.EqualFold(procName, "chzzk-dock.exe") || strings.EqualFold(procName, "chzzk-obs-dock.exe") {
+			core.LogInfo("[Main] 포트(%d)를 점유 중인 프로세스가 이미 chzzk-dock.exe (PID: %d)입니다. 중복 서버를 시작하지 않고 종료합니다.", targetPort, pid)
+			if silentMode {
+				os.Exit(0)
+			}
+			activateExistingInstance(user32)
+			os.Exit(0)
+		}
+
+		core.LogWarn("[Main] 지정 포트(%d)가 타 프로그램 '%s'(PID: %d)에 의해 사용 중입니다 (%v). 안전한 대체 포트를 자동 할당합니다.", targetPort, procName, pid, err)
 
 		// 안전한 대체 포트(49152 ~ 65535) 자동 탐색 및 바인딩
 		fallbackPort, fallbackListener, fbErr := core.FindSafeFallbackPort()

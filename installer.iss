@@ -3,7 +3,7 @@
 ; ==============================================================================
 
 #define MyAppName "CHZZK OBS Dock"
-#define MyAppVersion "0.5.4"
+#define MyAppVersion "0.5.5"
 #define MyAppPublisher "CHZZK OBS Dock"
 #define MyAppURL "https://github.com/Dingteus/chzzk-dock"
 #define MyAppExeName "chzzk-dock.exe"
@@ -48,14 +48,12 @@ Name: "startmenuicon"; Description: "시작 메뉴에 바로 가기 만들기(&M
 [Files]
 Source: "chzzk-dock.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "scripts\chzzk_dock_launcher.lua"; DestDir: "{app}\scripts"; Flags: ignoreversion
-Source: "chzzk-obs-dock.html"; DestDir: "{app}"; Flags: ignoreversion
-Source: "icon.ico"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\icon.ico"; Tasks: startmenuicon
-Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\icon.ico"; Tasks: startmenuicon
+Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: startmenuicon
+Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: startmenuicon
 Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"; Tasks: startmenuicon
-Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\icon.ico"; Tasks: desktopicon
+Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent

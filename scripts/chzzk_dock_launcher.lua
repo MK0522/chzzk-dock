@@ -19,18 +19,59 @@ local function file_exists(path)
     return false
 end
 
+local ffi_loaded, ffi = pcall(require, "ffi")
+local cdef_done = false
+if ffi_loaded then
+    pcall(function()
+        ffi.cdef[[
+            int MultiByteToWideChar(unsigned int CodePage, unsigned long dwFlags, const char* lpMultiByteStr, int cbMultiByte, uint16_t* lpWideCharStr, int cchWideChar);
+            int MessageBoxW(void* hWnd, const uint16_t* lpText, const uint16_t* lpCaption, unsigned int uType);
+            void* OpenMutexW(unsigned long dwDesiredAccess, int bInheritHandle, const uint16_t* lpName);
+            int CloseHandle(void* hObject);
+        ]]
+        cdef_done = true
+    end)
+end
+
+local function to_wide(str)
+    if not ffi_loaded or not str then return nil end
+    local CP_UTF8 = 65001
+    local len = ffi.C.MultiByteToWideChar(CP_UTF8, 0, str, -1, nil, 0)
+    if len <= 0 then return nil end
+    local buf = ffi.new("uint16_t[?]", len)
+    ffi.C.MultiByteToWideChar(CP_UTF8, 0, str, -1, buf, len)
+    return buf
+end
+
 local function alert_error(msg)
-    -- OBS LuaJIT FFI를 통해 Windows 네이티브 MessageBox 호출
-    local has_ffi, ffi = pcall(require, "ffi")
-    if has_ffi then
+    if ffi_loaded and cdef_done then
         pcall(function()
-            ffi.cdef[[
-                int MessageBoxA(void* hWnd, const char* lpText, const char* lpCaption, unsigned int uType);
-            ]]
-            ffi.C.MessageBoxA(nil, msg, "CHZZK OBS Dock 알림", 0x10) -- 0x10: MB_ICONERROR
+            local title_w = to_wide("CHZZK OBS Dock 알림")
+            local text_w = to_wide(msg)
+            if title_w and text_w then
+                ffi.C.MessageBoxW(nil, text_w, title_w, 0x10) -- 0x10: MB_ICONERROR
+            end
         end)
     end
     print("[CHZZK Dock 오류] " .. msg)
+end
+
+local function is_server_already_running()
+    if ffi_loaded and cdef_done then
+        local ok, running = pcall(function()
+            local SYNCHRONIZE = 0x00100000
+            local name_w = to_wide("Local\\ChzzkDock")
+            if not name_w then return false end
+            local h = ffi.C.OpenMutexW(SYNCHRONIZE, 0, name_w)
+            if h ~= nil and h ~= ffi.null then
+                ffi.C.CloseHandle(h)
+                return true
+            end
+            return false
+        end)
+        if ok and running then return true end
+    end
+    return false
 end
 
 function script_description()
@@ -57,41 +98,96 @@ function script_description()
 end
 
 local function get_default_exe_path()
+    -- 1. Go 백엔드에서 주입된 고정 경로가 유효한 경우
     if BAKED_EXE_PATH ~= "" and file_exists(BAKED_EXE_PATH) then
         return BAKED_EXE_PATH
     end
+
+    -- 2. 스크립트 위치 기준 탐색
     local s_path = script_path()
     if s_path then
         local dir = s_path:match("(.*[/\\])")
-        if dir and file_exists(dir .. "chzzk-dock.exe") then
-            return dir .. "chzzk-dock.exe"
+        if dir then
+            -- 2-1. 같은 폴더
+            if file_exists(dir .. "chzzk-dock.exe") then
+                return dir .. "chzzk-dock.exe"
+            end
+            -- 2-2. 상위 폴더 (인스톨러 설치 시 {app}\scripts 하위에 스크립트 위치)
+            if file_exists(dir .. "..\\chzzk-dock.exe") then
+                return dir .. "..\\chzzk-dock.exe"
+            end
+            if file_exists(dir .. "../chzzk-dock.exe") then
+                return dir .. "../chzzk-dock.exe"
+            end
         end
     end
+
+    -- 3. Inno Setup 인스톨러 표준 설치 경로 탐색
+    local local_appdata = os.getenv("LOCALAPPDATA")
+    if local_appdata then
+        local user_install = local_appdata .. "\\Programs\\CHZZK OBS Dock\\chzzk-dock.exe"
+        if file_exists(user_install) then
+            return user_install
+        end
+    end
+
+    local prog_files = os.getenv("ProgramFiles")
+    if prog_files then
+        local admin_install = prog_files .. "\\CHZZK OBS Dock\\chzzk-dock.exe"
+        if file_exists(admin_install) then
+            return admin_install
+        end
+    end
+
+    local prog_files_x86 = os.getenv("ProgramFiles(x86)")
+    if prog_files_x86 then
+        local admin_x86 = prog_files_x86 .. "\\CHZZK OBS Dock\\chzzk-dock.exe"
+        if file_exists(admin_x86) then
+            return admin_x86
+        end
+    end
+
+    -- 4. 폴백: 비록 파일이 현재 없더라도 BAKED_EXE_PATH가 있으면 반환
     if BAKED_EXE_PATH ~= "" then
         return BAKED_EXE_PATH
     end
+
+    -- 5. 기본값: 사용자 설치 표준 경로 제공 (OBS 폴더로 잘못 지정되는 현상 방지)
+    if local_appdata then
+        return local_appdata .. "\\Programs\\CHZZK OBS Dock\\chzzk-dock.exe"
+    end
+
     return ""
 end
 
 local function launch_server_process()
+    -- 이미 실행 중이면 불필요한 알림/실행 자체를 생략하고 즉시 종료
+    if is_server_already_running() then
+        print("[CHZZK Dock] 치지직 독 서버가 이미 백그라운드에서 실행 중입니다. (기동 생략)")
+        return
+    end
+
     local target = exe_path
     if target == "" then
         target = get_default_exe_path()
     end
 
     if target == "" or not file_exists(target) then
-        local err_msg = "치지직 독 실행 파일(chzzk-dock.exe)을 찾을 수 없습니다.\n\n지정된 경로:\n" .. (target ~= "" and target or "(경로 비어있음)") .. "\n\n파일이 이동되었거나 삭제되었는지 확인해 주세요.\nOBS 상단 메뉴 [도구] -> [스크립트]에서 올바른 chzzk-dock.exe 위치를 지정하세요."
+        local display_target = (target ~= "" and target or "(경로 비어있음)")
+        local err_msg = "치지직 독 서버를 실행하지 못했습니다.\n\n" ..
+            "지정된 경로에 chzzk-dock.exe 파일이 존재하지 않습니다:\n" ..
+            display_target .. "\n\n" ..
+            "OBS 상단 메뉴 [도구] -> [스크립트]의 chzzk_dock_launcher.lua 설정에서 chzzk-dock.exe 파일의 정확한 경로를 지정해 주세요."
         alert_error(err_msg)
         return
     end
 
     print("[CHZZK Dock] 치지직 독 서버 시작 요청 (비동기): " .. target)
-    -- Windows 창 숨김 백그라운드 비동기 실행:
-    -- OBS 시작 시에는 --silent 플래그로 조용히 백그라운드 구동하며, exe를 직접 더블클릭할 때만 웹뷰 화면이 팝업됩니다.
-    local launch_cmd = 'start "" /b "' .. target .. '" --silent'
+    -- Windows 창 숨김 백그라운드 비동기 실행 (start /b)
+    local launch_cmd = 'start "" /b "' .. target .. '"'
     local ret = os.execute(launch_cmd)
     if ret ~= 0 then
-        alert_error("치지직 독 서버 실행에 실패했습니다.\n\n명령: " .. launch_cmd)
+        alert_error("치지직 독 서버를 실행하지 못했습니다.\n\n명령: " .. launch_cmd)
     end
 end
 
