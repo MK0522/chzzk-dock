@@ -250,6 +250,34 @@ func IsScriptInstalled(scriptsDir string) bool {
 	return false
 }
 
+// CheckScriptStatus: 대상 scripts 디렉터리에 스크립트 설치 여부 및 최신 내용 일치 여부(업데이트 필요 여부)를 검사합니다.
+func CheckScriptStatus(scriptsDir string, latestScript []byte) (installed bool, needsUpdate bool) {
+	if scriptsDir == "" {
+		scriptsDir, _ = DetectObsScriptsDir()
+	}
+	if scriptsDir == "" {
+		return false, false
+	}
+	targetFile := filepath.Join(scriptsDir, "chzzk_dock_launcher.lua")
+	existingData, err := os.ReadFile(targetFile)
+	if err != nil || len(existingData) == 0 {
+		return false, false
+	}
+	installed = true
+
+	// 현재 실행 파일 경로가 주입된 최신 스크립트 데이터 생성
+	expectedData := PrepareLauncherScriptWithExePath(latestScript)
+
+	// 줄바꿈 정규화 (\r\n -> \n) 후 비교
+	normExisting := strings.ReplaceAll(string(existingData), "\r\n", "\n")
+	normExpected := strings.ReplaceAll(string(expectedData), "\r\n", "\n")
+
+	if strings.TrimSpace(normExisting) != strings.TrimSpace(normExpected) {
+		needsUpdate = true
+	}
+	return installed, needsUpdate
+}
+
 // InstallLauncherScriptToObs: 지정된(또는 자동 감지된) OBS scripts 폴더에 스크립트를 추가합니다.
 func InstallLauncherScriptToObs(customDir string, scriptData []byte) (string, error) {
 	var targetDir string

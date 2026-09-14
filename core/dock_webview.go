@@ -54,9 +54,9 @@ func GetVersionKey(version string) string {
 	return clean
 }
 
-// GetShowDockMessageId: 버전별 고유 등록 윈도우 메시지 ID 조회 (RegisterWindowMessageW)
-func GetShowDockMessageId(verKey string) uint32 {
-	msgNamePtr, _ := syscall.UTF16PtrFromString(fmt.Sprintf("ChzzkDock_ShowUI_%s", verKey))
+// GetShowDockMessageId: 전역 고유 등록 윈도우 메시지 ID 조회 (RegisterWindowMessageW)
+func GetShowDockMessageId(verKey ...string) uint32 {
+	msgNamePtr, _ := syscall.UTF16PtrFromString("ChzzkDock_ShowUI")
 	msgId, _, _ := procRegisterWindowMessageW.Call(uintptr(unsafe.Pointer(msgNamePtr)))
 	return uint32(msgId)
 }
@@ -179,13 +179,12 @@ func ShowDockWindow() {
 	if dockHwnd == 0 {
 		return
 	}
+	if dockRegisteredMsg != 0 {
+		procPostMessageW.Call(dockHwnd, uintptr(dockRegisteredMsg), 0, 0)
+		return
+	}
 	procShowWindow.Call(dockHwnd, 9 /* SW_RESTORE */)
 	procUpdateWindow.Call(dockHwnd)
-	if activeDockChromium != nil {
-		_ = activeDockChromium.Show()
-		activeDockChromium.Resize()
-		activeDockChromium.Focus()
-	}
 	ForceForegroundWindow(dockHwnd, false)
 }
 
@@ -228,9 +227,9 @@ func IsDockWindowCreated() bool {
 func InitDockWindow(port int, version string, showInitially bool) uintptr {
 	verKey := GetVersionKey(version)
 	dockVersionKey = verKey
-	dockRegisteredMsg = GetShowDockMessageId(verKey)
+	dockRegisteredMsg = GetShowDockMessageId()
 
-	classNameStr := fmt.Sprintf("ChzzkDockWindowClass_%s", verKey)
+	classNameStr := "ChzzkDockWindowClass"
 	className, _ := syscall.UTF16PtrFromString(classNameStr)
 	displayVer := version
 	if !strings.HasPrefix(displayVer, "v") {

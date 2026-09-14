@@ -12,6 +12,7 @@ type AppSettings struct {
 	WatchdogTimeoutSec int   `json:"watchdog_timeout_sec"` // OBS 미감지 시 자체 종료 대기 시간 (초)
 	HttpPort           int   `json:"http_port"`             // 기본 HTTP 서버 포트 (기본값: 8081)
 	PopupOnStart       *bool `json:"popup_on_start,omitempty"` // 프로그램 시작 시 웹뷰 팝업창 자동 열기 (기본값: false)
+	NotifyOnShutdown   *bool `json:"notify_on_shutdown,omitempty"` // OBS 종료/미감지로 자동 종료 시 Windows 알림 표시 (기본값: true)
 }
 
 func (s AppSettings) IsPopupOnStart() bool {
@@ -25,13 +26,26 @@ func (s *AppSettings) SetPopupOnStart(val bool) {
 	s.PopupOnStart = &val
 }
 
+func (s AppSettings) IsNotifyOnShutdown() bool {
+	if s.NotifyOnShutdown == nil {
+		return true // 기본값: 알림 켜짐
+	}
+	return *s.NotifyOnShutdown
+}
+
+func (s *AppSettings) SetNotifyOnShutdown(val bool) {
+	s.NotifyOnShutdown = &val
+}
+
 var (
-	defaultPopupVal = false
-	settingsMu      sync.RWMutex
-	cachedSettings  = AppSettings{
+	defaultPopupVal  = false
+	defaultNotifyVal = true
+	settingsMu       sync.RWMutex
+	cachedSettings   = AppSettings{
 		WatchdogTimeoutSec: 60,               // 기본값: 1분 (60초)
 		HttpPort:           8081,             // 기본값: 8081
 		PopupOnStart:       &defaultPopupVal, // 기본값: false
+		NotifyOnShutdown:   &defaultNotifyVal, // 기본값: true
 	}
 	settingsLoaded = false
 )
@@ -143,11 +157,24 @@ func SetPopupOnStartSetting(val bool) error {
 	return SaveSettings(st)
 }
 
+// GetNotifyOnShutdown: 자동 종료 시 Windows 알림 표시 여부 조회 (기본값 true)
+func GetNotifyOnShutdown() bool {
+	return LoadSettings().IsNotifyOnShutdown()
+}
+
+// SetNotifyOnShutdownSetting: 자동 종료 시 Windows 알림 표시 여부 설정 저장
+func SetNotifyOnShutdownSetting(val bool) error {
+	st := LoadSettings()
+	st.SetNotifyOnShutdown(val)
+	return SaveSettings(st)
+}
+
 // ResetSettingsForTest: 단위 테스트용 캐시 초기화
 func ResetSettingsForTest() {
 	settingsMu.Lock()
 	defer settingsMu.Unlock()
 	settingsLoaded = false
 	defPop := false
-	cachedSettings = AppSettings{WatchdogTimeoutSec: 60, HttpPort: 8081, PopupOnStart: &defPop}
+	defNotif := true
+	cachedSettings = AppSettings{WatchdogTimeoutSec: 60, HttpPort: 8081, PopupOnStart: &defPop, NotifyOnShutdown: &defNotif}
 }

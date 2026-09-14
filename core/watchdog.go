@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"os"
 	"strings"
 	"sync"
@@ -124,6 +125,10 @@ func StartObsWatchdog(silentMode bool) {
 						timeoutSec := GetWatchdogTimeoutSec()
 						if timeoutSec > 0 && time.Since(obsStoppedAt) >= time.Duration(timeoutSec)*time.Second {
 							LogInfo("[Watchdog] OBS Studio 종료 후 대기 시간(%d초) 만료 -> 치지직 독 서버를 안전하게 자동 종료합니다.", timeoutSec)
+							if GetNotifyOnShutdown() && GlobalTray != nil {
+								GlobalTray.ShowNotification("CHZZK OBS Dock", fmt.Sprintf("OBS Studio 종료가 감지되어 치지직 독 서버를 자동 종료합니다. (%d초 만료)", timeoutSec))
+								time.Sleep(1200 * time.Millisecond)
+							}
 							DestroyDockWindow()
 							if GlobalTray != nil {
 								GlobalTray.Stop()
@@ -136,6 +141,10 @@ func StartObsWatchdog(silentMode bool) {
 					timeoutSec := GetWatchdogTimeoutSec()
 					if timeoutSec > 0 && time.Since(startTime) > time.Duration(timeoutSec)*time.Second {
 						LogInfo("[Watchdog] 백그라운드 대기 시간(%d초) 내에 OBS Studio가 실행되지 않음 -> 서버 자동 종료", timeoutSec)
+						if GetNotifyOnShutdown() && GlobalTray != nil {
+							GlobalTray.ShowNotification("CHZZK OBS Dock", fmt.Sprintf("OBS Studio가 감지되지 않아 치지직 독 서버를 자동 종료합니다. (%d초 만료)", timeoutSec))
+							time.Sleep(1200 * time.Millisecond)
+						}
 						os.Exit(0)
 					}
 				}
