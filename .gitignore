@@ -23,6 +23,9 @@ Thumbs.db
 .agents/
 .gemini/
 
+# Internal Planning & Private Documents
+BACKLOG.md
+
 # Test files (Do not upload to GitHub)
 *_test.go
 
