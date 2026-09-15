@@ -9,10 +9,20 @@ import (
 
 // AppSettings: 애플리케이션의 비보안/일반 설정 모델
 type AppSettings struct {
-	WatchdogTimeoutSec int   `json:"watchdog_timeout_sec"` // OBS 미감지 시 자체 종료 대기 시간 (초)
+	WatchdogTimeoutSec int   `json:"watchdog_timeout_sec"` // OBS 미감지 시 자체 종료 대기 시간 (초, 0: 사용 안 함)
+	WatchdogDisabled   bool  `json:"watchdog_disabled,omitempty"` // OBS 자동 종료 비활성화 여부
 	HttpPort           int   `json:"http_port"`             // 기본 HTTP 서버 포트 (기본값: 8081)
 	PopupOnStart       *bool `json:"popup_on_start,omitempty"` // 프로그램 시작 시 웹뷰 팝업창 자동 열기 (기본값: false)
 	NotifyOnShutdown   *bool `json:"notify_on_shutdown,omitempty"` // OBS 종료/미감지로 자동 종료 시 Windows 알림 표시 (기본값: true)
+	RemoteTesterUnlocked bool `json:"remote_tester_unlocked,omitempty"` // 리모컨 테스터 인증 승인 여부
+}
+
+func (s AppSettings) IsRemoteTesterUnlocked() bool {
+	return s.RemoteTesterUnlocked
+}
+
+func (s *AppSettings) SetRemoteTesterUnlocked(val bool) {
+	s.RemoteTesterUnlocked = val
 }
 
 func (s AppSettings) IsPopupOnStart() bool {
@@ -85,7 +95,10 @@ func LoadSettings() AppSettings {
 		defPop := false
 		cachedSettings = AppSettings{WatchdogTimeoutSec: 60, HttpPort: 8081, PopupOnStart: &defPop}
 	} else {
-		if s.WatchdogTimeoutSec <= 0 {
+		if s.WatchdogDisabled || s.WatchdogTimeoutSec == 0 {
+			s.WatchdogDisabled = true
+			s.WatchdogTimeoutSec = 0
+		} else if s.WatchdogTimeoutSec < 0 {
 			s.WatchdogTimeoutSec = 60
 		}
 		if s.HttpPort < 1024 || s.HttpPort > 65535 {
@@ -106,7 +119,10 @@ func SaveSettings(s AppSettings) error {
 	settingsMu.Lock()
 	defer settingsMu.Unlock()
 
-	if s.WatchdogTimeoutSec <= 0 {
+	if s.WatchdogDisabled || s.WatchdogTimeoutSec == 0 {
+		s.WatchdogDisabled = true
+		s.WatchdogTimeoutSec = 0
+	} else if s.WatchdogTimeoutSec < 0 {
 		s.WatchdogTimeoutSec = 60
 	}
 	if s.HttpPort < 1024 || s.HttpPort > 65535 {
@@ -166,6 +182,18 @@ func GetNotifyOnShutdown() bool {
 func SetNotifyOnShutdownSetting(val bool) error {
 	st := LoadSettings()
 	st.SetNotifyOnShutdown(val)
+	return SaveSettings(st)
+}
+
+// GetRemoteTesterUnlocked: 리모컨 테스터 인증 승인 여부 조회
+func GetRemoteTesterUnlocked() bool {
+	return LoadSettings().IsRemoteTesterUnlocked()
+}
+
+// SetRemoteTesterUnlocked: 리모컨 테스터 인증 승인 여부 저장 (%LOCALAPPDATA%\ChzzkObsDock\settings.json)
+func SetRemoteTesterUnlocked(val bool) error {
+	st := LoadSettings()
+	st.SetRemoteTesterUnlocked(val)
 	return SaveSettings(st)
 }
 

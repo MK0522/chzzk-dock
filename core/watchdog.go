@@ -76,11 +76,11 @@ func GetWatchdogTimeoutSec() int {
 	return currentWatchdogSec
 }
 
-// SetWatchdogTimeoutSec: OBS 미실행 대기 시간(초)을 동적으로 변경합니다.
+// SetWatchdogTimeoutSec: OBS 미실행 대기 시간(초)을 동적으로 변경합니다. (0: 자동 종료 비활성화, 음수: 기본값 60초)
 func SetWatchdogTimeoutSec(sec int) {
 	watchdogMu.Lock()
 	defer watchdogMu.Unlock()
-	if sec <= 0 {
+	if sec < 0 {
 		sec = 60
 	}
 	currentWatchdogSec = sec
@@ -88,6 +88,7 @@ func SetWatchdogTimeoutSec(sec int) {
 
 // StartObsWatchdog: OBS 생명주기 감시 고루틴 실행
 // - OBS 실행 감지 후, OBS가 종료되면 설정된 대기 시간(GetWatchdogTimeoutSec) 동안 대기 후 자동 종료
+// - 0초(사용 안 함) 설정 시 OBS가 종료되어도 자동 종료하지 않고 영구 대기
 // - 대기 시간 내에 OBS가 재실행되면 카운트다운을 즉시 취소하고 연동 복구
 func StartObsWatchdog(silentMode bool) {
 	settings := LoadSettings()
@@ -117,23 +118,29 @@ func StartObsWatchdog(silentMode bool) {
 			} else {
 				if obsEverDetected {
 					// OBS가 실행 중이었다가 종료된 경우
-					if obsStoppedAt.IsZero() {
-						obsStoppedAt = time.Now()
-						timeoutSec := GetWatchdogTimeoutSec()
-						LogInfo("[Watchdog] OBS Studio 프로세스 종료 감지! 설정된 대기 시간(%d초) 카운트다운을 시작합니다.", timeoutSec)
+					timeoutSec := GetWatchdogTimeoutSec()
+					if timeoutSec <= 0 {
+						if obsStoppedAt.IsZero() {
+							obsStoppedAt = time.Now()
+							LogInfo("[Watchdog] OBS Studio 프로세스 종료 감지됨 (자동 종료 비활성화 설정으로 인해 서버 상주 유지)")
+						}
 					} else {
-						timeoutSec := GetWatchdogTimeoutSec()
-						if timeoutSec > 0 && time.Since(obsStoppedAt) >= time.Duration(timeoutSec)*time.Second {
-							LogInfo("[Watchdog] OBS Studio 종료 후 대기 시간(%d초) 만료 -> 치지직 독 서버를 안전하게 자동 종료합니다.", timeoutSec)
-							if GetNotifyOnShutdown() && GlobalTray != nil {
-								GlobalTray.ShowNotification("CHZZK OBS Dock", fmt.Sprintf("OBS Studio 종료가 감지되어 치지직 독 서버를 자동 종료합니다. (%d초 만료)", timeoutSec))
-								time.Sleep(1200 * time.Millisecond)
+						if obsStoppedAt.IsZero() {
+							obsStoppedAt = time.Now()
+							LogInfo("[Watchdog] OBS Studio 프로세스 종료 감지! 설정된 대기 시간(%d초) 카운트다운을 시작합니다.", timeoutSec)
+						} else {
+							if time.Since(obsStoppedAt) >= time.Duration(timeoutSec)*time.Second {
+								LogInfo("[Watchdog] OBS Studio 종료 후 대기 시간(%d초) 만료 -> 치지직 독 서버를 안전하게 자동 종료합니다.", timeoutSec)
+								if GetNotifyOnShutdown() && GlobalTray != nil {
+									GlobalTray.ShowNotification("CHZZK OBS Dock", fmt.Sprintf("OBS Studio 종료가 감지되어 치지직 독 서버를 자동 종료합니다. (%d초 만료)", timeoutSec))
+									time.Sleep(1200 * time.Millisecond)
+								}
+								DestroyDockWindow()
+								if GlobalTray != nil {
+									GlobalTray.Stop()
+								}
+								os.Exit(0)
 							}
-							DestroyDockWindow()
-							if GlobalTray != nil {
-								GlobalTray.Stop()
-							}
-							os.Exit(0)
 						}
 					}
 				} else if silentMode {

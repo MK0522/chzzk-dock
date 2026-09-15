@@ -353,6 +353,7 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 			"/port-status":            true,
 			"/startup-popup-status":   true,
 			"/shutdown-notify-status": true,
+			"/remote-tester-status":   true,
 		}
 
 		if apiPaths[path] || strings.HasPrefix(path, "/unofficial/") {
@@ -384,9 +385,10 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 				if cfg.NidSes != "" {
 					sesMask = "••••••••••••••••••••••••••••••••"
 				}
-				sendJSON(w, map[string]string{
-					"nid_aut": autMask,
-					"nid_ses": sesMask,
+				sendJSON(w, map[string]interface{}{
+					"nid_aut":                autMask,
+					"nid_ses":                sesMask,
+					"remote_tester_unlocked": core.GetRemoteTesterUnlocked(),
 				}, http.StatusOK)
 				return
 			}
@@ -556,6 +558,14 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 				sendJSON(w, map[string]interface{}{
 					"code":               200,
 					"notify_on_shutdown": core.GetNotifyOnShutdown(),
+				}, http.StatusOK)
+				return
+			}
+
+			if path == "/remote-tester-status" {
+				sendJSON(w, map[string]interface{}{
+					"code":     200,
+					"unlocked": core.GetRemoteTesterUnlocked(),
 				}, http.StatusOK)
 				return
 			}
@@ -786,23 +796,28 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 				}, http.StatusBadRequest)
 				return
 			}
-			if reqData.TimeoutSec < 5 || reqData.TimeoutSec > 86400 {
+			if reqData.TimeoutSec != 0 && (reqData.TimeoutSec < 5 || reqData.TimeoutSec > 86400) {
 				sendJSON(w, map[string]interface{}{
 					"code":    400,
-					"message": "대기 시간은 5초에서 86400초(24시간) 사이여야 합니다.",
+					"message": "대기 시간은 0(사용 안 함) 또는 5초에서 86400초(24시간) 사이여야 합니다.",
 				}, http.StatusBadRequest)
 				return
 			}
 			core.SetWatchdogTimeoutSec(reqData.TimeoutSec)
 			st := core.LoadSettings()
 			st.WatchdogTimeoutSec = reqData.TimeoutSec
+			st.WatchdogDisabled = (reqData.TimeoutSec == 0)
 			_ = core.SaveSettings(st)
 			if trayInstance != nil {
 				trayInstance.UpdateTooltip(getTrayTooltip())
 			}
+			msg := "대기 시간이 성공적으로 변경되었습니다."
+			if reqData.TimeoutSec == 0 {
+				msg = "OBS 자동 종료가 비활성화되었습니다. (상시 실행 유지)"
+			}
 			sendJSON(w, map[string]interface{}{
 				"code":        200,
-				"message":     "대기 시간이 성공적으로 변경되었습니다.",
+				"message":     msg,
 				"timeout_sec": reqData.TimeoutSec,
 			}, http.StatusOK)
 			return
@@ -931,6 +946,62 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		if path == "/remote-tester-auth" {
+			var reqData struct {
+				Code   string `json:"code"`
+				Action string `json:"action"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&reqData); err != nil {
+				sendJSON(w, map[string]interface{}{
+					"code":    400,
+					"message": "잘못된 요청 형식입니다.",
+				}, http.StatusBadRequest)
+				return
+			}
+
+			if reqData.Action == "revoke" {
+				if err := core.SetRemoteTesterUnlocked(false); err != nil {
+					sendJSON(w, map[string]interface{}{
+						"code":    500,
+						"message": "테스터 설정 저장 실패: " + err.Error(),
+					}, http.StatusInternalServerError)
+					return
+				}
+				core.LogInfo("[Remote] 테스터 인증 해제 완료 (settings.json 반영)")
+				sendJSON(w, map[string]interface{}{
+					"code":     200,
+					"unlocked": false,
+					"message":  "테스터 모드가 해제되었습니다.",
+				}, http.StatusOK)
+				return
+			}
+
+			cleanCode := strings.TrimSpace(strings.ToLower(reqData.Code))
+			if cleanCode == "chzzk" || cleanCode == "tester" || cleanCode == "test" || cleanCode == "0600" {
+				if err := core.SetRemoteTesterUnlocked(true); err != nil {
+					sendJSON(w, map[string]interface{}{
+						"code":    500,
+						"message": "테스터 설정 저장 실패: " + err.Error(),
+					}, http.StatusInternalServerError)
+					return
+				}
+				core.LogInfo("[Remote] 테스터 인증 성공 및 settings.json 영구 보존 (%s)", cleanCode)
+				sendJSON(w, map[string]interface{}{
+					"code":     200,
+					"unlocked": true,
+					"message":  "테스터 인증이 완료되었습니다. 설정 파일(settings.json)에 영구 저장됩니다.",
+				}, http.StatusOK)
+				return
+			}
+
+			sendJSON(w, map[string]interface{}{
+				"code":     401,
+				"unlocked": false,
+				"message":  "유효하지 않은 인증 코드입니다.",
+			}, http.StatusUnauthorized)
+			return
+		}
+
 		if proxyDispatch(w, r, "POST") {
 			return
 		}
@@ -969,6 +1040,8 @@ func exitApp() {
 
 func getWatchdogLabel(sec int) string {
 	switch sec {
+	case 0:
+		return "사용 안 함 (자동 종료 비활성화)"
 	case 10:
 		return "10초"
 	case 30:
@@ -986,6 +1059,8 @@ func getWatchdogLabel(sec int) string {
 
 func getWatchdogTrayLabel(sec int) string {
 	switch sec {
+	case 0:
+		return "사용 안 함"
 	case 10:
 		return "10초 뒤 종료"
 	case 30:
@@ -1005,10 +1080,15 @@ func updateWatchdogTimeoutFromTray(sec int) {
 	core.SetWatchdogTimeoutSec(sec)
 	st := core.LoadSettings()
 	st.WatchdogTimeoutSec = sec
+	st.WatchdogDisabled = (sec == 0)
 	_ = core.SaveSettings(st)
 	if trayInstance != nil {
 		trayInstance.UpdateTooltip(getTrayTooltip())
-		trayInstance.ShowNotification("CHZZK OBS Dock", fmt.Sprintf("OBS 종료 시 %s 뒤 함께 종료되도록 설정되었습니다.", getWatchdogLabel(sec)))
+		if sec == 0 {
+			trayInstance.ShowNotification("CHZZK OBS Dock", "OBS 자동 종료가 비활성화되었습니다. (상시 실행 유지)")
+		} else {
+			trayInstance.ShowNotification("CHZZK OBS Dock", fmt.Sprintf("OBS 종료 시 %s 뒤 함께 종료되도록 설정되었습니다.", getWatchdogLabel(sec)))
+		}
 	}
 }
 
@@ -1074,6 +1154,12 @@ func runTray(silentMode bool) {
 			},
 			SubItems: []core.MenuItem{
 				{
+					Label: "사용 안 함 (자동 종료 비활성화)",
+					CheckFn: func() bool { return core.GetWatchdogTimeoutSec() == 0 },
+					Callback: func() { updateWatchdogTimeoutFromTray(0) },
+				},
+				{IsSeparator: true},
+				{
 					Label: "10초 뒤 종료",
 					CheckFn: func() bool { return core.GetWatchdogTimeoutSec() == 10 },
 					Callback: func() { updateWatchdogTimeoutFromTray(10) },
@@ -1102,7 +1188,7 @@ func runTray(silentMode bool) {
 				{
 					DynamicLabel: func() string {
 						sec := core.GetWatchdogTimeoutSec()
-						isPreset := (sec == 10 || sec == 30 || sec == 60 || sec == 300 || sec == 600)
+						isPreset := (sec == 0 || sec == 10 || sec == 30 || sec == 60 || sec == 300 || sec == 600)
 						if !isPreset {
 							return fmt.Sprintf("직접 입력 (%d초 뒤 종료)", sec)
 						}
@@ -1110,7 +1196,7 @@ func runTray(silentMode bool) {
 					},
 					CheckFn: func() bool {
 						sec := core.GetWatchdogTimeoutSec()
-						return !(sec == 10 || sec == 30 || sec == 60 || sec == 300 || sec == 600)
+						return !(sec == 0 || sec == 10 || sec == 30 || sec == 60 || sec == 300 || sec == 600)
 					},
 					DisabledFn: func() bool {
 						return true
