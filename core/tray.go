@@ -482,6 +482,14 @@ func (t *PureWinTrayIcon) Run() {
 				t.showMenu()
 				return 0
 			}
+		} else if msg == 0x0011 { // WM_QUERYENDSESSION: Windows 정상 종료/재부팅 질의 시 정상 승인(1)
+			return 1
+		} else if msg == 0x0016 { // WM_ENDSESSION: Windows 세션 종료 시 리소스 및 트레이 안전 해제
+			if wparam != 0 {
+				t.Stop()
+				DestroyDockWindow()
+				return 0
+			}
 		}
 		r, _, _ := procDefWindowProcW.Call(uintptr(hwnd), uintptr(msg), wparam, lparam)
 		return r

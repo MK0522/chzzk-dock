@@ -923,174 +923,55 @@
           실시간
         </span>
       </div>
-      <div class="flex items-center gap-1 flex-shrink-0">
-        <!-- 하이브리드 모드 전환 세그먼트 토글 -->
-        <div class="flex items-center bg-[#0B0F15] rounded-md border border-[#1E2738] p-0.5 gap-0.5">
-          <button id="remote-mode-simple" onclick="switchRemoteMode('simple')" class="px-2 py-0.5 text-[10px] font-bold rounded text-[#00FFA3] bg-[#161F2E] border border-[#00FFA3]/30 transition-all cursor-pointer" title="간이 뷰: 독 내부 경량 리모컨 패널">
-            간이 뷰
-          </button>
-          <button id="remote-mode-official" onclick="switchRemoteMode('official')" class="px-2 py-0.5 text-[10px] font-medium rounded text-slate-500 hover:text-slate-300 transition-all cursor-pointer" title="공식 뷰: 치지직 스튜디오 공식 리모컨 (WebView2 독립 창)">
-            공식 뷰
-          </button>
-        </div>
-        <button onclick="toggleRemotePanel()" class="w-6 h-6 rounded-md bg-chzzk-card border border-chzzk-border flex items-center justify-center hover:border-chzzk-muted transition-colors">
+      <div class="flex items-center gap-1.5 flex-shrink-0">
+        <!-- 공식 리모컨 독립 창 원클릭 열기 -->
+        <button type="button" onclick="openRemoteWebview()" class="px-2 py-1 text-[10px] font-bold rounded-md text-slate-300 hover:text-white bg-[#161F2E] hover:bg-[#202B3D] border border-[#233147] transition-all cursor-pointer inline-flex items-center gap-1 shadow-sm" title="치지직 스튜디오 공식 리모컨을 WebView2 독립 창으로 엽니다 (항상 위/크기조절 지원)">
+          <span>공식 리모컨</span>
+          <span class="text-[9px] text-[#00FFA3]">↗</span>
+        </button>
+        <button onclick="toggleRemotePanel()" class="w-6 h-6 rounded-md bg-chzzk-card border border-chzzk-border flex items-center justify-center hover:border-chzzk-muted transition-colors" title="리모컨 닫기">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5A6577" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>
     </div>
 
-    <!-- 공식 뷰 모드 안내 배너 (기본 숨김) -->
-    <div id="remote-official-banner" class="hidden mb-2.5 p-3 bg-[#0D1219] border border-[#1E2738] rounded-lg text-center space-y-2">
-      <div class="text-sm font-bold text-white">🖥️ 공식 리모컨 독립 창</div>
-      <p class="text-[11px] text-slate-400 leading-relaxed">
-        치지직 스튜디오 공식 리모컨을 WebView2 독립 창으로 실행합니다.<br/>
-        실시간 WebSocket 기반 · 항상 위 고정 · 크기 조절 가능
-      </p>
-      <button type="button" onclick="openRemoteWebview()" class="mt-1 px-4 py-1.5 rounded-lg bg-[#5C3BFF] hover:bg-[#7B5FFF] text-white text-[12px] font-bold transition-colors cursor-pointer inline-flex items-center gap-1.5">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-        공식 리모컨 창 열기
-      </button>
-      <p class="text-[9px] text-slate-600">독립 실행 파일로 구동되어 OBS 독과 별도로 동작합니다</p>
-    </div>
-
-    <!-- Navigation Tabs: [🎬 영도] vs [🔔 피드] vs [🎯 미션] vs [🎉 파티] -->
-    <div class="grid grid-cols-4 gap-1 mb-2.5 p-0.5 bg-[#0B0F15] rounded-lg border border-[#1E2738]">
-      <button id="remote-tab-btn-media" onclick="switchRemoteTab('media')" class="py-1 text-[11px] font-bold rounded text-[#00FFA3] bg-[#161F2E] border border-[#00FFA3]/30 transition-all flex items-center justify-center gap-1">
-        <span>🎬</span> 영도
-      </button>
-      <button id="remote-tab-btn-feed" onclick="switchRemoteTab('feed')" class="py-1 text-[11px] font-medium rounded text-slate-400 hover:text-slate-200 transition-all flex items-center justify-center gap-1">
-        <span>🔔</span> 피드
-      </button>
-      <button id="remote-tab-btn-mission" onclick="switchRemoteTab('mission')" class="py-1 text-[11px] font-medium rounded text-slate-400 hover:text-slate-200 transition-all flex items-center justify-center gap-1">
-        <span>🎯</span> 미션
-      </button>
-      <button id="remote-tab-btn-party" onclick="switchRemoteTab('party')" class="py-1 text-[11px] font-medium rounded text-slate-400 hover:text-slate-200 transition-all flex items-center justify-center gap-1">
-        <span>🎉</span> 파티
+    <!-- Navigation Tabs: [전체] vs [영상 후원] vs [미션 후원] vs [파티] (치지직 공식 리모컨 1:1 규격) -->
+    <div class="flex items-center justify-between border-b border-[#1E2738] mb-2 px-1">
+      <div class="flex items-center gap-3 text-xs">
+        <button id="remote-tab-btn-all" onclick="switchRemoteTab('all')" class="pb-2 font-bold text-[#00FFA3] border-b-2 border-[#00FFA3] transition-all cursor-pointer">
+          전체
+        </button>
+        <button id="remote-tab-btn-video" onclick="switchRemoteTab('video')" class="pb-2 font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent transition-all cursor-pointer">
+          영상 후원
+        </button>
+        <button id="remote-tab-btn-mission" onclick="switchRemoteTab('mission')" class="pb-2 font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent transition-all cursor-pointer">
+          미션 후원
+        </button>
+        <button id="remote-tab-btn-party" onclick="switchRemoteTab('party')" class="pb-2 font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent transition-all cursor-pointer">
+          파티
+        </button>
+      </div>
+      <button type="button" onclick="fetchNewsFeed()" class="text-slate-400 hover:text-[#00FFA3] p-1 pb-2 transition-colors cursor-pointer" title="피드 새로고침">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
       </button>
     </div>
 
-    <!-- ===== TAB 1: 영상 후원(영도) 미디어 플레이어 제어기 ===== -->
-    <div id="remote-tab-content-media" class="space-y-2.5">
-      <!-- 현재 재생 중 카드 -->
-      <div class="section-card space-y-2 border border-[#1E2738] p-2.5">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-1.5">
-            <span class="w-2 h-2 rounded-full bg-[#00FFA3] animate-pulse"></span>
-            <span class="text-xs font-bold text-slate-100">현재 재생 중인 영상</span>
-          </div>
-          <span id="remote-media-badge" class="text-[9.5px] px-1.5 py-0.2 rounded font-medium bg-[#161F2E] text-slate-300 border border-[#1E2738]">
-            대기 중
-          </span>
-        </div>
-
-        <!-- 재생 영상 정보 블록 -->
-        <div class="bg-[#090D13] p-2.5 rounded-lg border border-[#1A2333] space-y-1">
-          <div id="remote-video-title" class="text-xs font-bold text-slate-200 truncate">
-            재생 중인 영상 후원이 없습니다
-          </div>
-          <div class="flex items-center justify-between text-[10.5px] text-slate-400">
-            <span id="remote-video-donator">후원자: -</span>
-            <span id="remote-video-time" class="font-mono text-[#00FFA3] font-bold">00:00 / 00:00</span>
-          </div>
-        </div>
-
-        <!-- 미디어 조작 컨트롤 바 (5열 단축 버튼) -->
-        <div class="grid grid-cols-5 gap-1 pt-0.5">
-          <button type="button" id="btn-remote-replay-prev" onclick="triggerQuickController('replay-prev')" class="sub-btn py-2 text-xs flex items-center justify-center gap-0.5 hover:border-[#00FFA3]/40" title="직전 재생된 영상 후원 다시 재생 (Replay)">
-            <span>⏮️</span> <span class="text-[10px] font-semibold">이전</span>
-          </button>
-          <button type="button" onclick="triggerQuickController('rewind')" class="sub-btn py-2 text-xs flex items-center justify-center gap-0.5 hover:border-[#00FFA3]/40" title="10초 뒤로">
-            <span>⏪</span> <span class="text-[10px] font-mono font-semibold">-10s</span>
-          </button>
-          <button type="button" id="btn-remote-playpause" onclick="triggerQuickController('pause')" class="sub-btn py-2 text-xs flex items-center justify-center gap-0.5 bg-[#161F2E] hover:border-[#00FFA3] text-[#00FFA3] font-bold" title="일시정지 / 재생">
-            <span id="remote-playpause-icon">⏸️</span> <span id="remote-playpause-text" class="text-[10px] font-semibold">정지</span>
-          </button>
-          <button type="button" onclick="triggerQuickController('skip')" class="sub-btn py-2 text-xs flex items-center justify-center gap-0.5 hover:border-[#00FFA3]/40" title="10초 앞으로 건너뛰기">
-            <span>⏩</span> <span class="text-[10px] font-mono font-semibold">+10s</span>
-          </button>
-          <button type="button" onclick="triggerQuickController('stop')" class="sub-btn py-2 text-xs flex items-center justify-center gap-0.5 hover:border-rose-400/50 hover:text-rose-300" title="현재 영상 즉시 종료하고 다음으로 넘기기">
-            <span>⏭️</span> <span class="text-[10px] font-semibold">다음</span>
-          </button>
-        </div>
-
-        <!-- 알림 볼륨 조절 슬라이더 -->
-        <div class="flex items-center justify-between gap-2 pt-2 border-t border-[#1E2738]/80">
-          <button type="button" onclick="toggleMuteAlert()" id="btn-remote-mute" class="text-slate-400 hover:text-[#00FFA3] text-xs p-1 cursor-pointer transition-colors" title="음소거 토글">
-            <span id="remote-mute-icon">🔊</span>
-          </button>
-          <input type="range" id="remote-quick-volume" min="0" max="100" value="80" oninput="onQuickVolumeChange(this.value)" class="w-full accent-[#00FFA3] cursor-pointer h-1.5 bg-[#1E2738] rounded-lg" />
-          <span id="remote-quick-volume-label" class="text-[10.5px] text-[#00FFA3] font-mono font-bold w-8 text-right">80%</span>
-        </div>
-      </div>
-
-      <!-- 영도 대기열 카드 -->
-      <div class="section-card space-y-2 border border-[#1E2738] p-2.5">
-        <div class="flex items-center justify-between">
-          <span class="text-xs font-bold text-slate-200 flex items-center gap-1.5">
-            <span>📋</span> 영상 후원 대기열
-          </span>
-          <span id="remote-queue-count" class="text-[10px] px-2 py-0.5 rounded font-bold bg-[#161F2E] text-slate-300 border border-[#1E2738]">
-            대기 0건
-          </span>
-        </div>
-        <div id="remote-queue-list" class="space-y-1.5 max-h-[140px] overflow-y-auto pr-0.5">
-          <div class="text-center py-4 text-[11px] text-slate-400 bg-[#090D13] rounded-lg border border-[#1A2333]/60">
-            현재 대기열에 등록된 영상 후원이 없습니다
-          </div>
-        </div>
-      </div>
-
-      <!-- 빠른 테스트 알림 발송 카드 (치즈/영도/미션/구독 4종) -->
-      <div class="section-card p-2.5 space-y-2 bg-[#0D1219] border border-[#1E2738]">
-        <span class="text-xs font-bold text-slate-200 flex items-center gap-1.5">
-          <span>⚡</span> OBS 알림창 실시간 사운드 테스트
-        </span>
-        <div class="grid grid-cols-4 gap-1">
-          <button type="button" onclick="sendDonationTest('donation', this)" class="sub-btn py-1.5 text-[10px] flex items-center justify-center gap-1 hover:border-[#00FFA3]/40" title="치지직 공식 치즈 후원 테스트 알림 송출">
-            <span>💬</span> <span>치즈</span>
-          </button>
-          <button type="button" onclick="sendDonationTest('video', this)" class="sub-btn py-1.5 text-[10px] flex items-center justify-center gap-1 hover:border-[#00FFA3]/40" title="치지직 공식 영상 후원 테스트 알림 송출">
-            <span>🎬</span> <span>영도</span>
-          </button>
-          <button type="button" onclick="sendDonationTest('mission', this)" class="sub-btn py-1.5 text-[10px] flex items-center justify-center gap-1 hover:border-[#00FFA3]/40" title="치지직 공식 미션 후원 테스트 알림 송출">
-            <span>🎯</span> <span>미션</span>
-          </button>
-          <button type="button" onclick="sendDonationTest('subscription', this)" class="sub-btn py-1.5 text-[10px] flex items-center justify-center gap-1 hover:border-[#00FFA3]/40" title="치지직 공식 구독 테스트 알림 송출">
-            <span>⭐</span> <span>구독</span>
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- ===== TAB 2: 실시간 후원 & 알림 피드 ===== -->
-    <div id="remote-tab-content-feed" class="space-y-2" style="display:none;">
-      <!-- 피드 필터 (6종: 전체, 치즈, 영도, 미션, 구독, 팔로우) -->
-      <div class="flex items-center justify-between gap-1 text-[10.5px]">
-        <span class="text-slate-400 font-medium">유형:</span>
-        <div class="flex items-center gap-1 flex-wrap justify-end">
-          <button type="button" id="feed-filter-all" onclick="filterFeed('ALL')" class="px-1.5 py-0.5 rounded bg-[#161F2E] text-[#00FFA3] font-bold border border-[#00FFA3]/40 cursor-pointer text-[10px]">전체</button>
-          <button type="button" id="feed-filter-cheese" onclick="filterFeed('CHEESE')" class="px-1.5 py-0.5 rounded bg-[#0F141C] text-slate-300 border border-[#1E2738] cursor-pointer text-[10px]">치즈</button>
-          <button type="button" id="feed-filter-video" onclick="filterFeed('VIDEO')" class="px-1.5 py-0.5 rounded bg-[#0F141C] text-slate-300 border border-[#1E2738] cursor-pointer text-[10px]">영도</button>
-          <button type="button" id="feed-filter-mission" onclick="filterFeed('MISSION')" class="px-1.5 py-0.5 rounded bg-[#0F141C] text-slate-300 border border-[#1E2738] cursor-pointer text-[10px]">미션</button>
-          <button type="button" id="feed-filter-subscription" onclick="filterFeed('SUBSCRIPTION')" class="px-1.5 py-0.5 rounded bg-[#0F141C] text-slate-300 border border-[#1E2738] cursor-pointer text-[10px]">구독</button>
-          <button type="button" id="feed-filter-follow" onclick="filterFeed('FOLLOW')" class="px-1.5 py-0.5 rounded bg-[#0F141C] text-slate-300 border border-[#1E2738] cursor-pointer text-[10px]">팔로우</button>
-        </div>
-      </div>
-
-      <!-- 실시간 알림 목록 컨테이너 -->
-      <div id="remote-feed-list" class="space-y-1.5 max-h-[380px] overflow-y-auto pr-0.5">
-        <div class="text-center py-10 text-[11px] text-slate-400 bg-[#090D13] rounded-lg border border-[#1A2333]/60">
+    <!-- ===== TAB 1: 실시간 피드 (전체 / 영상 후원) ===== -->
+    <div id="remote-tab-content-feed" class="space-y-2">
+      <!-- 실시간 알림 피드 리스트 (치지직 스튜디오 공식 피드 규격) -->
+      <div id="remote-feed-list" class="space-y-1.5 max-h-[260px] overflow-y-auto pr-0.5">
+        <div class="text-center py-8 text-[11px] text-slate-400 bg-[#090D13] rounded-lg border border-[#1A2333]/60">
           최근 방송 후원 알림 내역이 없습니다
         </div>
       </div>
     </div>
 
-    <!-- ===== TAB 3: 미션 후원 제어 및 판정 (진행/완료 분리 & 정렬 지원) ===== -->
+    <!-- ===== TAB 2: 미션 후원 ===== -->
     <div id="remote-tab-content-mission" class="space-y-2.5" style="display:none;">
       <!-- 정렬 옵션 및 헤더 -->
       <div class="flex items-center justify-between pb-1 border-b border-[#1E2738]/50">
         <span class="text-xs font-bold text-slate-200 flex items-center gap-1.5">
-          <span>🎯</span> 미션 후원 관리
+          <span>🎯</span> 미션 목록
         </span>
         <div class="flex items-center gap-1 bg-[#090D13] p-0.5 rounded-md border border-[#1E2738]">
           <button type="button" id="mission-sort-latest" onclick="setMissionSort('LATEST')" class="px-2 py-0.5 rounded text-[10px] font-bold bg-[#161F2E] text-[#00FFA3] border border-[#00FFA3]/40 transition-all cursor-pointer">
@@ -1102,7 +983,7 @@
         </div>
       </div>
 
-      <!-- 상단: 진행 중인 미션 -->
+      <!-- 진행 중인 미션 -->
       <div class="space-y-1.5">
         <div class="flex items-center justify-between">
           <span class="text-[11px] font-bold text-[#00FFA3] flex items-center gap-1">
@@ -1112,14 +993,14 @@
             0건
           </span>
         </div>
-        <div id="remote-mission-active-list" class="space-y-2 max-h-[190px] overflow-y-auto pr-0.5">
-          <div class="text-center py-6 text-[10.5px] text-slate-400 bg-[#090D13] rounded-lg border border-[#1A2333]/60">
+        <div id="remote-mission-active-list" class="space-y-2 max-h-[120px] overflow-y-auto pr-0.5">
+          <div class="text-center py-4 text-[10.5px] text-slate-400 bg-[#090D13] rounded-lg border border-[#1A2333]/60">
             현재 진행 중인 미션이 없습니다
           </div>
         </div>
       </div>
 
-      <!-- 하단: 완료된 미션 -->
+      <!-- 완료된 미션 -->
       <div class="space-y-1.5 pt-1 border-t border-[#1E2738]/60">
         <div class="flex items-center justify-between">
           <span class="text-[11px] font-bold text-slate-300 flex items-center gap-1">
@@ -1129,20 +1010,19 @@
             0건
           </span>
         </div>
-        <div id="remote-mission-completed-list" class="space-y-2 max-h-[180px] overflow-y-auto pr-0.5">
-          <div class="text-center py-6 text-[10.5px] text-slate-500 bg-[#090D13] rounded-lg border border-[#1A2333]/60">
+        <div id="remote-mission-completed-list" class="space-y-2 max-h-[100px] overflow-y-auto pr-0.5">
+          <div class="text-center py-4 text-[10.5px] text-slate-500 bg-[#090D13] rounded-lg border border-[#1A2333]/60">
             완료된 미션 내역이 없습니다
           </div>
         </div>
       </div>
     </div>
 
-    <!-- ===== TAB 4: 파티 후원 & 멤버 제어 (스튜디오 공식 규격) ===== -->
+    <!-- ===== TAB 3: 파티 후원 ===== -->
     <div id="remote-tab-content-party" class="space-y-2.5" style="display:none;">
-      
-      <!-- 뷰 1: 파티 미생성 상태 (media_1788831475824.png) -->
-      <div id="party-view-create" class="section-card space-y-3 p-3 border border-[#1E2738]">
-        <div class="flex items-center justify-between border-b border-[#1E2738] pb-2">
+      <!-- 파티 미생성 상태 -->
+      <div id="party-view-create" class="section-card space-y-2 p-2.5 border border-[#1E2738]">
+        <div class="flex items-center justify-between border-b border-[#1E2738] pb-1.5">
           <span class="text-xs font-bold text-slate-100 flex items-center gap-1.5">
             <span>🎉</span> 파티 설정
           </span>
@@ -1151,49 +1031,37 @@
           </span>
         </div>
 
-        <div class="space-y-1.5">
+        <div class="space-y-1">
           <div class="flex items-center justify-between">
-            <label class="text-xs text-slate-300 font-medium">파티명 <span class="text-[#5C3BFF] font-bold">*</span></label>
+            <label class="text-[11px] text-slate-300 font-medium">파티명</label>
             <span id="party-create-len" class="text-[10px] text-slate-400 font-mono">0/60</span>
           </div>
-          <input type="text" id="input-party-create-name" maxlength="60" placeholder="파티명 입력" oninput="document.getElementById('party-create-len').textContent=this.value.length+'/60'" class="w-full bg-[#090D13] border border-[#1E2738] rounded-lg px-3 py-2 text-xs text-slate-200 focus:border-[#5C3BFF] outline-none" autocomplete="off" />
+          <input type="text" id="input-party-create-name" maxlength="60" placeholder="파티명 입력" oninput="document.getElementById('party-create-len').textContent=this.value.length+'/60'" class="w-full bg-[#090D13] border border-[#1E2738] rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:border-[#5C3BFF] outline-none" autocomplete="off" />
         </div>
 
-        <button type="button" onclick="createPartySubmit()" class="w-full py-2.5 rounded-lg bg-[#5C3BFF] hover:bg-[#6E50FF] text-white font-bold text-xs shadow-md transition-colors cursor-pointer flex items-center justify-center gap-1.5">
+        <button type="button" onclick="createPartySubmit()" class="w-full py-2 rounded-lg bg-[#5C3BFF] hover:bg-[#6E50FF] text-white font-bold text-xs shadow-md transition-colors cursor-pointer flex items-center justify-center gap-1.5">
           <span>🎉</span> <span>파티 만들기</span>
         </button>
 
-        <!-- 구분선 -->
         <div class="relative flex py-1 items-center">
           <div class="flex-grow border-t border-[#1E2738]"></div>
-          <span class="flex-shrink mx-2 text-[10px] text-slate-500 font-medium">또는 초대받은 링크로 합류</span>
+          <span class="flex-shrink mx-2 text-[9.5px] text-slate-500 font-medium">또는 초대 링크 합류</span>
           <div class="flex-grow border-t border-[#1E2738]"></div>
         </div>
 
-        <!-- 옵션 B: 초대 링크로 파티 합류하기 -->
-        <div class="space-y-1.5 pt-0.5">
-          <label class="text-xs text-slate-300 font-medium flex items-center gap-1">
-            <span>🔗</span> <span>초대받은 링크 또는 코드</span>
-          </label>
-          <div class="flex items-center gap-1.5">
-            <input type="text" id="input-party-join-link" placeholder="초대 링크 붙여넣기 (https://chzzk.naver.com/party-invite/...)" class="flex-1 bg-[#090D13] border border-[#1E2738] rounded-lg px-2.5 py-2 text-xs text-slate-200 focus:border-emerald-500 outline-none placeholder:text-slate-500 font-mono text-[10.5px]" autocomplete="off" />
-            <button type="button" onclick="joinPartyByInviteLink('input-party-join-link')" class="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-colors cursor-pointer flex items-center gap-1 flex-shrink-0 shadow-md">
-              <span>🤝</span> <span>합류하기</span>
-            </button>
-          </div>
-          <p class="text-[9.5px] text-slate-500 leading-normal">
-            * 다른 스트리머에게 공유받은 초대 URL 전체나 코드를 붙여넣으면 즉시 해당 파티에 게스트로 합류합니다.
-          </p>
+        <div class="flex items-center gap-1.5">
+          <input type="text" id="input-party-join-link" placeholder="초대 링크 붙여넣기" class="flex-1 bg-[#090D13] border border-[#1E2738] rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:border-emerald-500 outline-none placeholder:text-slate-500 font-mono text-[10.5px]" autocomplete="off" />
+          <button type="button" onclick="joinPartyByInviteLink('input-party-join-link')" class="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-colors cursor-pointer flex-shrink-0">
+            합류
+          </button>
         </div>
       </div>
 
-      <!-- 뷰 2: 파티 활성화 상태 (media_1788831491886.png) -->
-      <div id="party-view-manage" class="section-card space-y-3 p-3 border border-[#1E2738]" style="display:none;">
-        <div class="flex items-center justify-between border-b border-[#1E2738] pb-2">
+      <!-- 파티 활성화 상태 -->
+      <div id="party-view-manage" class="section-card space-y-2 p-2.5 border border-[#1E2738]" style="display:none;">
+        <div class="flex items-center justify-between border-b border-[#1E2738] pb-1.5">
           <div class="flex items-center gap-1.5">
-            <span class="text-xs font-bold text-slate-100 flex items-center gap-1.5">
-              <span>🎉</span> 파티 설정
-            </span>
+            <span class="text-xs font-bold text-slate-100">🎉 파티</span>
             <span id="party-role-badge" class="text-[9px] px-1.5 py-0.2 rounded font-bold bg-[#161F2E] text-[#9E8BFF] border border-[#5C3BFF]/30">👑 방장</span>
           </div>
           <div class="flex items-center gap-1.5">
@@ -1202,94 +1070,102 @@
           </div>
         </div>
 
-        <!-- 파티명 수정 -->
         <div class="space-y-1">
-          <div class="flex items-center justify-between">
-            <label class="text-xs text-slate-300 font-medium">파티명 <span class="text-[#5C3BFF] font-bold">*</span></label>
-            <span id="party-edit-len" class="text-[10px] text-slate-400 font-mono">0/60</span>
-          </div>
           <div class="flex items-center gap-1.5">
-            <input type="text" id="input-party-edit-name" maxlength="60" oninput="document.getElementById('party-edit-len').textContent=this.value.length+'/60'" class="flex-1 bg-[#090D13] border border-[#1E2738] rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:border-[#5C3BFF] outline-none" autocomplete="off" />
-            <button type="button" id="btn-party-rename" onclick="renamePartySubmit()" class="px-3 py-1.5 rounded-lg bg-[#5C3BFF]/20 hover:bg-[#5C3BFF] hover:text-white border border-[#5C3BFF]/40 text-[#9E8BFF] text-xs font-bold transition-all cursor-pointer">
-              저장
-            </button>
+            <input type="text" id="input-party-edit-name" maxlength="60" class="flex-1 bg-[#090D13] border border-[#1E2738] rounded-lg px-2 py-1 text-xs text-slate-200 focus:border-[#5C3BFF] outline-none" autocomplete="off" />
+            <button type="button" id="btn-party-rename" onclick="renamePartySubmit()" class="px-2.5 py-1 rounded-lg bg-[#5C3BFF]/20 hover:bg-[#5C3BFF] hover:text-white border border-[#5C3BFF]/40 text-[#9E8BFF] text-xs font-bold transition-all cursor-pointer">저장</button>
           </div>
         </div>
 
-        <!-- 파티 초대 링크 -->
-        <div class="space-y-1 pt-0.5">
-          <label class="text-xs text-slate-300 font-medium">파티 초대 링크</label>
-          <div class="flex items-center gap-1">
-            <input type="password" id="field-party-invite-url" readonly class="flex-1 bg-[#090D13] border border-[#1E2738] rounded-lg px-2 py-1.5 text-[10.5px] font-mono text-slate-300 select-all" placeholder="초대 링크 확인 중..." />
-            <button type="button" onclick="togglePartyLinkMask()" class="px-2 py-1.5 bg-[#161F2E] border border-[#1E2738] rounded-lg text-slate-300 text-xs hover:text-white cursor-pointer" title="초대 링크 보기/숨기기">👁️</button>
-            <button type="button" onclick="copyPartyInviteUrl()" class="px-2.5 py-1.5 bg-[#5C3BFF]/20 hover:bg-[#5C3BFF]/40 border border-[#5C3BFF]/30 rounded-lg text-[#9E8BFF] text-xs font-bold cursor-pointer">복사</button>
-            <button type="button" id="btn-party-reissue-token" onclick="reissuePartyInviteToken()" class="px-2.5 py-1.5 bg-[#5C3BFF] hover:bg-[#6E50FF] rounded-lg text-white text-xs font-bold cursor-pointer" title="초대 링크 재발급">재발급</button>
-          </div>
+        <div class="flex items-center gap-1">
+          <input type="password" id="field-party-invite-url" readonly class="flex-1 bg-[#090D13] border border-[#1E2738] rounded-lg px-2 py-1 text-[10px] font-mono text-slate-300 select-all" placeholder="초대 링크" />
+          <button type="button" onclick="togglePartyLinkMask()" class="px-2 py-1 bg-[#161F2E] border border-[#1E2738] rounded-lg text-slate-300 text-xs">👁️</button>
+          <button type="button" onclick="copyPartyInviteUrl()" class="px-2 py-1 bg-[#5C3BFF]/20 border border-[#5C3BFF]/30 rounded-lg text-[#9E8BFF] text-xs font-bold">복사</button>
         </div>
 
-        <!-- 파티 참여자 목록 -->
-        <div class="space-y-1.5 pt-0.5">
-          <div class="flex items-center justify-between">
-            <span class="text-xs font-medium text-slate-300 flex items-center gap-1">
-              <span>파티 참여자 목록</span>
-              <span id="party-member-count" class="font-bold text-[#5C3BFF]">1</span>
-            </span>
-            <button type="button" onclick="refreshPartyStatus(true)" class="text-slate-400 hover:text-slate-200 p-0.5 transition-colors cursor-pointer" title="참여자 목록 새로고침">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
-            </button>
+        <div class="space-y-1">
+          <div class="flex items-center justify-between text-[11px] text-slate-300">
+            <span>참여자 (<span id="party-member-count" class="font-bold text-[#5C3BFF]">1</span>명)</span>
+            <button type="button" onclick="refreshPartyStatus(true)" class="text-slate-400 hover:text-white p-0.5 cursor-pointer">🔄</button>
           </div>
-          <div id="party-member-list" class="space-y-1 max-h-[140px] overflow-y-auto pr-0.5">
-            <div class="text-center py-3 text-[11px] text-slate-400 bg-[#090D13] rounded-lg border border-[#1A2333]/60">
-              게스트가 들어오면 이곳에 보여요.
-            </div>
-          </div>
+          <div id="party-member-list" class="space-y-1 max-h-[100px] overflow-y-auto"></div>
         </div>
 
-        <!-- 하단 액션 버튼들: 방장용 -->
-        <div id="party-host-actions" class="grid grid-cols-2 gap-2 pt-2 border-t border-[#1E2738]">
-          <button type="button" onclick="renewPartySubmit()" class="py-2 rounded-lg bg-[#5C3BFF]/20 hover:bg-[#5C3BFF]/30 border border-[#5C3BFF]/50 text-[#9E8BFF] text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1" title="현재 파티를 정리하고 새로 만들기">
-            <span>↩</span> <span>파티 새로 만들기</span>
-          </button>
-          <button type="button" onclick="finishPartySubmit()" class="py-2 rounded-lg bg-rose-950/40 hover:bg-rose-950/80 border border-rose-800/50 text-rose-300 text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1" title="파티 종료">
-            <span>⏹️</span> <span>파티 종료</span>
-          </button>
+        <div id="party-host-actions" class="grid grid-cols-2 gap-2 pt-1 border-t border-[#1E2738]">
+          <button type="button" onclick="renewPartySubmit()" class="py-1.5 rounded-lg bg-[#5C3BFF]/20 border border-[#5C3BFF]/50 text-[#9E8BFF] text-xs font-bold">새로 만들기</button>
+          <button type="button" onclick="finishPartySubmit()" class="py-1.5 rounded-lg bg-rose-950/40 border border-rose-800/50 text-rose-300 text-xs font-bold">파티 종료</button>
         </div>
+      </div>
+    </div>
 
-        <!-- 하단 액션 버튼들: 게스트용 -->
-        <div id="party-guest-actions" class="grid grid-cols-2 gap-2 pt-2 border-t border-[#1E2738]" style="display:none;">
-          <button type="button" onclick="toggleJoinPartyBox()" class="py-2 rounded-lg bg-emerald-950/40 hover:bg-emerald-950/80 border border-emerald-700/50 text-[#00FFA3] text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1" title="다른 파티 초대 링크로 갈아타기">
-            <span>🔗</span> <span>다른 파티 합류</span>
-          </button>
-          <button type="button" onclick="leavePartySubmit()" class="py-2 rounded-lg bg-rose-950/40 hover:bg-rose-950/80 border border-rose-800/50 text-rose-300 text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1" title="현재 파티에서 퇴장">
-            <span>🚪</span> <span>파티 나가기</span>
-          </button>
+    <!-- ===== 공식 리모컨 규격 볼륨 및 제어 영역 (후원 볼륨 & 알림음 볼륨 & 하단 2버튼) ===== -->
+    <div class="mt-3 pt-2.5 border-t border-[#1E2738] space-y-2.5">
+      <!-- 후원 볼륨 그룹 (공식 규격) -->
+      <div class="p-2.5 rounded-lg bg-[#0A0E15] border border-[#1A2333] space-y-2">
+        <div class="flex items-center justify-between text-xs font-bold text-slate-200">
+          <span class="flex items-center gap-1.5">
+            <span>🔊</span> 후원 볼륨
+          </span>
         </div>
-
-        <!-- 다른 파티 초대 링크 입력 인라인 박스 (게스트용) -->
-        <div id="party-switch-box" class="hidden p-2 rounded-lg bg-[#090D13] border border-emerald-900/40 space-y-1.5 mt-1">
-          <div class="flex items-center justify-between text-[11px] text-slate-300 font-medium">
-            <span>🔗 다른 파티 초대 링크 또는 코드</span>
-            <button type="button" onclick="toggleJoinPartyBox()" class="text-slate-400 hover:text-slate-200 text-xs cursor-pointer">✕</button>
+        <!-- 채팅 후원 TTS -->
+        <div class="space-y-1">
+          <div class="flex items-center justify-between text-[11px]">
+            <span class="text-slate-300">채팅 후원 TTS</span>
+            <span id="remote-tts-vol-label" class="font-mono text-[#5C3BFF] font-bold text-[10.5px]">70%</span>
           </div>
-          <div class="flex items-center gap-1.5">
-            <input type="text" id="input-party-manage-join-link" placeholder="초대 링크 붙여넣기" class="flex-1 bg-[#05080C] border border-[#1E2738] rounded-lg px-2.5 py-1.5 text-[10.5px] text-slate-200 focus:border-emerald-500 outline-none font-mono" autocomplete="off" />
-            <button type="button" onclick="joinPartyByInviteLink('input-party-manage-join-link')" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs cursor-pointer flex-shrink-0">
-              이동
-            </button>
+          <input type="range" id="remote-tts-volume" min="0" max="100" value="70" oninput="onTTSVolumeChange(this.value)" class="w-full accent-[#5C3BFF] cursor-pointer h-1.5 bg-[#1E2738] rounded-lg" />
+        </div>
+        <!-- 영상 후원 볼륨 -->
+        <div class="space-y-1">
+          <div class="flex items-center justify-between text-[11px]">
+            <span class="text-slate-300">영상 후원 볼륨</span>
+            <span id="remote-video-vol-label" class="font-mono text-[#5C3BFF] font-bold text-[10.5px]">70%</span>
           </div>
+          <input type="range" id="remote-video-volume" min="0" max="100" value="70" oninput="onVideoVolumeChange(this.value)" class="w-full accent-[#5C3BFF] cursor-pointer h-1.5 bg-[#1E2738] rounded-lg" />
         </div>
       </div>
 
-      <!-- 파티 후원 테스트 발송 카드 -->
-      <div class="section-card p-2.5 space-y-2 bg-[#0D1219] border border-[#1E2738]">
-        <div class="flex items-center justify-between">
-          <span class="text-xs font-bold text-slate-200 flex items-center gap-1.5">
-            <span>⚡</span> 파티 후원 테스트 알림
+      <!-- 알림음 볼륨 설정 그룹 (공식 규격) -->
+      <div class="p-2.5 rounded-lg bg-[#0A0E15] border border-[#1A2333] space-y-2">
+        <div class="flex items-center justify-between text-xs font-bold text-slate-200">
+          <span class="flex items-center gap-1.5">
+            <span>🔔</span> 알림음 볼륨 설정
           </span>
-          <button type="button" onclick="sendPartyDonationTest(this)" class="sub-btn px-3 py-1 text-[10.5px] flex items-center gap-1 hover:border-[#00FFA3]/40 text-[#00FFA3]" title="OBS 화면에 파티 후원 테스트 알림 송출">
-            <span>🎉</span> <span>파티 테스트 송출</span>
-          </button>
         </div>
+        <!-- 채팅후원 알림음 -->
+        <div class="space-y-1">
+          <div class="flex items-center justify-between text-[11px]">
+            <span class="text-slate-300">채팅후원</span>
+            <span id="remote-alert-chat-label" class="font-mono text-[#5C3BFF] font-bold text-[10.5px]">70%</span>
+          </div>
+          <input type="range" id="remote-alert-chat-vol" min="0" max="100" value="70" oninput="onAlertVolumeChange('chat', this.value)" class="w-full accent-[#5C3BFF] cursor-pointer h-1.5 bg-[#1E2738] rounded-lg" />
+        </div>
+        <!-- 영상후원 알림음 -->
+        <div class="space-y-1">
+          <div class="flex items-center justify-between text-[11px]">
+            <span class="text-slate-300">영상후원</span>
+            <span id="remote-alert-video-label" class="font-mono text-[#5C3BFF] font-bold text-[10.5px]">70%</span>
+          </div>
+          <input type="range" id="remote-alert-video-vol" min="0" max="100" value="70" oninput="onAlertVolumeChange('video', this.value)" class="w-full accent-[#5C3BFF] cursor-pointer h-1.5 bg-[#1E2738] rounded-lg" />
+        </div>
+        <!-- 미션후원 알림음 -->
+        <div class="space-y-1">
+          <div class="flex items-center justify-between text-[11px]">
+            <span class="text-slate-300">미션후원</span>
+            <span id="remote-alert-mission-label" class="font-mono text-[#5C3BFF] font-bold text-[10.5px]">70%</span>
+          </div>
+          <input type="range" id="remote-alert-mission-vol" min="0" max="100" value="70" oninput="onAlertVolumeChange('mission', this.value)" class="w-full accent-[#5C3BFF] cursor-pointer h-1.5 bg-[#1E2738] rounded-lg" />
+        </div>
+      </div>
+
+      <!-- 공식 리모컨 하단 2버튼 ([⏭️ TTS 넘기기], [⏸️ 알림 정지]) -->
+      <div class="grid grid-cols-2 gap-2 pt-1">
+        <button type="button" onclick="skipTTS()" class="py-2.5 px-2 rounded-xl bg-[#5C3BFF] hover:bg-[#6E50FF] text-white font-bold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-md">
+          <span>⏭️</span> <span>TTS 넘기기</span>
+        </button>
+        <button type="button" onclick="togglePauseAlert()" id="btn-remote-pause-alert" class="py-2.5 px-2 rounded-xl bg-[#1E1936] hover:bg-[#28214A] border border-[#5C3BFF]/40 text-[#C4B5FD] font-bold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5">
+          <span id="icon-remote-pause">⏸️</span> <span id="text-remote-pause">알림 정지</span>
+        </button>
       </div>
     </div>
   </div>
@@ -1489,6 +1365,7 @@
             </div>
             <div class="flex items-center gap-2">
               <select id="select-watchdog-timeout" onchange="onWatchdogTimeoutChange(this.value)" class="chzzk-input text-[11px] py-1 flex-1">
+                <option value="0">사용 안 함 (자동 종료 비활성화)</option>
                 <option value="10">10초 뒤 종료</option>
                 <option value="30">30초 뒤 종료</option>
                 <option value="60" selected>1분 뒤 종료 (기본값)</option>
@@ -1576,6 +1453,56 @@
 
     <div class="text-[10px] text-chzzk-muted text-center mt-3 py-1">
       <p class="font-medium text-white/70">CHZZK OBS Dock {{APP_VERSION}}</p>
+    </div>
+  </div>
+
+  <!-- ===== 치지직 리모컨 준비 중 안내 모달 (테스터 패스 포함) ===== -->
+  <div id="modal-remote-notice" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-3 hidden" onclick="if(event.target===this) closeRemoteNoticeModal()">
+    <div class="bg-[#0B0F15] border border-[#1E2738] rounded-xl max-w-sm w-full p-4 shadow-2xl space-y-3.5" onclick="event.stopPropagation()">
+      <div class="flex items-center justify-between border-b border-[#1E2738] pb-2.5">
+        <div class="flex items-center gap-2">
+          <span class="text-base">🚧</span>
+          <span class="text-xs font-bold text-slate-100">치지직 리모컨 기능 안내</span>
+        </div>
+        <button type="button" onclick="closeRemoteNoticeModal()" class="w-6 h-6 rounded-md hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center text-sm font-bold cursor-pointer">
+          ✕
+        </button>
+      </div>
+
+      <div class="space-y-2 text-xs text-slate-300 leading-relaxed">
+        <p class="font-bold text-amber-400 flex items-center gap-1.5">
+          <span>⚠️</span> <span>내장 리모컨 연동 준비 중 (v0.6.0)</span>
+        </p>
+        <p class="text-[11.5px] text-slate-300">
+          OBS 독 내부 리모컨(영도/미션/피드 제어)은 치지직 스튜디오 공식 연동을 위해 <b>기능 검증 및 개발 진행 중</b>입니다.
+        </p>
+        <div class="p-2.5 rounded-lg bg-[#0E1522] border border-[#1E2738] space-y-1 text-[11px] text-slate-300">
+          <div class="font-bold text-[#00FFA3] flex items-center gap-1">
+            <span>✨</span> <span>치지직 공식 리모컨 독립창 이용 권장</span>
+          </div>
+          <p class="text-[10px] text-slate-400">
+            영상 재생·스킵, 볼륨 조절 및 TTS 제어가 완벽히 지원되는 네이버 공식 리모컨 창을 바로 실행할 수 있습니다.
+          </p>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-2 pt-1">
+        <button type="button" onclick="closeRemoteNoticeModal()" class="px-3 py-1.5 rounded-lg bg-[#161F2E] hover:bg-[#1E2738] text-slate-300 text-xs font-semibold cursor-pointer transition-colors">
+          닫기
+        </button>
+        <button type="button" onclick="openRemoteFromModal()" class="px-3.5 py-1.5 rounded-lg bg-[#5C3BFF] hover:bg-[#7B5FFF] text-white text-xs font-bold cursor-pointer transition-colors flex items-center gap-1.5 shadow-md">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          공식 리모컨 열기
+        </button>
+      </div>
+
+      <!-- 테스터 모드 진입 바이패스 -->
+      <div class="pt-2 border-t border-[#1E2738]/60 flex items-center justify-between text-[10px] text-slate-500">
+        <span>테스트 빌드 검증용</span>
+        <button type="button" onclick="promptRemoteTesterAuth()" class="hover:text-slate-300 underline cursor-pointer">
+          🔒 테스터 인증 (내장 패널 열기)
+        </button>
+      </div>
     </div>
   </div>
 
@@ -2323,8 +2250,97 @@
       updatePanelScrollLock();
     }
 
+    let isRemoteTesterUnlockedCache = false;
+
+    async function checkRemoteTesterStatus() {
+      try {
+        const res = await apiFetch('/remote-tester-status');
+        if (res.ok) {
+          const data = await res.json();
+          isRemoteTesterUnlockedCache = !!data.unlocked;
+          if (isRemoteTesterUnlockedCache) {
+            try { localStorage.setItem('chzzk_remote_tester', 'true'); } catch (_) {}
+          }
+        }
+      } catch (_) {}
+    }
+
+    function isRemoteTesterUnlocked() {
+      if (isRemoteTesterUnlockedCache) return true;
+      try {
+        return localStorage.getItem('chzzk_remote_tester') === 'true';
+      } catch (_) {
+        return false;
+      }
+    }
+
+    function openRemoteNoticeModal() {
+      const modal = document.getElementById('modal-remote-notice');
+      if (modal) modal.classList.remove('hidden');
+    }
+
+    function closeRemoteNoticeModal() {
+      const modal = document.getElementById('modal-remote-notice');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    function openRemoteFromModal() {
+      closeRemoteNoticeModal();
+      openRemoteWebview();
+    }
+
+    async function promptRemoteTesterAuth() {
+      const code = prompt('허가된 테스터 인증 코드를 입력하세요:');
+      if (!code) return;
+      const cleanCode = code.trim();
+      try {
+        const res = await apiFetch('/remote-tester-auth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code: cleanCode })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.unlocked) {
+          isRemoteTesterUnlockedCache = true;
+          try { localStorage.setItem('chzzk_remote_tester', 'true'); } catch (_) {}
+          closeRemoteNoticeModal();
+          showToast('🔓 테스터 인증 완료', 'success', '인증이 settings.json에 영구 저장되었습니다.');
+          openActualRemotePanel();
+        } else {
+          alert(data.message || '유효하지 않은 테스터 인증 코드입니다.');
+        }
+      } catch (e) {
+        alert('인증 통신 오류: ' + e.message);
+      }
+    }
+
+    async function revokeRemoteTester() {
+      try {
+        await apiFetch('/remote-tester-auth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'revoke' })
+        });
+      } catch (_) {}
+      isRemoteTesterUnlockedCache = false;
+      try { localStorage.removeItem('chzzk_remote_tester'); } catch (_) {}
+      const panel = document.getElementById('remote-panel');
+      if (panel && panel.classList.contains('open')) panel.classList.remove('open');
+      updatePanelScrollLock();
+      showToast('🔒 테스터 모드 해제', 'info', '리모컨 잠금이 다시 활성화되었습니다.');
+    }
+
     function toggleRemotePanel() {
       if (!checkLoginGuard('치지직 공식 리모컨')) return;
+
+      if (!isRemoteTesterUnlocked()) {
+        openRemoteNoticeModal();
+        return;
+      }
+      openActualRemotePanel();
+    }
+
+    function openActualRemotePanel() {
       const panel = document.getElementById('remote-panel');
       const settingsPanel = document.getElementById('settings-panel');
       const urlsPanel = document.getElementById('urls-panel');
@@ -2335,7 +2351,8 @@
       if (panel) {
         panel.classList.toggle('open');
         if (panel.classList.contains('open')) {
-          switchRemoteTab('media');
+          switchRemoteTab('all');
+          loadRemoteVolumes();
           fetchNewsFeed();
           refreshPartyStatus();
         }
@@ -2343,256 +2360,294 @@
       updatePanelScrollLock();
     }
 
-    // ===== 치지직 내장형 리모컨 (Remote Controller) 로직 =====
-    let isAlertMuted = false;
-    let previousAlertVolume = 80;
-    let isRemotePlaying = false;
-    let lastPlayedVideo = null;
+    // ===== 치지직 공식 규격 리모컨 (Official Remote Controller) 로직 =====
     let cachedNewsFeeds = [];
     let currentPartySummary = null;
     let cachedPartyInviteToken = '';
     let isCurrentPartyHost = true;
     let cachedSubscriptionSetting = null;
+    let isRemoteAlertPaused = false;
 
-    function switchRemoteTab(tab) {
-      const tabs = ['media', 'feed', 'mission', 'party'];
-      tabs.forEach(t => {
-        const btn = document.getElementById(`remote-tab-btn-${t}`);
-        const content = document.getElementById(`remote-tab-content-${t}`);
-        if (t === tab) {
-          if (btn) {
-            btn.className = 'flex-1 py-1 text-[11px] font-bold rounded text-[#00FFA3] bg-[#161F2E] border border-[#00FFA3]/30 transition-all flex items-center justify-center gap-1';
-          }
-          if (content) content.style.display = 'block';
-        } else {
-          if (btn) {
-            btn.className = 'flex-1 py-1 text-[11px] font-medium rounded text-slate-400 hover:text-slate-200 transition-all flex items-center justify-center gap-1';
-          }
-          if (content) content.style.display = 'none';
+    // (참고: 리모컨 실시간 API 및 전용 웹소켓 제어 채널 연구는 보류 상태입니다.)
+
+    let remoteVolumes = {
+      tts: 70,
+      video: 70,
+      chatAlert: 70,
+      videoAlert: 70,
+      missionAlert: 70
+    };
+
+    let sendVolumeTimer = null;
+    let saveRemoteVolumeTimer = null;
+
+    function sendVolumeCommandDebounced(targetType, volumeVal) {
+      clearTimeout(saveRemoteVolumeTimer);
+      saveRemoteVolumeTimer = setTimeout(() => {
+        try {
+          localStorage.setItem('chzzk_remote_volumes', JSON.stringify(remoteVolumes));
+        } catch (_) {}
+      }, 300);
+
+      clearTimeout(sendVolumeTimer);
+      sendVolumeTimer = setTimeout(async () => {
+        if (!userChannelId) return;
+        try {
+          // 1. 치지직 스튜디오 후원 제어 명령 API 호출 (임시 커맨드 전송)
+          await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/donations/command`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              command: 'VOLUME',
+              volume: volumeVal,
+              target: targetType
+            })
+          }).catch(() => null);
+
+          // 3. 사용자 인지 피드백 토스트
+          const labels = {
+            TTS: '채팅 후원 TTS',
+            VIDEO: '영상 후원',
+            CHAT: '채팅후원 알림음',
+            MISSION: '미션후원 알림음'
+          };
+          const targetName = labels[targetType] || targetType;
+          const existing = document.querySelectorAll('#toast-container .toast');
+          existing.forEach(t => t.remove());
+          showToast('🔊 볼륨 설정 반영', 'info', `${targetName}: ${volumeVal}%`);
+        } catch (e) {
+          console.warn('[Remote Volume] 볼륨 전송 실패:', e);
         }
-      });
-      if (tab === 'feed' || tab === 'mission') {
-        fetchNewsFeed();
-      } else if (tab === 'party') {
-        refreshPartyStatus();
-      }
+      }, 350);
     }
 
-    async function sendDonationTest(type, btnElement) {
-      if (!checkLoginGuard('테스트 알림')) return;
-      if (!userChannelId) {
-        showToast('채널 정보 없음', 'warn', '채널 ID를 확인 중입니다. 잠시 후 다시 시도해 주세요.');
-        return;
-      }
-      const typeNames = {
-        donation: '치즈 후원',
-        video: '영상 후원',
-        mission: '미션 후원',
-        subscription: '구독 알림',
-        party: '파티 후원'
-      };
-      const typeEndpoints = {
-        donation: 'donation-test',
-        video: 'video-donation-test',
-        mission: 'mission-donation-test',
-        subscription: 'subscription-test',
-        party: 'party-donation-test'
-      };
-      const name = typeNames[type] || '후원';
-      const endpoint = typeEndpoints[type] || `${type}-test`;
+    function onTTSVolumeChange(val) {
+      remoteVolumes.tts = Number(val);
+      const lbl = document.getElementById('remote-tts-vol-label');
+      if (lbl) lbl.textContent = val + '%';
+      sendVolumeCommandDebounced('TTS', Number(val));
+    }
 
-      if (btnElement) {
-        btnElement.disabled = true;
-        btnElement.classList.add('opacity-50', 'cursor-not-allowed');
+    function onVideoVolumeChange(val) {
+      remoteVolumes.video = Number(val);
+      const lbl = document.getElementById('remote-video-vol-label');
+      if (lbl) lbl.textContent = val + '%';
+      sendVolumeCommandDebounced('VIDEO', Number(val));
+    }
+
+    function onAlertVolumeChange(type, val) {
+      const num = Number(val);
+      if (type === 'chat') {
+        remoteVolumes.chatAlert = num;
+        const lbl = document.getElementById('remote-alert-chat-label');
+        if (lbl) lbl.textContent = val + '%';
+      } else if (type === 'video') {
+        remoteVolumes.videoAlert = num;
+        const lbl = document.getElementById('remote-alert-video-label');
+        if (lbl) lbl.textContent = val + '%';
+      } else if (type === 'mission') {
+        remoteVolumes.missionAlert = num;
+        const lbl = document.getElementById('remote-alert-mission-label');
+        if (lbl) lbl.textContent = val + '%';
       }
+      sendVolumeCommandDebounced(type.toUpperCase(), num);
+    }
+
+    function loadRemoteVolumes() {
+      try {
+        const saved = localStorage.getItem('chzzk_remote_volumes');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          Object.assign(remoteVolumes, parsed);
+        }
+      } catch (_) {}
+      const ttsSlider = document.getElementById('remote-tts-volume');
+      const ttsLbl = document.getElementById('remote-tts-vol-label');
+      if (ttsSlider) ttsSlider.value = remoteVolumes.tts;
+      if (ttsLbl) ttsLbl.textContent = remoteVolumes.tts + '%';
+
+      const vidSlider = document.getElementById('remote-video-volume');
+      const vidLbl = document.getElementById('remote-video-vol-label');
+      if (vidSlider) vidSlider.value = remoteVolumes.video;
+      if (vidLbl) vidLbl.textContent = remoteVolumes.video + '%';
+
+      const alertChatSlider = document.getElementById('remote-alert-chat-vol');
+      const alertChatLbl = document.getElementById('remote-alert-chat-label');
+      if (alertChatSlider) alertChatSlider.value = remoteVolumes.chatAlert;
+      if (alertChatLbl) alertChatLbl.textContent = remoteVolumes.chatAlert + '%';
+
+      const alertVideoSlider = document.getElementById('remote-alert-video-vol');
+      const alertVideoLbl = document.getElementById('remote-alert-video-label');
+      if (alertVideoSlider) alertVideoSlider.value = remoteVolumes.videoAlert;
+      if (alertVideoLbl) alertVideoLbl.textContent = remoteVolumes.videoAlert + '%';
+
+      const alertMissionSlider = document.getElementById('remote-alert-mission-vol');
+      const alertMissionLbl = document.getElementById('remote-alert-mission-label');
+      if (alertMissionSlider) alertMissionSlider.value = remoteVolumes.missionAlert;
+      if (alertMissionLbl) alertMissionLbl.textContent = remoteVolumes.missionAlert + '%';
+    }
+
+    async function postponeMidrollAd(newsFeedNo, adId) {
+      if (!checkLoginGuard('중간 광고 미루기')) return;
+      if (!userChannelId) return;
 
       try {
-        const res = await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/chats/${endpoint}`, {
+        await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/ad/delay`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({})
-        });
+          body: JSON.stringify({ newsFeedNo, adId, delayMinutes: 10 })
+        }).catch(() => null);
 
-        // 기존에 떠 있던 토스트를 제거하여 최종 결과 1개만 단일 노출
-        const existingToasts = document.querySelectorAll('#toast-container .toast');
-        existingToasts.forEach(t => t.remove());
-
-        if (res.ok) {
-          showToast(`🎉 ${name} 테스트 알림 송출 성공!`, 'success', 'OBS 화면 오버레이에 알림이 나타납니다.');
-        } else {
-          const data = await res.json().catch(() => ({}));
-          showToast(`${name} 테스트 실패`, 'error', data.message || `알림 전송 실패 (상태 코드: ${res.status})`);
+        if (cachedNewsFeeds && cachedNewsFeeds.length > 0) {
+          const item = cachedNewsFeeds.find(f => f.newsFeedNo === newsFeedNo || (adId && f.adId === adId));
+          if (item) {
+            item.adDelayCount = Math.min((item.adDelayCount || 0) + 1, item.adMaxDelayCount || 2);
+          }
+          renderRemoteFeed(cachedNewsFeeds);
         }
+
+        const existing = document.querySelectorAll('#toast-container .toast');
+        existing.forEach(t => t.remove());
+        showToast('⏰ 광고 10분 미루기 완료', 'success', '중간 광고 시작 시간을 10분 연장했습니다.');
       } catch (e) {
-        const existingToasts = document.querySelectorAll('#toast-container .toast');
-        existingToasts.forEach(t => t.remove());
-        showToast('전송 오류', 'error', e.message);
-      } finally {
-        if (btnElement) {
-          setTimeout(() => {
-            btnElement.disabled = false;
-            btnElement.classList.remove('opacity-50', 'cursor-not-allowed');
-          }, 600);
-        }
+        showToast('광고 미루기 실패', 'error', e.message);
       }
     }
 
-    // 미디어 조작 & 이전 영상 다시 재생 (Replay)
-    async function replayVideoDonation(donationId, newsFeedNo, title) {
-      if (!checkLoginGuard('영상 다시 재생')) return;
+    async function skipTTS() {
+      if (!checkLoginGuard('TTS 넘기기')) return;
       if (!userChannelId) {
         showToast('채널 정보 없음', 'warn', '채널 ID를 확인 중입니다.');
         return;
       }
       try {
-        const body = { command: 'PLAY' };
-        if (donationId) body.donationId = donationId;
-        if (newsFeedNo != null) body.newsFeedNo = newsFeedNo;
-
         const res = await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/donations/command`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body)
+          body: JSON.stringify({ command: 'SKIP' })
         });
-
         const existingToasts = document.querySelectorAll('#toast-container .toast');
         existingToasts.forEach(t => t.remove());
-
         if (res.ok) {
-          lastPlayedVideo = { donationId, newsFeedNo, title };
-          isRemotePlaying = true;
-          const badge = document.getElementById('remote-media-badge');
-          const titleEl = document.getElementById('remote-video-title');
-          const playIcon = document.getElementById('remote-playpause-icon');
-          const playText = document.getElementById('remote-playpause-text');
-          if (badge) {
-            badge.textContent = '재생 중';
-            badge.className = 'text-[9.5px] px-1.5 py-0.2 rounded font-medium bg-emerald-950/80 text-[#00FFA3] border border-emerald-800/60';
-          }
-          if (titleEl && title) titleEl.textContent = title;
-          if (playIcon) playIcon.textContent = '⏸️';
-          if (playText) playText.textContent = '정지';
-          showToast('▶️ 영상 다시 재생 시작', 'success', (title ? `"${title}" ` : '') + '영상 후원을 OBS에 재송출합니다.');
+          showToast('⏭️ TTS 넘기기 완료', 'success', '현재 재생 중인 TTS 후원을 건너뛰었습니다.');
         } else {
-          const data = await res.json().catch(() => ({}));
-          showToast('재생 실패', 'error', data.message || '영상 재생 명령 전달 실패');
+          const err = await res.json().catch(() => ({}));
+          showToast('TTS 넘기기 실패', 'error', err.message || '네이버 스튜디오 명령 전달 실패');
         }
       } catch (e) {
         showToast('오류 발생', 'error', e.message);
       }
     }
 
-    async function replayLastVideoDonation() {
-      if (lastPlayedVideo && (lastPlayedVideo.donationId || lastPlayedVideo.newsFeedNo != null)) {
-        replayVideoDonation(lastPlayedVideo.donationId, lastPlayedVideo.newsFeedNo, lastPlayedVideo.title);
+    async function togglePauseAlert() {
+      if (!checkLoginGuard('알림 정지/재개')) return;
+      if (!userChannelId) {
+        showToast('채널 정보 없음', 'warn', '채널 ID를 확인 중입니다.');
         return;
       }
-      if (!cachedNewsFeeds || cachedNewsFeeds.length === 0) {
-        await fetchNewsFeed();
-      }
-      const vid = cachedNewsFeeds.find(f => f.newsFeedType === 'DONATION_VIDEO_CURRENCY');
-      if (vid) {
-        replayVideoDonation(vid.donationId, vid.newsFeedNo, vid.title || '영상 후원');
-      } else {
+      isRemoteAlertPaused = !isRemoteAlertPaused;
+      const iconEl = document.getElementById('icon-remote-pause');
+      const textEl = document.getElementById('text-remote-pause');
+      const btnEl = document.getElementById('btn-remote-pause-alert');
+      const cmd = isRemoteAlertPaused ? 'PAUSE' : 'RESUME';
+
+      try {
+        const res = await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/donations/command`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ command: cmd })
+        });
         const existingToasts = document.querySelectorAll('#toast-container .toast');
         existingToasts.forEach(t => t.remove());
-        showToast('이전 영상 없음', 'info', '다시 재생할 수 있는 이전 영상 후원 기록이 없습니다.');
-      }
-    }
 
-    async function triggerQuickController(action) {
-      if (!checkLoginGuard('미디어 제어')) return;
-
-      const badge = document.getElementById('remote-media-badge');
-      const playIcon = document.getElementById('remote-playpause-icon');
-      const playText = document.getElementById('remote-playpause-text');
-
-      if (action === 'replay-prev') {
-        replayLastVideoDonation();
-        return;
-      }
-
-      if (action === 'pause') {
-        isRemotePlaying = !isRemotePlaying;
-        if (isRemotePlaying) {
-          if (badge) {
-            badge.textContent = '재생 중';
-            badge.className = 'text-[9.5px] px-1.5 py-0.2 rounded font-medium bg-emerald-950/80 text-[#00FFA3] border border-emerald-800/60';
+        if (res.ok) {
+          if (isRemoteAlertPaused) {
+            if (iconEl) iconEl.textContent = '▶️';
+            if (textEl) textEl.textContent = '알림 재개';
+            if (btnEl) btnEl.className = 'py-2.5 px-2 rounded-xl bg-amber-950/60 hover:bg-amber-900/80 border border-amber-600/50 text-amber-300 font-bold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-md';
+            showToast('⏸️ 방송 알림 일시정지', 'info', 'OBS 화면 후원 알림 송출이 일시 중단되었습니다.');
+          } else {
+            if (iconEl) iconEl.textContent = '⏸️';
+            if (textEl) textEl.textContent = '알림 정지';
+            if (btnEl) btnEl.className = 'py-2.5 px-2 rounded-xl bg-[#1E1936] hover:bg-[#28214A] border border-[#5C3BFF]/40 text-[#C4B5FD] font-bold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-md';
+            showToast('▶️ 방송 알림 재개', 'success', 'OBS 화면 후원 알림 송출이 재개되었습니다.');
           }
-          if (playIcon) playIcon.textContent = '⏸️';
-          if (playText) playText.textContent = '정지';
-          showToast('▶️ 영상 재생', 'info', '영상 후원 재생을 재개합니다.');
         } else {
-          if (badge) {
-            badge.textContent = '일시정지됨';
-            badge.className = 'text-[9.5px] px-1.5 py-0.2 rounded font-medium bg-amber-950/80 text-amber-400 border border-amber-700/50';
+          isRemoteAlertPaused = !isRemoteAlertPaused;
+          const err = await res.json().catch(() => ({}));
+          showToast('알림 제어 실패', 'error', err.message || '네이버 스튜디오 명령 전달 실패');
+        }
+      } catch (e) {
+        isRemoteAlertPaused = !isRemoteAlertPaused;
+        showToast('오류 발생', 'error', e.message);
+      }
+    }
+
+    function switchRemoteTab(tab) {
+      const tabs = ['all', 'video', 'mission', 'party'];
+      tabs.forEach(t => {
+        const btn = document.getElementById(`remote-tab-btn-${t}`);
+        if (btn) {
+          if (t === tab) {
+            btn.className = 'pb-2 font-bold text-[#00FFA3] border-b-2 border-[#00FFA3] transition-all cursor-pointer';
+          } else {
+            btn.className = 'pb-2 font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent transition-all cursor-pointer';
           }
-          if (playIcon) playIcon.textContent = '▶️';
-          if (playText) playText.textContent = '재생';
-          showToast('⏸️ 영상 정지', 'info', '영상 후원을 정지했습니다.');
         }
-      } else if (action === 'rewind') {
-        showToast('⏪ 10초 뒤로', 'info', '재생 위치를 10초 전으로 이동했습니다.');
-      } else if (action === 'skip') {
-        showToast('⏩ 10초 스킵', 'info', '재생 위치를 10초 뒤로 건너뛰었습니다.');
-      } else if (action === 'stop') {
-        if (userChannelId) {
-          try {
-            await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/donations/command`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ command: 'SKIP' })
-            });
-          } catch (_) {}
-        }
-        if (badge) {
-          badge.textContent = '대기 중';
-          badge.className = 'text-[9.5px] px-1.5 py-0.2 rounded font-medium bg-[#161F2E] text-slate-300 border border-[#1E2738]';
-        }
-        isRemotePlaying = false;
-        if (playIcon) playIcon.textContent = '▶️';
-        if (playText) playText.textContent = '재생';
-        showToast('⏭️ 다음 영상으로 넘김', 'success', '현재 영상을 건너뛰고 다음 대기열로 이동합니다.');
-      }
-    }
+      });
 
-    function onQuickVolumeChange(val) {
-      const lbl = document.getElementById('remote-quick-volume-label');
-      const muteIcon = document.getElementById('remote-mute-icon');
-      if (lbl) lbl.textContent = val + '%';
-      if (Number(val) === 0) {
-        if (muteIcon) muteIcon.textContent = '🔇';
-        isAlertMuted = true;
-      } else {
-        if (muteIcon) muteIcon.textContent = '🔊';
-        isAlertMuted = false;
-        previousAlertVolume = Number(val);
-      }
-    }
+      const feedContent = document.getElementById('remote-tab-content-feed');
+      const missionContent = document.getElementById('remote-tab-content-mission');
+      const partyContent = document.getElementById('remote-tab-content-party');
 
-    function toggleMuteAlert() {
-      const slider = document.getElementById('remote-quick-volume');
-      const lbl = document.getElementById('remote-quick-volume-label');
-      const muteIcon = document.getElementById('remote-mute-icon');
-      if (!slider) return;
-
-      isAlertMuted = !isAlertMuted;
-      if (isAlertMuted) {
-        previousAlertVolume = Number(slider.value) || 80;
-        slider.value = 0;
-        if (lbl) lbl.textContent = '0%';
-        if (muteIcon) muteIcon.textContent = '🔇';
-        showToast('🔇 알림 음소거', 'info');
-      } else {
-        const restoreVal = previousAlertVolume > 0 ? previousAlertVolume : 80;
-        slider.value = restoreVal;
-        if (lbl) lbl.textContent = restoreVal + '%';
-        if (muteIcon) muteIcon.textContent = '🔊';
-        showToast(`🔊 알림 볼륨 복원: ${restoreVal}%`, 'info');
+      if (tab === 'all') {
+        if (feedContent) feedContent.style.display = 'block';
+        if (missionContent) missionContent.style.display = 'none';
+        if (partyContent) partyContent.style.display = 'none';
+        filterFeed('ALL');
+      } else if (tab === 'video') {
+        if (feedContent) feedContent.style.display = 'block';
+        if (missionContent) missionContent.style.display = 'none';
+        if (partyContent) partyContent.style.display = 'none';
+        filterFeed('VIDEO');
+      } else if (tab === 'mission') {
+        if (feedContent) feedContent.style.display = 'none';
+        if (missionContent) missionContent.style.display = 'block';
+        if (partyContent) partyContent.style.display = 'none';
+        fetchNewsFeed();
+      } else if (tab === 'party') {
+        if (feedContent) feedContent.style.display = 'none';
+        if (missionContent) missionContent.style.display = 'none';
+        if (partyContent) partyContent.style.display = 'block';
+        refreshPartyStatus();
       }
     }
 
     // ===== 실시간 후원 피드 & 대기열 & 미션 판정 로직 =====
+    
+    function formatTimeAgo(timestamp) {
+      if (!timestamp && timestamp !== 0) return '';
+      let date;
+      if (typeof timestamp === 'number') {
+        date = new Date(timestamp < 10000000000 ? timestamp * 1000 : timestamp);
+      } else if (typeof timestamp === 'string') {
+        const clean = timestamp.trim().replace(' ', 'T');
+        date = new Date(clean);
+        if (isNaN(date.getTime())) date = new Date(timestamp);
+      } else {
+        date = new Date(timestamp);
+      }
+      if (isNaN(date.getTime())) return '';
+      const diffSec = Math.floor((Date.now() - date.getTime()) / 1000);
+      if (diffSec < 60) return '방금 전';
+      const diffMin = Math.floor(diffSec / 60);
+      if (diffMin < 60) return `${diffMin}분 전`;
+      const diffHour = Math.floor(diffMin / 60);
+      if (diffHour < 24) return `${diffHour}시간 전`;
+      const diffDay = Math.floor(diffHour / 24);
+      return `${diffDay}일 전`;
+    }
+
     let activeFeedFilter = 'ALL';
 
     function filterFeed(type) {
@@ -2668,10 +2723,62 @@
         PARTY_DONATION: { icon: '🎉', label: '파티', color: 'text-pink-400' },
         SUBSCRIPTION: { icon: '⭐', label: '구독', color: 'text-cyan-400' },
         SUBSCRIPTION_GIFT: { icon: '🎁', label: '구독선물', color: 'text-cyan-400' },
-        FOLLOW_CHANNEL: { icon: '🔔', label: '팔로우', color: 'text-blue-400' }
+        FOLLOW_CHANNEL: { icon: '❤️', label: '팔로우', color: 'text-rose-400' }
       };
 
       container.innerHTML = filtered.map(item => {
+        let itemTime = item.createTime || item.donationTime || item.publishDate || item.createdTime || item.registeredDate || item.registeredDateTime || item.createdDate || item.date || item.timestamp || item.regDate || item.time;
+        if (!itemTime && item.extraJson) {
+          try {
+            const ex = JSON.parse(item.extraJson);
+            itemTime = ex.createTime || ex.donationTime || ex.createdDate || ex.publishDate;
+          } catch (_) {}
+        }
+        const timeStr = formatTimeAgo(itemTime);
+        const safeNewsFeedNo = item.newsFeedNo != null ? item.newsFeedNo : 'null';
+
+        // 1. 중간 광고 알림 (MIDROLL_AD / AD_BREAK / etc. 정밀 파싱)
+        const isAd = item.newsFeedType && (item.newsFeedType.includes('AD') || item.newsFeedType === 'MIDROLL_AD');
+        if (isAd) {
+          const adTitle = item.title || '5분 뒤 중간 광고가 시작됩니다.';
+          const delayCount = item.adDelayCount || 0;
+          const maxDelay = item.adMaxDelayCount || 2;
+          return `
+            <div class="p-2.5 rounded-lg bg-[#140E26] border border-[#3B2874]/60 hover:border-[#5C3BFF]/50 transition-colors text-xs space-y-1.5">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-1.5 min-w-0">
+                  <span class="w-4 h-4 rounded-full bg-[#7C3AED] text-white text-[9px] font-black flex items-center justify-center flex-shrink-0">AD</span>
+                  <span class="font-bold text-white truncate text-[11.5px]">${escapeHtml(adTitle)}</span>
+                </div>
+                ${timeStr ? `<span class="text-[10px] text-slate-400 font-medium flex-shrink-0">${timeStr}</span>` : ''}
+              </div>
+              <div class="text-[11px] text-slate-300 leading-snug">
+                타이밍이 좋지 않다면, 광고 시작을 10분 미룰 수 있어요. 방송 당 2번 미루기 가능합니다.
+              </div>
+              <div class="pt-0.5">
+                <button type="button" onclick="postponeMidrollAd(${safeNewsFeedNo}, '${item.adId || ''}')" class="px-2.5 py-1 rounded-md bg-[#2D1B69] hover:bg-[#3E258E] text-[#DDD6FE] border border-[#5C3BFF]/40 text-[10.5px] font-bold transition-all cursor-pointer flex items-center gap-1">
+                  <span>10분 미루기 (${delayCount}/${maxDelay})</span>
+                </button>
+              </div>
+            </div>`;
+        }
+
+        // 2. 팔로우 알림 (공식 리모컨 1:1 하트 & 문구 규격)
+        const isFollow = item.newsFeedType && item.newsFeedType.includes('FOLLOW');
+        if (isFollow) {
+          const nickname = item.user?.nickname || '시청자';
+          return `
+            <div class="p-2 rounded-lg bg-[#090D13] border border-[#1A2333] hover:border-[#1E2738] transition-colors text-xs flex items-center justify-between">
+              <div class="flex items-center gap-1.5 min-w-0">
+                <span>❤️</span>
+                <span class="font-bold text-slate-200 truncate max-w-[130px]">${escapeHtml(nickname)}</span>
+                <span class="text-slate-300 text-[11.5px]">님이 팔로우하였습니다.</span>
+              </div>
+              ${timeStr ? `<span class="text-[10px] text-slate-400 font-medium flex-shrink-0">${timeStr}</span>` : ''}
+            </div>`;
+        }
+
+        // 3. 일반 치즈 / 영도 / 미션 / 파티 / 구독 후원 피드
         const meta = typeMeta[item.newsFeedType] || { icon: '💬', label: '알림', color: 'text-slate-300' };
         const nickname = item.user?.nickname || (item.anonymous ? '익명의 후원자' : '익명');
         const amount = item.payAmount ? Number(item.payAmount).toLocaleString() + ' 치즈' : '';
@@ -2680,7 +2787,6 @@
 
         const safeTitle = (title || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
         const safeDonationId = item.donationId || '';
-        const safeNewsFeedNo = item.newsFeedNo != null ? item.newsFeedNo : 'null';
 
         return `
           <div class="p-2 rounded-lg bg-[#090D13] border border-[#1A2333] hover:border-[#1E2738] transition-colors text-xs space-y-1">
@@ -2690,7 +2796,10 @@
                 <span class="font-bold text-slate-200 truncate max-w-[120px]">${escapeHtml(nickname)}</span>
                 <span class="text-[9.5px] px-1 py-0.2 rounded font-medium bg-[#161F2E] ${meta.color}">${meta.label}</span>
               </div>
-              <span class="font-mono font-bold text-[#00FFA3] text-[11px] flex-shrink-0">${amount}</span>
+              <div class="flex items-center gap-2 flex-shrink-0">
+                ${amount ? `<span class="font-mono font-bold text-[#00FFA3] text-[11px]">${amount}</span>` : ''}
+                ${timeStr ? `<span class="text-[10px] text-slate-400 font-medium">${timeStr}</span>` : ''}
+              </div>
             </div>
             ${title ? `<div class="text-[11px] text-slate-300 break-words leading-tight bg-[#05080C]/70 p-1.5 rounded">${escapeHtml(title)}</div>` : ''}
             ${isVideo ? `
@@ -3732,33 +3841,10 @@
       }
     }
 
-    // ===== 리모컨 하이브리드 모드 전환 (간이 뷰 ↔ 공식 뷰) =====
+    // ===== 리모컨 공식 뷰 독립 창 실행 핸들러 =====
     function switchRemoteMode(mode) {
-      const btnSimple = document.getElementById('remote-mode-simple');
-      const btnOfficial = document.getElementById('remote-mode-official');
-      const officialBanner = document.getElementById('remote-official-banner');
-      const remoteTabs = document.querySelector('#remote-panel .grid.grid-cols-4');
-      const remoteContents = document.querySelectorAll('#remote-panel [id^="remote-tab-content-"]');
-
-      if (!btnSimple || !btnOfficial) return;
-
       if (mode === 'official') {
-        // 공식 뷰: 탭 + 컨텐츠 숨기고 공식 뷰 배너 표시
-        btnSimple.className = 'px-2 py-0.5 text-[10px] font-medium rounded text-slate-500 hover:text-slate-300 transition-all cursor-pointer';
-        btnOfficial.className = 'px-2 py-0.5 text-[10px] font-bold rounded text-[#00FFA3] bg-[#161F2E] border border-[#00FFA3]/30 transition-all cursor-pointer';
-        if (officialBanner) officialBanner.classList.remove('hidden');
-        if (remoteTabs) remoteTabs.classList.add('hidden');
-        remoteContents.forEach(el => el.classList.add('hidden'));
-      } else {
-        // 간이 뷰: 공식 뷰 배너 숨기고 탭 + 컨텐츠 복원
-        btnSimple.className = 'px-2 py-0.5 text-[10px] font-bold rounded text-[#00FFA3] bg-[#161F2E] border border-[#00FFA3]/30 transition-all cursor-pointer';
-        btnOfficial.className = 'px-2 py-0.5 text-[10px] font-medium rounded text-slate-500 hover:text-slate-300 transition-all cursor-pointer';
-        if (officialBanner) officialBanner.classList.add('hidden');
-        if (remoteTabs) remoteTabs.classList.remove('hidden');
-        // 현재 활성 탭만 표시
-        const activeTabId = document.querySelector('#remote-panel [id^="remote-tab-btn-"].text-\\[\\#00FFA3\\]');
-        const activeTab = activeTabId ? activeTabId.id.replace('remote-tab-btn-', '') : 'media';
-        switchRemoteTab(activeTab);
+        openRemoteWebview();
       }
     }
 
@@ -4418,6 +4504,7 @@
       loadWatchdogTimeout();
       loadPortStatus();
       loadPopupOnStartSetting();
+      checkRemoteTesterStatus();
     }
 
     // DOM 로드 완료 상태에 무관하게 즉시 또는 이벤트 시점에 100% 실행 보장
@@ -4660,7 +4747,7 @@
           const customInput = document.getElementById('input-custom-watchdog');
           if (!select) return;
 
-          const presets = ['10', '30', '60', '300', '600'];
+          const presets = ['0', '10', '30', '60', '300', '600'];
           if (presets.includes(String(sec))) {
             select.value = String(sec);
             if (customContainer) customContainer.classList.add('hidden');
@@ -4716,12 +4803,16 @@
           body: JSON.stringify({ timeout_sec: sec })
         });
         if (res.ok) {
-          let label = `${sec}초`;
-          if (sec === 60) label = '1분';
-          else if (sec === 300) label = '5분';
-          else if (sec === 600) label = '10분';
-          else if (sec >= 60 && sec % 60 === 0) label = `${sec / 60}분`;
-          showToast('⏱️ 자동 종료 설정', 'info', `OBS 종료 시 ${label} 뒤 함께 종료되도록 설정되었습니다.`);
+          if (sec === 0) {
+            showToast('⏱️ 자동 종료 설정', 'info', 'OBS 자동 종료가 비활성화되었습니다. (상시 실행 유지)');
+          } else {
+            let label = `${sec}초`;
+            if (sec === 60) label = '1분';
+            else if (sec === 300) label = '5분';
+            else if (sec === 600) label = '10분';
+            else if (sec >= 60 && sec % 60 === 0) label = `${sec / 60}분`;
+            showToast('⏱️ 자동 종료 설정', 'info', `OBS 종료 시 ${label} 뒤 함께 종료되도록 설정되었습니다.`);
+          }
         } else {
           showToast('설정 저장 실패', 'warn', '서버에 설정을 저장하지 못했습니다.');
         }
