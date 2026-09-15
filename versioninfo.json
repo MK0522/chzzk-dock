@@ -3,25 +3,25 @@
     "FileVersion": {
       "Major": 0,
       "Minor": 5,
-      "Patch": 5,
+      "Patch": 6,
       "Build": 0
     },
     "ProductVersion": {
       "Major": 0,
       "Minor": 5,
-      "Patch": 5,
+      "Patch": 6,
       "Build": 0
     }
   },
   "StringFileInfo": {
     "CompanyName": "Dingteus (띵판)",
     "FileDescription": "CHZZK OBS Dock Server",
-    "FileVersion": "0.5.5.0",
+    "FileVersion": "0.5.6.0",
     "InternalName": "chzzk-dock",
     "LegalCopyright": "Copyright (C) 2026 Dingteus (띵판). Licensed under the MPL-2.0.",
     "OriginalFilename": "chzzk-dock.exe",
     "ProductName": "CHZZK OBS Dock",
-    "ProductVersion": "0.5.5.0",
+    "ProductVersion": "0.5.6.0",
     "Comments": "OBS Studio Dock Server for Chzzk"
   },
   "VarFileInfo": {
