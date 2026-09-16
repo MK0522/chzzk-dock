@@ -72,21 +72,64 @@
       box-sizing: border-box;
     }
 
-    .toggle-switch { position: relative; width: 34px; height: 20px; flex-shrink: 0; }
-    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    /* ===== Bulletproof Standard Toggle Switch ===== */
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 38px;
+      height: 20px;
+      flex-shrink: 0;
+      cursor: pointer;
+      vertical-align: middle;
+      user-select: none;
+      margin: 0;
+    }
+    .toggle-switch input {
+      position: absolute;
+      opacity: 0;
+      width: 0;
+      height: 0;
+      margin: 0;
+      padding: 0;
+      pointer-events: none;
+    }
     .toggle-slider {
-      position: absolute; inset: 0; cursor: pointer; border-radius: 999px;
-      background: #1A2230; transition: all 0.2s ease;
+      position: absolute;
+      inset: 0;
+      border-radius: 9999px;
+      background-color: #1E2738;
+      border: 1.5px solid #2D3A4F;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      box-sizing: border-box;
     }
     .toggle-slider::before {
-      content: ''; position: absolute; left: 2px; top: 2px;
-      width: 16px; height: 16px; border-radius: 50%;
-      background: #5A6577; transition: all 0.2s ease;
+      content: '';
+      position: absolute;
+      top: 1.5px;
+      left: 2px;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background-color: #94A3B8;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
     }
-    .toggle-switch input:checked + .toggle-slider { background: rgba(0, 255, 163, 0.25); }
+    .toggle-switch:hover .toggle-slider {
+      border-color: #3E4F6B;
+    }
+    .toggle-switch input:checked + .toggle-slider {
+      background-color: #00FFA3;
+      border-color: #00FFA3;
+      box-shadow: 0 0 10px rgba(0, 255, 163, 0.45);
+    }
     .toggle-switch input:checked + .toggle-slider::before {
-      transform: translateX(14px); background: #00FFA3;
-      box-shadow: 0 0 8px rgba(0, 255, 163, 0.5);
+      transform: translateX(17px);
+      background-color: #080A0D;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    }
+    .toggle-switch input:disabled + .toggle-slider {
+      opacity: 0.35;
+      cursor: not-allowed;
     }
 
     /* Custom Checkbox (+2px scale: 17x17) */
@@ -302,6 +345,17 @@
       opacity: 1; pointer-events: auto; visibility: visible;
       transform: translateX(0);
     }
+    .donations-chat-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      align-items: stretch;
+    }
+    @media (max-width: 480px) {
+      .donations-chat-grid {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 </head>
 <body class="dark font-sans text-white antialiased overflow-x-hidden">
@@ -422,7 +476,7 @@
       <div class="space-y-1">
         <div class="flex items-center justify-between h-4">
           <label class="text-xs font-bold text-slate-100 uppercase tracking-wider leading-none">태그</label>
-          <span id="tag-count-label" class="text-[10px] text-slate-400 font-medium leading-none">0/10</span>
+          <span id="tag-count-label" class="text-[10px] text-slate-400 font-medium leading-none">0/5</span>
         </div>
         <div id="tag-container" class="flex flex-wrap items-center gap-1 min-h-[26px]">
           <!-- 태그 칩 목록 (동적 렌더링) -->
@@ -804,16 +858,8 @@
       <div class="flex items-center gap-1.5 min-w-0">
         <span class="text-base">💬</span>
         <span class="text-xs font-bold text-white truncate">후원 & 채팅 제어</span>
-        <span class="text-[9px] bg-[#00FFA3]/15 text-[#00FFA3] border border-[#00FFA3]/40 px-1.5 py-0.5 rounded-full font-bold flex items-center gap-1 flex-shrink-0">
-          <span class="w-1.5 h-1.5 rounded-full bg-[#00FFA3] shadow-[0_0_6px_rgba(0,255,163,0.8)] animate-pulse"></span>
-          즉시 적용
-        </span>
       </div>
       <div class="flex items-center gap-1 flex-shrink-0">
-        <button type="button" onclick="openDonationSettingsModal()" class="px-2 py-1 rounded-md bg-[#161F2E] border border-[#1E2738] hover:border-[#00FFA3]/50 text-[11px] text-slate-200 hover:text-[#00FFA3] flex items-center gap-1 transition-all cursor-pointer font-medium" title="치지직 후원/구독 세부 설정 열기 (스튜디오 실시간 연동)">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-          <span>세부 설정</span>
-        </button>
         <button onclick="toggleDonationsPanel()" class="w-6 h-6 rounded-md bg-chzzk-card border border-chzzk-border flex items-center justify-center hover:border-chzzk-muted transition-colors flex-shrink-0">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5A6577" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
@@ -822,83 +868,125 @@
 
     <!-- Panel Content -->
     <div class="space-y-2.5">
-      <!-- 후원 세부 설정 진입 배너 카드 -->
-      <button type="button" onclick="openDonationSettingsModal()" class="w-full p-2.5 rounded-lg bg-gradient-to-r from-[#161F2E] to-[#1E2738] border border-[#1E2738] hover:border-[#00FFA3]/60 text-slate-200 hover:text-[#00FFA3] transition-all text-xs font-semibold flex items-center justify-between cursor-pointer group shadow-sm">
-        <div class="flex items-center gap-2">
-          <span class="text-sm">⚙️</span>
-          <span>후원 세부 설정 (최소금액·영상·미션·구독)</span>
-        </div>
-        <span class="text-[10px] text-slate-400 group-hover:text-[#00FFA3] font-mono">설정 ➔</span>
-      </button>
-
-      <!-- 1. 후원 활성화 카드 -->
-      <div class="p-2.5 rounded-lg bg-[#0F141C] border border-[#1E2738] space-y-2">
-        <div class="flex items-center justify-between">
-          <span class="text-xs font-bold text-[#00FFA3] flex items-center gap-1">
-            <span>⭐</span> 후원 활성화
-          </span>
-        </div>
-        <div class="space-y-1.5 pt-0.5">
-          <!-- 치즈 후원 -->
-          <label for="toggle-chat-donation" class="flex items-center justify-between px-2.5 py-2 rounded-md bg-[#161F2E] border border-[#1E2738] hover:border-[#00FFA3]/40 cursor-pointer select-none transition-all">
-            <span class="flex items-center gap-2 text-xs font-medium text-slate-200">
-              <span>💬</span> <span>치즈 후원</span>
+      <div class="donations-chat-grid">
+        <!-- 1. 후원 및 구독 제어 카드 -->
+        <div class="p-2.5 rounded-xl bg-[#0F141C] border border-[#1E2738] space-y-2 flex flex-col justify-between">
+          <div class="flex items-center justify-between border-b border-[#1A2333] pb-1.5">
+            <span class="text-xs font-bold text-[#00FFA3] flex items-center gap-1">
+              <span>⭐</span> 후원 및 구독
             </span>
-            <input type="checkbox" id="toggle-chat-donation" class="chzzk-checkbox-input" onchange="updateDonationSetting('CHAT')" />
-          </label>
-
-          <!-- 영상 후원 -->
-          <label for="toggle-video-donation" class="flex items-center justify-between px-2.5 py-2 rounded-md bg-[#161F2E] border border-[#1E2738] hover:border-[#00FFA3]/40 cursor-pointer select-none transition-all">
-            <span class="flex items-center gap-2 text-xs font-medium text-slate-200">
-              <span>🎬</span> <span>영상(영도) 후원</span>
-            </span>
-            <input type="checkbox" id="toggle-video-donation" class="chzzk-checkbox-input" onchange="updateDonationSetting('VIDEO')" />
-          </label>
-
-          <!-- 미션 후원 -->
-          <label for="toggle-mission-donation" class="flex items-center justify-between px-2.5 py-2 rounded-md bg-[#161F2E] border border-[#1E2738] hover:border-[#00FFA3]/40 cursor-pointer select-none transition-all">
-            <span class="flex items-center gap-2 text-xs font-medium text-slate-200">
-              <span>🎯</span> <span>미션 후원</span>
-            </span>
-            <input type="checkbox" id="toggle-mission-donation" class="chzzk-checkbox-input" onchange="updateDonationSetting('MISSION')" />
-          </label>
-        </div>
-      </div>
-
-      <!-- 2. 실시간 채팅 모드 카드 -->
-      <div class="p-2.5 rounded-lg bg-[#0F141C] border border-[#1E2738] space-y-2">
-        <div class="flex items-center justify-between">
-          <span class="text-xs font-bold text-slate-200 flex items-center gap-1">
-            <span>💬</span> 실시간 채팅 모드
-          </span>
-        </div>
-        <div class="space-y-1.5 pt-0.5">
-          <!-- 이모티콘 전용 모드 -->
-          <label for="toggle-emoji-mode" class="flex items-center justify-between px-2.5 py-2 rounded-md bg-[#161F2E] border border-[#1E2738] hover:border-[#00FFA3]/40 cursor-pointer select-none transition-all">
-            <span class="flex items-center gap-2 text-xs font-medium text-slate-200">
-              <span>😀</span> <span>이모티콘 전용 모드</span>
-            </span>
-            <input type="checkbox" id="toggle-emoji-mode" class="chzzk-checkbox-input" onchange="updateChatEmojiMode(this.checked)" />
-          </label>
-
-          <!-- 저속 모드 -->
-          <div class="px-2.5 py-2 rounded-md bg-[#161F2E] border border-[#1E2738] space-y-1.5">
-            <div class="flex items-center justify-between">
+          </div>
+          <div class="space-y-1.5 pt-0.5 flex-1 flex flex-col justify-between">
+            <!-- 채팅 후원 -->
+            <div class="flex items-center justify-between px-2.5 py-2 rounded-md bg-[#161F2E] border border-[#1E2738] transition-all">
               <span class="flex items-center gap-2 text-xs font-medium text-slate-200">
-                <span>⏱️</span> <span>저속 모드</span>
+                <span>💬</span> <span>채팅 후원</span>
               </span>
-              <span id="slow-mode-status" class="text-[10px] text-slate-400 font-mono font-semibold">OFF</span>
+              <div class="flex items-center gap-1.5">
+                <button type="button" id="btn-dsetting-chat" onclick="openDonationModal('chat')" class="px-2 py-0.5 rounded text-[10.5px] font-semibold flex items-center gap-1 transition-all bg-[#0B0F15] border border-[#00FFA3]/40 text-[#00FFA3] hover:bg-[#161F2E] cursor-pointer" title="채팅 후원 세부 설정">
+                  <span>⚙️</span><span>설정</span>
+                </button>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="toggle-chat-donation" onchange="updateDonationSetting('CHAT')">
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
             </div>
-            <select id="select-slow-mode" class="chzzk-select text-xs py-1.5 px-2 bg-[#0B0F15] border-[#1E2738] w-full" onchange="updateChatSlowMode(Number(this.value))">
-              <option value="0">끄기 (일반 속도)</option>
-              <option value="3">3초 간격</option>
-              <option value="5">5초 간격</option>
-              <option value="10">10초 간격</option>
-              <option value="30">30초 간격</option>
-              <option value="60">1분 간격</option>
-              <option value="120">2분 간격</option>
-              <option value="300">5분 간격</option>
-            </select>
+
+            <!-- 영상 후원 -->
+            <div class="flex items-center justify-between px-2.5 py-2 rounded-md bg-[#161F2E] border border-[#1E2738] transition-all">
+              <span class="flex items-center gap-2 text-xs font-medium text-slate-200">
+                <span>🎬</span> <span>영상(영도) 후원</span>
+              </span>
+              <div class="flex items-center gap-1.5">
+                <button type="button" id="btn-dsetting-video" onclick="openDonationModal('video')" class="px-2 py-0.5 rounded text-[10.5px] font-semibold flex items-center gap-1 transition-all bg-[#0B0F15] border border-[#00FFA3]/40 text-[#00FFA3] hover:bg-[#161F2E] cursor-pointer" title="영상 후원 세부 설정">
+                  <span>⚙️</span><span>설정</span>
+                </button>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="toggle-video-donation" onchange="updateDonationSetting('VIDEO')">
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <!-- 미션 후원 -->
+            <div class="flex items-center justify-between px-2.5 py-2 rounded-md bg-[#161F2E] border border-[#1E2738] transition-all">
+              <span class="flex items-center gap-2 text-xs font-medium text-slate-200">
+                <span>🎯</span> <span>미션 후원</span>
+              </span>
+              <div class="flex items-center gap-1.5">
+                <button type="button" id="btn-dsetting-mission" onclick="openDonationModal('mission')" class="px-2 py-0.5 rounded text-[10.5px] font-semibold flex items-center gap-1 transition-all bg-[#0B0F15] border border-[#00FFA3]/40 text-[#00FFA3] hover:bg-[#161F2E] cursor-pointer" title="미션 후원 세부 설정">
+                  <span>⚙️</span><span>설정</span>
+                </button>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="toggle-mission-donation" onchange="updateDonationSetting('MISSION')">
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <!-- 구독 알림 -->
+            <div class="flex items-center justify-between px-2.5 py-2 rounded-md bg-[#161F2E] border border-[#1E2738] transition-all">
+              <span class="flex items-center gap-2 text-xs font-medium text-slate-200">
+                <span>⭐</span> <span>구독 알림</span>
+              </span>
+              <div class="flex items-center gap-1.5">
+                <button type="button" id="btn-dsetting-sub" onclick="openDonationModal('sub')" class="px-2 py-0.5 rounded text-[10.5px] font-semibold flex items-center gap-1 transition-all bg-[#0B0F15] border border-[#00FFA3]/40 text-[#00FFA3] hover:bg-[#161F2E] cursor-pointer" title="구독 알림 세부 설정">
+                  <span>⚙️</span><span>설정</span>
+                </button>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="toggle-sub-alert" onchange="toggleSubAlertFromMain(this.checked)">
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. 실시간 채팅 모드 카드 -->
+        <div class="p-2.5 rounded-xl bg-[#0F141C] border border-[#1E2738] space-y-2 flex flex-col justify-between">
+          <div class="flex items-center justify-between border-b border-[#1A2333] pb-1.5">
+            <span class="text-xs font-bold text-slate-200 flex items-center gap-1">
+              <span>💬</span> 실시간 채팅 모드
+            </span>
+          </div>
+          <div class="space-y-2 pt-0.5 flex-1 flex flex-col justify-start">
+            <!-- 이모티콘 전용 모드 -->
+            <div class="flex items-center justify-between px-2.5 py-2.5 rounded-md bg-[#161F2E] border border-[#1E2738] transition-all">
+              <div class="flex flex-col">
+                <span class="flex items-center gap-1.5 text-xs font-medium text-slate-200">
+                  <span>😀</span> <span>이모티콘 전용 모드</span>
+                </span>
+                <span class="text-[10px] text-slate-400 ml-5">이모티콘만 전송 허용</span>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="toggle-emoji-mode" onchange="updateChatEmojiMode(this.checked)">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+
+            <!-- 저속 모드 -->
+            <div class="px-2.5 py-2.5 rounded-md bg-[#161F2E] border border-[#1E2738] space-y-2">
+              <div class="flex items-center justify-between">
+                <div class="flex flex-col">
+                  <span class="flex items-center gap-1.5 text-xs font-medium text-slate-200">
+                    <span>⏱️</span> <span>저속 모드</span>
+                  </span>
+                  <span class="text-[10px] text-slate-400 ml-5">메시지 재전송 대기 시간</span>
+                </div>
+                <span id="slow-mode-status" class="px-1.5 py-0.5 rounded text-[10px] bg-[#0B0F15] border border-[#1E2738] text-slate-300 font-mono font-bold">OFF</span>
+              </div>
+              <select id="select-slow-mode" class="chzzk-select text-xs py-1.5 px-2 bg-[#0B0F15] border-[#1E2738] w-full" onchange="updateChatSlowMode(Number(this.value))">
+                <option value="0">끄기 (일반 속도)</option>
+                <option value="3">3초 간격</option>
+                <option value="5">5초 간격</option>
+                <option value="10">10초 간격</option>
+                <option value="30">30초 간격</option>
+                <option value="60">1분 간격</option>
+                <option value="120">2분 간격</option>
+                <option value="300">5분 간격</option>
+              </select>
+            </div>
           </div>
         </div>
       </div>
@@ -1386,9 +1474,9 @@
                 <div class="text-[10.5px] font-semibold text-white/90">🔔 자동 종료 시 Windows 알림 받기</div>
                 <div class="text-[9px] text-chzzk-muted leading-tight mt-0.5">OBS 종료 또는 미감지로 독이 자동 종료될 때 알림을 표시합니다.</div>
               </div>
-              <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
-                <input type="checkbox" id="toggle-shutdown-notify" onchange="saveShutdownNotifySetting(this.checked)" class="sr-only peer" checked>
-                <div class="w-8 h-4.5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-chzzk-accent"></div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="toggle-shutdown-notify" onchange="saveShutdownNotifySetting(this.checked)" checked>
+                <span class="toggle-slider"></span>
               </label>
             </div>
           </div>
@@ -1435,9 +1523,9 @@
                 <div class="text-[11px] font-semibold text-white/90">🖥️ 시작 시 독 팝업창 자동 열기</div>
                 <div class="text-[9px] text-chzzk-muted leading-tight mt-0.5">프로그램(exe) 직접 실행 시 독 화면을 바로 띄웁니다. (끄면 트레이로만 조용히 시작)</div>
               </div>
-              <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
-                <input type="checkbox" id="toggle-popup-on-start" onchange="savePopupOnStartSetting(this.checked)" class="sr-only peer">
-                <div class="w-8 h-4.5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-chzzk-accent"></div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="toggle-popup-on-start" onchange="savePopupOnStartSetting(this.checked)">
+                <span class="toggle-slider"></span>
               </label>
             </div>
           </div>
@@ -1506,271 +1594,219 @@
     </div>
   </div>
 
-  <!-- ===== 치지직 후원 세부 설정 (채팅/영상/미션 3대 설정 모달) ===== -->
-  <div id="modal-donation-settings" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-[9999] flex items-center justify-center p-2.5 hidden" onclick="if(event.target===this) closeDonationSettingsModal()">
-    <div class="bg-[#0B0F15] border border-[#1E2738] rounded-xl max-w-lg w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden" onclick="event.stopPropagation()">
-      <!-- 모달 헤더 -->
+  <!-- ===== [개별 모달 1] 💬 채팅 후원 세부 설정 ===== -->
+  <div id="modal-dsetting-chat" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-[9999] flex items-center justify-center p-2.5 hidden" onclick="if(event.target===this) closeDonationModal('chat')">
+    <div class="bg-[#0B0F15] border border-[#1E2738] rounded-xl max-w-md w-full shadow-2xl overflow-hidden" onclick="event.stopPropagation()">
       <div class="px-3.5 py-2.5 border-b border-[#1E2738] flex items-center justify-between bg-[#0D1219]">
         <div class="flex items-center gap-2">
-          <span class="text-sm">⚙️</span>
-          <span class="text-xs font-bold text-slate-100">치지직 후원 세부 설정 (스튜디오 실시간 연동)</span>
+          <span class="text-sm">💬</span>
+          <span class="text-xs font-bold text-slate-100">채팅 후원 세부 설정</span>
         </div>
-        <button type="button" onclick="closeDonationSettingsModal()" class="w-6 h-6 rounded-md hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center text-sm font-bold">
-          ✕
-        </button>
+        <button type="button" onclick="closeDonationModal('chat')" class="w-6 h-6 rounded-md hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center text-sm font-bold">✕</button>
       </div>
-
-      <!-- 모달 탭 (채팅 후원 / 영상 후원 / 미션 후원 / 구독 알림) -->
-      <div class="grid grid-cols-4 gap-1 p-1 bg-[#090D13] border-b border-[#1E2738] text-center">
-        <button type="button" id="dsetting-tab-chat" onclick="switchDonationSettingTab('chat')" class="py-1.5 text-xs font-bold rounded text-[#00FFA3] bg-[#161F2E] border border-[#00FFA3]/30 transition-all flex items-center justify-center gap-1">
-          <span>💬</span> 채팅
-        </button>
-        <button type="button" id="dsetting-tab-video" onclick="switchDonationSettingTab('video')" class="py-1.5 text-xs font-medium rounded text-slate-400 hover:text-slate-200 transition-all flex items-center justify-center gap-1">
-          <span>🎬</span> 영도
-        </button>
-        <button type="button" id="dsetting-tab-mission" onclick="switchDonationSettingTab('mission')" class="py-1.5 text-xs font-medium rounded text-slate-400 hover:text-slate-200 transition-all flex items-center justify-center gap-1">
-          <span>🎯</span> 미션
-        </button>
-        <button type="button" id="dsetting-tab-sub" onclick="switchDonationSettingTab('sub')" class="py-1.5 text-xs font-medium rounded text-slate-400 hover:text-slate-200 transition-all flex items-center justify-center gap-1">
-          <span>⭐</span> 구독
-        </button>
-      </div>
-
-      <!-- 모달 본체 (스크롤 가능) -->
-      <div class="p-3.5 space-y-4 overflow-y-auto max-h-[calc(90vh-110px)] text-xs text-slate-300">
-        
-        <!-- [1] 채팅 후원 설정 섹션 (media_1788830096337.png) -->
-        <div id="dsetting-panel-chat" class="space-y-3.5">
-          <!-- 사용 여부 설정 -->
-          <div class="flex items-center justify-between p-2.5 rounded-lg bg-[#090D13] border border-[#1A2333]">
+      <div class="p-3.5 space-y-3.5 text-xs text-slate-300">
+        <!-- 후원 조건 설정 (최소 후원 가능 금액) -->
+        <div class="p-2.5 rounded-lg bg-[#090D13] border border-[#1A2333] space-y-2">
+          <div class="font-bold text-slate-200">후원 조건 설정</div>
+          <div class="flex items-center gap-2">
+            <span class="text-[11px] text-slate-400">최소 후원 가능 금액</span>
+            <input type="text" inputmode="numeric" id="dsetting-chat-min-amount" oninput="formatAmountInput(this)" class="w-28 bg-[#161F2E] border border-[#1E2738] rounded px-2 py-1 text-right font-mono font-bold text-white focus:border-[#00FFA3] outline-none" placeholder="1,000" />
+            <span class="text-[11px] text-slate-300">이상</span>
+            <button type="button" onclick="saveChatDonationCondition()" class="ml-auto px-3 py-1 rounded bg-[#5C3BFF] hover:bg-[#6E50FF] text-white font-bold text-[11px] transition-colors cursor-pointer">저장</button>
+          </div>
+          <div class="text-[10px] text-slate-400">• 설정한 금액부터 채팅 후원이 가능합니다. (최소 1,000 치즈)</div>
+        </div>
+        <!-- 기본 설정 -->
+        <div class="p-2.5 rounded-lg bg-[#090D13] border border-[#1A2333] space-y-3">
+          <div class="font-bold text-slate-200">기본 설정</div>
+          <div class="flex items-center justify-between pt-1 border-t border-[#1A2333]">
             <div>
-              <div class="font-bold text-slate-200">사용 여부 설정</div>
-              <div class="text-[10px] text-slate-400 mt-0.5">• OFF로 설정 시 시청자에게 후원 받을 수 없습니다.</div>
+              <div class="text-slate-200 font-medium">후원 노출 금액 설정</div>
+              <div class="text-[10px] text-slate-400">설정한 금액 이상 후원 시 채팅창에 후원 금액을 노출합니다.</div>
             </div>
-            <label class="relative inline-flex items-center cursor-pointer">
-              <input type="checkbox" id="dsetting-chat-active" onchange="toggleChatActive(this.checked)" class="sr-only peer">
-              <div class="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#5C3BFF]"></div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="dsetting-chat-exposure" onchange="toggleChatExposure(this.checked)">
+              <span class="toggle-slider"></span>
             </label>
           </div>
+          <div class="flex items-center justify-between pt-2 border-t border-[#1A2333]">
+            <div>
+              <div class="text-slate-200 font-medium">고액 후원 봉투 허용</div>
+              <div class="text-[10px] text-slate-400">고액 후원 시 방송 화면에 특별한 봉투 애니메이션을 노출합니다.</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="dsetting-chat-envelope" onchange="toggleEnvelope(this.checked)">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
-          <!-- 후원 조건 설정 (최소 후원 가능 금액) -->
-          <div class="p-2.5 rounded-lg bg-[#090D13] border border-[#1A2333] space-y-2">
-            <div class="font-bold text-slate-200">후원 조건 설정</div>
+  <!-- ===== [개별 모달 2] 🎬 영상 후원 세부 설정 ===== -->
+  <div id="modal-dsetting-video" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-[9999] flex items-center justify-center p-2.5 hidden" onclick="if(event.target===this) closeDonationModal('video')">
+    <div class="bg-[#0B0F15] border border-[#1E2738] rounded-xl max-w-md w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden" onclick="event.stopPropagation()">
+      <div class="px-3.5 py-2.5 border-b border-[#1E2738] flex items-center justify-between bg-[#0D1219]">
+        <div class="flex items-center gap-2">
+          <span class="text-sm">🎬</span>
+          <span class="text-xs font-bold text-slate-100">영상(영도) 후원 세부 설정</span>
+        </div>
+        <button type="button" onclick="closeDonationModal('video')" class="w-6 h-6 rounded-md hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center text-sm font-bold">✕</button>
+      </div>
+      <div class="p-3.5 space-y-3 overflow-y-auto text-xs text-slate-300">
+        <!-- 재생 조건 설정 -->
+        <div class="p-2.5 rounded-lg bg-[#090D13] border border-[#1A2333] space-y-2.5">
+          <div class="font-bold text-slate-200">재생 조건 설정</div>
+          <div class="grid grid-cols-2 gap-2 text-[11px]">
+            <div>
+              <label class="text-slate-400 block mb-1">최소 후원 치즈</label>
+              <div class="flex items-center gap-1">
+                <input type="text" inputmode="numeric" id="dsetting-video-min-cheese" oninput="formatAmountInput(this)" class="w-full bg-[#161F2E] border border-[#1E2738] rounded px-2 py-1 text-right font-mono font-bold text-white focus:border-[#00FFA3] outline-none" placeholder="1,000" />
+                <span class="text-slate-400">치즈</span>
+              </div>
+            </div>
+            <div>
+              <label class="text-slate-400 block mb-1">1초당 결제 치즈</label>
+              <div class="flex items-center gap-1">
+                <input type="number" id="dsetting-video-sec-cheese" min="1" class="w-full bg-[#161F2E] border border-[#1E2738] rounded px-2 py-1 text-right font-mono font-bold text-white focus:border-[#00FFA3] outline-none" placeholder="30" />
+                <span class="text-slate-400">치즈</span>
+              </div>
+            </div>
+          </div>
+          <div class="pt-1">
+            <label class="text-[11px] text-slate-400 block mb-1">최대 재생 가능 시간</label>
             <div class="flex items-center gap-2">
-              <span class="text-[11px] text-slate-400">최소 후원 가능 금액</span>
-              <input type="number" id="dsetting-chat-min-amount" min="1000" step="100" class="w-28 bg-[#161F2E] border border-[#1E2738] rounded px-2 py-1 text-right font-mono font-bold text-white focus:border-[#00FFA3] outline-none" placeholder="1000" />
+              <input type="number" id="dsetting-video-max-duration" min="1" max="600" class="w-24 bg-[#161F2E] border border-[#1E2738] rounded px-2 py-1 text-right font-mono font-bold text-white focus:border-[#00FFA3] outline-none" placeholder="60" />
+              <span class="text-[11px] text-slate-300">초 (최대 600초)</span>
+            </div>
+          </div>
+        </div>
+        <!-- 기본 설정 -->
+        <div class="p-2.5 rounded-lg bg-[#090D13] border border-[#1A2333] space-y-2">
+          <div class="font-bold text-slate-200">기본 설정</div>
+          <div class="flex items-center justify-between text-[11px]">
+            <span class="text-slate-300">영상 자동 재생</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="dsetting-video-autoplay">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="flex items-center justify-between text-[11px] pt-1 border-t border-[#1A2333]">
+            <span class="text-slate-300">영상 제목 노출</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="dsetting-video-title">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+        <!-- 스팸 영상 필터 -->
+        <div class="p-2.5 rounded-lg bg-[#090D13] border border-[#1A2333] space-y-2">
+          <div class="flex items-center justify-between">
+            <div class="font-bold text-slate-200">스팸 영상 필터</div>
+            <span id="dsetting-spam-level-label" class="font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-[#161F2E] text-[#00FFA3] border border-[#00FFA3]/30">0레벨</span>
+          </div>
+          <input type="range" id="dsetting-video-spam" min="0" max="3" value="0" oninput="updateSpamFilterUI(this.value)" class="w-full accent-[#00FFA3] cursor-pointer h-1.5 bg-[#1E2738] rounded-lg" />
+          <div class="flex justify-between text-[9px] text-slate-500 px-0.5 font-mono">
+            <span>0(해제)</span><span>1(낮음)</span><span>2(중간)</span><span>3(높음)</span>
+          </div>
+          <div class="p-1.5 rounded bg-[#161F2E]/60 border border-[#1E2738] text-[10px] text-slate-300">
+            <span id="dsetting-spam-desc-text" class="font-medium text-emerald-400">제한없음 (모든 유튜브 영상 가능)</span>
+          </div>
+        </div>
+        <div class="pt-1 flex justify-end">
+          <button type="button" onclick="saveVideoDonationSetting()" class="px-4 py-1.5 rounded bg-[#5C3BFF] hover:bg-[#6E50FF] text-white font-bold text-xs transition-colors cursor-pointer">영상 후원 설정 저장</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== [개별 모달 3] 🎯 미션 후원 세부 설정 ===== -->
+  <div id="modal-dsetting-mission" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-[9999] flex items-center justify-center p-2.5 hidden" onclick="if(event.target===this) closeDonationModal('mission')">
+    <div class="bg-[#0B0F15] border border-[#1E2738] rounded-xl max-w-md w-full shadow-2xl overflow-hidden" onclick="event.stopPropagation()">
+      <div class="px-3.5 py-2.5 border-b border-[#1E2738] flex items-center justify-between bg-[#0D1219]">
+        <div class="flex items-center gap-2">
+          <span class="text-sm">🎯</span>
+          <span class="text-xs font-bold text-slate-100">미션 후원 세부 설정</span>
+        </div>
+        <button type="button" onclick="closeDonationModal('mission')" class="w-6 h-6 rounded-md hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center text-sm font-bold">✕</button>
+      </div>
+      <div class="p-3.5 space-y-3.5 text-xs text-slate-300">
+        <!-- 후원 조건 설정 -->
+        <div class="p-2.5 rounded-lg bg-[#090D13] border border-[#1A2333] space-y-2">
+          <div class="font-bold text-slate-200">후원 조건 설정</div>
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] text-slate-400">최소 후원 가능 금액</span>
+            <div class="flex items-center gap-1">
+              <input type="text" inputmode="numeric" id="dsetting-mission-min-amount" oninput="formatAmountInput(this)" class="w-24 bg-[#161F2E] border border-[#1E2738] rounded px-2 py-0.5 text-right font-mono font-bold text-white focus:border-[#00FFA3] outline-none" placeholder="1,000" />
               <span class="text-[11px] text-slate-300">이상</span>
-              <button type="button" onclick="saveChatDonationCondition()" class="ml-auto px-3 py-1 rounded bg-[#5C3BFF] hover:bg-[#6E50FF] text-white font-bold text-[11px] transition-colors">
-                저장
-              </button>
             </div>
-            <div class="text-[10px] text-slate-400">• 설정한 금액부터 채팅 후원이 가능합니다. (최소 1,000 치즈)</div>
           </div>
-
-          <!-- 후원 금액 표시 여부 설정 -->
-          <div class="flex items-center justify-between p-2.5 rounded-lg bg-[#090D13] border border-[#1A2333]">
-            <div>
-              <div class="font-bold text-slate-200">후원 금액 표시 여부 설정</div>
-              <div class="text-[10px] text-slate-400 mt-0.5">• OFF로 설정 시 채팅창 내에 표시되는 후원내역에 금액이 표시되지 않습니다.</div>
-            </div>
-            <label class="relative inline-flex items-center cursor-pointer">
-              <input type="checkbox" id="dsetting-chat-exposure" onchange="toggleChatExposure(this.checked)" class="sr-only peer">
-              <div class="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#5C3BFF]"></div>
-            </label>
-          </div>
-
-          <!-- 고액 후원 봉투 허용 -->
-          <div class="flex items-center justify-between p-2.5 rounded-lg bg-[#090D13] border border-[#1A2333]">
-            <div>
-              <div class="font-bold text-slate-200">고액 후원 봉투 허용</div>
-              <div class="text-[10px] text-slate-400 mt-0.5">• 후원자가 후원 시 봉투를 선택해 보낼 수 있습니다.</div>
-            </div>
-            <label class="relative inline-flex items-center cursor-pointer">
-              <input type="checkbox" id="dsetting-chat-envelope" onchange="toggleEnvelope(this.checked)" class="sr-only peer">
-              <div class="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#5C3BFF]"></div>
-            </label>
-          </div>
-        </div>
-
-        <!-- [2] 영상 후원 설정 섹션 (media_1788830117419.png) -->
-        <div id="dsetting-panel-video" class="space-y-3.5" style="display:none;">
-          <!-- 사용 여부 설정 -->
-          <div class="flex items-center justify-between p-2.5 rounded-lg bg-[#090D13] border border-[#1A2333]">
-            <div>
-              <div class="font-bold text-slate-200">사용 여부 설정</div>
-              <div class="text-[10px] text-slate-400 mt-0.5">• OFF로 설정 시 시청자에게 영상 후원을 받을 수 없습니다.</div>
-            </div>
-            <label class="relative inline-flex items-center cursor-pointer">
-              <input type="checkbox" id="dsetting-video-active" onchange="toggleVideoActive(this.checked)" class="sr-only peer">
-              <div class="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#5C3BFF]"></div>
-            </label>
-          </div>
-
-          <!-- 영상 후원 상세 파라미터 카드 -->
-          <div class="p-2.5 rounded-lg bg-[#090D13] border border-[#1A2333] space-y-2.5">
-            <div class="flex items-center justify-between">
-              <span class="text-[11px] text-slate-400">최소 후원 치즈</span>
-              <div class="flex items-center gap-1.5">
-                <input type="number" id="dsetting-video-min-cheese" min="1000" step="100" class="w-24 bg-[#161F2E] border border-[#1E2738] rounded px-2 py-0.5 text-right font-mono font-bold text-white focus:border-[#00FFA3] outline-none" placeholder="1000" />
-                <span class="text-[11px] text-slate-300">치즈</span>
-              </div>
-            </div>
-            <div class="flex items-center justify-between">
-              <span class="text-[11px] text-slate-400">영상 1초당 필요 치즈</span>
-              <div class="flex items-center gap-1.5">
-                <input type="number" id="dsetting-video-sec-cheese" min="1" step="1" class="w-24 bg-[#161F2E] border border-[#1E2738] rounded px-2 py-0.5 text-right font-mono font-bold text-white focus:border-[#00FFA3] outline-none" placeholder="30" />
-                <span class="text-[11px] text-slate-300">치즈</span>
-              </div>
-            </div>
-            <div class="flex items-center justify-between">
-              <span class="text-[11px] text-slate-400">최대 영상 길이</span>
-              <div class="flex items-center gap-1.5">
-                <input type="number" id="dsetting-video-max-duration" min="10" step="5" class="w-24 bg-[#161F2E] border border-[#1E2738] rounded px-2 py-0.5 text-right font-mono font-bold text-white focus:border-[#00FFA3] outline-none" placeholder="60" />
-                <span class="text-[11px] text-slate-300">초</span>
-              </div>
-            </div>
-
-            <!-- 토글 2종 (자동재생, 제목표시) -->
-            <div class="pt-2 border-t border-[#1E2738] flex items-center justify-between">
-              <span class="text-[11px] text-slate-300">영상 후원 자동재생</span>
-              <label class="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" id="dsetting-video-autoplay" class="sr-only peer">
-                <div class="w-8 h-4 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-[#5C3BFF]"></div>
-              </label>
-            </div>
-            <div class="flex items-center justify-between">
-              <span class="text-[11px] text-slate-300">영상 제목 표시</span>
-              <label class="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" id="dsetting-video-title" class="sr-only peer">
-                <div class="w-8 h-4 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-[#5C3BFF]"></div>
-              </label>
-            </div>
-
-            <!-- 스팸 영상 필터 슬라이더 -->
-            <div class="pt-2 border-t border-[#1E2738] space-y-1">
-              <div class="flex items-center justify-between">
-                <span class="text-[11px] text-slate-300">스팸 영상 필터</span>
-                <span id="dsetting-spam-level-label" class="font-mono text-[11px] font-bold text-[#5C3BFF]">0레벨</span>
-              </div>
-              <input type="range" id="dsetting-video-spam" min="0" max="3" value="0" oninput="document.getElementById('dsetting-spam-level-label').textContent=this.value+'레벨'" class="w-full accent-[#5C3BFF] cursor-pointer h-1.5 bg-[#1E2738] rounded-lg" />
-              <div class="text-[9.5px] text-slate-400">• 유튜브 영상에만 해당되는 필터 기능입니다.</div>
-            </div>
-
-            <!-- 저장 버튼 -->
-            <div class="pt-2 flex justify-end">
-              <button type="button" onclick="saveVideoDonationSetting()" class="px-4 py-1.5 rounded bg-[#5C3BFF] hover:bg-[#6E50FF] text-white font-bold text-xs transition-colors">
-                영상 후원 설정 저장
-              </button>
+          <div class="flex items-center justify-between pt-2 border-t border-[#1A2333]">
+            <span class="text-[11px] text-slate-400">미션 실패 시 응원 전환 비율</span>
+            <div class="flex items-center gap-1">
+              <input type="number" id="dsetting-mission-fail-rate" min="10" max="90" step="5" class="w-20 bg-[#161F2E] border border-[#1E2738] rounded px-2 py-0.5 text-right font-mono font-bold text-white focus:border-[#00FFA3] outline-none" placeholder="10" />
+              <span class="text-[11px] text-slate-300">%</span>
             </div>
           </div>
         </div>
-
-        <!-- [3] 미션 후원 설정 섹션 (media_1788830134506.png) -->
-        <div id="dsetting-panel-mission" class="space-y-3.5" style="display:none;">
-          <!-- 사용 여부 설정 -->
-          <div class="flex items-center justify-between p-2.5 rounded-lg bg-[#090D13] border border-[#1A2333]">
-            <div>
-              <div class="font-bold text-slate-200">사용 여부 설정</div>
-              <div class="text-[10px] text-slate-400 mt-0.5">• 설정을 끄면 미션 후원을 받을 수 없습니다.</div>
-            </div>
-            <label class="relative inline-flex items-center cursor-pointer">
-              <input type="checkbox" id="dsetting-mission-active" onchange="toggleMissionActive(this.checked)" class="sr-only peer">
-              <div class="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#5C3BFF]"></div>
+        <!-- 기본 설정 -->
+        <div class="p-2.5 rounded-lg bg-[#090D13] border border-[#1A2333] space-y-2">
+          <div class="font-bold text-slate-200">기본 설정</div>
+          <div class="flex items-center justify-between text-[11px]">
+            <span class="text-slate-300">후원 노출 금액 설정</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="dsetting-mission-exposure">
+              <span class="toggle-slider"></span>
             </label>
           </div>
-
-          <!-- 상금 조건 및 응원금 설정 -->
-          <div class="p-2.5 rounded-lg bg-[#090D13] border border-[#1A2333] space-y-2.5">
-            <div class="flex items-center justify-between">
-              <span class="text-[11px] text-slate-400">최소 제시 가능 금액</span>
-              <div class="flex items-center gap-1.5">
-                <input type="number" id="dsetting-mission-min-amount" min="1000" step="100" class="w-24 bg-[#161F2E] border border-[#1E2738] rounded px-2 py-0.5 text-right font-mono font-bold text-white focus:border-[#00FFA3] outline-none" placeholder="1000" />
-                <span class="text-[11px] text-slate-300">이상</span>
-              </div>
-            </div>
-            <div class="flex items-center justify-between">
-              <div>
-                <span class="text-[11px] text-slate-400">실패 시 응원금 설정</span>
-                <span class="text-[9.5px] text-slate-400 block">• 10%에서 90%까지 설정 가능</span>
-              </div>
-              <div class="flex items-center gap-1.5">
-                <input type="number" id="dsetting-mission-fail-rate" min="10" max="90" step="5" class="w-20 bg-[#161F2E] border border-[#1E2738] rounded px-2 py-0.5 text-right font-mono font-bold text-white focus:border-[#00FFA3] outline-none" placeholder="10" />
-                <span class="text-[11px] text-slate-300">%</span>
-              </div>
-            </div>
-
-            <div class="pt-2 border-t border-[#1E2738] flex items-center justify-between">
-              <div>
-                <div class="font-bold text-slate-200">후원 금액 표시 여부 설정</div>
-                <div class="text-[10px] text-slate-400">• OFF로 설정 시 채팅창 내에 미션 금액이 표시되지 않습니다.</div>
-              </div>
-              <label class="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" id="dsetting-mission-exposure" class="sr-only peer">
-                <div class="w-8 h-4 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-[#5C3BFF]"></div>
-              </label>
-            </div>
-
-            <!-- 저장 버튼 -->
-            <div class="pt-2 flex justify-end">
-              <button type="button" onclick="saveMissionDonationSetting()" class="px-4 py-1.5 rounded bg-[#5C3BFF] hover:bg-[#6E50FF] text-white font-bold text-xs transition-colors">
-                미션 후원 설정 저장
-              </button>
-            </div>
-          </div>
         </div>
+        <div class="pt-1 flex justify-end">
+          <button type="button" onclick="saveMissionDonationSetting()" class="px-4 py-1.5 rounded bg-[#5C3BFF] hover:bg-[#6E50FF] text-white font-bold text-xs transition-colors cursor-pointer">미션 후원 설정 저장</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
-        <!-- [4] 구독 알림 설정 섹션 -->
-        <div id="dsetting-panel-sub" class="space-y-3.5" style="display:none;">
-          <!-- 사용 여부 설정 -->
-          <div class="flex items-center justify-between p-2.5 rounded-lg bg-[#090D13] border border-[#1A2333]">
-            <div>
-              <div class="font-bold text-slate-200">구독 알림 사용 여부</div>
-              <div class="text-[10px] text-slate-400 mt-0.5">• OFF로 설정 시 시청자 구독 알림이 송출되지 않습니다.</div>
-            </div>
-            <label class="relative inline-flex items-center cursor-pointer">
-              <input type="checkbox" id="dsetting-sub-alert-active" onchange="toggleSubAlertActive(this.checked)" class="sr-only peer">
-              <div class="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#5C3BFF]"></div>
+  <!-- ===== [개별 모달 4] ⭐ 구독 알림 세부 설정 ===== -->
+  <div id="modal-dsetting-sub" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-[9999] flex items-center justify-center p-2.5 hidden" onclick="if(event.target===this) closeDonationModal('sub')">
+    <div class="bg-[#0B0F15] border border-[#1E2738] rounded-xl max-w-md w-full shadow-2xl overflow-hidden" onclick="event.stopPropagation()">
+      <div class="px-3.5 py-2.5 border-b border-[#1E2738] flex items-center justify-between bg-[#0D1219]">
+        <div class="flex items-center gap-2">
+          <span class="text-sm">⭐</span>
+          <span class="text-xs font-bold text-slate-100">구독 알림 세부 설정</span>
+        </div>
+        <button type="button" onclick="closeDonationModal('sub')" class="w-6 h-6 rounded-md hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center text-sm font-bold">✕</button>
+      </div>
+      <div class="p-3.5 space-y-3.5 text-xs text-slate-300">
+        <!-- 알림 사운드 볼륨 -->
+        <div class="p-2.5 rounded-lg bg-[#090D13] border border-[#1A2333] space-y-2">
+          <div class="flex items-center justify-between">
+            <div class="font-bold text-slate-200">알림 효과음 볼륨</div>
+            <span id="dsetting-sub-alert-vol-label" class="font-mono text-[11px] font-bold text-[#5C3BFF]">70%</span>
+          </div>
+          <input type="range" id="dsetting-sub-alert-vol" min="0" max="100" value="70" oninput="document.getElementById('dsetting-sub-alert-vol-label').textContent=this.value+'%'" class="w-full accent-[#5C3BFF] cursor-pointer h-1.5 bg-[#1E2738] rounded-lg" />
+        </div>
+        <!-- TTS 설정 -->
+        <div class="p-2.5 rounded-lg bg-[#090D13] border border-[#1A2333] space-y-2.5">
+          <div class="flex items-center justify-between">
+            <div class="font-bold text-slate-200">TTS 음성 읽기</div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="dsetting-sub-tts-active">
+              <span class="toggle-slider"></span>
             </label>
           </div>
-
-          <!-- 구독 알림 상세 파라미터 카드 -->
-          <div class="p-2.5 rounded-lg bg-[#090D13] border border-[#1A2333] space-y-3">
-            <div class="space-y-1">
-              <div class="flex items-center justify-between">
-                <span class="text-[11px] text-slate-300 font-medium">구독 알림 사운드 볼륨</span>
-                <span id="dsetting-sub-alert-vol-label" class="font-mono text-[11px] font-bold text-[#5C3BFF]">70%</span>
-              </div>
-              <input type="range" id="dsetting-sub-alert-vol" min="0" max="100" value="70" oninput="document.getElementById('dsetting-sub-alert-vol-label').textContent=this.value+'%'" class="w-full accent-[#5C3BFF] cursor-pointer h-1.5 bg-[#1E2738] rounded-lg" />
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-[11px] text-slate-400">TTS 음량</span>
+              <span id="dsetting-sub-tts-vol-label" class="font-mono text-[11px] font-bold text-[#5C3BFF]">70%</span>
             </div>
-
-            <div class="pt-2 border-t border-[#1E2738] flex items-center justify-between">
-              <div>
-                <span class="text-[11px] text-slate-300 font-medium">구독 TTS 읽어주기</span>
-                <span class="text-[9.5px] text-slate-400 block">• 구독 메시지를 음성으로 읽어줍니다.</span>
-              </div>
-              <label class="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" id="dsetting-sub-tts-active" class="sr-only peer">
-                <div class="w-8 h-4 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-[#5C3BFF]"></div>
-              </label>
-            </div>
-
-            <div class="space-y-1 pt-1">
-              <div class="flex items-center justify-between">
-                <span class="text-[11px] text-slate-300 font-medium">구독 TTS 음성 볼륨</span>
-                <span id="dsetting-sub-tts-vol-label" class="font-mono text-[11px] font-bold text-[#5C3BFF]">70%</span>
-              </div>
-              <input type="range" id="dsetting-sub-tts-vol" min="0" max="100" value="70" oninput="document.getElementById('dsetting-sub-tts-vol-label').textContent=this.value+'%'" class="w-full accent-[#5C3BFF] cursor-pointer h-1.5 bg-[#1E2738] rounded-lg" />
-            </div>
-
-            <!-- 저장 버튼 -->
-            <div class="pt-2 flex justify-end">
-              <button type="button" onclick="saveSubscriptionSetting()" class="px-4 py-1.5 rounded bg-[#5C3BFF] hover:bg-[#6E50FF] text-white font-bold text-xs transition-colors cursor-pointer">
-                구독 알림 설정 저장
-              </button>
-            </div>
+            <input type="range" id="dsetting-sub-tts-vol" min="0" max="100" value="70" oninput="document.getElementById('dsetting-sub-tts-vol-label').textContent=this.value+'%'" class="w-full accent-[#5C3BFF] cursor-pointer h-1.5 bg-[#1E2738] rounded-lg" />
           </div>
         </div>
-
+        <div class="pt-1 flex justify-end">
+          <button type="button" onclick="saveSubscriptionSetting()" class="px-4 py-1.5 rounded bg-[#5C3BFF] hover:bg-[#6E50FF] text-white font-bold text-xs transition-colors cursor-pointer">구독 알림 설정 저장</button>
+        </div>
       </div>
     </div>
   </div>
@@ -2243,7 +2279,7 @@
       if (remotePanel && remotePanel.classList.contains('open')) remotePanel.classList.remove('open');
       if (panel) {
         panel.classList.toggle('open');
-        if (panel.classList.contains('open') && !donationsLoaded) {
+        if (panel.classList.contains('open')) {
           fetchDonationsAndChatMode(true);
         }
       }
@@ -3478,49 +3514,150 @@
       sendDonationTest('party', btn);
     }
 
-    // ===== 후원 세부 설정 모달 (스튜디오 실시간 연동) =====
-    function openDonationSettingsModal() {
+    // ===== 금액 자동 콤마 포맷팅 헬퍼 함수 =====
+    function formatAmountInput(el) {
+      if (!el) return;
+      const raw = el.value.replace(/[^0-9]/g, '');
+      if (!raw) {
+        el.value = '';
+        return;
+      }
+      el.value = Number(raw).toLocaleString();
+    }
+
+    function parseFormattedAmount(val) {
+      if (!val) return 0;
+      return Number(String(val).replace(/[^0-9]/g, '')) || 0;
+    }
+
+    // ===== 스팸 영상 필터 단계별 설명 및 UI 동기화 =====
+    const SPAM_LEVEL_DESCS = {
+      0: '제한없음 (모든 유튜브 영상 가능)',
+      1: '조회수 2,000 이상 & 좋아요 200개 이상',
+      2: '조회수 30,000 이상 & 좋아요 5,000개 이상',
+      3: '조회수 300,000 이상 & 좋아요 10,000개 이상'
+    };
+
+    function updateSpamFilterUI(val) {
+      const level = Number(val) || 0;
+      const lbl = document.getElementById('dsetting-spam-level-label');
+      const desc = document.getElementById('dsetting-spam-desc-text');
+      if (lbl) lbl.textContent = level + '레벨';
+      if (desc) {
+        desc.textContent = SPAM_LEVEL_DESCS[level] || '제한없음';
+        if (level === 0) desc.className = 'font-medium text-slate-300';
+        else if (level === 1) desc.className = 'font-medium text-emerald-400';
+        else if (level === 2) desc.className = 'font-medium text-amber-400';
+        else desc.className = 'font-medium text-rose-400';
+      }
+    }
+
+    function toggleSpamFilterInfo(e) {
+      if (e) e.stopPropagation();
+      const card = document.getElementById('dsetting-spam-info-card');
+      if (card) card.classList.toggle('hidden');
+    }
+
+    // ===== 구독 활성화 여부(루키/프로/파트너) 확인 및 잠금 UI =====
+    let userSubscriptionAvailable = false;
+
+    async function checkChannelMonetization() {
+      if (!userChannelId) return false;
+      try {
+        const res = await apiFetch(`/unofficial/service/v1/channels/${userChannelId}`);
+        if (res.ok) {
+          const data = await res.json();
+          const content = data.content || data;
+          userSubscriptionAvailable = !!(content && content.subscriptionAvailability);
+          return userSubscriptionAvailable;
+        }
+      } catch (e) {}
+      userSubscriptionAvailable = false;
+      return false;
+    }
+
+    function updateDonationDetailButtonsState() {
+      const chatOn = !!document.getElementById('toggle-chat-donation')?.checked;
+      const vidOn = !!document.getElementById('toggle-video-donation')?.checked;
+      const misOn = !!document.getElementById('toggle-mission-donation')?.checked;
+      const subOn = !!document.getElementById('toggle-sub-alert')?.checked;
+
+      syncBtnState('btn-dsetting-chat', chatOn, '채팅 후원');
+      syncBtnState('btn-dsetting-video', vidOn, '영상 후원');
+      syncBtnState('btn-dsetting-mission', misOn, '미션 후원');
+      syncBtnState('btn-dsetting-sub', subOn, '구독 알림');
+    }
+
+    function syncBtnState(btnId, enabled, name) {
+      const btn = document.getElementById(btnId);
+      if (!btn) return;
+      btn.disabled = !enabled;
+      if (enabled) {
+        btn.className = "px-2 py-0.5 rounded text-[10.5px] font-semibold flex items-center gap-1 transition-all bg-[#0B0F15] border border-[#00FFA3]/40 text-[#00FFA3] hover:bg-[#161F2E] cursor-pointer";
+        btn.title = `${name} 세부 설정 열기`;
+      } else {
+        btn.className = "px-2 py-0.5 rounded text-[10.5px] font-medium flex items-center gap-1 transition-all bg-[#0B0F15]/40 border border-[#1E2738] text-slate-500 opacity-40 cursor-not-allowed";
+        btn.title = `${name} 활성화 시 설정 가능`;
+      }
+    }
+
+    async function toggleSubAlertFromMain(checked) {
+      const el = document.getElementById('toggle-sub-alert');
+
+      if (checked) {
+        // 활성화 시도 시 구독 자격 실시간 확인
+        const isQualified = await checkChannelMonetization();
+        if (!isQualified) {
+          if (el) el.checked = false;
+          const existingToasts = document.querySelectorAll('#toast-container .toast');
+          existingToasts.forEach(t => t.remove());
+          showToast('구독 설정 잠김', 'warn', '현재 채널은 루키(ROOKIE) 회원입니다. 구독 알림 설정은 프로(PRO) 또는 파트너 등급 전용 기능입니다.');
+          updateDonationDetailButtonsState();
+          return;
+        }
+      }
+
+      await toggleSubAlertActive(checked);
+      updateDonationDetailButtonsState();
+    }
+
+    async function openDonationModal(type) {
       if (!checkLoginGuard('후원 설정')) return;
-      const modal = document.getElementById('modal-donation-settings');
+      if (type === 'sub') {
+        const isQualified = await checkChannelMonetization();
+        if (!isQualified) {
+          showToast('구독 기능 잠김', 'warn', '현재 채널은 루키(ROOKIE) 회원입니다. 구독 설정은 프로 또는 파트너 등급 전용 기능입니다.');
+          return;
+        }
+      }
+      const modal = document.getElementById(`modal-dsetting-${type}`);
       if (!modal) return;
       modal.classList.remove('hidden');
-      switchDonationSettingTab('chat');
       loadAllDonationSettings();
     }
 
-    function closeDonationSettingsModal() {
-      const modal = document.getElementById('modal-donation-settings');
+    function closeDonationModal(type) {
+      const modal = document.getElementById(`modal-dsetting-${type}`);
       if (modal) modal.classList.add('hidden');
-    }
-
-    function switchDonationSettingTab(tab) {
-      const tabs = ['chat', 'video', 'mission', 'sub'];
-      tabs.forEach(t => {
-        const btn = document.getElementById(`dsetting-tab-${t}`);
-        const panel = document.getElementById(`dsetting-panel-${t}`);
-        if (t === tab) {
-          if (btn) {
-            btn.className = 'py-1.5 text-xs font-bold rounded text-[#00FFA3] bg-[#161F2E] border border-[#00FFA3]/30 transition-all flex items-center justify-center gap-1';
-          }
-          if (panel) panel.style.display = 'block';
-        } else {
-          if (btn) {
-            btn.className = 'py-1.5 text-xs font-medium rounded text-slate-400 hover:text-slate-200 transition-all flex items-center justify-center gap-1';
-          }
-          if (panel) panel.style.display = 'none';
-        }
-      });
+      fetchDonationsAndChatMode(true);
     }
 
     async function loadAllDonationSettings() {
       if (!userChannelId) return;
       try {
-        const [chatRes, vidRes, misRes, subRes] = await Promise.all([
+        const fetchTasks = [
           apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/donations/chat-setting`).catch(() => null),
           apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/donations/video-setting`).catch(() => null),
-          apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/donations/mission/setting`).catch(() => null),
-          apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/donations/subscription-alert-setting`).catch(() => null)
-        ]);
+          apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/donations/mission/setting`).catch(() => null)
+        ];
+        // 루키 회원은 구독 알림 API 호출 시 500 에러를 반환하므로 프로/파트너일 때만 조회
+        if (userSubscriptionAvailable) {
+          fetchTasks.push(apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/donations/subscription-alert-setting`).catch(() => null));
+        } else {
+          fetchTasks.push(Promise.resolve(null));
+        }
+
+        const [chatRes, vidRes, misRes, subRes] = await Promise.all(fetchTasks);
 
         if (chatRes && chatRes.ok) {
           const d = (await chatRes.json()).content;
@@ -3530,9 +3667,10 @@
             const chatExposure = document.getElementById('dsetting-chat-exposure');
             const chatEnvelope = document.getElementById('dsetting-chat-envelope');
             if (chatActive) chatActive.checked = d.donationActive !== false;
-            if (chatMin) chatMin.value = d.chatMinCurrencyPayAmount || 1000;
+            const minVal = d.minCurrencyPayAmount || d.chatMinCurrencyPayAmount || 1000;
+            if (chatMin) chatMin.value = Number(minVal).toLocaleString();
             if (chatExposure) chatExposure.checked = Number(d.exposureDonationAmount) > 0;
-            if (chatEnvelope) chatEnvelope.checked = !!d.allowHighDonationEnvelope;
+            if (chatEnvelope) chatEnvelope.checked = d.useLargeDonationEnvelope !== false && (d.useLargeDonationEnvelope === true || d.allowHighDonationEnvelope === true);
           }
         }
 
@@ -3546,16 +3684,17 @@
             const vidAuto = document.getElementById('dsetting-video-autoplay');
             const vidTitle = document.getElementById('dsetting-video-title');
             const vidSpam = document.getElementById('dsetting-video-spam');
-            const vidSpamLbl = document.getElementById('dsetting-spam-level-label');
 
             if (vidActive) vidActive.checked = d.donationActive !== false;
-            if (vidMin) vidMin.value = d.minCurrencyPayAmount || 1000;
+            if (vidMin) vidMin.value = Number(d.minCurrencyPayAmount || 1000).toLocaleString();
             if (vidSec) vidSec.value = d.payAmountPerSecond || 30;
             if (vidDur) vidDur.value = d.maxDurationLength || 60;
             if (vidAuto) vidAuto.checked = !!d.isAutoPlay;
             if (vidTitle) vidTitle.checked = !!d.isTitleExpose;
-            if (vidSpam) vidSpam.value = d.spamFilterLevel || 0;
-            if (vidSpamLbl) vidSpamLbl.textContent = (d.spamFilterLevel || 0) + '레벨';
+            if (vidSpam) {
+              vidSpam.value = d.spamFilterLevel || 0;
+              updateSpamFilterUI(vidSpam.value);
+            }
           }
         }
 
@@ -3568,7 +3707,7 @@
             const misExposure = document.getElementById('dsetting-mission-exposure');
 
             if (misActive) misActive.checked = d.donationActive !== false;
-            if (misMin) misMin.value = d.minCurrencyPayAmount || 1000;
+            if (misMin) misMin.value = Number(d.minCurrencyPayAmount || 1000).toLocaleString();
             if (misFail) misFail.value = d.failCheeringRate || 10;
             if (misExposure) misExposure.checked = d.exposureAmount !== false;
           }
@@ -3610,6 +3749,11 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ donationType: 'CHAT', active: checked })
         });
+        const mainEl = document.getElementById('toggle-chat-donation');
+        if (mainEl) mainEl.checked = checked;
+        currentDonationState.chatDonationActive = checked;
+        updateDonationDetailButtonsState();
+
         const existingToasts = document.querySelectorAll('#toast-container .toast');
         existingToasts.forEach(t => t.remove());
         showToast(checked ? '💬 채팅 후원 켜짐' : '💬 채팅 후원 꺼짐', 'info', `채팅 후원 기능이 ${checked ? '활성화' : '비활성화'}되었습니다.`);
@@ -3621,19 +3765,21 @@
     async function saveChatDonationCondition() {
       if (!userChannelId) return;
       const minEl = document.getElementById('dsetting-chat-min-amount');
-      const envEl = document.getElementById('dsetting-chat-envelope');
-      const minVal = Number(minEl?.value) || 1000;
-      const allowEnv = !!envEl?.checked;
+      const minVal = parseFormattedAmount(minEl?.value) || 1000;
+      const isChatActive = document.getElementById('toggle-chat-donation') ? document.getElementById('toggle-chat-donation').checked : (currentDonationState.chatDonationActive !== false);
 
       try {
         await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/donations/chat-setting`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chatMinCurrencyPayAmount: minVal, allowHighDonationEnvelope: allowEnv })
+          body: JSON.stringify({
+            donationActive: isChatActive,
+            minCurrencyPayAmount: minVal
+          })
         });
         const existingToasts = document.querySelectorAll('#toast-container .toast');
         existingToasts.forEach(t => t.remove());
-        showToast('💾 채팅 후원 설정 저장', 'success', `최소 후원 금액: ${minVal.toLocaleString()} 치즈`);
+        showToast('💾 후원 조건 설정 저장', 'success', `최소 후원 금액: ${minVal.toLocaleString()} 치즈`);
       } catch (e) {
         showToast('오류 발생', 'error', e.message);
       }
@@ -3657,13 +3803,15 @@
 
     async function toggleEnvelope(checked) {
       if (!userChannelId) return;
-      const minEl = document.getElementById('dsetting-chat-min-amount');
-      const minVal = Number(minEl?.value) || 1000;
+      const isChatActive = document.getElementById('toggle-chat-donation') ? document.getElementById('toggle-chat-donation').checked : (currentDonationState.chatDonationActive !== false);
       try {
         await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/donations/chat-setting`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chatMinCurrencyPayAmount: minVal, allowHighDonationEnvelope: checked })
+          body: JSON.stringify({
+            donationActive: isChatActive,
+            useLargeDonationEnvelope: checked
+          })
         });
         const existingToasts = document.querySelectorAll('#toast-container .toast');
         existingToasts.forEach(t => t.remove());
@@ -3681,6 +3829,11 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ donationType: 'VIDEO', active: checked })
         });
+        const mainEl = document.getElementById('toggle-video-donation');
+        if (mainEl) mainEl.checked = checked;
+        currentDonationState.videoDonationActive = checked;
+        updateDonationDetailButtonsState();
+
         const existingToasts = document.querySelectorAll('#toast-container .toast');
         existingToasts.forEach(t => t.remove());
         showToast(checked ? '🎬 영상 후원 켜짐' : '🎬 영상 후원 꺼짐', 'info', `영상 후원 기능이 ${checked ? '활성화' : '비활성화'}되었습니다.`);
@@ -3691,18 +3844,20 @@
 
     async function saveVideoDonationSetting() {
       if (!userChannelId) return;
-      const minCheese = Number(document.getElementById('dsetting-video-min-cheese')?.value) || 1000;
+      const minCheese = parseFormattedAmount(document.getElementById('dsetting-video-min-cheese')?.value) || 1000;
       const secCheese = Number(document.getElementById('dsetting-video-sec-cheese')?.value) || 30;
       const maxDur = Number(document.getElementById('dsetting-video-max-duration')?.value) || 60;
       const autoPlay = !!document.getElementById('dsetting-video-autoplay')?.checked;
       const titleExp = !!document.getElementById('dsetting-video-title')?.checked;
       const spamLevel = Number(document.getElementById('dsetting-video-spam')?.value) || 0;
+      const isVideoActive = document.getElementById('toggle-video-donation') ? document.getElementById('toggle-video-donation').checked : (currentDonationState.videoDonationActive !== false);
 
       try {
         await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/donations/video-setting`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            donationActive: isVideoActive,
             minCurrencyPayAmount: minCheese,
             payAmountPerSecond: secCheese,
             maxDurationLength: maxDur,
@@ -3727,6 +3882,11 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ donationType: 'MISSION', active: checked })
         });
+        const mainEl = document.getElementById('toggle-mission-donation');
+        if (mainEl) mainEl.checked = checked;
+        currentDonationState.missionDonationActive = checked;
+        updateDonationDetailButtonsState();
+
         const existingToasts = document.querySelectorAll('#toast-container .toast');
         existingToasts.forEach(t => t.remove());
         showToast(checked ? '🎯 미션 후원 켜짐' : '🎯 미션 후원 꺼짐', 'info', `미션 후원 기능이 ${checked ? '활성화' : '비활성화'}되었습니다.`);
@@ -3737,15 +3897,17 @@
 
     async function saveMissionDonationSetting() {
       if (!userChannelId) return;
-      const minAmount = Number(document.getElementById('dsetting-mission-min-amount')?.value) || 1000;
+      const minAmount = parseFormattedAmount(document.getElementById('dsetting-mission-min-amount')?.value) || 1000;
       const failRate = Number(document.getElementById('dsetting-mission-fail-rate')?.value) || 10;
       const exposure = !!document.getElementById('dsetting-mission-exposure')?.checked;
+      const isMissionActive = document.getElementById('toggle-mission-donation') ? document.getElementById('toggle-mission-donation').checked : (currentDonationState.missionDonationActive !== false);
 
       try {
         await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/donations/mission/setting`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            donationActive: isMissionActive,
             minCurrencyPayAmount: minAmount,
             failCheeringRate: failRate,
             exposureAmount: exposure
@@ -3773,6 +3935,9 @@
 
         if (res.ok) {
           if (cachedSubscriptionSetting) cachedSubscriptionSetting.alertActive = checked;
+          const mainEl = document.getElementById('toggle-sub-alert');
+          if (mainEl) mainEl.checked = checked;
+          updateDonationDetailButtonsState();
           showToast(checked ? '⭐ 구독 알림 켜짐' : '⭐ 구독 알림 꺼짐', 'info', `구독 알림이 ${checked ? '활성화' : '비활성화'}되었습니다.`);
         } else {
           const data = await res.json().catch(() => ({}));
@@ -4696,6 +4861,7 @@
               }
             }
             checkLiveStatus();
+            checkChannelMonetization();
 
             if (text) { text.textContent = '연동됨'; text.className = 'font-medium text-[#00FFA3]'; }
             if (badgeA) { badgeA.textContent = "✅ 쿠키 연동됨"; badgeA.className = "text-[9px] px-1.5 py-0.5 rounded font-bold bg-emerald-950 text-[#00FFA3] border border-emerald-800/60"; }
@@ -5496,6 +5662,28 @@
           console.warn('[CHZZK Dock] 후원 설정 조회 오류:', e);
         }
 
+        // 1.5. 구독 알림 상태 동기화 (프로/파트너 회원인 경우)
+        if (!userSubscriptionAvailable && userChannelId) {
+          await checkChannelMonetization();
+        }
+        const elSub = document.getElementById('toggle-sub-alert');
+        if (userSubscriptionAvailable) {
+          try {
+            const subRes = await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/donations/subscription-alert-setting`);
+            if (subRes.ok) {
+              const subData = await subRes.json();
+              const subContent = subData.content || subData;
+              if (subContent) {
+                cachedSubscriptionSetting = subContent;
+                if (elSub) elSub.checked = subContent.alertActive !== false;
+                loaded = true;
+              }
+            }
+          } catch (e) {}
+        } else {
+          if (elSub) elSub.checked = false;
+        }
+
         // 2. 실시간 채팅 모드 설정 (이모티콘 전용 모드, 저속 모드)
         try {
           const modeRes = await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/live-setting/chat-mode`);
@@ -5534,6 +5722,7 @@
         } else {
           if (!silent) showToast('후원/채팅 설정 불러오기 실패', 'error', '네이버 로그인 쿠키 상태를 확인해 주세요.');
         }
+        updateDonationDetailButtonsState();
       } finally {
         if (iconBottom) setTimeout(() => iconBottom.classList.remove('animate-spin'), 350);
       }
@@ -5563,13 +5752,16 @@
 
         if (res.ok) {
           currentDonationState[cfg.key] = targetActive;
+          updateDonationDetailButtonsState();
           showToast('🎉 후원 옵션 변경 성공!', 'success');
         } else {
           if (el) el.checked = currentDonationState[cfg.key];
+          updateDonationDetailButtonsState();
           showToast('후원 옵션 변경 실패', 'error', '쿠키 로그인 상태를 확인하세요.');
         }
       } catch (e) {
         if (el) el.checked = currentDonationState[cfg.key];
+        updateDonationDetailButtonsState();
         showToast('통신 오류', 'error', e.message);
       }
     }
@@ -6097,6 +6289,20 @@
 
     let isTagInputOpen = false;
 
+    function getWatchPartyTag() {
+      return (activeWatchParty && activeWatchParty.watchPartyTag) ? activeWatchParty.watchPartyTag : null;
+    }
+
+    function isWatchPartyTag(tag) {
+      const wpTag = getWatchPartyTag();
+      return wpTag && tag === wpTag;
+    }
+
+    function getUserTags() {
+      const wpTag = getWatchPartyTag();
+      return currentTags.filter(t => t !== wpTag);
+    }
+
     function addTag(value) {
       if (!value) return false;
       value = value.replace(/\s+/g, '');
@@ -6105,8 +6311,9 @@
         showToast('입력 오류', 'error', '공백 및 특수문자는 사용할 수 없습니다.');
         return false;
       }
-      if (currentTags.length >= 10) {
-        showToast('태그 제한', 'warn', '태그는 최대 10개까지 추가할 수 있습니다.');
+      const userTags = getUserTags();
+      if (userTags.length >= 5) {
+        showToast('태그 제한', 'warn', '일반 태그는 최대 5개까지 추가할 수 있습니다.');
         return false;
       }
       if (currentTags.includes(value)) {
@@ -6119,13 +6326,19 @@
     }
 
     function removeTag(index) {
+      const target = currentTags[index];
+      if (isWatchPartyTag(target)) {
+        showToast('삭제 불가', 'warn', '같이보기 규정 태그는 같이보기 방송을 해제해야 삭제됩니다.');
+        return;
+      }
       currentTags.splice(index, 1);
       renderTags();
     }
 
     function openTagInput() {
-      if (currentTags.length >= 10) {
-        showToast('태그 제한', 'warn', '태그는 최대 10개까지 추가할 수 있습니다.');
+      const userTags = getUserTags();
+      if (userTags.length >= 5) {
+        showToast('태그 제한', 'warn', '일반 태그는 최대 5개까지 추가할 수 있습니다.');
         return;
       }
       isTagInputOpen = true;
@@ -6151,7 +6364,7 @@
       const inputEl = document.getElementById('tag-inline-input');
 
       if (inlineBox) inlineBox.style.display = 'none';
-      if (btnOpen && currentTags.length < 10) btnOpen.style.display = 'inline-flex';
+      if (btnOpen && getUserTags().length < 5) btnOpen.style.display = 'inline-flex';
       if (inputEl) inputEl.value = '';
     }
 
@@ -6166,7 +6379,7 @@
       const ok = addTag(val);
       if (ok) {
         inputEl.value = '';
-        if (currentTags.length >= 10) {
+        if (getUserTags().length >= 5) {
           closeTagInput();
         } else {
           requestAnimationFrame(() => {
@@ -6182,20 +6395,34 @@
       const inlineBox = document.getElementById('tag-inline-box');
       const btnOpen = document.getElementById('btn-open-tag');
 
+      const userTags = getUserTags();
+      const wpTag = getWatchPartyTag();
+
       if (countEl) {
-        countEl.textContent = `${currentTags.length}/10`;
+        countEl.textContent = wpTag ? `${userTags.length}/5 (같이보기 +1)` : `${userTags.length}/5`;
       }
 
       if (chipsWrapper) {
-        chipsWrapper.innerHTML = currentTags.map((tag, i) => `
-          <span class="tag-chip">
-            #${escapeHtml(tag)}
-            <button type="button" onclick="removeTag(${i})" title="태그 삭제">✕</button>
-          </span>
-        `).join('');
+        chipsWrapper.innerHTML = currentTags.map((tag, i) => {
+          const isWp = isWatchPartyTag(tag);
+          if (isWp) {
+            return `
+              <span class="tag-chip !border-amber-500/40 !bg-amber-500/10 !text-amber-300" title="같이보기 규정 태그 (자동 고정)">
+                🎬 #${escapeHtml(tag)}
+                <span class="text-[9px] ml-0.5 opacity-80" title="같이보기 고정">🔒</span>
+              </span>
+            `;
+          }
+          return `
+            <span class="tag-chip">
+              #${escapeHtml(tag)}
+              <button type="button" onclick="removeTag(${i})" title="태그 삭제">✕</button>
+            </span>
+          `;
+        }).join('');
       }
 
-      if (currentTags.length >= 10) {
+      if (userTags.length >= 5) {
         if (inlineBox) inlineBox.style.display = 'none';
         if (btnOpen) btnOpen.style.display = 'none';
         isTagInputOpen = false;

@@ -37,10 +37,10 @@ var embeddedGuide2 []byte
 var embeddedLauncherScript []byte
 
 // ============================================================
-//  CHZZK OBS Dock Server v0.5.7 (Modular Architecture)
+//  CHZZK OBS Dock Server v0.5.8 (Modular Architecture)
 // ============================================================
 const (
-	APP_VERSION       = "v0.5.7"
+	APP_VERSION       = "v0.5.8"
 	DEFAULT_HTTP_PORT = 8081
 	USER_AGENT        = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 )
@@ -49,11 +49,29 @@ var (
 	activeHttpPort     = DEFAULT_HTTP_PORT
 	isFallbackPort     = false
 	portFallbackReason = ""
-	webviewProcess     *exec.Cmd
-	webviewLock        sync.Mutex
-	trayInstance       *core.PureWinTrayIcon
-	httpClient         = &http.Client{Timeout: 10 * time.Second}
+	webviewProcess      *exec.Cmd
+	webviewWaitCh       chan struct{}
+	webviewLock         sync.Mutex
+	trayInstance        *core.PureWinTrayIcon
+	httpClient          = &http.Client{Timeout: 10 * time.Second}
+	chzzkApiBaseURL     = "https://api.chzzk.naver.com"
+	naverGameApiBaseURL = "https://comm-api.game.naver.com"
 )
+
+var apiGetPaths = map[string]bool{
+	"/config":                 true,
+	"/login-webview":          true,
+	"/login-wait":             true,
+	"/unofficial-user":        true,
+	"/open-browser":           true,
+	"/obs-script-status":      true,
+	"/remote-webview":         true,
+	"/watchdog-timeout":       true,
+	"/port-status":            true,
+	"/startup-popup-status":   true,
+	"/shutdown-notify-status": true,
+	"/remote-tester-status":   true,
+}
 
 func sendBytes(w http.ResponseWriter, body []byte, status int, contentType string) {
 	w.Header().Set("Content-Type", contentType)
@@ -194,9 +212,9 @@ func proxyUnofficialRequest(w http.ResponseWriter, r *http.Request, method, path
 	if customURL != "" {
 		targetURL = customURL
 	} else if strings.HasPrefix(path, "/manage/") || strings.HasPrefix(path, "/service/") || strings.HasPrefix(path, "/polling/") {
-		targetURL = "https://api.chzzk.naver.com" + path
+		targetURL = chzzkApiBaseURL + path
 	} else {
-		targetURL = "https://api.chzzk.naver.com/manage/v1" + path
+		targetURL = chzzkApiBaseURL + "/manage/v1" + path
 	}
 
 	// [LEG-01] 3초 Rate Limiting 인메모리 캐시 조회
@@ -322,13 +340,13 @@ func proxyDispatch(w http.ResponseWriter, r *http.Request, method string) bool {
 
 // HttpDockHandler: 메인 HTTP 라우터 핸들러
 func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
+	if !core.CheckSecurity(w, r) {
+		return
+	}
 	setCORSHeaders(w, r)
 
 	// OPTIONS 프리플라이트 요청 처리
 	if r.Method == http.MethodOptions {
-		if !core.CheckSecurity(w, r) {
-			return
-		}
 		w.WriteHeader(http.StatusOK)
 		return
 	}
@@ -338,22 +356,7 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
 		// API 엔드포인트 라우팅
-		apiPaths := map[string]bool{
-			"/config":                 true,
-			"/login-webview":          true,
-			"/login-wait":             true,
-			"/unofficial-user":        true,
-			"/open-browser":           true,
-			"/obs-script-status":      true,
-			"/remote-webview":         true,
-			"/watchdog-timeout":       true,
-			"/port-status":            true,
-			"/startup-popup-status":   true,
-			"/shutdown-notify-status": true,
-			"/remote-tester-status":   true,
-		}
-
-		if apiPaths[path] || strings.HasPrefix(path, "/unofficial/") {
+		if apiGetPaths[path] || strings.HasPrefix(path, "/unofficial/") {
 			if !core.CheckApiAuth(w, r) {
 				return
 			}
@@ -426,6 +429,12 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 				}
 				procAllowSetForegroundWindow.Call(uintptr(cmd.Process.Pid))
 				webviewProcess = cmd
+				waitCh := make(chan struct{})
+				webviewWaitCh = waitCh
+				go func(c *exec.Cmd, ch chan struct{}) {
+					_ = c.Wait()
+					close(ch)
+				}(cmd, waitCh)
 				webviewLock.Unlock()
 				core.LogInfo("[HTTP] /login-webview: 로그인 서브프로세스 시작 완료 (PID: %d)", cmd.Process.Pid)
 
@@ -438,14 +447,13 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 
 			if path == "/login-wait" {
 				core.LogInfo("[HTTP] /login-wait 대기 시작")
-				if webviewProcess != nil {
-					done := make(chan error, 1)
-					go func() {
-						done <- webviewProcess.Wait()
-					}()
+				webviewLock.Lock()
+				waitCh := webviewWaitCh
+				webviewLock.Unlock()
 
+				if waitCh != nil {
 					select {
-					case <-done:
+					case <-waitCh:
 						core.LogInfo("[HTTP] /login-wait: 로그인 프로세스 종료 감지")
 					case <-time.After(180 * time.Second):
 						core.LogWarn("[HTTP] /login-wait: 180초 대기 타임아웃")
@@ -474,7 +482,7 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 			}
 
 			if path == "/unofficial-user" {
-				proxyUnofficialRequest(w, r, "GET", "", nil, "https://comm-api.game.naver.com/nng_main/v1/user/getUserStatus")
+				proxyUnofficialRequest(w, r, "GET", "", nil, naverGameApiBaseURL+"/nng_main/v1/user/getUserStatus")
 				return
 			}
 
@@ -485,7 +493,8 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 				if err := OpenURL(rawURL); err != nil {
-					sendJSON(w, map[string]interface{}{"status": "error", "message": "브라우저 실행 실패: " + err.Error()}, http.StatusInternalServerError)
+					core.LogError("[HTTP] /open-browser failed for url %s: %v", rawURL, err)
+					sendJSON(w, map[string]interface{}{"status": "error", "message": "브라우저 실행에 실패했습니다."}, http.StatusInternalServerError)
 					return
 				}
 				sendJSON(w, map[string]interface{}{"status": "ok"}, http.StatusOK)
@@ -496,6 +505,7 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 				channelId := r.URL.Query().Get("channelId")
 				exePath, err := os.Executable()
 				if err != nil {
+					core.LogError("[HTTP] /remote-webview executable lookup failed: %v", err)
 					sendJSON(w, map[string]interface{}{
 						"status":  "error",
 						"message": "실행 파일 경로를 찾을 수 없습니다.",
@@ -508,9 +518,10 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 				}
 				cmd := exec.Command(exePath, args...)
 				if err := cmd.Start(); err != nil {
+					core.LogError("[HTTP] /remote-webview start failed: %v", err)
 					sendJSON(w, map[string]interface{}{
 						"status":  "error",
-						"message": "리모컨 창을 시작할 수 없습니다: " + err.Error(),
+						"message": "리모컨 창을 시작할 수 없습니다.",
 					}, http.StatusInternalServerError)
 					return
 				}
@@ -598,9 +609,6 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 
 		// 기존 인스턴스 독 화면 전면 활성화 엔드포인트 (중복 실행 방지 연동)
 		if path == "/show-ui" || path == "/api/show-ui" {
-			if !core.CheckSecurity(w, r) {
-				return
-			}
 			core.ShowDockWindow()
 			sendJSON(w, map[string]interface{}{"code": 200, "message": "UI 표시 완료"}, http.StatusOK)
 			return
@@ -625,9 +633,10 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 		if path == "/browse-obs-folder" {
 			folder, err := core.BrowseForObsFolder("OBS Studio 설치 폴더(obs-studio) 또는 scripts 폴더를 선택하세요")
 			if err != nil {
+				core.LogError("[HTTP] /browse-obs-folder failed: %v", err)
 				sendJSON(w, map[string]interface{}{
 					"code":    500,
-					"message": "폴더 선택 중 오류가 발생했습니다: " + err.Error(),
+					"message": "폴더 선택 중 오류가 발생했습니다.",
 				}, http.StatusInternalServerError)
 				return
 			}
@@ -659,9 +668,10 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 			scriptData := getLauncherScriptData()
 			installedPath, err := core.InstallLauncherScriptToObs(reqData.CustomDir, scriptData)
 			if err != nil {
+				core.LogError("[HTTP] /install-obs-script failed: %v", err)
 				sendJSON(w, map[string]interface{}{
 					"code":    500,
-					"message": "OBS 스크립트 설치 실패: " + err.Error(),
+					"message": "OBS 스크립트 설치에 실패했습니다.",
 				}, http.StatusInternalServerError)
 				return
 			}
@@ -677,7 +687,8 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 			scriptData := getLauncherScriptData()
 			createdPath, err := core.ExportLauncherScript(scriptData)
 			if err != nil {
-				sendJSON(w, map[string]interface{}{"code": 500, "message": err.Error()}, http.StatusInternalServerError)
+				core.LogError("[HTTP] /export-script failed: %v", err)
+				sendJSON(w, map[string]interface{}{"code": 500, "message": "스크립트 내보내기에 실패했습니다."}, http.StatusInternalServerError)
 				return
 			}
 			sendJSON(w, map[string]interface{}{
@@ -836,20 +847,13 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 			}
 
 			if reqData.Port < 1024 || reqData.Port > 65535 {
-				appErr := core.NewAppError(
-					core.ErrNetInvalidPortRange,
-					"포트 번호 범위 오류",
-					fmt.Sprintf("포트 번호는 1024 ~ 65535 사이여야 합니다 (입력값: %d).", reqData.Port),
-					fmt.Sprintf("Invalid port range: %d", reqData.Port),
-					nil,
-				)
-				core.LogWarn(appErr.DevFormat())
+				core.LogWarn("[Port] Invalid port range: %d", reqData.Port)
 				sendJSON(w, map[string]interface{}{
 					"code":       400,
-					"error_code": appErr.Code,
+					"error_code": core.ErrNetInvalidPortRange,
 					"available":  false,
 					"port":       reqData.Port,
-					"message":    appErr.UserMsg,
+					"message":    fmt.Sprintf("포트 번호는 1024 ~ 65535 사이여야 합니다 (입력값: %d).", reqData.Port),
 				}, http.StatusBadRequest)
 				return
 			}
@@ -920,18 +924,11 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 			}
 
 			if err := core.SaveConfiguredPort(reqData.Port); err != nil {
-				appErr := core.NewAppError(
-					core.ErrSysSettingsIoFailed,
-					"설정 저장 실패",
-					"포트 설정을 저장하는 중 오류가 발생했습니다.",
-					fmt.Sprintf("Failed to save port %d to settings.json", reqData.Port),
-					err,
-				)
-				core.LogError(appErr.DevFormat())
+				core.LogError("[Settings] Failed to save port %d to settings.json: %v", reqData.Port, err)
 				sendJSON(w, map[string]interface{}{
 					"code":       500,
-					"error_code": appErr.Code,
-					"message":    appErr.UserMsg,
+					"error_code": core.ErrSysSettingsIoFailed,
+					"message":    "포트 설정을 저장하는 중 오류가 발생했습니다.",
 				}, http.StatusInternalServerError)
 				return
 			}
@@ -961,9 +958,10 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 
 			if reqData.Action == "revoke" {
 				if err := core.SetRemoteTesterUnlocked(false); err != nil {
+					core.LogError("[Remote] Failed to revoke tester auth: %v", err)
 					sendJSON(w, map[string]interface{}{
 						"code":    500,
-						"message": "테스터 설정 저장 실패: " + err.Error(),
+						"message": "테스터 설정 저장에 실패했습니다.",
 					}, http.StatusInternalServerError)
 					return
 				}
@@ -979,9 +977,10 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 			cleanCode := strings.TrimSpace(strings.ToLower(reqData.Code))
 			if cleanCode == "chzzk" || cleanCode == "tester" || cleanCode == "test" || cleanCode == "0600" {
 				if err := core.SetRemoteTesterUnlocked(true); err != nil {
+					core.LogError("[Remote] Failed to save tester auth: %v", err)
 					sendJSON(w, map[string]interface{}{
 						"code":    500,
-						"message": "테스터 설정 저장 실패: " + err.Error(),
+						"message": "테스터 설정 저장에 실패했습니다.",
 					}, http.StatusInternalServerError)
 					return
 				}
@@ -1484,5 +1483,6 @@ func main() {
 
 	runTray(silentMode)
 }
+
 
 

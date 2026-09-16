@@ -31,7 +31,7 @@ func CheckSecurity(w http.ResponseWriter, r *http.Request) bool {
 		hostName = h
 	}
 	hostName = strings.ToLower(strings.TrimSpace(strings.Trim(hostName, "[]")))
-	if hostName != "" && hostName != "localhost" && hostName != "127.0.0.1" && hostName != "::1" {
+	if hostName == "" || (hostName != "localhost" && hostName != "127.0.0.1" && hostName != "::1") {
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		w.WriteHeader(http.StatusForbidden)
 		json.NewEncoder(w).Encode(map[string]interface{}{

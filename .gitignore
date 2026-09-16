@@ -25,6 +25,7 @@ Thumbs.db
 
 # Internal Planning & Private Documents
 BACKLOG.md
+BACKLOG_HISTORY.md
 docs/RELEASE_HISTORY.md
 RELEASE_HISTORY.md
 AGENTS.md
@@ -32,4 +33,5 @@ GEMINI.md
 
 # Test files (Do not upload to GitHub)
 *_test.go
+release_body.md
 

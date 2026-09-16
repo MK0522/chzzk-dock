@@ -1,9 +1,6 @@
 package core
 
-import (
-	"fmt"
-	"strings"
-)
+
 
 // ==============================================================================
 // [CHZZK OBS DOCK - Error Code Management Architecture]
@@ -43,49 +40,3 @@ const (
 	ErrSysTrayInitFailed   = "ERR-SYS-502" // Windows 시스템 트레이 생성 실패
 )
 
-// AppError: 사용자 친화적 메시지와 개발자용 정밀 로그를 이원화한 표준 에러 구조체
-type AppError struct {
-	Code       string // e.g. "ERR-NET-101"
-	Title      string // 사용자 팝업/알림 제목
-	UserMsg    string // 사용자용 친절하고 쉬운 한글 메시지
-	DevDetails string // 개발자 디버깅용 기술 상세 (점유 프로세스, PID, 소켓 에러 등)
-	Cause      error  // 기저 Go error 원문
-}
-
-func (e *AppError) Error() string {
-	if e.DevDetails != "" {
-		return fmt.Sprintf("[%s] %s (%s)", e.Code, e.UserMsg, e.DevDetails)
-	}
-	return fmt.Sprintf("[%s] %s", e.Code, e.UserMsg)
-}
-
-// UserFormat: 사용자 화면(팝업 대화상자 또는 웹 UI 토스트)에 보여줄 텍스트 포맷
-func (e *AppError) UserFormat() string {
-	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("[%s] %s\n\n", e.Code, e.Title))
-	sb.WriteString(e.UserMsg)
-	return sb.String()
-}
-
-// DevFormat: 개발자 진단 로그에 남길 정밀한 한 줄 포맷
-func (e *AppError) DevFormat() string {
-	causeStr := ""
-	if e.Cause != nil {
-		causeStr = fmt.Sprintf(" | Cause: %v", e.Cause)
-	}
-	if e.DevDetails != "" {
-		return fmt.Sprintf("[%s] %s | Details: %s%s", e.Code, e.Title, e.DevDetails, causeStr)
-	}
-	return fmt.Sprintf("[%s] %s%s", e.Code, e.Title, causeStr)
-}
-
-// NewAppError: 새로운 AppError 인스턴스 생성
-func NewAppError(code, title, userMsg, devDetails string, cause error) *AppError {
-	return &AppError{
-		Code:       code,
-		Title:      title,
-		UserMsg:    userMsg,
-		DevDetails: devDetails,
-		Cause:      cause,
-	}
-}

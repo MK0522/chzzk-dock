@@ -33,6 +33,7 @@ type RemoteWindowState struct {
 
 var (
 	procGetWindowRect            = user32.NewProc("GetWindowRect")
+	procGetClientRect            = user32.NewProc("GetClientRect")
 	procFindWindowW              = user32.NewProc("FindWindowW")
 	procGetSystemMetrics         = user32.NewProc("GetSystemMetrics")
 	procBringWindowToTop         = user32.NewProc("BringWindowToTop")
@@ -42,6 +43,10 @@ var (
 	procGetCurrentThreadId       = kernel32.NewProc("GetCurrentThreadId")
 	procReleaseCapture           = user32.NewProc("ReleaseCapture")
 	procIsZoomed                 = user32.NewProc("IsZoomed")
+	procAdjustWindowRectEx       = user32.NewProc("AdjustWindowRectEx")
+	procGetSystemMenu            = user32.NewProc("GetSystemMenu")
+	procCheckMenuItem            = user32.NewProc("CheckMenuItem")
+	procSetWindowTextW           = user32.NewProc("SetWindowTextW")
 
 	dwmapiDLL                        = syscall.NewLazyDLL("dwmapi.dll")
 	procDwmSetWindowAttribute        = dwmapiDLL.NewProc("DwmSetWindowAttribute")
@@ -67,19 +72,37 @@ const (
 	SM_CXSCREEN = 0
 	SM_CYSCREEN = 1
 
-	WM_CLOSE_VAL = 0x0010
+	WM_CLOSE_VAL        = 0x0010
+	WM_SYSCOMMAND_VAL   = 0x0112
+	WM_EXITSIZEMOVE_VAL = 0x0232
 
-	// Window Styles for Frameless Resizable Window
-	WS_POPUP_VAL        = 0x80000000
+	// Window Styles for Standard Native Dark Window
+	WS_OVERLAPPED_VAL   = 0x00000000
+	WS_CAPTION_VAL      = 0x00C00000
+	WS_SYSMENU_VAL      = 0x00080000
 	WS_THICKFRAME_VAL   = 0x00040000
 	WS_MINIMIZEBOX_VAL  = 0x00020000
 	WS_MAXIMIZEBOX_VAL  = 0x00010000
 	WS_CLIPCHILDREN_VAL = 0x02000000
 	WS_CLIPSIBLINGS_VAL = 0x04000000
 
+	WS_OVERLAPPEDWINDOW_VAL = (WS_OVERLAPPED_VAL | WS_CAPTION_VAL | WS_SYSMENU_VAL | WS_THICKFRAME_VAL | WS_MINIMIZEBOX_VAL | WS_MAXIMIZEBOX_VAL | WS_CLIPCHILDREN_VAL | WS_CLIPSIBLINGS_VAL)
+
 	WS_EX_APPWINDOW_VAL = 0x00040000
 	WS_EX_TOPMOST_VAL   = 0x00000008
+
+	IDM_REMOTE_TOPMOST = 0x1001
+	MF_BYCOMMAND_VAL   = 0x00000000
+	MF_UNCHECKED_VAL   = 0x00000000
+	MF_CHECKED_VAL     = 0x00000008
 )
+
+type RECT_WIN struct {
+	Left   int32
+	Top    int32
+	Right  int32
+	Bottom int32
+}
 
 type MARGINS struct {
 	CxLeftWidth    int32
@@ -90,7 +113,8 @@ type MARGINS struct {
 
 var (
 	activeRemoteChromium *edge.Chromium
-	isRemoteTopmost      = true
+	isRemoteTopmost      = false
+	remoteHwnd           uintptr
 )
 
 func getRemoteWindowStatePath() string {
@@ -106,8 +130,8 @@ func loadRemoteWindowState() RemoteWindowState {
 		X:       0,
 		Y:       0,
 		Width:   720,
-		Height:  820,
-		Topmost: true,
+		Height:  880,
+		Topmost: false,
 	}
 
 	path := getRemoteWindowStatePath()
@@ -121,11 +145,10 @@ func loadRemoteWindowState() RemoteWindowState {
 		return def
 	}
 
-	if state.Width < 500 || state.Height < 600 {
+	if state.Width < 400 || state.Height < 500 {
 		state.Width = 720
-		state.Height = 820
+		state.Height = 880
 	}
-	state.Topmost = true
 	return state
 }
 
@@ -148,13 +171,29 @@ func applyDarkTheme(hwnd uintptr) {
 	captionColor := uint32(0x00110E0B)
 	procDwmSetWindowAttribute.Call(hwnd, DWMWA_CAPTION_COLOR, uintptr(unsafe.Pointer(&captionColor)), 4)
 
-	// DWM 시스템 그림자 (Drop Shadow) 활성화
-	margins := MARGINS{1, 1, 1, 1}
-	procDwmExtendFrameIntoClientArea.Call(hwnd, uintptr(unsafe.Pointer(&margins)))
-
 	// Windows 11 둥근 모서리 (Rounded Corner) 적용
 	cornerPref := int32(DWMWCP_ROUND)
 	procDwmSetWindowAttribute.Call(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, uintptr(unsafe.Pointer(&cornerPref)), 4)
+}
+
+func updateWindowTitle(hwnd uintptr, topmost bool) {
+	title := "치지직 리모컨"
+	if topmost {
+		title = "📌 치지직 리모컨"
+	}
+	titlePtr, _ := syscall.UTF16PtrFromString(title)
+	procSetWindowTextW.Call(hwnd, uintptr(unsafe.Pointer(titlePtr)))
+}
+
+func updateSystemMenuTopmost(hwnd uintptr, topmost bool) {
+	hSysMenu, _, _ := procGetSystemMenu.Call(hwnd, 0)
+	if hSysMenu != 0 {
+		flag := uintptr(MF_BYCOMMAND_VAL | MF_UNCHECKED_VAL)
+		if topmost {
+			flag = uintptr(MF_BYCOMMAND_VAL | MF_CHECKED_VAL)
+		}
+		procCheckMenuItem.Call(hSysMenu, IDM_REMOTE_TOPMOST, flag)
+	}
 }
 
 // ForceForegroundWindow: Windows의 포그라운드 락을 우회하여 창을 최상단으로 강제 활성화
@@ -200,22 +239,40 @@ func ForceForegroundWindow(hwnd uintptr, topmost bool) {
 
 func setWindowTopmost(hwnd uintptr, topmost bool) {
 	ForceForegroundWindow(hwnd, topmost)
+	updateSystemMenuTopmost(hwnd, topmost)
+	updateWindowTitle(hwnd, topmost)
+}
+
+func toggleRemoteTopmost(hwnd uintptr) {
+	isRemoteTopmost = !isRemoteTopmost
+	setWindowTopmost(hwnd, isRemoteTopmost)
+	st := captureCurrentWindowState(hwnd)
+	st.Topmost = isRemoteTopmost
+	saveRemoteWindowState(st)
+	if activeRemoteChromium != nil {
+		activeRemoteChromium.Eval(fmt.Sprintf("if (window.__updateTopmostUI) window.__updateTopmostUI(%t);", isRemoteTopmost))
+	}
 }
 
 func captureCurrentWindowState(hwnd uintptr) RemoteWindowState {
-	var rect struct {
+	var winRect struct {
 		Left, Top, Right, Bottom int32
 	}
-	procGetWindowRect.Call(hwnd, uintptr(unsafe.Pointer(&rect)))
+	procGetWindowRect.Call(hwnd, uintptr(unsafe.Pointer(&winRect)))
 
-	w := int(rect.Right - rect.Left)
-	h := int(rect.Bottom - rect.Top)
-	x := int(rect.Left)
-	y := int(rect.Top)
+	var clientRect struct {
+		Left, Top, Right, Bottom int32
+	}
+	procGetClientRect.Call(hwnd, uintptr(unsafe.Pointer(&clientRect)))
 
-	if w < 320 || h < 400 {
-		w = 420
-		h = 720
+	w := int(clientRect.Right - clientRect.Left)
+	h := int(clientRect.Bottom - clientRect.Top)
+	x := int(winRect.Left)
+	y := int(winRect.Top)
+
+	if w < 400 || h < 500 {
+		w = 720
+		h = 880
 	}
 
 	return RemoteWindowState{
@@ -238,10 +295,20 @@ func remoteWndProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uint
 	case WM_SIZE_WV:
 		if activeRemoteChromium != nil {
 			activeRemoteChromium.Resize()
-			isZoomed, _, _ := procIsZoomed.Call(uintptr(hwnd))
-			activeRemoteChromium.Eval(fmt.Sprintf("if (window.__updateMaximizeUI) window.__updateMaximizeUI(%t);", isZoomed != 0))
 		}
 		return 0
+
+	case WM_EXITSIZEMOVE_VAL:
+		// 사용자가 창 크기 조절 또는 이동을 마쳤을 때 즉시 상태 저장
+		state := captureCurrentWindowState(uintptr(hwnd))
+		saveRemoteWindowState(state)
+		return 0
+
+	case WM_SYSCOMMAND_VAL:
+		if (wParam & 0xFFF0) == IDM_REMOTE_TOPMOST {
+			toggleRemoteTopmost(uintptr(hwnd))
+			return 0
+		}
 
 	case WM_CLOSE_VAL, WM_DESTROY_WV:
 		state := captureCurrentWindowState(uintptr(hwnd))
@@ -253,186 +320,165 @@ func remoteWndProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uint
 	return ret
 }
 
-const remoteToolbarScript = `
+const remoteOverlayScript = `
 (function() {
-  if (window.__chzzkRemoteBarInjected) return;
-  window.__chzzkRemoteBarInjected = true;
+  if (window.__chzzkRemoteOverlayInjected) return;
+  window.__chzzkRemoteOverlayInjected = true;
 
-  function initBar() {
-    if (document.getElementById('chzzk-remote-toolbar')) return;
+  function initOverlay() {
+    if (document.getElementById('chzzk-floating-pin-btn')) return;
 
-    // 1. All-in-One Frameless Titlebar
-    var bar = document.createElement('div');
-    bar.id = 'chzzk-remote-toolbar';
-    bar.style.cssText = 'position:fixed; top:0; left:0; right:0; height:32px; background:#0B0E11; border-bottom:1px solid #1E2738; z-index:9999999; display:flex; align-items:center; justify-content:space-between; padding:0 4px 0 8px; box-sizing:border-box; font-family:Pretendard,-apple-system,BlinkMacSystemFont,sans-serif; user-select:none; -webkit-user-select:none;';
+    var btn = document.createElement('button');
+    btn.id = 'chzzk-floating-pin-btn';
+    btn.title = '항상 위에 고정 (드래그하여 위치 이동)';
 
-    bar.innerHTML = 
-      '<div style="display:flex; align-items:center; gap:6px; height:100%; flex-shrink:0;">' +
-        // Pin Button: Far Left, Icon Only, No Text
-        '<button id="chzzk-btn-pin" title="항상 위 고정 토글" style="background:#161F2E; border:1px solid #243044; color:#94A3B8; width:24px; height:24px; border-radius:5px; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0; transition:all 0.15s; font-size:11px;">' +
-          '<span>📌</span>' +
-        '</button>' +
-        // App Title
-        '<div id="chzzk-title-box" style="display:flex; align-items:center; gap:5px; cursor:default; margin-left:2px;">' +
-          '<span style="font-size:13px; line-height:1; display:flex; align-items:center;">🎮</span>' +
-          '<span style="font-size:11.5px; font-weight:700; color:#F1F5F9; letter-spacing:-0.2px;">치지직 리모컨</span>' +
-        '</div>' +
-        // Reload Button
-        '<button id="chzzk-btn-reload" title="새로고침" style="background:#161F2E; border:1px solid #243044; color:#94A3B8; width:24px; height:24px; border-radius:5px; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0; transition:all 0.15s; font-size:11px; margin-left:4px;">' +
-          '🔄' +
-        '</button>' +
-      '</div>' +
-      // Drag Region Spacer
-      '<div id="chzzk-drag-spacer" style="flex:1; height:100%; cursor:default;"></div>' +
-      // Window Controls (Min, Max, Close)
-      '<div style="display:flex; align-items:center; height:100%; flex-shrink:0;">' +
-        '<button id="chzzk-btn-min" title="최소화" style="background:transparent; border:none; color:#94A3B8; width:36px; height:32px; display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0; transition:background 0.1s;">' +
-          '<svg width="10" height="1" viewBox="0 0 10 1"><rect width="10" height="1" fill="currentColor"/></svg>' +
-        '</button>' +
-        '<button id="chzzk-btn-max" title="최대화" style="background:transparent; border:none; color:#94A3B8; width:36px; height:32px; display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0; transition:background 0.1s;">' +
-          '<svg id="chzzk-max-svg" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1"><rect x="0.5" y="0.5" width="9" height="9"/></svg>' +
-        '</button>' +
-        '<button id="chzzk-btn-close" title="닫기" style="background:transparent; border:none; color:#94A3B8; width:36px; height:32px; display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0; transition:background 0.1s;">' +
-          '<svg width="10" height="10" viewBox="0 0 10 10"><path d="M1 1 L9 9 M9 1 L1 9" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>' +
-        '</button>' +
-      '</div>';
+    // 이전 저장 위치 복원 (localStorage)
+    var savedPos = null;
+    try {
+      var raw = localStorage.getItem('chzzk_floating_pin_pos');
+      if (raw) savedPos = JSON.parse(raw);
+    } catch(e) {}
 
-    document.documentElement.appendChild(bar);
+    var initialTop = (savedPos && typeof savedPos.top === 'number') ? savedPos.top + 'px' : '10px';
+    var initialLeft = (savedPos && typeof savedPos.left === 'number') ? savedPos.left + 'px' : '';
+    var initialRight = (!savedPos || typeof savedPos.left !== 'number') ? '14px' : '';
 
-    // 2. Layout CSS: Prevent top/bottom clipping caused by 32px titlebar
-    var style = document.createElement('style');
-    style.innerHTML = [
-      // [Core Fix] Push entire page content below 32px titlebar and constrain height
-      // to prevent bottom overflow (volume slider, TTS skip, alert stop buttons)
-      'html { margin-top: 32px !important; height: calc(100vh - 32px) !important; overflow: hidden !important; }',
-      'body { height: 100% !important; overflow: hidden !important; margin: 0 !important; }',
-      // Next.js / SPA root container: fill available height with scrollable overflow
-      '#__next, [id^="__next"], body > div:first-child {',
-      '  height: 100% !important;',
-      '  max-height: 100% !important;',
-      '  overflow-y: auto !important;',
-      '  overflow-x: hidden !important;',
-      '}',
-      // [Version-Independent Selectors] Use tag/role-based selectors instead of
-      // brittle webpack CSS module hashes (_header_3o1tv, _container_169h1)
-      // that break on every Chzzk Studio frontend deployment.
-      // Chzzk Studio uses a fixed header that already has position:fixed/sticky,
-      // so we don't need to manually shift it — the html margin-top handles it.
+    btn.style.cssText = [
+      'position: fixed !important',
+      'top: ' + initialTop + ' !important',
+      (initialLeft ? 'left: ' + initialLeft + ' !important' : 'right: ' + initialRight + ' !important'),
+      'width: 28px !important',
+      'height: 28px !important',
+      'border-radius: 7px !important',
+      'border: 1.5px solid #334155 !important',
+      'background: #161F2E !important',
+      'color: #94A3B8 !important',
+      'cursor: grab !important',
+      'display: flex !important',
+      'align-items: center !important',
+      'justify-content: center !important',
+      'font-size: 13px !important',
+      'padding: 0 !important',
+      'margin: 0 !important',
+      'z-index: 9999999 !important',
+      'transition: background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s !important',
+      'box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35) !important',
+      'user-select: none !important',
+      '-webkit-user-select: none !important',
+      'touch-action: none !important'
+    ].join(';');
 
-      // Right sidebar panel: ensure it fills available height properly
-      'body > div aside, [role="complementary"], [class*="_aside_"], [class*="_sidebar_"] {',
-      '  max-height: calc(100vh - 32px) !important;',
-      '  overflow-y: auto !important;',
-      '}',
+    btn.innerHTML = '📌';
 
-      // Custom scrollbar styling for clean dark UI
-      '::-webkit-scrollbar { width: 4px; }',
-      '::-webkit-scrollbar-track { background: transparent; }',
-      '::-webkit-scrollbar-thumb { background: #1E2738; border-radius: 4px; }',
-      '::-webkit-scrollbar-thumb:hover { background: #2D3F5A; }',
+    var isDragging = false;
+    var hasMoved = false;
+    var startX = 0, startY = 0;
+    var origLeft = 0, origTop = 0;
 
-      // Frameless Window Titlebar Buttons Hover & Active
-      '#chzzk-btn-pin:hover, #chzzk-btn-reload:hover { background: #223045 !important; color: #F1F5F9 !important; border-color: #384A68 !important; }',
-      '#chzzk-btn-min:hover, #chzzk-btn-max:hover { background: rgba(255, 255, 255, 0.08) !important; color: #FFFFFF !important; }',
-      '#chzzk-btn-close:hover { background: #E81123 !important; color: #FFFFFF !important; }',
-      '#chzzk-btn-close:active { background: #C4101F !important; color: #FFFFFF !important; }'
-    ].join('\n');
-    document.documentElement.appendChild(style);
-
-    // 4. Button Event Handlers
-    var pinBtn = document.getElementById('chzzk-btn-pin');
-    if (pinBtn) {
-      pinBtn.onclick = function(e) {
-        e.stopPropagation();
-        if (window.chrome && window.chrome.webview) {
-          window.chrome.webview.postMessage('toggle-topmost');
-        }
-      };
-    }
-
-    var reloadBtn = document.getElementById('chzzk-btn-reload');
-    if (reloadBtn) {
-      reloadBtn.onclick = function(e) {
-        e.stopPropagation();
-        location.reload();
-      };
-    }
-
-    var minBtn = document.getElementById('chzzk-btn-min');
-    if (minBtn) {
-      minBtn.onclick = function(e) {
-        e.stopPropagation();
-        if (window.chrome && window.chrome.webview) {
-          window.chrome.webview.postMessage('window-minimize');
-        }
-      };
-    }
-
-    var maxBtn = document.getElementById('chzzk-btn-max');
-    if (maxBtn) {
-      maxBtn.onclick = function(e) {
-        e.stopPropagation();
-        if (window.chrome && window.chrome.webview) {
-          window.chrome.webview.postMessage('window-maximize');
-        }
-      };
-    }
-
-    var closeBtn = document.getElementById('chzzk-btn-close');
-    if (closeBtn) {
-      closeBtn.onclick = function(e) {
-        e.stopPropagation();
-        if (window.chrome && window.chrome.webview) {
-          window.chrome.webview.postMessage('window-close');
-        }
-      };
-    }
-
-    // 5. Titlebar Dragging & Double-Click Maximize
-    bar.addEventListener('mousedown', function(e) {
-      if (e.target.closest('button')) return;
-      if (e.button === 0) { // Left-click drag
-        if (window.chrome && window.chrome.webview) {
-          window.chrome.webview.postMessage('window-drag');
-        }
+    btn.onmouseenter = function() {
+      if (!btn.dataset.active && !isDragging) {
+        btn.style.borderColor = '#475569';
+        btn.style.background = '#1E293B';
+        btn.style.color = '#F1F5F9';
       }
-    });
-
-    bar.addEventListener('dblclick', function(e) {
-      if (e.target.closest('button')) return;
-      if (window.chrome && window.chrome.webview) {
-        window.chrome.webview.postMessage('window-maximize');
-      }
-    });
-
-    // 6. UI Synchronizers
-    window.__updateTopmostUI = function(isTopmost) {
-      var btn = document.getElementById('chzzk-btn-pin');
-      if (!btn) return;
-      if (isTopmost) {
-        btn.style.background = 'rgba(0, 255, 163, 0.15)';
-        btn.style.borderColor = '#00FFA3';
-        btn.style.color = '#00FFA3';
-        btn.style.boxShadow = '0 0 8px rgba(0, 255, 163, 0.35)';
-        btn.title = '항상 위 고정 활성화됨 (클릭 시 해제)';
-      } else {
+    };
+    btn.onmouseleave = function() {
+      if (!btn.dataset.active && !isDragging) {
+        btn.style.borderColor = '#334155';
         btn.style.background = '#161F2E';
-        btn.style.borderColor = '#243044';
         btn.style.color = '#94A3B8';
-        btn.style.boxShadow = 'none';
-        btn.title = '항상 위 고정 토글';
       }
     };
 
-    window.__updateMaximizeUI = function(isMax) {
-      var btn = document.getElementById('chzzk-btn-max');
-      if (!btn) return;
-      if (isMax) {
-        btn.title = '이전 크기로 복원';
-        btn.innerHTML = '<svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1"><path d="M2.5 2.5V0.5H9.5V7.5H7.5"/><rect x="0.5" y="2.5" width="7" height="7"/></svg>';
+    // --- 드래그 이동 핸들러 ---
+    btn.addEventListener('mousedown', function(e) {
+      if (e.button !== 0) return;
+      isDragging = true;
+      hasMoved = false;
+      startX = e.clientX;
+      startY = e.clientY;
+
+      var rect = btn.getBoundingClientRect();
+      origLeft = rect.left;
+      origTop = rect.top;
+
+      btn.style.cursor = 'grabbing';
+      btn.style.transition = 'none';
+      e.preventDefault();
+      e.stopPropagation();
+    });
+
+    document.addEventListener('mousemove', function(e) {
+      if (!isDragging) return;
+      var dx = e.clientX - startX;
+      var dy = e.clientY - startY;
+
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+        hasMoved = true;
+      }
+
+      var newLeft = origLeft + dx;
+      var newTop = origTop + dy;
+
+      var maxLeft = window.innerWidth - btn.offsetWidth;
+      var maxTop = window.innerHeight - btn.offsetHeight;
+      newLeft = Math.max(0, Math.min(maxLeft, newLeft));
+      newTop = Math.max(0, Math.min(maxTop, newTop));
+
+      btn.style.left = newLeft + 'px';
+      btn.style.top = newTop + 'px';
+      btn.style.right = 'auto';
+    });
+
+    document.addEventListener('mouseup', function(e) {
+      if (!isDragging) return;
+      isDragging = false;
+      btn.style.cursor = 'grab';
+      btn.style.transition = 'background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s';
+
+      if (hasMoved) {
+        try {
+          var rect = btn.getBoundingClientRect();
+          localStorage.setItem('chzzk_floating_pin_pos', JSON.stringify({
+            left: rect.left,
+            top: rect.top
+          }));
+        } catch(err) {}
+      }
+    });
+
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      e.preventDefault();
+      if (hasMoved) {
+        hasMoved = false;
+        return;
+      }
+      if (window.chrome && window.chrome.webview) {
+        window.chrome.webview.postMessage('toggle-topmost');
+      }
+    });
+
+    document.documentElement.appendChild(btn);
+
+    // Topmost UI Synchronizer
+    window.__updateTopmostUI = function(isTopmost) {
+      var b = document.getElementById('chzzk-floating-pin-btn');
+      if (!b) return;
+      if (isTopmost) {
+        b.dataset.active = 'true';
+        b.style.background = '#00FFA3 !important';
+        b.style.borderColor = '#00C77F !important';
+        b.style.color = '#000000 !important';
+        b.style.boxShadow = '0 0 14px rgba(0, 255, 163, 0.7), 0 3px 8px rgba(0, 0, 0, 0.3) !important';
+        b.title = '항상 위 고정 활성화됨 (클릭 시 해제, 드래그 이동 가능)';
       } else {
-        btn.title = '최대화';
-        btn.innerHTML = '<svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1"><rect x="0.5" y="0.5" width="9" height="9"/></svg>';
+        delete b.dataset.active;
+        b.style.background = '#161F2E !important';
+        b.style.borderColor = '#334155 !important';
+        b.style.color = '#94A3B8 !important';
+        b.style.boxShadow = '0 4px 10px rgba(0, 0, 0, 0.35) !important';
+        b.title = '항상 위에 고정 (드래그하여 위치 이동)';
       }
     };
 
@@ -442,9 +488,9 @@ const remoteToolbarScript = `
   }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initBar);
+    document.addEventListener('DOMContentLoaded', initOverlay);
   } else {
-    initBar();
+    initOverlay();
   }
 })();
 `
@@ -518,18 +564,29 @@ func RunRemoteWebview(channelId string) {
 		}
 	}
 
-	dwStyle := uintptr(WS_POPUP_VAL | WS_THICKFRAME_VAL | WS_MINIMIZEBOX_VAL | WS_MAXIMIZEBOX_VAL | WS_CLIPCHILDREN_VAL | WS_CLIPSIBLINGS_VAL)
+	dwStyle := uintptr(WS_OVERLAPPEDWINDOW_VAL)
 	var exStyle uintptr = WS_EX_APPWINDOW_VAL
 	if isRemoteTopmost {
 		exStyle |= WS_EX_TOPMOST_VAL
 	}
+
+	// 클라이언트 영역(720x880)을 온전히 확보하기 위한 창 외곽 크기 계산
+	rect := RECT_WIN{
+		Left:   0,
+		Top:    0,
+		Right:  int32(state.Width),
+		Bottom: int32(state.Height),
+	}
+	procAdjustWindowRectEx.Call(uintptr(unsafe.Pointer(&rect)), dwStyle, 0, exStyle)
+	winW := int(rect.Right - rect.Left)
+	winH := int(rect.Bottom - rect.Top)
 
 	hwnd, _, _ := procCreateWindowExW.Call(
 		exStyle,
 		uintptr(unsafe.Pointer(className)),
 		uintptr(unsafe.Pointer(windowTitle)),
 		dwStyle,
-		uintptr(state.X), uintptr(state.Y), uintptr(state.Width), uintptr(state.Height),
+		uintptr(state.X), uintptr(state.Y), uintptr(winW), uintptr(winH),
 		0, 0, hInst, 0,
 	)
 
@@ -537,6 +594,7 @@ func RunRemoteWebview(channelId string) {
 		LogError("[Remote Webview Error] 리모컨 윈도우 생성 실패")
 		return
 	}
+	remoteHwnd = hwnd
 
 	// 타이틀바 및 작업표시줄 아이콘 설정
 	if hIcon != 0 {
@@ -544,13 +602,19 @@ func RunRemoteWebview(channelId string) {
 		procSendMessageW.Call(hwnd, uintptr(WM_SETICON), uintptr(ICON_BIG), uintptr(hIcon))
 	}
 
-	// DWM 다크 테마, 그림자 및 둥근 모서리 적용
+	// 시스템 메뉴(창 우클릭 / 좌상단 아이콘 메뉴)에 '📌 항상 위에 고정' 등록
+	hSysMenu, _, _ := procGetSystemMenu.Call(hwnd, 0)
+	if hSysMenu != 0 {
+		procAppendMenuW.Call(hSysMenu, MF_SEPARATOR, 0, 0)
+		menuText, _ := syscall.UTF16PtrFromString("📌 항상 위에 고정")
+		procAppendMenuW.Call(hSysMenu, MF_STRING, IDM_REMOTE_TOPMOST, uintptr(unsafe.Pointer(menuText)))
+	}
+
+	// Windows 11 순정 다크 타이틀바 테마 적용
 	applyDarkTheme(hwnd)
 
-	// 저장된 Topmost 상태 적용
-	if isRemoteTopmost {
-		setWindowTopmost(hwnd, true)
-	}
+	// 저장된 Topmost 상태 및 창 타이틀 초기 적용
+	setWindowTopmost(hwnd, isRemoteTopmost)
 
 	chromium := edge.NewChromium()
 	chromium.DataPath = profileDir
@@ -604,37 +668,14 @@ func RunRemoteWebview(channelId string) {
 	// [초기 순백색 화면 방지] 컨트롤러 배경색을 다크 테마(#0B0E11)로 즉시 지정
 	chromium.SetBackgroundColour(0x0B, 0x0E, 0x11, 255)
 
-	// 상단 커스텀 툴바 주입 (Embed 완료 후 e.webview가 생성된 시점에 호출)
-	chromium.Init(remoteToolbarScript)
+	// 상단 우측 플로팅 핀 버튼 및 Ctrl+T 단축키 주입 (웹 본문 DOM/CSS 왜곡 0%)
+	chromium.Init(remoteOverlayScript)
 
-	// WebMessage 이벤트 핸들러 (창 드래그, 최소화, 최대화, 닫기, 항상 위 토글)
+	// WebMessage 이벤트 핸들러 (항상 위 토글 및 상태 동기화)
 	chromium.MessageCallback = func(message string, sender *edge.ICoreWebView2, args *edge.ICoreWebView2WebMessageReceivedEventArgs) {
 		switch message {
-		case "window-drag":
-			procReleaseCapture.Call()
-			procSendMessageW.Call(hwnd, 0x0112 /* WM_SYSCOMMAND */, 0xF012 /* SC_DRAGMOVE */, 0)
-
-		case "window-minimize":
-			procShowWindow.Call(hwnd, 6 /* SW_MINIMIZE */)
-
-		case "window-maximize":
-			isZoomed, _, _ := procIsZoomed.Call(hwnd)
-			if isZoomed != 0 {
-				procShowWindow.Call(hwnd, 9 /* SW_RESTORE */)
-			} else {
-				procShowWindow.Call(hwnd, 3 /* SW_MAXIMIZE */)
-			}
-
-		case "window-close":
-			procPostMessageW.Call(hwnd, WM_CLOSE_VAL, 0, 0)
-
 		case "toggle-topmost":
-			isRemoteTopmost = !isRemoteTopmost
-			setWindowTopmost(hwnd, isRemoteTopmost)
-			st := captureCurrentWindowState(hwnd)
-			st.Topmost = isRemoteTopmost
-			saveRemoteWindowState(st)
-			chromium.Eval(fmt.Sprintf("if (window.__updateTopmostUI) window.__updateTopmostUI(%t);", isRemoteTopmost))
+			toggleRemoteTopmost(hwnd)
 
 		case "get-topmost-state":
 			chromium.Eval(fmt.Sprintf("if (window.__updateTopmostUI) window.__updateTopmostUI(%t);", isRemoteTopmost))

@@ -135,3 +135,4 @@ go build -trimpath -ldflags="-H windowsgui -s -w" -o chzzk-dock.exe .
 > 🤖 **안내**: 본 `README.md` 문서는 AI에 의해 작성 및 정리되었습니다.
 
 
+
