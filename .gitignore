@@ -27,6 +27,8 @@ Thumbs.db
 BACKLOG.md
 docs/RELEASE_HISTORY.md
 RELEASE_HISTORY.md
+AGENTS.md
+GEMINI.md
 
 # Test files (Do not upload to GitHub)
 *_test.go
