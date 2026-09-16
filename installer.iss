@@ -3,7 +3,7 @@
 ; ==============================================================================
 
 #define MyAppName "CHZZK OBS Dock"
-#define MyAppVersion "0.5.6"
+#define MyAppVersion "0.5.7"
 #define MyAppPublisher "CHZZK OBS Dock"
 #define MyAppURL "https://github.com/Dingteus/chzzk-dock"
 #define MyAppExeName "chzzk-dock.exe"
@@ -45,6 +45,17 @@ Name: "korean"; MessagesFile: "compiler:Languages\Korean.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
 Name: "startmenuicon"; Description: "시작 메뉴에 바로 가기 만들기(&M)"; GroupDescription: "{cm:AdditionalIcons}"
 
+[InstallDelete]
+; {app} 설치 폴더 내 구버전 잔여 파일 전면 정리 (새 버전에 필요한 파일 외 찌꺼기 원천 차단)
+Type: files; Name: "{app}\*.html"
+Type: files; Name: "{app}\*.ico"
+Type: files; Name: "{app}\*.png"
+Type: files; Name: "{app}\*.tmp"
+Type: files; Name: "{app}\*.log"
+; 구버전 WebView2 디스크 웹 캐시 강제 청소
+Type: filesandordirs; Name: "{localappdata}\ChzzkObsDock\dock_profile\EBWebView\Default\Cache"
+Type: filesandordirs; Name: "{localappdata}\ChzzkObsDock\dock_profile\EBWebView\Default\Code Cache"
+
 [Files]
 Source: "chzzk-dock.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "scripts\chzzk_dock_launcher.lua"; DestDir: "{app}\scripts"; Flags: ignoreversion
@@ -57,3 +68,5 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
+
+

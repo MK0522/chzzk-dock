@@ -1,4 +1,4 @@
-# <img src="docs/icon.png" width="40" alt=""> CHZZK OBS Dock
+﻿# <img src="docs/icon.png" width="40" alt=""> CHZZK OBS Dock
 
 OBS Studio 안에서 사용자 브라우저 독(`http://localhost:8081`)을 추가하면 치지직(CHZZK) 방송 정보와 설정을 편하게 수정할 수 있는 초경량·고성능 로컬 서버 및 독 위젯 애플리케이션입니다.
 
@@ -133,3 +133,5 @@ go build -trimpath -ldflags="-H windowsgui -s -w" -o chzzk-dock.exe .
 ---
 
 > 🤖 **안내**: 본 `README.md` 문서는 AI에 의해 작성 및 정리되었습니다.
+
+

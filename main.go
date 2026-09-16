@@ -1,4 +1,4 @@
-package main
+﻿package main
 
 import (
 	_ "embed"
@@ -37,10 +37,10 @@ var embeddedGuide2 []byte
 var embeddedLauncherScript []byte
 
 // ============================================================
-//  CHZZK OBS Dock Server v0.5.6 (Modular Architecture)
+//  CHZZK OBS Dock Server v0.5.7 (Modular Architecture)
 // ============================================================
 const (
-	APP_VERSION       = "v0.5.6"
+	APP_VERSION       = "v0.5.7"
 	DEFAULT_HTTP_PORT = 8081
 	USER_AGENT        = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 )
@@ -74,9 +74,6 @@ var (
 )
 
 func getRenderedHTML() []byte {
-	if localHTML, err := os.ReadFile("chzzk-obs-dock.html"); err == nil {
-		return bytes.ReplaceAll(localHTML, []byte("{{APP_VERSION}}"), []byte(APP_VERSION))
-	}
 	renderedHTMLOnce.Do(func() {
 		renderedHTMLCache = bytes.ReplaceAll(embeddedHTML, []byte("{{APP_VERSION}}"), []byte(APP_VERSION))
 	})
@@ -611,6 +608,9 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 
 		// OBS 독 정적 HTML 페이지 서빙 (SSR 버전 동적 주입)
 		if path == "/" || path == "/index.html" || path == "/chzzk-obs-dock.html" {
+			w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+			w.Header().Set("Pragma", "no-cache")
+			w.Header().Set("Expires", "0")
 			sendBytes(w, getRenderedHTML(), http.StatusOK, "text/html; charset=utf-8")
 			return
 		}
@@ -1484,3 +1484,5 @@ func main() {
 
 	runTray(silentMode)
 }
+
+
