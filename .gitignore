@@ -25,6 +25,8 @@ Thumbs.db
 
 # Internal Planning & Private Documents
 BACKLOG.md
+docs/RELEASE_HISTORY.md
+RELEASE_HISTORY.md
 
 # Test files (Do not upload to GitHub)
 *_test.go
