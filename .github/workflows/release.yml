@@ -51,7 +51,7 @@ jobs:
         id: release_notes
         shell: pwsh
         run: |
-          powershell -ExecutionPolicy Bypass -File .\scripts\prepare_release_notes.ps1
+          pwsh -ExecutionPolicy Bypass -File .\scripts\prepare_release_notes.ps1
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2

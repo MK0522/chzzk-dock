@@ -17,17 +17,19 @@ if (Test-Path $NotesPath) {
 
     Set-Content -Path "release_body.md" -Value $body -Encoding UTF8
 
+    $utf8NoBom = New-Object System.Text.UTF8Encoding $false
     if ($env:GITHUB_OUTPUT) {
-        Add-Content -Path $env:GITHUB_OUTPUT -Value "has_custom_notes=true"
-        Add-Content -Path $env:GITHUB_OUTPUT -Value "release_title=$title"
+        [System.IO.File]::AppendAllText($env:GITHUB_OUTPUT, "has_custom_notes=true`n", $utf8NoBom)
+        [System.IO.File]::AppendAllText($env:GITHUB_OUTPUT, "release_title=$title`n", $utf8NoBom)
     }
     Write-Host "Prepared release notes from $NotesPath"
     Write-Host "Title: $title"
 } else {
     $defaultTitle = if ($env:GITHUB_REF_NAME) { $env:GITHUB_REF_NAME } else { "Release" }
+    $utf8NoBom = New-Object System.Text.UTF8Encoding $false
     if ($env:GITHUB_OUTPUT) {
-        Add-Content -Path $env:GITHUB_OUTPUT -Value "has_custom_notes=false"
-        Add-Content -Path $env:GITHUB_OUTPUT -Value "release_title=$defaultTitle"
+        [System.IO.File]::AppendAllText($env:GITHUB_OUTPUT, "has_custom_notes=false`n", $utf8NoBom)
+        [System.IO.File]::AppendAllText($env:GITHUB_OUTPUT, "release_title=$defaultTitle`n", $utf8NoBom)
     }
     Write-Host "No custom notes found at $NotesPath"
 }
