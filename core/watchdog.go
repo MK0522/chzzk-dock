@@ -18,6 +18,9 @@ var (
 	procCreateToolhelp32Snapshot = kernel32.NewProc("CreateToolhelp32Snapshot")
 	procProcess32FirstW          = kernel32.NewProc("Process32FirstW")
 	procProcess32NextW           = kernel32.NewProc("Process32NextW")
+
+	// OnShutdownCallback: 워치독에 의한 자동 종료 시 자원 정리를 위한 콜백
+	OnShutdownCallback func()
 )
 
 type PROCESSENTRY32W struct {
@@ -135,6 +138,9 @@ func StartObsWatchdog(silentMode bool) {
 									GlobalTray.ShowNotification("CHZZK OBS Dock", fmt.Sprintf("OBS Studio 종료가 감지되어 치지직 독 서버를 자동 종료합니다. (%d초 만료)", timeoutSec))
 									time.Sleep(1200 * time.Millisecond)
 								}
+								if OnShutdownCallback != nil {
+									OnShutdownCallback()
+								}
 								DestroyDockWindow()
 								if GlobalTray != nil {
 									GlobalTray.Stop()
@@ -151,6 +157,9 @@ func StartObsWatchdog(silentMode bool) {
 						if GetNotifyOnShutdown() && GlobalTray != nil {
 							GlobalTray.ShowNotification("CHZZK OBS Dock", fmt.Sprintf("OBS Studio가 감지되지 않아 치지직 독 서버를 자동 종료합니다. (%d초 만료)", timeoutSec))
 							time.Sleep(1200 * time.Millisecond)
+						}
+						if OnShutdownCallback != nil {
+							OnShutdownCallback()
 						}
 						os.Exit(0)
 					}

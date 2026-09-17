@@ -261,10 +261,10 @@ func InitDockWindow(port int, version string, showInitially bool) uintptr {
 	}
 	procRegisterClassW.Call(uintptr(unsafe.Pointer(&wc)))
 
-	// 화면 중앙 좌표 계산 (저장된 좌표가 0인 경우)
-	if state.X == 0 && state.Y == 0 {
-		screenW, _, _ := procGetSystemMetrics.Call(SM_CXSCREEN)
-		screenH, _, _ := procGetSystemMetrics.Call(SM_CYSCREEN)
+	// 화면 이탈 방지 및 중앙 좌표 계산 (저장된 좌표가 0이거나 모니터 해제 등으로 화면 밖인 경우)
+	screenW, _, _ := procGetSystemMetrics.Call(SM_CXSCREEN)
+	screenH, _, _ := procGetSystemMetrics.Call(SM_CYSCREEN)
+	if state.X <= 0 || state.Y <= 0 || (screenW > 0 && state.X >= int(screenW)-100) || (screenH > 0 && state.Y >= int(screenH)-100) {
 		if screenW > 0 && screenH > 0 {
 			state.X = (int(screenW) - state.Width) / 2
 			state.Y = (int(screenH) - state.Height) / 2
@@ -306,12 +306,16 @@ func InitDockWindow(port int, version string, showInitially bool) uintptr {
 	chromium := edge.NewChromium()
 	chromium.DataPath = profileDir
 
-	chromium.AdditionalBrowserArgs = []string{
+	dockBrowserArgs := []string{
 		"--disable-features=CalculateNativeWinOcclusion",
 		"--disable-background-timer-throttling",
 		"--disable-backgrounding-occluded-windows",
 		"--disable-renderer-backgrounding",
 	}
+	if !GetEnableGPU() {
+		dockBrowserArgs = append(dockBrowserArgs, "--disable-gpu")
+	}
+	chromium.AdditionalBrowserArgs = dockBrowserArgs
 	activeDockChromium = chromium
 
 	chromium.ProcessFailedCallback = func(sender *edge.ICoreWebView2, args *edge.ICoreWebView2ProcessFailedEventArgs) {

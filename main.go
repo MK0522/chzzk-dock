@@ -1,4 +1,4 @@
-﻿package main
+package main
 
 import (
 	_ "embed"
@@ -37,10 +37,10 @@ var embeddedGuide2 []byte
 var embeddedLauncherScript []byte
 
 // ============================================================
-//  CHZZK OBS Dock Server v0.5.8 (Modular Architecture)
+//  CHZZK OBS Dock Server v0.5.9 (Modular Architecture)
 // ============================================================
 const (
-	APP_VERSION       = "v0.5.8"
+	APP_VERSION       = "v0.5.9"
 	DEFAULT_HTTP_PORT = 8081
 	USER_AGENT        = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 )
@@ -52,11 +52,47 @@ var (
 	webviewProcess      *exec.Cmd
 	webviewWaitCh       chan struct{}
 	webviewLock         sync.Mutex
+	subProcessesLock    sync.Mutex
+	subProcesses        []*exec.Cmd
 	trayInstance        *core.PureWinTrayIcon
 	httpClient          = &http.Client{Timeout: 10 * time.Second}
 	chzzkApiBaseURL     = "https://api.chzzk.naver.com"
 	naverGameApiBaseURL = "https://comm-api.game.naver.com"
 )
+
+// trackSubProcess: 서브프로세스 생명주기 추적 및 정상 종료 시 핸들 자동 정리
+func trackSubProcess(cmd *exec.Cmd) {
+	if cmd == nil || cmd.Process == nil {
+		return
+	}
+	subProcessesLock.Lock()
+	subProcesses = append(subProcesses, cmd)
+	subProcessesLock.Unlock()
+
+	go func() {
+		_ = cmd.Wait()
+		subProcessesLock.Lock()
+		defer subProcessesLock.Unlock()
+		for i, c := range subProcesses {
+			if c == cmd {
+				subProcesses = append(subProcesses[:i], subProcesses[i+1:]...)
+				break
+			}
+		}
+	}()
+}
+
+// killAllSubProcesses: 독 서버 종료 시 모든 자식 프로세스 일괄 안전 종료
+func killAllSubProcesses() {
+	subProcessesLock.Lock()
+	defer subProcessesLock.Unlock()
+	for _, cmd := range subProcesses {
+		if cmd != nil && cmd.Process != nil {
+			_ = cmd.Process.Kill()
+		}
+	}
+	subProcesses = nil
+}
 
 var apiGetPaths = map[string]bool{
 	"/config":                 true,
@@ -66,11 +102,15 @@ var apiGetPaths = map[string]bool{
 	"/open-browser":           true,
 	"/obs-script-status":      true,
 	"/remote-webview":         true,
+	"/chat-webview":           true,
 	"/watchdog-timeout":       true,
 	"/port-status":            true,
 	"/startup-popup-status":   true,
 	"/shutdown-notify-status": true,
 	"/remote-tester-status":   true,
+	"/gpu-status":             true,
+	"/external-browser-status": true,
+	"/save-external-browser":   true,
 }
 
 func sendBytes(w http.ResponseWriter, body []byte, status int, contentType string) {
@@ -429,6 +469,7 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 				}
 				procAllowSetForegroundWindow.Call(uintptr(cmd.Process.Pid))
 				webviewProcess = cmd
+				trackSubProcess(cmd)
 				waitCh := make(chan struct{})
 				webviewWaitCh = waitCh
 				go func(c *exec.Cmd, ch chan struct{}) {
@@ -446,18 +487,38 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 			}
 
 			if path == "/login-wait" {
-				core.LogInfo("[HTTP] /login-wait 대기 시작")
 				webviewLock.Lock()
 				waitCh := webviewWaitCh
+				webviewWaitCh = nil // 단 1회만 소비하여 중복 대기 및 성공 로그 중복 출력 원천 차단
 				webviewLock.Unlock()
 
-				if waitCh != nil {
-					select {
-					case <-waitCh:
-						core.LogInfo("[HTTP] /login-wait: 로그인 프로세스 종료 감지")
-					case <-time.After(180 * time.Second):
-						core.LogWarn("[HTTP] /login-wait: 180초 대기 타임아웃")
+				if waitCh == nil {
+					// 이미 종료되어 소비되었거나 대기 중인 세션이 없음: 조용히 현재 캐시/설정 상태만 반환
+					core.InvalidateConfigCache()
+					cfg := core.LoadConfig()
+					if cfg.NidAut != "" && cfg.NidSes != "" {
+						sendJSON(w, map[string]interface{}{
+							"status": "completed",
+							"config": map[string]string{
+								"nid_aut": "••••••••••••••••••••••••••••••••",
+								"nid_ses": "••••••••••••••••••••••••••••••••",
+							},
+						}, http.StatusOK)
+					} else {
+						sendJSON(w, map[string]interface{}{
+							"status":  "closed",
+							"message": "로그인 창이 열려있지 않습니다.",
+						}, http.StatusOK)
 					}
+					return
+				}
+
+				core.LogInfo("[HTTP] /login-wait 대기 시작")
+				select {
+				case <-waitCh:
+					core.LogInfo("[HTTP] /login-wait: 로그인 프로세스 종료 감지")
+				case <-time.After(180 * time.Second):
+					core.LogWarn("[HTTP] /login-wait: 180초 대기 타임아웃")
 				}
 
 				core.InvalidateConfigCache()
@@ -526,9 +587,43 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 				procAllowSetForegroundWindow.Call(uintptr(cmd.Process.Pid))
+				trackSubProcess(cmd)
 				sendJSON(w, map[string]interface{}{
 					"status":  "started",
 					"message": "치지직 리모컨 창이 열렸습니다.",
+				}, http.StatusOK)
+				return
+			}
+
+			if path == "/chat-webview" {
+				channelId := r.URL.Query().Get("channelId")
+				exePath, err := os.Executable()
+				if err != nil {
+					core.LogError("[HTTP] /chat-webview executable lookup failed: %v", err)
+					sendJSON(w, map[string]interface{}{
+						"status":  "error",
+						"message": "실행 파일 경로를 찾을 수 없습니다.",
+					}, http.StatusInternalServerError)
+					return
+				}
+				args := []string{"--chat"}
+				if channelId != "" {
+					args = append(args, channelId)
+				}
+				cmd := exec.Command(exePath, args...)
+				if err := cmd.Start(); err != nil {
+					core.LogError("[HTTP] /chat-webview start failed: %v", err)
+					sendJSON(w, map[string]interface{}{
+						"status":  "error",
+						"message": "채팅 창을 시작할 수 없습니다.",
+					}, http.StatusInternalServerError)
+					return
+				}
+				procAllowSetForegroundWindow.Call(uintptr(cmd.Process.Pid))
+				trackSubProcess(cmd)
+				sendJSON(w, map[string]interface{}{
+					"status":  "started",
+					"message": "치지직 채팅 창이 열렸습니다.",
 				}, http.StatusOK)
 				return
 			}
@@ -574,6 +669,23 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 				sendJSON(w, map[string]interface{}{
 					"code":     200,
 					"unlocked": core.GetRemoteTesterUnlocked(),
+				}, http.StatusOK)
+				return
+			}
+
+			if path == "/gpu-status" {
+				sendJSON(w, map[string]interface{}{
+					"code":       200,
+					"enable_gpu": core.GetEnableGPU(),
+				}, http.StatusOK)
+				return
+			}
+
+			if path == "/external-browser-status" {
+				sendJSON(w, map[string]interface{}{
+					"code":                   200,
+					"external_browser_guard": core.GetExternalBrowserGuard(),
+					"browser_name":           core.GetDefaultBrowserName(),
 				}, http.StatusOK)
 				return
 			}
@@ -711,6 +823,7 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 				sendJSON(w, map[string]interface{}{"code": 400, "message": "더미 마스킹 값이 아닌 실제 쿠키 값을 입력하세요."}, http.StatusBadRequest)
 				return
 			}
+			bodyMap["auth_method"] = "manual"
 			saved := core.SaveConfig(bodyMap)
 			_ = saved
 			sendJSON(w, map[string]interface{}{
@@ -792,6 +905,60 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 				"code":               200,
 				"notify_on_shutdown": reqData.NotifyOnShutdown,
 				"message":            "자동 종료 알림 설정이 저장되었습니다.",
+			}, http.StatusOK)
+			return
+		}
+
+		if path == "/save-gpu" {
+			var reqData struct {
+				EnableGPU bool `json:"enable_gpu"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&reqData); err != nil {
+				sendJSON(w, map[string]interface{}{
+					"code":    400,
+					"message": "잘못된 요청 형식입니다.",
+				}, http.StatusBadRequest)
+				return
+			}
+			if err := core.SetEnableGPUSetting(reqData.EnableGPU); err != nil {
+				sendJSON(w, map[string]interface{}{
+					"code":    500,
+					"message": "설정 저장에 실패했습니다.",
+				}, http.StatusInternalServerError)
+				return
+			}
+			core.LogInfo("[Settings] 웹뷰 GPU 하드웨어 가속 설정이 %v(으)로 저장되었습니다.", reqData.EnableGPU)
+			sendJSON(w, map[string]interface{}{
+				"code":       200,
+				"enable_gpu": reqData.EnableGPU,
+				"message":    "웹뷰 GPU 가속 설정이 저장되었습니다.",
+			}, http.StatusOK)
+			return
+		}
+
+		if path == "/save-external-browser" {
+			var reqData struct {
+				ExternalBrowserGuard bool `json:"external_browser_guard"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&reqData); err != nil {
+				sendJSON(w, map[string]interface{}{
+					"code":    400,
+					"message": "잘못된 요청 형식입니다.",
+				}, http.StatusBadRequest)
+				return
+			}
+			if err := core.SetExternalBrowserGuardSetting(reqData.ExternalBrowserGuard); err != nil {
+				sendJSON(w, map[string]interface{}{
+					"code":    500,
+					"message": "설정 저장에 실패했습니다.",
+				}, http.StatusInternalServerError)
+				return
+			}
+			core.LogInfo("[Settings] 외부 링크 브라우저 열기 가드 설정이 %v(으)로 저장되었습니다.", reqData.ExternalBrowserGuard)
+			sendJSON(w, map[string]interface{}{
+				"code":                   200,
+				"external_browser_guard": reqData.ExternalBrowserGuard,
+				"message":                "외부 링크 브라우저 열기 설정이 저장되었습니다.",
 			}, http.StatusOK)
 			return
 		}
@@ -1030,6 +1197,7 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 //  시스템 트레이 및 앱 생명주기 관리
 // ============================================================
 func exitApp() {
+	killAllSubProcesses()
 	core.DestroyDockWindow()
 	if trayInstance != nil {
 		trayInstance.Stop()
@@ -1142,6 +1310,23 @@ func runTray(silentMode bool) {
 						statusStr = "비활성화 (트레이 시작)"
 					}
 					trayInstance.ShowNotification("CHZZK OBS Dock", fmt.Sprintf("시작 시 독 팝업창 자동 열기가 %s되었습니다.", statusStr))
+				}
+			},
+		},
+		{
+			Label: "웹뷰 GPU 하드웨어 가속",
+			CheckFn: func() bool {
+				return core.GetEnableGPU()
+			},
+			Callback: func() {
+				newVal := !core.GetEnableGPU()
+				_ = core.SetEnableGPUSetting(newVal)
+				if trayInstance != nil {
+					statusStr := "활성화"
+					if !newVal {
+						statusStr = "비활성화 (CPU 렌더링)"
+					}
+					trayInstance.ShowNotification("CHZZK OBS Dock", fmt.Sprintf("웹뷰 GPU 가속이 %s되었습니다. (창을 다시 열 때 적용)", statusStr))
 				}
 			},
 		},
@@ -1300,6 +1485,16 @@ func main() {
 		os.Exit(0)
 	}
 
+	// --chat 서브커맨드 감지 시 치지직 실시간 채팅창 웹뷰 실행
+	if len(os.Args) > 1 && (os.Args[1] == "--chat" || os.Args[1] == "-c") {
+		channelId := ""
+		if len(os.Args) > 2 {
+			channelId = strings.TrimSpace(os.Args[2])
+		}
+		core.RunChatWebview(channelId)
+		os.Exit(0)
+	}
+
 	// --install-script 서브커맨드 감지 시 (UAC 관리자 권한 자식 프로세스 모드)
 	if len(os.Args) > 1 && os.Args[1] == "--install-script" {
 		targetDir := ""
@@ -1365,6 +1560,7 @@ func main() {
 	}()
 
 	// [WATCHDOG] OBS 프로세스 감시 및 자동 자폭 활성화 (설정 기반, 기본 1분 유예 시간)
+	core.OnShutdownCallback = killAllSubProcesses
 	enableWatchdog := true
 	for _, arg := range os.Args[1:] {
 		if arg == "--no-watchdog" || arg == "--standalone" {

@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"syscall"
 	"time"
 	"unsafe"
@@ -32,21 +33,17 @@ type RemoteWindowState struct {
 }
 
 var (
-	procGetWindowRect            = user32.NewProc("GetWindowRect")
-	procGetClientRect            = user32.NewProc("GetClientRect")
-	procFindWindowW              = user32.NewProc("FindWindowW")
-	procGetSystemMetrics         = user32.NewProc("GetSystemMetrics")
-	procBringWindowToTop         = user32.NewProc("BringWindowToTop")
-	procGetWindowThreadProcessId = user32.NewProc("GetWindowThreadProcessId")
-	procAttachThreadInput        = user32.NewProc("AttachThreadInput")
-	procKeybdEvent               = user32.NewProc("keybd_event")
-	procGetCurrentThreadId       = kernel32.NewProc("GetCurrentThreadId")
-	procReleaseCapture           = user32.NewProc("ReleaseCapture")
-	procIsZoomed                 = user32.NewProc("IsZoomed")
-	procAdjustWindowRectEx       = user32.NewProc("AdjustWindowRectEx")
-	procGetSystemMenu            = user32.NewProc("GetSystemMenu")
-	procCheckMenuItem            = user32.NewProc("CheckMenuItem")
-	procSetWindowTextW           = user32.NewProc("SetWindowTextW")
+	procGetWindowRect      = user32.NewProc("GetWindowRect")
+	procGetClientRect      = user32.NewProc("GetClientRect")
+	procFindWindowW        = user32.NewProc("FindWindowW")
+	procGetSystemMetrics   = user32.NewProc("GetSystemMetrics")
+	procBringWindowToTop   = user32.NewProc("BringWindowToTop")
+	procReleaseCapture     = user32.NewProc("ReleaseCapture")
+	procIsZoomed           = user32.NewProc("IsZoomed")
+	procAdjustWindowRectEx = user32.NewProc("AdjustWindowRectEx")
+	procGetSystemMenu      = user32.NewProc("GetSystemMenu")
+	procCheckMenuItem      = user32.NewProc("CheckMenuItem")
+	procSetWindowTextW     = user32.NewProc("SetWindowTextW")
 
 	dwmapiDLL                        = syscall.NewLazyDLL("dwmapi.dll")
 	procDwmSetWindowAttribute        = dwmapiDLL.NewProc("DwmSetWindowAttribute")
@@ -196,7 +193,7 @@ func updateSystemMenuTopmost(hwnd uintptr, topmost bool) {
 	}
 }
 
-// ForceForegroundWindow: Windows의 포그라운드 락을 우회하여 창을 최상단으로 강제 활성화
+// ForceForegroundWindow: 표준 Win32 API로 창을 안전하게 화면 전면으로 활성화
 func ForceForegroundWindow(hwnd uintptr, topmost bool) {
 	if hwnd == 0 {
 		return
@@ -205,24 +202,7 @@ func ForceForegroundWindow(hwnd uintptr, topmost bool) {
 	// 1. 최소화되어 있다면 복원 (SW_RESTORE = 9), 아니면 활성화 표시 (SW_SHOW = 5)
 	procShowWindow.Call(hwnd, 9)
 
-	// 2. 현재 포그라운드 창 및 스레드 ID 확인
-	fgHwnd, _, _ := procGetForegroundWindow.Call()
-	curThreadId, _, _ := procGetCurrentThreadId.Call()
-	var fgThreadId uintptr
-	if fgHwnd != 0 {
-		fgThreadId, _, _ = procGetWindowThreadProcessId.Call(fgHwnd, 0)
-	}
-
-	// 3. 포그라운드 락 해제를 위한 AttachThreadInput 연결
-	if fgThreadId != 0 && fgThreadId != curThreadId {
-		procAttachThreadInput.Call(fgThreadId, curThreadId, 1) // TRUE
-	}
-
-	// 4. Alt 키 탭 (Windows 전역 포그라운드 전환 잠금 해제 트리거)
-	procKeybdEvent.Call(0x12, 0, 0, 0)      // VK_MENU down
-	procKeybdEvent.Call(0x12, 0, 0x0002, 0) // VK_MENU up
-
-	// 5. Z-order 조정 및 최상단 설정
+	// 2. Z-order 조정 및 최상단 설정
 	targetZ := HWND_NOTOPMOST_VAL
 	if topmost {
 		targetZ = HWND_TOPMOST_VAL
@@ -230,11 +210,6 @@ func ForceForegroundWindow(hwnd uintptr, topmost bool) {
 	procSetWindowPos.Call(hwnd, targetZ, 0, 0, 0, 0, SWP_NOMOVE_VAL|SWP_NOSIZE_VAL|0x0040)
 	procBringWindowToTop.Call(hwnd)
 	procSetForegroundWindow.Call(hwnd)
-
-	// 6. 스레드 입력 분리
-	if fgThreadId != 0 && fgThreadId != curThreadId {
-		procAttachThreadInput.Call(fgThreadId, curThreadId, 0) // FALSE
-	}
 }
 
 func setWindowTopmost(hwnd uintptr, topmost bool) {
@@ -326,11 +301,10 @@ const remoteOverlayScript = `
   window.__chzzkRemoteOverlayInjected = true;
 
   function initOverlay() {
-    if (document.getElementById('chzzk-floating-pin-btn')) return;
+    if (document.getElementById('chzzk-floating-toolbar')) return;
 
-    var btn = document.createElement('button');
-    btn.id = 'chzzk-floating-pin-btn';
-    btn.title = '항상 위에 고정 (드래그하여 위치 이동)';
+    var bar = document.createElement('div');
+    bar.id = 'chzzk-floating-toolbar';
 
     // 이전 저장 위치 복원 (localStorage)
     var savedPos = null;
@@ -343,69 +317,85 @@ const remoteOverlayScript = `
     var initialLeft = (savedPos && typeof savedPos.left === 'number') ? savedPos.left + 'px' : '';
     var initialRight = (!savedPos || typeof savedPos.left !== 'number') ? '14px' : '';
 
-    btn.style.cssText = [
+    bar.style.cssText = [
       'position: fixed !important',
       'top: ' + initialTop + ' !important',
       (initialLeft ? 'left: ' + initialLeft + ' !important' : 'right: ' + initialRight + ' !important'),
-      'width: 28px !important',
-      'height: 28px !important',
-      'border-radius: 7px !important',
-      'border: 1.5px solid #334155 !important',
-      'background: #161F2E !important',
-      'color: #94A3B8 !important',
-      'cursor: grab !important',
       'display: flex !important',
+      'gap: 5px !important',
       'align-items: center !important',
-      'justify-content: center !important',
-      'font-size: 13px !important',
-      'padding: 0 !important',
-      'margin: 0 !important',
       'z-index: 9999999 !important',
-      'transition: background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s !important',
-      'box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35) !important',
       'user-select: none !important',
       '-webkit-user-select: none !important',
       'touch-action: none !important'
     ].join(';');
 
-    btn.innerHTML = '📌';
+    function createBtn(id, text, title) {
+      var btn = document.createElement('button');
+      btn.id = id;
+      btn.title = title;
+      btn.innerHTML = text;
+      btn.style.cssText = [
+        'width: 28px !important',
+        'height: 28px !important',
+        'border-radius: 7px !important',
+        'border: 1.5px solid #334155 !important',
+        'background: #161F2E !important',
+        'color: #94A3B8 !important',
+        'cursor: grab !important',
+        'display: flex !important',
+        'align-items: center !important',
+        'justify-content: center !important',
+        'font-size: 13px !important',
+        'padding: 0 !important',
+        'margin: 0 !important',
+        'transition: background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s !important',
+        'box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35) !important'
+      ].join(';');
+
+      btn.onmouseenter = function() {
+        if (!btn.dataset.active && !isDragging) {
+          btn.style.borderColor = '#475569';
+          btn.style.background = '#1E293B';
+          btn.style.color = '#F1F5F9';
+        }
+      };
+      btn.onmouseleave = function() {
+        if (!btn.dataset.active && !isDragging) {
+          btn.style.borderColor = '#334155';
+          btn.style.background = '#161F2E';
+          btn.style.color = '#94A3B8';
+        }
+      };
+      return btn;
+    }
+
+    var reloadBtn = createBtn('chzzk-floating-reload-btn', '🔄', '새로고침 (드래그하여 위치 이동)');
+    var pinBtn = createBtn('chzzk-floating-pin-btn', '📌', '항상 위에 고정 (드래그하여 위치 이동)');
+
+    bar.appendChild(reloadBtn);
+    bar.appendChild(pinBtn);
 
     var isDragging = false;
     var hasMoved = false;
     var startX = 0, startY = 0;
     var origLeft = 0, origTop = 0;
 
-    btn.onmouseenter = function() {
-      if (!btn.dataset.active && !isDragging) {
-        btn.style.borderColor = '#475569';
-        btn.style.background = '#1E293B';
-        btn.style.color = '#F1F5F9';
-      }
-    };
-    btn.onmouseleave = function() {
-      if (!btn.dataset.active && !isDragging) {
-        btn.style.borderColor = '#334155';
-        btn.style.background = '#161F2E';
-        btn.style.color = '#94A3B8';
-      }
-    };
-
-    // --- 드래그 이동 핸들러 ---
-    btn.addEventListener('mousedown', function(e) {
+    // --- 툴바 드래그 이동 핸들러 ---
+    bar.addEventListener('mousedown', function(e) {
       if (e.button !== 0) return;
       isDragging = true;
       hasMoved = false;
       startX = e.clientX;
       startY = e.clientY;
 
-      var rect = btn.getBoundingClientRect();
+      var rect = bar.getBoundingClientRect();
       origLeft = rect.left;
       origTop = rect.top;
 
-      btn.style.cursor = 'grabbing';
-      btn.style.transition = 'none';
+      reloadBtn.style.cursor = 'grabbing';
+      pinBtn.style.cursor = 'grabbing';
       e.preventDefault();
-      e.stopPropagation();
     });
 
     document.addEventListener('mousemove', function(e) {
@@ -420,25 +410,25 @@ const remoteOverlayScript = `
       var newLeft = origLeft + dx;
       var newTop = origTop + dy;
 
-      var maxLeft = window.innerWidth - btn.offsetWidth;
-      var maxTop = window.innerHeight - btn.offsetHeight;
+      var maxLeft = window.innerWidth - bar.offsetWidth;
+      var maxTop = window.innerHeight - bar.offsetHeight;
       newLeft = Math.max(0, Math.min(maxLeft, newLeft));
       newTop = Math.max(0, Math.min(maxTop, newTop));
 
-      btn.style.left = newLeft + 'px';
-      btn.style.top = newTop + 'px';
-      btn.style.right = 'auto';
+      bar.style.left = newLeft + 'px';
+      bar.style.top = newTop + 'px';
+      bar.style.right = 'auto';
     });
 
     document.addEventListener('mouseup', function(e) {
       if (!isDragging) return;
       isDragging = false;
-      btn.style.cursor = 'grab';
-      btn.style.transition = 'background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s';
+      reloadBtn.style.cursor = 'grab';
+      pinBtn.style.cursor = 'grab';
 
       if (hasMoved) {
         try {
-          var rect = btn.getBoundingClientRect();
+          var rect = bar.getBoundingClientRect();
           localStorage.setItem('chzzk_floating_pin_pos', JSON.stringify({
             left: rect.left,
             top: rect.top
@@ -447,7 +437,18 @@ const remoteOverlayScript = `
       }
     });
 
-    btn.addEventListener('click', function(e) {
+    // 개별 버튼 클릭 핸들러 (드래그 이동 시 실행 방지)
+    reloadBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      e.preventDefault();
+      if (hasMoved) {
+        hasMoved = false;
+        return;
+      }
+      location.reload();
+    });
+
+    pinBtn.addEventListener('click', function(e) {
       e.stopPropagation();
       e.preventDefault();
       if (hasMoved) {
@@ -459,7 +460,7 @@ const remoteOverlayScript = `
       }
     });
 
-    document.documentElement.appendChild(btn);
+    document.documentElement.appendChild(bar);
 
     // Topmost UI Synchronizer
     window.__updateTopmostUI = function(isTopmost) {
@@ -486,6 +487,99 @@ const remoteOverlayScript = `
       window.chrome.webview.postMessage('get-topmost-state');
     }
   }
+
+  // [외부 링크 가드] Toast UI 생성 및 표시
+  window.__showToast = function(msg) {
+    var toast = document.getElementById('chzzk-dock-toast');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'chzzk-dock-toast';
+      toast.style.cssText = [
+        'position: fixed !important',
+        'bottom: 18px !important',
+        'left: 50% !important',
+        'transform: translateX(-50%) translateY(20px) !important',
+        'background: rgba(15, 23, 42, 0.95) !important',
+        'border: 1.5px solid #00FFA3 !important',
+        'color: #F8FAFC !important',
+        'padding: 8px 16px !important',
+        'border-radius: 8px !important',
+        'font-size: 12px !important',
+        'font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important',
+        'font-weight: 600 !important',
+        'box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6) !important',
+        'z-index: 10000000 !important',
+        'pointer-events: none !important',
+        'transition: opacity 0.25s ease, transform 0.25s ease !important',
+        'opacity: 0 !important',
+        'white-space: nowrap !important'
+      ].join(';');
+      document.documentElement.appendChild(toast);
+    }
+    toast.textContent = msg;
+    toast.style.opacity = '1';
+    toast.style.transform = 'translateX(-50%) translateY(0)';
+    if (window.__toastTimer) clearTimeout(window.__toastTimer);
+    window.__toastTimer = setTimeout(function() {
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateX(-50%) translateY(20px)';
+    }, 2500);
+  };
+
+  // [외부 링크 가드] 네이버 외 외부 도메인 판별
+  function isInternalHost(hostname) {
+    if (!hostname) return true;
+    var h = hostname.toLowerCase();
+    return h === 'naver.com' || h.endsWith('.naver.com');
+  }
+
+  // [외부 링크 가드] <a> 클릭 이벤트 캡처 가로채기
+  document.addEventListener('click', function(e) {
+    var target = e.target;
+    while (target && target.tagName !== 'A') {
+      target = target.parentElement;
+    }
+    if (!target || !target.href) return;
+
+    var url;
+    try {
+      url = new URL(target.href);
+    } catch(err) {
+      return;
+    }
+
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
+
+    var isBlank = (target.target === '_blank');
+    var isExternal = !isInternalHost(url.hostname);
+
+    if (isBlank || isExternal) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (window.chrome && window.chrome.webview) {
+        window.chrome.webview.postMessage('open-external:' + target.href);
+      }
+    }
+  }, true);
+
+  // [외부 링크 가드] window.open 가로채기
+  var originalWindowOpen = window.open;
+  window.open = function(url, target, features) {
+    if (url) {
+      try {
+        var parsed = new URL(url, location.href);
+        if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+          if (!isInternalHost(parsed.hostname) || target === '_blank') {
+            if (window.chrome && window.chrome.webview) {
+              window.chrome.webview.postMessage('open-external:' + parsed.href);
+              return null;
+            }
+          }
+        }
+      } catch(e) {}
+    }
+    return originalWindowOpen.apply(this, arguments);
+  };
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initOverlay);
@@ -551,10 +645,10 @@ func RunRemoteWebview(channelId string) {
 	}
 	procRegisterClassW.Call(uintptr(unsafe.Pointer(&wc)))
 
-	// 화면 중앙 좌표 계산 (저장된 좌표가 0인 경우)
-	if state.X == 0 && state.Y == 0 {
-		screenW, _, _ := procGetSystemMetrics.Call(SM_CXSCREEN)
-		screenH, _, _ := procGetSystemMetrics.Call(SM_CYSCREEN)
+	// 화면 이탈 방지 및 중앙 좌표 계산 (저장된 좌표가 0이거나 모니터 해제 등으로 화면 밖인 경우)
+	screenW, _, _ := procGetSystemMetrics.Call(SM_CXSCREEN)
+	screenH, _, _ := procGetSystemMetrics.Call(SM_CYSCREEN)
+	if state.X <= 0 || state.Y <= 0 || (screenW > 0 && state.X >= int(screenW)-100) || (screenH > 0 && state.Y >= int(screenH)-100) {
 		if screenW > 0 && screenH > 0 {
 			state.X = (int(screenW) - state.Width) / 2
 			state.Y = (int(screenH) - state.Height) / 2
@@ -619,13 +713,18 @@ func RunRemoteWebview(channelId string) {
 	chromium := edge.NewChromium()
 	chromium.DataPath = profileDir
 
-	// [렌더링 가속 및 백그라운드 스로틀링 방지 인자]
-	chromium.AdditionalBrowserArgs = []string{
+	// [렌더링 가속, 스로틀링 방지 및 SPA 번들 디스크 캐싱 최적화]
+	remoteBrowserArgs := []string{
 		"--disable-features=CalculateNativeWinOcclusion",
 		"--disable-background-timer-throttling",
 		"--disable-backgrounding-occluded-windows",
 		"--disable-renderer-backgrounding",
+		"--disk-cache-size=268435456", // 256MB 캐시 확보로 SPA 번들/폰트/JS 재다운로드 방지
 	}
+	if !GetEnableGPU() {
+		remoteBrowserArgs = append(remoteBrowserArgs, "--disable-gpu")
+	}
+	chromium.AdditionalBrowserArgs = remoteBrowserArgs
 	activeRemoteChromium = chromium
 
 	// 프로세스 실패 감지 콜백
@@ -671,23 +770,37 @@ func RunRemoteWebview(channelId string) {
 	// 상단 우측 플로팅 핀 버튼 및 Ctrl+T 단축키 주입 (웹 본문 DOM/CSS 왜곡 0%)
 	chromium.Init(remoteOverlayScript)
 
-	// WebMessage 이벤트 핸들러 (항상 위 토글 및 상태 동기화)
+	// WebMessage 이벤트 핸들러 (항상 위 토글, 상태 동기화, 외부 링크 브라우저 핸드오프)
 	chromium.MessageCallback = func(message string, sender *edge.ICoreWebView2, args *edge.ICoreWebView2WebMessageReceivedEventArgs) {
-		switch message {
-		case "toggle-topmost":
+		switch {
+		case message == "toggle-topmost":
 			toggleRemoteTopmost(hwnd)
 
-		case "get-topmost-state":
+		case message == "get-topmost-state":
 			chromium.Eval(fmt.Sprintf("if (window.__updateTopmostUI) window.__updateTopmostUI(%t);", isRemoteTopmost))
+
+		case strings.HasPrefix(message, "open-external:"):
+			targetURL := strings.TrimPrefix(message, "open-external:")
+			if GetExternalBrowserGuard() {
+				browserName := GetDefaultBrowserName()
+				toastMsg := fmt.Sprintf("🔗 외부 링크를 %s(으)로 엽니다.", browserName)
+				escapedMsg, _ := json.Marshal(toastMsg)
+				chromium.Eval(fmt.Sprintf("if (window.__showToast) window.__showToast(%s);", string(escapedMsg)))
+				OpenBrowser(targetURL)
+			} else {
+				chromium.Navigate(targetURL)
+			}
 		}
 	}
 
-	// [쿠키 사전 주입: 0초 무로그인 인증 (RFC 6265 루트 도메인 최적화)]
-	cm, err := chromium.GetCookieManager()
-	if err == nil && cm != nil {
-		cfg := LoadConfig()
-		if cfg.NidAut != "" && cfg.NidSes != "" {
-			LogInfo("[Remote Webview] 저장된 세션 쿠키를 WebView2에 자동 주입합니다 (무로그인 0초 로드)")
+	// [조건부 쿠키 1회 주입]
+	// 1) 웹뷰 로그인을 거친 경우: webview_profile에 이미 치지직/네이버 세션이 있으므로 주입 건너뜀 (auth_method == "webview")
+	// 2) 설정창에서 수동 입력한 경우: auth_method == "manual" 감지 시에만 1회 주입 후 webview로 승격하여 이후 덮어쓰기 방지
+	cfg := LoadConfig()
+	if cfg.AuthMethod == "manual" && cfg.NidAut != "" && cfg.NidSes != "" {
+		cm, err := chromium.GetCookieManager()
+		if err == nil && cm != nil {
+			LogInfo("[Remote Webview] 수동 입력된 네이버 계정 감지: WebView2에 1회 쿠키 주입을 수행합니다.")
 			domains := []string{
 				".naver.com",
 				".chzzk.naver.com",
@@ -706,9 +819,13 @@ func RunRemoteWebview(channelId string) {
 					cookie.Release()
 				}
 			}
-		} else {
-			LogWarn("[Remote Webview] 저장된 네이버 로그인 쿠키(NID_AUT, NID_SES)가 없어 쿠키 주입을 건너뜁니다.")
+			// 1회 주입 완료 후 세션이 webview_profile에 영구 저장되므로 다음 실행부터는 주입 건너뜀
+			SaveConfig(map[string]interface{}{
+				"auth_method": "webview",
+			})
 		}
+	} else {
+		LogInfo("[Remote Webview] 기존 웹뷰 로그인 세션이 유지되어 있어 수동 쿠키 주입을 건너뜁니다.")
 	}
 
 	// 창 표시 및 강제 포그라운드 활성화

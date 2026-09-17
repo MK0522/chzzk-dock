@@ -51,8 +51,9 @@ type CREDENTIALW struct {
 
 // Config: 네이버 세션 쿠키 자격 증명 모델
 type Config struct {
-	NidAut string `json:"nid_aut"`
-	NidSes string `json:"nid_ses"`
+	NidAut     string `json:"nid_aut"`
+	NidSes     string `json:"nid_ses"`
+	AuthMethod string `json:"auth_method,omitempty"`
 }
 
 var (
@@ -176,14 +177,14 @@ func GetTargetName() string {
 // LoadConfig: Windows Credential Manager에서 네이버 세션 쿠키(NID_AUT, NID_SES) 로드 (메모리 캐시 지원)
 func LoadConfig() Config {
 	cachedConfigMu.RLock()
-	if cachedConfig != nil && cachedConfig.NidAut != "" && cachedConfig.NidSes != "" {
+	if cachedConfig != nil {
 		cfg := *cachedConfig
 		cachedConfigMu.RUnlock()
 		return cfg
 	}
 	cachedConfigMu.RUnlock()
 
-	cfg := Config{NidAut: "", NidSes: ""}
+	cfg := Config{NidAut: "", NidSes: "", AuthMethod: ""}
 	stored := CredRead(GetTargetName())
 	if stored != nil {
 		if aut, ok := stored["nid_aut"].(string); ok {
@@ -191,6 +192,9 @@ func LoadConfig() Config {
 		}
 		if ses, ok := stored["nid_ses"].(string); ok {
 			cfg.NidSes = strings.TrimSpace(ses)
+		}
+		if am, ok := stored["auth_method"].(string); ok {
+			cfg.AuthMethod = strings.TrimSpace(am)
 		}
 	}
 
@@ -212,11 +216,15 @@ func SaveConfig(newData map[string]interface{}) Config {
 		if ses, ok := newData["nid_ses"].(string); ok {
 			cfg.NidSes = strings.TrimSpace(ses)
 		}
+		if am, ok := newData["auth_method"].(string); ok {
+			cfg.AuthMethod = strings.TrimSpace(am)
+		}
 	}
 
 	cleanCfg := Config{
-		NidAut: strings.TrimSpace(cfg.NidAut),
-		NidSes: strings.TrimSpace(cfg.NidSes),
+		NidAut:     strings.TrimSpace(cfg.NidAut),
+		NidSes:     strings.TrimSpace(cfg.NidSes),
+		AuthMethod: strings.TrimSpace(cfg.AuthMethod),
 	}
 
 	target := GetTargetName()
@@ -224,6 +232,9 @@ func SaveConfig(newData map[string]interface{}) Config {
 		dataMap := map[string]interface{}{
 			"nid_aut": cleanCfg.NidAut,
 			"nid_ses": cleanCfg.NidSes,
+		}
+		if cleanCfg.AuthMethod != "" {
+			dataMap["auth_method"] = cleanCfg.AuthMethod
 		}
 		CredWrite(target, dataMap)
 	} else {

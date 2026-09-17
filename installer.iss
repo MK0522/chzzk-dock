@@ -1,9 +1,9 @@
-﻿; ==============================================================================
+; ==============================================================================
 ;  CHZZK OBS Dock - Inno Setup Installer Script
 ; ==============================================================================
 
 #define MyAppName "CHZZK OBS Dock"
-#define MyAppVersion "0.5.8"
+#define MyAppVersion "0.5.9"
 #define MyAppPublisher "CHZZK OBS Dock"
 #define MyAppURL "https://github.com/Dingteus/chzzk-dock"
 #define MyAppExeName "chzzk-dock.exe"

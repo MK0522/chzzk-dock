@@ -388,18 +388,22 @@
         </span>
       </div>
       <div class="flex items-center gap-1.5 flex-shrink-0">
-        <button id="btn-settings" onclick="toggleSettings()" class="flex items-center gap-1 px-2 py-1 rounded-md bg-chzzk-card border border-chzzk-border hover:border-chzzk-green/50 text-[11px] text-slate-300 hover:text-chzzk-green transition-all flex-shrink-0" title="독 환경 및 로그인 설정">
+        <button id="header-btn-urls" onclick="toggleUrlsPanel()" class="flex items-center gap-1 px-2 py-1 rounded-md bg-chzzk-card border border-chzzk-border hover:border-[#00FFA3]/50 text-[11px] text-slate-300 hover:text-[#00FFA3] transition-all flex-shrink-0 cursor-pointer" title="알림 URL & 방송 정보 열기">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+          <span>알림 URL</span>
+        </button>
+        <button id="btn-settings" onclick="toggleSettings()" class="flex items-center gap-1 px-2 py-1 rounded-md bg-chzzk-card border border-chzzk-border hover:border-chzzk-green/50 text-[11px] text-slate-300 hover:text-chzzk-green transition-all flex-shrink-0 cursor-pointer" title="독 환경 및 로그인 설정">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1 2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83-2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
           <span id="header-status-text" class="font-medium text-[#FF4D6A]">설정</span>
         </button>
       </div>
     </div>
 
-    <!-- ===== 빠른 액션 패널 버튼 3종 (알림 URL / 후원·채팅 / 리모컨) ===== -->
+    <!-- ===== 빠른 액션 패널 버튼 3종 (채팅창 / 후원·채팅 / 리모컨) ===== -->
     <div class="grid grid-cols-3 gap-1.5 animate-slide-up" style="animation-delay: 0.04s">
-      <button id="btn-quick-urls" onclick="toggleUrlsPanel()" class="flex items-center justify-center gap-1.5 py-1.5 px-1 rounded-lg bg-[#121721] border border-[#1E2738] hover:border-[#00FFA3]/60 hover:bg-[#00FFA3]/5 text-xs font-bold text-slate-200 hover:text-[#00FFA3] transition-all cursor-pointer shadow-sm group">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400 group-hover:text-[#00FFA3] transition-colors"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-        <span>알림 URL</span>
+      <button id="btn-quick-chat" onclick="openChatWebview()" class="flex items-center justify-center gap-1.5 py-1.5 px-1 rounded-lg bg-[#121721] border border-[#1E2738] hover:border-[#00FFA3]/60 hover:bg-[#00FFA3]/5 text-xs font-bold text-slate-200 hover:text-[#00FFA3] transition-all cursor-pointer shadow-sm group" title="치지직 실시간 채팅창 독립 웹뷰 열기">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400 group-hover:text-[#00FFA3] transition-colors"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+        <span>채팅창</span>
       </button>
 
       <button id="btn-quick-donations" onclick="toggleDonationsPanel()" class="flex items-center justify-center gap-1.5 py-1.5 px-1 rounded-lg bg-[#121721] border border-[#1E2738] hover:border-[#00FFA3]/60 hover:bg-[#00FFA3]/5 text-xs font-bold text-slate-200 hover:text-[#00FFA3] transition-all cursor-pointer shadow-sm group">
@@ -499,118 +503,126 @@
       </div>
 
       <!-- 구분선 -->
-      <div class="border-t border-[#1E2738] pt-2">
-        <!-- 1번째 줄: 3열 벤토 그리드 (다시보기 설정 / 방송 옵션 / 채팅 이용 권한) -->
-        <div class="grid grid-cols-3 gap-2 items-stretch">
-          
-          <!-- 열 1: 다시보기 설정 -->
-          <div class="space-y-1 flex flex-col justify-between">
-            <div class="flex items-center justify-between h-4">
-              <label class="text-xs font-bold text-slate-100 flex items-center gap-1">
-                <span>📺</span> 다시보기
-              </label>
-            </div>
-            <div id="container-replay-radios" class="flex flex-col gap-1 bg-[#121721] p-1.5 rounded-lg border border-[#1E2738] flex-1 justify-between min-h-[96px]">
-              <label class="cursor-pointer select-none flex items-center justify-between px-1.5 py-1 rounded hover:bg-white/5 transition-all text-[11px] text-slate-200 font-medium" title="확인 후 수동 게시">
-                <span class="flex items-center gap-1.5">
-                  <input type="radio" name="replayPublishType" value="MANUAL" class="chzzk-radio" checked />
-                  <span>🖐️</span> <span>확인 후</span>
-                </span>
-                <span id="lock-replay-manual" class="lock-replay-disabled text-[9px] text-amber-400 font-bold ml-1" style="display:none;" title="같이보기 방송 규정으로 선택 불가">🔒</span>
-              </label>
-              <label class="cursor-pointer select-none flex items-center justify-between px-1.5 py-1 rounded hover:bg-white/5 transition-all text-[11px] text-slate-200 font-medium" title="방송 종료 시 자동 게시">
-                <span class="flex items-center gap-1.5">
-                  <input type="radio" name="replayPublishType" value="AUTO" class="chzzk-radio" />
-                  <span>🤖</span> <span>자동게시</span>
-                </span>
-                <span id="lock-replay-auto" class="lock-replay-disabled text-[9px] text-amber-400 font-bold ml-1" style="display:none;" title="같이보기 방송 규정으로 선택 불가">🔒</span>
-              </label>
-              <label class="cursor-pointer select-none flex items-center justify-between px-1.5 py-1 rounded hover:bg-white/5 transition-all text-[11px] text-slate-200 font-medium" title="다시보기 생성 안 함">
-                <span class="flex items-center gap-1.5">
-                  <input type="radio" name="replayPublishType" value="NONE" class="chzzk-radio" />
-                  <span>🚫</span> <span>생성안함</span>
-                </span>
-              </label>
-            </div>
-          </div>
-
-          <!-- 열 2: 방송 옵션 -->
-          <div class="space-y-1 flex flex-col justify-between">
-            <label class="text-xs font-bold text-slate-100 flex items-center gap-1">
-              <span>⚙️</span> 방송 옵션
-            </label>
-            <div class="flex flex-col gap-1 bg-[#121721] p-1.5 rounded-lg border border-[#1E2738] flex-1 justify-between min-h-[96px]">
-              <!-- 연령 제한 -->
-              <label for="toggle-adult" class="cursor-pointer select-none flex items-center justify-between px-2 py-1 rounded bg-[#0B0F15] border border-[#1E2738]/80 hover:border-[#2A374E] transition-all text-[11px] text-slate-200 font-medium" title="연령 제한 (성인 방송)">
-                <span class="flex items-center gap-1.5">
-                  <span>🔞</span> <span>연령제한</span>
-                </span>
-                <input type="checkbox" id="toggle-adult" class="chzzk-checkbox-input" />
-              </label>
-
-              <!-- 클립 허용 -->
-              <label id="label-clip" for="toggle-clip" class="cursor-pointer select-none flex items-center justify-between px-2 py-1 rounded bg-[#0B0F15] border border-[#1E2738]/80 hover:border-[#2A374E] transition-all text-[11px] text-slate-200 font-medium" title="시청자 클립 생성 허용">
-                <span class="flex items-center gap-1.5">
-                  <span>✂️</span> <span>클립허용</span>
-                  <span id="lock-clip" class="text-[9px] text-amber-400 font-bold ml-1" style="display:none;" title="같이보기 규정으로 고정됨">🔒</span>
-                </span>
-                <input type="checkbox" id="toggle-clip" class="chzzk-checkbox-input" checked />
-              </label>
-
-              <!-- 해외 시청 -->
-              <label id="label-overseas" for="toggle-overseas" class="cursor-pointer select-none flex items-center justify-between px-2 py-1 rounded bg-[#0B0F15] border border-[#1E2738]/80 hover:border-[#2A374E] transition-all text-[11px] text-slate-200 font-medium" title="해외 시청 허용 (체크 시 해외 시청 가능, 해제 시 한국 시청자만 시청 가능 - krOnlyViewing)">
-                <span class="flex items-center gap-1.5">
-                  <span>🌐</span> <span>해외시청</span>
-                  <span id="lock-overseas" class="text-[9px] text-amber-400 font-bold ml-1" style="display:none;" title="같이보기 규정으로 고정됨">🔒</span>
-                </span>
-                <input type="checkbox" id="toggle-overseas" class="chzzk-checkbox-input" checked />
-              </label>
-            </div>
-          </div>
-
-          <!-- 열 3: 채팅 이용 권한 -->
-          <div class="space-y-1 flex flex-col justify-between">
-            <label class="text-xs font-bold text-slate-100 flex items-center gap-1">
-              <span>💬</span> 채팅 권한
-            </label>
-            <div class="flex flex-col gap-1 bg-[#121721] p-1.5 rounded-lg border border-[#1E2738] flex-1 justify-between min-h-[96px]">
-              <label class="cursor-pointer select-none flex items-center gap-1.5 px-2 py-1 rounded hover:bg-white/5 transition-all text-[11px] text-slate-200 font-medium">
-                <input type="radio" name="chatAvailableGroup" value="ALL" class="chzzk-radio" checked onchange="onChatGroupChange('ALL')" />
-                <span>모두</span>
-              </label>
-              <label class="cursor-pointer select-none flex items-center gap-1.5 px-2 py-1 rounded hover:bg-white/5 transition-all text-[11px] text-slate-200 font-medium">
-                <input type="radio" name="chatAvailableGroup" value="FOLLOWER" class="chzzk-radio" onchange="onChatGroupChange('FOLLOWER')" />
-                <span>팔로워</span>
-              </label>
-              <label class="cursor-pointer select-none flex items-center gap-1.5 px-2 py-1 rounded hover:bg-white/5 transition-all text-[11px] text-slate-200 font-medium">
-                <input type="radio" name="chatAvailableGroup" value="MANAGER" class="chzzk-radio" onchange="onChatGroupChange('MANAGER')" />
-                <span>운영자</span>
-              </label>
-            </div>
-          </div>
-
+      <!-- 구분선 및 방송 옵션 3-Way 세그먼트 알약 탭 -->
+      <div class="border-t border-[#1E2738] pt-2 space-y-2">
+        <!-- 3-Way Segmented Pill Tab Header -->
+        <div class="flex items-center bg-[#0B0F15] p-0.5 rounded-lg border border-[#1E2738]">
+          <button type="button" id="tab-btn-replay" onclick="switchStreamOptionTab('replay')"
+            class="flex-1 py-1.5 px-1 rounded-md text-[11px] font-bold transition-all flex items-center justify-center gap-1 bg-[#1A2436] text-[#00FFA3] border border-[#00FFA3]/40 shadow-sm cursor-pointer">
+            <span>📺</span> <span>다시보기</span>
+          </button>
+          <button type="button" id="tab-btn-stream" onclick="switchStreamOptionTab('stream')"
+            class="flex-1 py-1.5 px-1 rounded-md text-[11px] font-medium transition-all flex items-center justify-center gap-1 text-slate-400 hover:text-slate-200 cursor-pointer">
+            <span>⚙️</span> <span>방송 옵션</span>
+          </button>
+          <button type="button" id="tab-btn-chat" onclick="switchStreamOptionTab('chat')"
+            class="flex-1 py-1.5 px-1 rounded-md text-[11px] font-medium transition-all flex items-center justify-center gap-1 text-slate-400 hover:text-slate-200 cursor-pointer">
+            <span>💬</span> <span>채팅 권한</span>
+          </button>
         </div>
-      </div>
 
-      <!-- 팔로우 세부 설정 (팔로워 권한 선택 시 노출) -->
-      <div id="follower-options" class="mt-2 pt-2 border-t border-[#1E2738] flex items-center justify-between gap-2" style="display:none;">
-        <div class="flex items-center gap-1.5 flex-1 min-w-0">
-          <label class="text-[11px] text-slate-300 font-medium whitespace-nowrap flex items-center gap-1">
-            <span>🔒</span> 팔로우 시간
-          </label>
-          <select id="min-follower-minute" class="chzzk-select text-[11px] py-1 px-2 flex-1">
-            <option value="0">제한 없음</option>
-            <option value="5">5분 이상</option>
-            <option value="10">10분 이상</option>
-            <option value="30">30분 이상</option>
-            <option value="60">1시간 이상</option>
-          </select>
+        <!-- 탭 1: 다시보기 설정 패널 -->
+        <div id="tab-pane-replay" class="bg-[#121721] p-2 rounded-lg border border-[#1E2738]">
+          <div id="container-replay-radios" class="grid grid-cols-3 gap-1.5">
+            <label class="cursor-pointer select-none flex items-center justify-between px-2 py-1.5 rounded bg-[#0B0F15] border border-[#1E2738] hover:border-[#2A374E] transition-all text-[11px] text-slate-200 font-medium" title="확인 후 수동 게시">
+              <span class="flex items-center gap-1">
+                <span>👀</span> <span>확인 후</span>
+                <span id="lock-replay-manual" class="lock-replay-disabled text-[9px] text-amber-400 font-bold" style="display:none;" title="같이보기 방송 규정으로 선택 불가">🔒</span>
+              </span>
+              <input type="radio" name="replayPublishType" value="MANUAL" class="chzzk-radio" checked />
+            </label>
+            <label class="cursor-pointer select-none flex items-center justify-between px-2 py-1.5 rounded bg-[#0B0F15] border border-[#1E2738] hover:border-[#2A374E] transition-all text-[11px] text-slate-200 font-medium" title="방송 종료 시 자동 게시">
+              <span class="flex items-center gap-1">
+                <span>🤖</span> <span>자동게시</span>
+                <span id="lock-replay-auto" class="lock-replay-disabled text-[9px] text-amber-400 font-bold" style="display:none;" title="같이보기 방송 규정으로 선택 불가">🔒</span>
+              </span>
+              <input type="radio" name="replayPublishType" value="AUTO" class="chzzk-radio" />
+            </label>
+            <label class="cursor-pointer select-none flex items-center justify-between px-2 py-1.5 rounded bg-[#0B0F15] border border-[#1E2738] hover:border-[#2A374E] transition-all text-[11px] text-slate-200 font-medium" title="다시보기 생성 안 함">
+              <span class="flex items-center gap-1">
+                <span>🚫</span> <span>생성안함</span>
+              </span>
+              <input type="radio" name="replayPublishType" value="NONE" class="chzzk-radio" />
+            </label>
+          </div>
         </div>
-        <label for="toggle-sub-exception" class="flex items-center gap-1.5 cursor-pointer select-none pl-2.5 border-l border-[#1E2738] flex-shrink-0" title="구독자는 팔로우 시간 제한 무관하게 채팅 가능">
-          <span class="text-[11px] text-slate-200 font-medium whitespace-nowrap">구독자 예외</span>
-          <input type="checkbox" id="toggle-sub-exception" class="chzzk-checkbox-input" checked />
-        </label>
-        <div id="follower-options-placeholder" style="display:none;"></div>
+
+        <!-- 탭 2: 방송 세부 옵션 패널 (2x2 그리드: 연령제한, 클립허용, 해외시청, 유료프로모션) -->
+        <div id="tab-pane-stream" class="bg-[#121721] p-2 rounded-lg border border-[#1E2738] hidden">
+          <div class="grid grid-cols-2 gap-1.5">
+            <!-- 연령 제한 -->
+            <label for="toggle-adult" class="cursor-pointer select-none flex items-center justify-between px-2 py-1.5 rounded bg-[#0B0F15] border border-[#1E2738]/80 hover:border-[#2A374E] transition-all text-[11px] text-slate-200 font-medium" title="연령 제한 (성인 방송)">
+              <span class="flex items-center gap-1.5">
+                <span>🔞</span> <span>연령제한</span>
+              </span>
+              <input type="checkbox" id="toggle-adult" class="chzzk-checkbox-input" />
+            </label>
+
+            <!-- 클립 허용 -->
+            <label id="label-clip" for="toggle-clip" class="cursor-pointer select-none flex items-center justify-between px-2 py-1.5 rounded bg-[#0B0F15] border border-[#1E2738]/80 hover:border-[#2A374E] transition-all text-[11px] text-slate-200 font-medium" title="시청자 클립 생성 허용">
+              <span class="flex items-center gap-1.5">
+                <span>✂️</span> <span>클립허용</span>
+                <span id="lock-clip" class="text-[9px] text-amber-400 font-bold ml-0.5" style="display:none;" title="같이보기 규정으로 고정됨">🔒</span>
+              </span>
+              <input type="checkbox" id="toggle-clip" class="chzzk-checkbox-input" checked />
+            </label>
+
+            <!-- 해외 시청 -->
+            <label id="label-overseas" for="toggle-overseas" class="cursor-pointer select-none flex items-center justify-between px-2 py-1.5 rounded bg-[#0B0F15] border border-[#1E2738]/80 hover:border-[#2A374E] transition-all text-[11px] text-slate-200 font-medium" title="해외 시청 허용 (체크 시 해외 시청 가능, 해제 시 한국 시청자만 시청 가능 - krOnlyViewing)">
+              <span class="flex items-center gap-1.5">
+                <span>🌐</span> <span>해외시청</span>
+                <span id="lock-overseas" class="text-[9px] text-amber-400 font-bold ml-0.5" style="display:none;" title="같이보기 규정으로 고정됨">🔒</span>
+              </span>
+              <input type="checkbox" id="toggle-overseas" class="chzzk-checkbox-input" checked />
+            </label>
+
+            <!-- 유료 프로모션 표기 -->
+            <label for="toggle-paid-promotion" class="cursor-pointer select-none flex items-center justify-between px-2 py-1.5 rounded bg-[#0B0F15] border border-[#1E2738]/80 hover:border-[#2A374E] transition-all text-[11px] text-slate-200 font-medium" title="유료 프로모션 포함 (광고/협찬 방송 시 법적 표기)">
+              <span class="flex items-center gap-1.5">
+                <span>💵</span> <span>유료프로모션</span>
+              </span>
+              <input type="checkbox" id="toggle-paid-promotion" class="chzzk-checkbox-input" />
+            </label>
+          </div>
+        </div>
+
+        <!-- 탭 3: 채팅 이용 권한 패널 -->
+        <div id="tab-pane-chat" class="bg-[#121721] p-2 rounded-lg border border-[#1E2738] space-y-2 hidden">
+          <div class="grid grid-cols-3 gap-1.5">
+            <label class="cursor-pointer select-none flex items-center justify-between px-2 py-1.5 rounded bg-[#0B0F15] border border-[#1E2738] hover:border-[#2A374E] transition-all text-[11px] text-slate-200 font-medium">
+              <span class="flex items-center gap-1"><span>🤗</span> <span>모두</span></span>
+              <input type="radio" name="chatAvailableGroup" value="ALL" class="chzzk-radio" checked onchange="onChatGroupChange('ALL')" />
+            </label>
+            <label class="cursor-pointer select-none flex items-center justify-between px-2 py-1.5 rounded bg-[#0B0F15] border border-[#1E2738] hover:border-[#2A374E] transition-all text-[11px] text-slate-200 font-medium">
+              <span class="flex items-center gap-1"><span>🤩</span> <span>팔로워</span></span>
+              <input type="radio" name="chatAvailableGroup" value="FOLLOWER" class="chzzk-radio" onchange="onChatGroupChange('FOLLOWER')" />
+            </label>
+            <label class="cursor-pointer select-none flex items-center justify-between px-2 py-1.5 rounded bg-[#0B0F15] border border-[#1E2738] hover:border-[#2A374E] transition-all text-[11px] text-slate-200 font-medium">
+              <span class="flex items-center gap-1"><span>👮</span> <span>운영자</span></span>
+              <input type="radio" name="chatAvailableGroup" value="MANAGER" class="chzzk-radio" onchange="onChatGroupChange('MANAGER')" />
+            </label>
+          </div>
+
+          <!-- 팔로우 세부 설정 (채팅 권한 패널 내부로 통합: 팔로워 선택 시 노출) -->
+          <div id="follower-options" class="pt-2 border-t border-[#1E2738] flex items-center justify-between gap-2" style="display:none;">
+            <div class="flex items-center gap-1.5 flex-1 min-w-0">
+              <label class="text-[11px] text-slate-300 font-medium whitespace-nowrap flex items-center gap-1">
+                <span>🔒</span> 팔로우 시간
+              </label>
+              <select id="min-follower-minute" class="chzzk-select text-[11px] py-1 px-2 flex-1">
+                <option value="0">제한 없음</option>
+                <option value="5">5분 이상</option>
+                <option value="10">10분 이상</option>
+                <option value="30">30분 이상</option>
+                <option value="60">1시간 이상</option>
+              </select>
+            </div>
+            <label for="toggle-sub-exception" class="flex items-center gap-1.5 cursor-pointer select-none pl-2.5 border-l border-[#1E2738] flex-shrink-0" title="구독자는 팔로우 시간 제한 무관하게 채팅 가능">
+              <span class="text-[11px] text-slate-200 font-medium whitespace-nowrap">구독자 예외</span>
+              <input type="checkbox" id="toggle-sub-exception" class="chzzk-checkbox-input" checked />
+            </label>
+          </div>
+        </div>
       </div>
 
     </div>
@@ -1006,10 +1018,6 @@
       <div class="flex items-center gap-1.5 min-w-0">
         <span class="text-base">🎮</span>
         <span class="text-xs font-bold text-white truncate">치지직 방송 리모컨</span>
-        <span class="text-[9px] bg-emerald-950/80 text-[#00FFA3] border border-emerald-800/60 px-1.5 py-0.5 rounded-full font-bold flex items-center gap-1 flex-shrink-0">
-          <span class="w-1.5 h-1.5 rounded-full bg-[#00FFA3] shadow-[0_0_6px_rgba(0,255,163,0.8)] animate-pulse"></span>
-          실시간
-        </span>
       </div>
       <div class="flex items-center gap-1.5 flex-shrink-0">
         <!-- 공식 리모컨 독립 창 원클릭 열기 -->
@@ -1529,6 +1537,34 @@
               </label>
             </div>
           </div>
+
+          <!-- 웹뷰 GPU 하드웨어 가속 설정 -->
+          <div class="section-card p-2.5 bg-chzzk-card/70 border border-chzzk-border space-y-2">
+            <div class="flex items-center justify-between">
+              <div class="pr-2">
+                <div class="text-[11px] font-semibold text-white/90">⚡ 웹뷰 GPU 하드웨어 가속</div>
+                <div class="text-[9px] text-chzzk-muted leading-tight mt-0.5">웹뷰 창(로그인/리모컨)의 GPU 렌더링 가속을 사용합니다. 화면 깨짐 발생 시 해제하세요. (창을 다시 열 때 적용)</div>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="toggle-enable-gpu" onchange="saveGPUSetting(this.checked)">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <!-- 외부 링크 기본 브라우저 열기 설정 -->
+          <div class="section-card p-2.5 bg-chzzk-card/70 border border-chzzk-border space-y-2">
+            <div class="flex items-center justify-between">
+              <div class="pr-2">
+                <div class="text-[11px] font-semibold text-white/90">🔗 외부 링크 기본 브라우저 열기</div>
+                <div class="text-[9px] text-chzzk-muted leading-tight mt-0.5">웹뷰 내 외부 링크 클릭 시 기본 브라우저로 엽니다. <span id="label-default-browser" class="text-chzzk-mint font-medium"></span></div>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="toggle-external-browser" onchange="saveExternalBrowserSetting(this.checked)">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1544,13 +1580,13 @@
     </div>
   </div>
 
-  <!-- ===== 치지직 리모컨 준비 중 안내 모달 (테스터 패스 포함) ===== -->
+  <!-- ===== 치지직 리모컨 준비 중 안내 모달 ===== -->
   <div id="modal-remote-notice" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-3 hidden" onclick="if(event.target===this) closeRemoteNoticeModal()">
     <div class="bg-[#0B0F15] border border-[#1E2738] rounded-xl max-w-sm w-full p-4 shadow-2xl space-y-3.5" onclick="event.stopPropagation()">
       <div class="flex items-center justify-between border-b border-[#1E2738] pb-2.5">
         <div class="flex items-center gap-2">
           <span class="text-base">🚧</span>
-          <span class="text-xs font-bold text-slate-100">치지직 리모컨 기능 안내</span>
+          <span class="text-xs font-bold text-slate-100">기능 준비 중 안내</span>
         </div>
         <button type="button" onclick="closeRemoteNoticeModal()" class="w-6 h-6 rounded-md hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center text-sm font-bold cursor-pointer">
           ✕
@@ -1559,10 +1595,10 @@
 
       <div class="space-y-2 text-xs text-slate-300 leading-relaxed">
         <p class="font-bold text-amber-400 flex items-center gap-1.5">
-          <span>⚠️</span> <span>내장 리모컨 연동 준비 중 (v0.6.0)</span>
+          <span>⚠️</span> <span>내장 리모컨 미완성 기능 안내</span>
         </p>
         <p class="text-[11.5px] text-slate-300">
-          OBS 독 내부 리모컨(영도/미션/피드 제어)은 치지직 스튜디오 공식 연동을 위해 <b>기능 검증 및 개발 진행 중</b>입니다.
+          OBS 독 내부 리모컨(영도/미션/피드 제어)은 치지직 스튜디오 공식 연동을 위해 <b>기능 검증 및 개발 진행 중인 미완성 기능</b>입니다.
         </p>
         <div class="p-2.5 rounded-lg bg-[#0E1522] border border-[#1E2738] space-y-1 text-[11px] text-slate-300">
           <div class="font-bold text-[#00FFA3] flex items-center gap-1">
@@ -1575,20 +1611,50 @@
       </div>
 
       <div class="flex items-center justify-end gap-2 pt-1">
-        <button type="button" onclick="closeRemoteNoticeModal()" class="px-3 py-1.5 rounded-lg bg-[#161F2E] hover:bg-[#1E2738] text-slate-300 text-xs font-semibold cursor-pointer transition-colors">
-          닫기
-        </button>
         <button type="button" onclick="openRemoteFromModal()" class="px-3.5 py-1.5 rounded-lg bg-[#5C3BFF] hover:bg-[#7B5FFF] text-white text-xs font-bold cursor-pointer transition-colors flex items-center gap-1.5 shadow-md">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
           공식 리모컨 열기
         </button>
+        <button type="button" onclick="closeRemoteNoticeModal()" class="px-3.5 py-1.5 rounded-lg bg-[#161F2E] hover:bg-[#1E2738] text-[#00FFA3] text-xs font-bold cursor-pointer transition-colors">
+          확인
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 후원 수익 요약 미완성 안내 모달 ===== -->
+  <div id="modal-revenue-notice" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-3 hidden" onclick="if(event.target===this) closeRevenueNoticeModal()">
+    <div class="bg-[#0B0F15] border border-[#1E2738] rounded-xl max-w-sm w-full p-4 shadow-2xl space-y-3.5" onclick="event.stopPropagation()">
+      <div class="flex items-center justify-between border-b border-[#1E2738] pb-2.5">
+        <div class="flex items-center gap-2">
+          <span class="text-base">🚧</span>
+          <span class="text-xs font-bold text-slate-100">기능 준비 중 안내</span>
+        </div>
+        <button type="button" onclick="closeRevenueNoticeModal()" class="w-6 h-6 rounded-md hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center text-sm font-bold cursor-pointer">
+          ✕
+        </button>
       </div>
 
-      <!-- 테스터 모드 진입 바이패스 -->
-      <div class="pt-2 border-t border-[#1E2738]/60 flex items-center justify-between text-[10px] text-slate-500">
-        <span>테스트 빌드 검증용</span>
-        <button type="button" onclick="promptRemoteTesterAuth()" class="hover:text-slate-300 underline cursor-pointer">
-          🔒 테스터 인증 (내장 패널 열기)
+      <div class="space-y-2 text-xs text-slate-300 leading-relaxed">
+        <p class="font-bold text-amber-400 flex items-center gap-1.5">
+          <span>⚠️</span> <span>후원 수익 요약 미완성 기능 안내</span>
+        </p>
+        <p class="text-[11.5px] text-slate-300">
+          후원 수익 요약 기능은 현재 <b>개발 및 연동 테스트 진행 중인 미완성 기능</b>입니다.
+        </p>
+        <div class="p-2.5 rounded-lg bg-[#0E1522] border border-[#1E2738] space-y-1 text-[11px] text-slate-300">
+          <div class="font-bold text-[#00FFA3] flex items-center gap-1">
+            <span>ℹ️</span> <span>정산 내역 확인 안내</span>
+          </div>
+          <p class="text-[10.5px] text-slate-400">
+            정확한 후원 수익 집계 및 정산 내역은 치지직 스튜디오 공식 웹사이트의 정산 관리 메뉴에서 확인해 주시기 바랍니다.
+          </p>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end pt-1">
+        <button type="button" onclick="closeRevenueNoticeModal()" class="px-3.5 py-1.5 rounded-lg bg-[#161F2E] hover:bg-[#1E2738] text-[#00FFA3] text-xs font-bold cursor-pointer transition-colors">
+          확인
         </button>
       </div>
     </div>
@@ -1824,6 +1890,7 @@
     let currentLiveSetting = {
       adult: false,
       clipActive: true,
+      paidPromotion: false,
       krOnlyViewing: false,
       replayPublishType: 'MANUAL',
       watchPartyNo: null,
@@ -1906,6 +1973,7 @@
       const elAdult = document.getElementById('toggle-adult');
       const elClip = document.getElementById('toggle-clip');
       const elOverseas = document.getElementById('toggle-overseas');
+      const elPaid = document.getElementById('toggle-paid-promotion');
       const elReplay = document.querySelector('input[name="replayPublishType"]:checked');
       const elMinFollower = document.getElementById('min-follower-minute');
       const elSubEx = document.getElementById('toggle-sub-exception');
@@ -1919,6 +1987,7 @@
         adult: elAdult ? elAdult.checked : false,
         clipActive: elClip ? elClip.checked : true,
         overseas: elOverseas ? elOverseas.checked : true,
+        paidPromotion: elPaid ? elPaid.checked : false,
         replayPublishType: elReplay ? elReplay.value : 'MANUAL',
         chatGroup: typeof getSelectedChatGroup === 'function' ? getSelectedChatGroup() : 'ALL',
         minFollowerMinute: elMinFollower ? elMinFollower.value : '0',
@@ -1948,6 +2017,7 @@
         cur.adult !== base.adult ||
         cur.clipActive !== base.clipActive ||
         cur.overseas !== base.overseas ||
+        cur.paidPromotion !== base.paidPromotion ||
         cur.replayPublishType !== base.replayPublishType ||
         cur.chatGroup !== base.chatGroup ||
         cur.watchPartyNo !== base.watchPartyNo
@@ -2025,6 +2095,9 @@
 
       const elOverseas = document.getElementById('toggle-overseas');
       if (elOverseas) elOverseas.checked = !!base.overseas;
+
+      const elPaid = document.getElementById('toggle-paid-promotion');
+      if (elPaid) elPaid.checked = !!base.paidPromotion;
 
       // 5. 다시보기 복원
       const radio = document.querySelector(`input[name="replayPublishType"][value="${base.replayPublishType || 'MANUAL'}"]`);
@@ -2245,6 +2318,8 @@
           loadPortStatus();
           loadPopupOnStartSetting();
           loadShutdownNotifySetting();
+          loadGPUSetting();
+          loadExternalBrowserSetting();
         }
       }
       updatePanelScrollLock();
@@ -2286,29 +2361,6 @@
       updatePanelScrollLock();
     }
 
-    let isRemoteTesterUnlockedCache = false;
-
-    async function checkRemoteTesterStatus() {
-      try {
-        const res = await apiFetch('/remote-tester-status');
-        if (res.ok) {
-          const data = await res.json();
-          isRemoteTesterUnlockedCache = !!data.unlocked;
-          if (isRemoteTesterUnlockedCache) {
-            try { localStorage.setItem('chzzk_remote_tester', 'true'); } catch (_) {}
-          }
-        }
-      } catch (_) {}
-    }
-
-    function isRemoteTesterUnlocked() {
-      if (isRemoteTesterUnlockedCache) return true;
-      try {
-        return localStorage.getItem('chzzk_remote_tester') === 'true';
-      } catch (_) {
-        return false;
-      }
-    }
 
     function openRemoteNoticeModal() {
       const modal = document.getElementById('modal-remote-notice');
@@ -2325,54 +2377,8 @@
       openRemoteWebview();
     }
 
-    async function promptRemoteTesterAuth() {
-      const code = prompt('허가된 테스터 인증 코드를 입력하세요:');
-      if (!code) return;
-      const cleanCode = code.trim();
-      try {
-        const res = await apiFetch('/remote-tester-auth', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ code: cleanCode })
-        });
-        const data = await res.json().catch(() => ({}));
-        if (res.ok && data.unlocked) {
-          isRemoteTesterUnlockedCache = true;
-          try { localStorage.setItem('chzzk_remote_tester', 'true'); } catch (_) {}
-          closeRemoteNoticeModal();
-          showToast('🔓 테스터 인증 완료', 'success', '인증이 settings.json에 영구 저장되었습니다.');
-          openActualRemotePanel();
-        } else {
-          alert(data.message || '유효하지 않은 테스터 인증 코드입니다.');
-        }
-      } catch (e) {
-        alert('인증 통신 오류: ' + e.message);
-      }
-    }
-
-    async function revokeRemoteTester() {
-      try {
-        await apiFetch('/remote-tester-auth', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'revoke' })
-        });
-      } catch (_) {}
-      isRemoteTesterUnlockedCache = false;
-      try { localStorage.removeItem('chzzk_remote_tester'); } catch (_) {}
-      const panel = document.getElementById('remote-panel');
-      if (panel && panel.classList.contains('open')) panel.classList.remove('open');
-      updatePanelScrollLock();
-      showToast('🔒 테스터 모드 해제', 'info', '리모컨 잠금이 다시 활성화되었습니다.');
-    }
-
     function toggleRemotePanel() {
       if (!checkLoginGuard('치지직 공식 리모컨')) return;
-
-      if (!isRemoteTesterUnlocked()) {
-        openRemoteNoticeModal();
-        return;
-      }
       openActualRemotePanel();
     }
 
@@ -2387,6 +2393,7 @@
       if (panel) {
         panel.classList.toggle('open');
         if (panel.classList.contains('open')) {
+          openRemoteNoticeModal();
           switchRemoteTab('all');
           loadRemoteVolumes();
           fetchNewsFeed();
@@ -3983,6 +3990,29 @@
       }
     }
 
+    async function openChatWebview() {
+      if (!checkLoginGuard('채팅창 열기')) return;
+      try {
+        if (!userChannelId) {
+          await resolveChannelId();
+        }
+        showToast('💬 채팅창 실행 중', 'info', '독립 채팅창을 띄우는 중입니다...');
+        const res = await apiFetch(`/chat-webview?channelId=${encodeURIComponent(userChannelId || '')}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.status === 'started') {
+            showToast('💬 채팅창 실행됨', 'success', '독립 채팅창이 열렸습니다.');
+          } else {
+            showToast('채팅창 알림', 'info', data.message || '채팅창이 실행되었습니다.');
+          }
+        } else {
+          showToast('채팅창 실행 실패', 'error', '서버에서 채팅창을 열지 못했습니다.');
+        }
+      } catch (e) {
+        showToast('실행 오류', 'error', e.message);
+      }
+    }
+
     async function openRemoteWebview() {
       if (!checkLoginGuard('리모컨 미니 창')) return;
       try {
@@ -4013,6 +4043,16 @@
       }
     }
 
+    function openRevenueNoticeModal() {
+      const modal = document.getElementById('modal-revenue-notice');
+      if (modal) modal.classList.remove('hidden');
+    }
+
+    function closeRevenueNoticeModal() {
+      const modal = document.getElementById('modal-revenue-notice');
+      if (modal) modal.classList.add('hidden');
+    }
+
     function switchUrlTab(tab) {
       const tabUrls = document.getElementById('tab-content-urls');
       const tabRev = document.getElementById('tab-content-revenue');
@@ -4037,6 +4077,7 @@
         if (btnRev) {
           btnRev.className = 'flex-1 py-1 text-[11px] font-bold rounded text-[#00FFA3] bg-[#161F2E] border border-[#00FFA3]/30 transition-all flex items-center justify-center gap-1';
         }
+        openRevenueNoticeModal();
         fetchRevenueSummary();
       }
     }
@@ -4610,6 +4651,7 @@
       document.getElementById('toggle-adult')?.addEventListener('change', checkBroadcastStateDirty);
       document.getElementById('toggle-clip')?.addEventListener('change', checkBroadcastStateDirty);
       document.getElementById('toggle-overseas')?.addEventListener('change', checkBroadcastStateDirty);
+      document.getElementById('toggle-paid-promotion')?.addEventListener('change', checkBroadcastStateDirty);
       document.querySelectorAll('input[name="replayPublishType"]').forEach(el => {
         el.addEventListener('change', () => {
           if (el.value === 'NONE' && el.checked) {
@@ -4669,7 +4711,8 @@
       loadWatchdogTimeout();
       loadPortStatus();
       loadPopupOnStartSetting();
-      checkRemoteTesterStatus();
+      loadGPUSetting();
+      loadExternalBrowserSetting();
     }
 
     // DOM 로드 완료 상태에 무관하게 즉시 또는 이벤트 시점에 100% 실행 보장
@@ -5180,6 +5223,74 @@
       }
     }
 
+    // ===== 웹뷰 GPU 하드웨어 가속 설정 제어 =====
+    async function loadGPUSetting() {
+      try {
+        const res = await apiFetch('/gpu-status');
+        if (!res.ok) return;
+        const data = await res.json();
+        const toggleEl = document.getElementById('toggle-enable-gpu');
+        if (toggleEl && data && typeof data.enable_gpu === 'boolean') {
+          toggleEl.checked = data.enable_gpu;
+        }
+      } catch (e) {
+        console.warn('Failed to load GPU setting:', e);
+      }
+    }
+
+    async function saveGPUSetting(checked) {
+      try {
+        const res = await apiFetch('/save-gpu', {
+          method: 'POST',
+          body: JSON.stringify({ enable_gpu: checked })
+        });
+        const data = await res.json();
+        if (res.ok && data.code === 200) {
+          showToast('설정 저장 완료', 'success', checked ? '웹뷰 GPU 하드웨어 가속이 활성화되었습니다. (창을 다시 열 때 적용)' : '웹뷰 GPU 하드웨어 가속이 비활성화되었습니다. (CPU 렌더링, 창을 다시 열 때 적용)');
+        } else {
+          showToast('설정 저장 실패', 'error', data.message || '설정 저장에 실패했습니다.');
+        }
+      } catch (e) {
+        showToast('통신 오류', 'error', e.message);
+      }
+    }
+
+    // ===== 외부 링크 기본 브라우저 열기 설정 제어 =====
+    async function loadExternalBrowserSetting() {
+      try {
+        const res = await apiFetch('/external-browser-status');
+        if (!res.ok) return;
+        const data = await res.json();
+        const toggleEl = document.getElementById('toggle-external-browser');
+        if (toggleEl && data && typeof data.external_browser_guard === 'boolean') {
+          toggleEl.checked = data.external_browser_guard;
+        }
+        const labelEl = document.getElementById('label-default-browser');
+        if (labelEl && data && data.browser_name) {
+          labelEl.textContent = `(감지: ${data.browser_name})`;
+        }
+      } catch (e) {
+        console.warn('Failed to load external browser setting:', e);
+      }
+    }
+
+    async function saveExternalBrowserSetting(checked) {
+      try {
+        const res = await apiFetch('/save-external-browser', {
+          method: 'POST',
+          body: JSON.stringify({ external_browser_guard: checked })
+        });
+        const data = await res.json();
+        if (res.ok && data.code === 200) {
+          showToast('설정 저장 완료', 'success', checked ? '외부 링크 클릭 시 기본 브라우저로 열립니다.' : '외부 링크 클릭 시 웹뷰 내에서 열립니다.');
+        } else {
+          showToast('설정 저장 실패', 'error', data.message || '설정 저장에 실패했습니다.');
+        }
+      } catch (e) {
+        showToast('통신 오류', 'error', e.message);
+      }
+    }
+
     // ===== 설정창 아코디언 그룹 접기/펼치기 제어 =====
     function toggleSettingsGroup(group) {
       const content = document.getElementById(`group-${group}-content`);
@@ -5346,6 +5457,7 @@
 
       const btnWebview = document.getElementById('btn-webview-login');
       if (btnWebview) {
+        btnWebview.disabled = true;
         btnWebview.classList.add('opacity-50', 'pointer-events-none');
       }
 
@@ -5408,10 +5520,13 @@
         }
         showToast('⚠️ 로그인 연결 오류', 'error', '통신 중 오류가 발생했습니다. [로그인] 버튼을 다시 눌러주세요.');
       } finally {
-        isLoggingIn = false;
-        if (btnWebview) {
-          btnWebview.classList.remove('opacity-50', 'pointer-events-none');
-        }
+        setTimeout(() => {
+          isLoggingIn = false;
+          if (btnWebview) {
+            btnWebview.disabled = false;
+            btnWebview.classList.remove('opacity-50', 'pointer-events-none');
+          }
+        }, 500);
       }
     }
 
@@ -5545,11 +5660,14 @@
 
               if (content.adult !== undefined) currentLiveSetting.adult = !!content.adult;
               if (content.clipActive !== undefined) currentLiveSetting.clipActive = !!content.clipActive;
+              if (content.paidPromotion !== undefined) currentLiveSetting.paidPromotion = !!content.paidPromotion;
               if (content.replayPublishType) currentLiveSetting.replayPublishType = content.replayPublishType;
               if (content.krOnlyViewing !== undefined) currentLiveSetting.krOnlyViewing = !!content.krOnlyViewing;
 
               document.getElementById('toggle-adult').checked = currentLiveSetting.adult;
               document.getElementById('toggle-clip').checked = currentLiveSetting.clipActive;
+              const elPaid = document.getElementById('toggle-paid-promotion');
+              if (elPaid) elPaid.checked = currentLiveSetting.paidPromotion;
               const elOverseas = document.getElementById('toggle-overseas');
               if (elOverseas) elOverseas.checked = !currentLiveSetting.krOnlyViewing;
               const radio = document.querySelector(`input[name="replayPublishType"][value="${currentLiveSetting.replayPublishType}"]`);
@@ -5909,6 +6027,7 @@
         }
         const targetAdult = document.getElementById('toggle-adult').checked;
         const targetClip = document.getElementById('toggle-clip').checked;
+        const targetPaid = document.getElementById('toggle-paid-promotion')?.checked ?? false;
         const targetOverseas = document.getElementById('toggle-overseas')?.checked ?? true;
         const targetKrOnly = !targetOverseas;
         const targetReplay = document.querySelector('input[name="replayPublishType"]:checked')?.value || 'MANUAL';
@@ -5930,7 +6049,7 @@
           adult: targetAdult,
           clipActive: isWp ? false : targetClip,
           replayPublishType: isWp ? 'NONE' : targetReplay,
-          paidPromotion: !!base.paidPromotion,
+          paidPromotion: targetPaid,
           krOnlyViewing: isWp ? true : targetKrOnly,
           cvExposure: base.cvExposure !== undefined ? base.cvExposure : true,
           timeMachineActive: isWp ? false : (base.timeMachineActive !== undefined ? base.timeMachineActive : true),
@@ -6026,6 +6145,25 @@
     }
 
     // ===== UI Helpers =====
+    function switchStreamOptionTab(tab) {
+      const tabs = ['replay', 'stream', 'chat'];
+      tabs.forEach(t => {
+        const btn = document.getElementById(`tab-btn-${t}`);
+        const pane = document.getElementById(`tab-pane-${t}`);
+        if (t === tab) {
+          if (btn) {
+            btn.className = 'flex-1 py-1.5 px-1 rounded-md text-[11px] font-bold transition-all flex items-center justify-center gap-1 bg-[#1A2436] text-[#00FFA3] border border-[#00FFA3]/40 shadow-sm cursor-pointer';
+          }
+          if (pane) pane.classList.remove('hidden');
+        } else {
+          if (btn) {
+            btn.className = 'flex-1 py-1.5 px-1 rounded-md text-[11px] font-medium transition-all flex items-center justify-center gap-1 text-slate-400 hover:text-slate-200 cursor-pointer';
+          }
+          if (pane) pane.classList.add('hidden');
+        }
+      });
+    }
+
     function onChatGroupChange(val) {
       const opts = document.getElementById('follower-options');
       const placeholder = document.getElementById('follower-options-placeholder');

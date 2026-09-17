@@ -248,8 +248,9 @@ func loginWndProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintp
 					if found && !cookieCaptured {
 						cookieCaptured = true
 						SaveConfig(map[string]interface{}{
-							"nid_aut": aut,
-							"nid_ses": ses,
+							"nid_aut":     aut,
+							"nid_ses":     ses,
+							"auth_method": "webview",
 						})
 						LogInfo("[Webview Login] 세션 쿠키 추출 완료 (NID_AUT, NID_SES) -> 자격 증명 관리자에 저장됨.")
 						procKillTimer.Call(uintptr(hwnd), TIMER_ID_WV)
@@ -378,11 +379,14 @@ func RunLoginWebview() {
 	chromium := edge.NewChromium()
 	chromium.DataPath = profileDir
 
-	// [OBS 후킹 및 GPU 가속 충돌 방지 핵심 인자]
-	chromium.AdditionalBrowserArgs = []string{
-		"--disable-gpu",
+	// [렌더링 가속 및 백그라운드 스로틀링 방지 인자]
+	browserArgs := []string{
 		"--disable-features=CalculateNativeWinOcclusion",
 	}
+	if !GetEnableGPU() {
+		browserArgs = append(browserArgs, "--disable-gpu")
+	}
+	chromium.AdditionalBrowserArgs = browserArgs
 	activeChromium = chromium
 
 	// 프로세스 실패(크래시) 감지 콜백
