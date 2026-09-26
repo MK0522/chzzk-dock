@@ -12,6 +12,7 @@ import (
 
 // AppSettings: 애플리케이션의 비보안/일반 설정 모델
 type AppSettings struct {
+	SchemaVersion        int   `json:"schema_version,omitempty"`        // 설정 스키마 버전 (기본값: 1)
 	WatchdogTimeoutSec   int   `json:"watchdog_timeout_sec"`             // OBS 미감지 시 자체 종료 대기 시간 (초, 0: 사용 안 함)
 	WatchdogDisabled     bool  `json:"watchdog_disabled,omitempty"`     // OBS 자동 종료 비활성화 여부
 	HttpPort             int   `json:"http_port"`                     // 기본 HTTP 서버 포트 (기본값: 8081)
@@ -196,6 +197,7 @@ var (
 	defaultGuardVal  = true
 	settingsMu       sync.RWMutex
 	cachedSettings   = AppSettings{
+		SchemaVersion:        1,                 // 스키마 버전 1
 		WatchdogTimeoutSec:   60,                // 기본값: 1분 (60초)
 		HttpPort:             8081,              // 기본값: 8081
 		PopupOnStart:         &defaultPopupVal,  // 기본값: false
@@ -265,6 +267,9 @@ func SaveSettings(s AppSettings) error {
 	settingsMu.Lock()
 	defer settingsMu.Unlock()
 
+	if s.SchemaVersion == 0 {
+		s.SchemaVersion = 1
+	}
 	if s.WatchdogDisabled || s.WatchdogTimeoutSec == 0 {
 		s.WatchdogDisabled = true
 		s.WatchdogTimeoutSec = 0

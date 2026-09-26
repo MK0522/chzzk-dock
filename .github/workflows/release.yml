@@ -62,7 +62,6 @@ jobs:
           body_path: ${{ steps.release_notes.outputs.has_custom_notes == 'true' && 'release_body.md' || '' }}
           files: |
             chzzk-dock-windows-amd64-installer.exe
-            chzzk-dock.exe
           draft: false
           prerelease: false
           generate_release_notes: ${{ steps.release_notes.outputs.has_custom_notes != 'true' }}
