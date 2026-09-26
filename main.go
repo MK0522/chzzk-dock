@@ -37,10 +37,10 @@ var embeddedGuide2 []byte
 var embeddedLauncherScript []byte
 
 // ============================================================
-//  CHZZK OBS Dock Server v0.5.9 (Modular Architecture)
+//  CHZZK OBS Dock Server v0.5.10 (Modular Architecture)
 // ============================================================
 const (
-	APP_VERSION       = "v0.5.9"
+	APP_VERSION       = "v0.5.10"
 	DEFAULT_HTTP_PORT = 8081
 	USER_AGENT        = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 )
@@ -355,6 +355,10 @@ func proxyUnofficialRequest(w http.ResponseWriter, r *http.Request, method, path
 			core.LogWarn("[Auth] 네이버 세션 자동 갱신 실패: %v", err)
 			core.InvalidateConfigCache()
 		}
+	}
+
+	if resp.StatusCode >= 400 {
+		core.LogError("[Proxy %s %s] 치지직 API 오류 (%d): %s", method, targetURL, resp.StatusCode, string(respBytes))
 	}
 
 	core.SetCachedApiResponse(method, targetURL, respBytes, resp.StatusCode, contentType)
@@ -1679,6 +1683,7 @@ func main() {
 
 	runTray(silentMode)
 }
+
 
 
 

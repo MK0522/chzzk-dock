@@ -34,4 +34,5 @@ GEMINI.md
 # Test files (Do not upload to GitHub)
 *_test.go
 release_body.md
+docs/SESSION_ARCHITECTURE_ELI5.md
 

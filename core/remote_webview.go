@@ -589,6 +589,27 @@ const remoteOverlayScript = `
 })();
 `
 
+// InjectRemoteCookies: WebView2 CookieManager에 .naver.com 단일 도메인으로 최신 쿠키 주입
+func InjectRemoteCookies(cm *edge.ICoreWebView2CookieManager, aut, ses string) {
+	if cm == nil || aut == "" || ses == "" {
+		return
+	}
+	dom := ".naver.com"
+	if cookie, err := cm.CreateCookie("NID_AUT", aut, dom, "/"); err == nil && cookie != nil {
+		_ = cookie.PutIsSecure(true)
+		_ = cookie.PutIsHttpOnly(true)
+		_ = cm.AddOrUpdateCookie(cookie)
+		cookie.Release()
+	}
+	if cookie, err := cm.CreateCookie("NID_SES", ses, dom, "/"); err == nil && cookie != nil {
+		_ = cookie.PutIsSecure(true)
+		_ = cookie.PutIsHttpOnly(true)
+		_ = cm.AddOrUpdateCookie(cookie)
+		cookie.Release()
+	}
+	LogInfo("[Remote Webview] 네이버 인증 쿠키(.naver.com)를 WebView2에 주입 완료.")
+}
+
 // RunRemoteWebview: 치지직 공식 리모컨 독립 WebView2 플로팅 윈도우 구동
 func RunRemoteWebview(channelId string) {
 	runtime.LockOSThread()
@@ -793,39 +814,12 @@ func RunRemoteWebview(channelId string) {
 		}
 	}
 
-	// [조건부 쿠키 1회 주입]
-	// 1) 웹뷰 로그인을 거친 경우: webview_profile에 이미 치지직/네이버 세션이 있으므로 주입 건너뜀 (auth_method == "webview")
-	// 2) 설정창에서 수동 입력한 경우: auth_method == "manual" 감지 시에만 1회 주입 후 webview로 승격하여 이후 덮어쓰기 방지
+	// [Inbound Sync] Windows 시스템 금고의 최신 세션 쿠키를 .naver.com 단일 도메인으로 상시 주입
 	cfg := LoadConfig()
-	if cfg.AuthMethod == "manual" && cfg.NidAut != "" && cfg.NidSes != "" {
-		cm, err := chromium.GetCookieManager()
-		if err == nil && cm != nil {
-			LogInfo("[Remote Webview] 수동 입력된 네이버 계정 감지: WebView2에 1회 쿠키 주입을 수행합니다.")
-			domains := []string{
-				".naver.com",
-				".chzzk.naver.com",
-			}
-			for _, dom := range domains {
-				if cookie, err := cm.CreateCookie("NID_AUT", cfg.NidAut, dom, "/"); err == nil && cookie != nil {
-					_ = cookie.PutIsSecure(true)
-					_ = cookie.PutIsHttpOnly(true)
-					_ = cm.AddOrUpdateCookie(cookie)
-					cookie.Release()
-				}
-				if cookie, err := cm.CreateCookie("NID_SES", cfg.NidSes, dom, "/"); err == nil && cookie != nil {
-					_ = cookie.PutIsSecure(true)
-					_ = cookie.PutIsHttpOnly(true)
-					_ = cm.AddOrUpdateCookie(cookie)
-					cookie.Release()
-				}
-			}
-			// 1회 주입 완료 후 세션이 webview_profile에 영구 저장되므로 다음 실행부터는 주입 건너뜀
-			SaveConfig(map[string]interface{}{
-				"auth_method": "webview",
-			})
+	if cfg.NidAut != "" && cfg.NidSes != "" {
+		if cm, err := chromium.GetCookieManager(); err == nil && cm != nil {
+			InjectRemoteCookies(cm, cfg.NidAut, cfg.NidSes)
 		}
-	} else {
-		LogInfo("[Remote Webview] 기존 웹뷰 로그인 세션이 유지되어 있어 수동 쿠키 주입을 건너뜁니다.")
 	}
 
 	// 창 표시 및 강제 포그라운드 활성화

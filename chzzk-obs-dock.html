@@ -238,16 +238,16 @@
 
     .chzzk-input {
       background: #0B0F15; border: 1px solid #1E2738; border-radius: 6px;
-      color: #F1F5F9; font-size: 12px; padding: 6.5px 10px; width: 100%;
-      transition: all 0.2s; outline: none;
+      color: #F1F5F9; font-size: 12px; height: 28px; line-height: 26px; padding: 0 8px; width: 100%;
+      box-sizing: border-box; transition: all 0.2s; outline: none;
     }
     .chzzk-input:focus { border-color: #00FFA3; box-shadow: 0 0 0 2px rgba(0, 255, 163, 0.15); background: #0E131A; }
     .chzzk-input::placeholder { color: #5A6577; }
 
     .chzzk-select {
       background: #0B0F15; border: 1px solid #1E2738; border-radius: 6px;
-      color: #F1F5F9; font-size: 11.5px; padding: 5.5px 8px; width: 100%;
-      transition: all 0.2s; outline: none; cursor: pointer;
+      color: #F1F5F9; font-size: 12px; height: 28px; line-height: 26px; padding: 0 24px 0 8px; width: 100%;
+      box-sizing: border-box; transition: all 0.2s; outline: none; cursor: pointer;
       appearance: none; -webkit-appearance: none;
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' fill='%235A6577' viewBox='0 0 16 16'%3E%3Cpath d='M8 11.5l-5-5h10l-5 5z'/%3E%3C/svg%3E");
       background-repeat: no-repeat; background-position: right 8px center;
@@ -281,7 +281,7 @@
     .save-btn {
       background: linear-gradient(135deg, #00FFA3, #00D287);
       color: #080A0D !important; font-weight: 800; border: none; border-radius: 8px;
-      padding: 10px; font-size: 13px; cursor: pointer; width: 100%;
+      padding: 8px 10px; font-size: 12px; cursor: pointer; width: 100%;
       transition: all 0.2s;
     }
     .save-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0, 255, 163, 0.3); }
@@ -373,10 +373,10 @@
   </div>
 
   <!-- ===== MAIN VIEW ===== -->
-  <div id="main-view" class="flex flex-col gap-2 px-2.5 pt-2 pb-1 animate-fade-in">
+  <div id="main-view" class="flex flex-col gap-1.5 px-2 pt-1.5 pb-1 animate-fade-in">
 
     <!-- Header -->
-    <div class="flex items-center justify-between pb-1.5 border-b border-chzzk-border/40">
+    <div class="flex items-center justify-between pb-1 border-b border-chzzk-border/40">
       <div class="flex items-center gap-1.5 min-w-0">
         <button id="header-live-icon" onclick="manualCheckLiveStatus()" class="w-6 h-6 rounded-md bg-[#6EE7B7]/10 border border-[#6EE7B7]/25 hover:border-[#6EE7B7]/50 flex items-center justify-center flex-shrink-0 cursor-pointer transition-all" title="방송 상태(ON/OFF) 즉시 확인 (3초 쿨타임)">
           <svg id="header-live-svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6EE7B7" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="opacity-70"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
@@ -387,12 +387,12 @@
           <span id="viewer-count-val">0</span>
         </span>
       </div>
-      <div class="flex items-center gap-1.5 flex-shrink-0">
-        <button id="header-btn-urls" onclick="toggleUrlsPanel()" class="flex items-center gap-1 px-2 py-1 rounded-md bg-chzzk-card border border-chzzk-border hover:border-[#00FFA3]/50 text-[11px] text-slate-300 hover:text-[#00FFA3] transition-all flex-shrink-0 cursor-pointer" title="알림 URL & 방송 정보 열기">
+      <div class="flex items-center gap-1 flex-shrink-0">
+        <button id="header-btn-urls" onclick="toggleUrlsPanel()" class="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-chzzk-card border border-chzzk-border hover:border-[#00FFA3]/50 text-[10.5px] text-slate-300 hover:text-[#00FFA3] transition-all flex-shrink-0 cursor-pointer" title="알림 URL & 방송 정보 열기">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
           <span>알림 URL</span>
         </button>
-        <button id="btn-settings" onclick="toggleSettings()" class="flex items-center gap-1 px-2 py-1 rounded-md bg-chzzk-card border border-chzzk-border hover:border-chzzk-green/50 text-[11px] text-slate-300 hover:text-chzzk-green transition-all flex-shrink-0 cursor-pointer" title="독 환경 및 로그인 설정">
+        <button id="btn-settings" onclick="toggleSettings()" class="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-chzzk-card border border-chzzk-border hover:border-chzzk-green/50 text-[10.5px] text-slate-300 hover:text-chzzk-green transition-all flex-shrink-0 cursor-pointer" title="독 환경 및 로그인 설정">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1 2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83-2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
           <span id="header-status-text" class="font-medium text-[#FF4D6A]">설정</span>
         </button>
@@ -400,31 +400,31 @@
     </div>
 
     <!-- ===== 빠른 액션 패널 버튼 3종 (채팅창 / 후원·채팅 / 리모컨) ===== -->
-    <div class="grid grid-cols-3 gap-1.5 animate-slide-up" style="animation-delay: 0.04s">
-      <button id="btn-quick-chat" onclick="openChatWebview()" class="flex items-center justify-center gap-1.5 py-1.5 px-1 rounded-lg bg-[#121721] border border-[#1E2738] hover:border-[#00FFA3]/60 hover:bg-[#00FFA3]/5 text-xs font-bold text-slate-200 hover:text-[#00FFA3] transition-all cursor-pointer shadow-sm group" title="치지직 실시간 채팅창 독립 웹뷰 열기">
+    <div class="grid grid-cols-3 gap-1 animate-slide-up" style="animation-delay: 0.04s">
+      <button id="btn-quick-chat" onclick="openChatWebview()" class="flex items-center justify-center gap-1.5 py-1 px-1 rounded-lg bg-[#121721] border border-[#1E2738] hover:border-[#00FFA3]/60 hover:bg-[#00FFA3]/5 text-[11px] font-bold text-slate-200 hover:text-[#00FFA3] transition-all cursor-pointer shadow-sm group" title="치지직 실시간 채팅창 독립 웹뷰 열기">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400 group-hover:text-[#00FFA3] transition-colors"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
         <span>채팅창</span>
       </button>
 
-      <button id="btn-quick-donations" onclick="toggleDonationsPanel()" class="flex items-center justify-center gap-1.5 py-1.5 px-1 rounded-lg bg-[#121721] border border-[#1E2738] hover:border-[#00FFA3]/60 hover:bg-[#00FFA3]/5 text-xs font-bold text-slate-200 hover:text-[#00FFA3] transition-all cursor-pointer shadow-sm group">
+      <button id="btn-quick-donations" onclick="toggleDonationsPanel()" class="flex items-center justify-center gap-1.5 py-1 px-1 rounded-lg bg-[#121721] border border-[#1E2738] hover:border-[#00FFA3]/60 hover:bg-[#00FFA3]/5 text-[11px] font-bold text-slate-200 hover:text-[#00FFA3] transition-all cursor-pointer shadow-sm group">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400 group-hover:text-[#00FFA3] transition-colors"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         <span>후원/채팅</span>
       </button>
 
-      <button id="btn-quick-remote" onclick="toggleRemotePanel()" class="flex items-center justify-center gap-1.5 py-1.5 px-1 rounded-lg bg-[#121721] border border-[#1E2738] hover:border-[#00FFA3]/60 hover:bg-[#00FFA3]/5 text-xs font-bold text-slate-200 hover:text-[#00FFA3] transition-all cursor-pointer shadow-sm group" title="치지직 공식 리모컨 및 미디어 제어">
+      <button id="btn-quick-remote" onclick="toggleRemotePanel()" class="flex items-center justify-center gap-1.5 py-1 px-1 rounded-lg bg-[#121721] border border-[#1E2738] hover:border-[#00FFA3]/60 hover:bg-[#00FFA3]/5 text-[11px] font-bold text-slate-200 hover:text-[#00FFA3] transition-all cursor-pointer shadow-sm group" title="치지직 공식 리모컨 및 미디어 제어">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400 group-hover:text-[#00FFA3] transition-colors"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
         <span>리모컨</span>
       </button>
     </div>
 
     <!-- ===== 통합 방송 설정 카드 (단일 블록) ===== -->
-    <div id="card-broadcast" class="section-card space-y-2 shadow-lg border border-[#1E2738] animate-slide-up" style="animation-delay: 0.08s">
+    <div id="card-broadcast" class="section-card !p-2 space-y-1.5 shadow-lg border border-[#1E2738] animate-slide-up" style="animation-delay: 0.08s">
       
       <!-- 방송 제목 -->
-      <div class="space-y-1">
-        <div class="flex justify-between items-center">
-          <label class="text-xs font-bold text-slate-100 uppercase tracking-wider">방송 제목</label>
-          <span id="title-count" class="text-xs text-slate-400 font-medium">0/50</span>
+      <div class="space-y-0.5">
+        <div class="flex justify-between items-center h-5">
+          <label class="text-[11px] font-bold text-slate-100 uppercase tracking-wider leading-none">방송 제목</label>
+          <span id="title-count" class="text-[10.5px] text-slate-400 font-medium leading-none">0/50</span>
         </div>
         <div class="relative">
           <input id="live-title" type="text" class="chzzk-input text-xs pr-7" placeholder="방송 제목을 입력하세요" maxlength="50" />
@@ -433,37 +433,39 @@
       </div>
 
       <!-- 2열 그리드: 카테고리 (좌) & 같이보기 방송 (우) -->
-      <div class="grid grid-cols-2 gap-2 items-start">
+      <div class="grid grid-cols-2 gap-1.5 items-start">
         <!-- 열 1: 카테고리 -->
-        <div class="space-y-1 relative" id="category-wrapper">
-          <div class="flex items-center justify-between h-4">
-            <label class="text-xs font-bold text-slate-100 uppercase tracking-wider leading-none">카테고리</label>
-            <span id="lock-category" class="text-[9px] text-amber-400 font-bold leading-none" style="display:none;" title="같이보기 규정으로 고정됨">🔒 고정</span>
+        <div class="space-y-0.5 relative" id="category-wrapper">
+          <div class="flex items-center justify-between h-5">
+            <label class="text-[11px] font-bold text-slate-100 uppercase tracking-wider leading-none flex items-center gap-1">
+              <span>🎮</span> 카테고리
+            </label>
+            <span id="lock-category" class="text-[9px] text-amber-400 font-bold leading-none px-1 py-0.5" style="display:none;" title="같이보기 규정으로 고정됨">🔒 고정</span>
           </div>
           <div class="relative">
             <input id="category-search" type="text" class="chzzk-input text-xs pr-7" placeholder="카테고리 검색..." />
             <input id="category-id" type="hidden" />
             <input id="category-type" type="hidden" />
-            <button id="category-clear" onclick="clearCategory()" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-chzzk-danger text-xs font-bold" style="display:none;">✕</button>
+            <button id="category-clear" onclick="clearCategory()" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-chzzk-danger text-xs font-bold leading-none cursor-pointer" style="display:none;" title="카테고리 지우기">✕</button>
           </div>
           <div id="category-dropdown" class="category-dropdown" style="display:none;"></div>
         </div>
 
         <!-- 열 2: 같이보기 방송 -->
-        <div class="space-y-1 relative" id="watch-party-wrapper">
-          <div class="flex items-center justify-between h-4">
-            <div class="flex items-center gap-1">
-              <label class="text-xs font-bold text-slate-100 uppercase tracking-wider leading-none flex items-center gap-1">
+        <div class="space-y-0.5 relative" id="watch-party-wrapper">
+          <div class="flex items-center justify-between h-5">
+            <div class="flex items-center gap-1 leading-none">
+              <label class="text-[11px] font-bold text-slate-100 uppercase tracking-wider leading-none flex items-center gap-1">
                 <span>🎬</span> 같이보기
               </label>
-              <button onclick="reloadWatchPartiesOnly()" class="text-slate-400 hover:text-[#00FFA3] transition-colors p-0.5 rounded hover:bg-white/5 cursor-pointer flex items-center" title="치지직 같이보기 목록 즉시 새로고침">
+              <button onclick="reloadWatchPartiesOnly()" class="text-slate-400 hover:text-[#00FFA3] transition-colors p-0.5 rounded hover:bg-white/5 cursor-pointer flex items-center leading-none" title="치지직 같이보기 목록 즉시 새로고침">
                 <svg id="wp-reload-icon" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
               </button>
             </div>
-            <span id="watch-party-badge" class="text-[9.5px] px-1.5 py-0.2 rounded font-medium text-slate-400 bg-slate-800/80 border border-slate-700/50 leading-none">일반 방송</span>
+            <span id="watch-party-badge" class="text-[9.5px] px-1.5 py-0.5 rounded font-medium text-slate-400 bg-slate-800/80 border border-slate-700/50 leading-none">일반 방송</span>
           </div>
           <div class="relative">
-            <select id="select-watch-party" class="chzzk-select text-xs py-1.5 px-2" onchange="onWatchPartyChange(this.value)">
+            <select id="select-watch-party" class="chzzk-select text-xs" onchange="onWatchPartyChange(this.value)">
               <option value="">사용 안 함 (일반 방송)</option>
             </select>
           </div>
@@ -471,18 +473,23 @@
       </div>
 
       <!-- 같이보기 방송 고정 안내 알림 (활성화 시 노출) -->
-      <div id="watch-party-notice" class="text-[10.5px] text-amber-300/90 bg-amber-500/10 border border-amber-500/20 rounded px-2 py-1 flex items-center gap-1.5" style="display:none;">
-        <span>🔒</span>
-        <span>같이보기 규정에 따라 카테고리, 한국 전용, 클립 OFF, 다시보기 OFF가 고정됩니다.</span>
+      <div id="watch-party-notice" class="text-[10px] text-amber-300/90 bg-amber-500/10 border border-amber-500/20 rounded px-1.5 py-0.5 flex items-center justify-between gap-1" style="display:none;">
+        <div class="flex items-center gap-1.5 min-w-0 flex-1">
+          <span>🔒</span>
+          <span id="watch-party-notice-text" class="truncate">같이보기 규정에 따라 설정이 고정/적용됩니다.</span>
+        </div>
+        <button type="button" id="btn-open-donation-board" onclick="openDonationBoardModal()" class="shrink-0 px-1.5 py-0.5 rounded text-[9.5px] font-bold bg-[#5C3BFF]/20 text-[#A594FF] border border-[#5C3BFF]/40 hover:bg-[#5C3BFF]/30 transition-all flex items-center gap-1 cursor-pointer" style="display:none;" title="응원 전광판 문구 설정">
+          <span>📣</span> 전광판 설정
+        </button>
       </div>
 
       <!-- 태그 영역 (+ 버튼 상호작용 방식) -->
-      <div class="space-y-1">
-        <div class="flex items-center justify-between h-4">
-          <label class="text-xs font-bold text-slate-100 uppercase tracking-wider leading-none">태그</label>
-          <span id="tag-count-label" class="text-[10px] text-slate-400 font-medium leading-none">0/5</span>
+      <div class="space-y-0.5">
+        <div class="flex items-center justify-between h-5">
+          <label class="text-[11px] font-bold text-slate-100 uppercase tracking-wider leading-none">태그</label>
+          <span id="tag-count-label" class="text-[9.5px] text-slate-400 font-medium leading-none">0/5</span>
         </div>
-        <div id="tag-container" class="flex flex-wrap items-center gap-1 min-h-[26px]">
+        <div id="tag-container" class="flex flex-wrap items-center gap-1 min-h-[22px]">
           <!-- 태그 칩 목록 (동적 렌더링) -->
           <div id="tag-chips-wrapper" class="flex flex-wrap items-center gap-1"></div>
 
@@ -495,50 +502,49 @@
           </div>
 
           <!-- 태그 추가 열기 버튼 -->
-          <button id="btn-open-tag" type="button" onclick="openTagInput()" class="inline-flex items-center gap-1 text-[11px] font-medium text-slate-300 hover:text-[#00FFA3] bg-[#121721] hover:bg-[#161F2E] border border-dashed border-[#1E2738] hover:border-[#00FFA3]/50 px-2 py-0.5 rounded transition-all cursor-pointer select-none" title="새 태그 추가">
+          <button id="btn-open-tag" type="button" onclick="openTagInput()" class="inline-flex items-center gap-1 text-[10.5px] font-medium text-slate-300 hover:text-[#00FFA3] bg-[#121721] hover:bg-[#161F2E] border border-dashed border-[#1E2738] hover:border-[#00FFA3]/50 px-1.5 py-0.2 rounded transition-all cursor-pointer select-none" title="새 태그 추가">
             <span class="text-xs font-bold leading-none">+</span>
             <span class="leading-none">태그 추가</span>
           </button>
         </div>
       </div>
 
-      <!-- 구분선 -->
       <!-- 구분선 및 방송 옵션 3-Way 세그먼트 알약 탭 -->
-      <div class="border-t border-[#1E2738] pt-2 space-y-2">
+      <div class="border-t border-[#1E2738] pt-1.5 space-y-1.5">
         <!-- 3-Way Segmented Pill Tab Header -->
         <div class="flex items-center bg-[#0B0F15] p-0.5 rounded-lg border border-[#1E2738]">
           <button type="button" id="tab-btn-replay" onclick="switchStreamOptionTab('replay')"
-            class="flex-1 py-1.5 px-1 rounded-md text-[11px] font-bold transition-all flex items-center justify-center gap-1 bg-[#1A2436] text-[#00FFA3] border border-[#00FFA3]/40 shadow-sm cursor-pointer">
+            class="flex-1 py-1 px-1 rounded-md text-[10.5px] font-bold transition-all flex items-center justify-center gap-1 bg-[#1A2436] text-[#00FFA3] border border-[#00FFA3]/40 shadow-sm cursor-pointer">
             <span>📺</span> <span>다시보기</span>
           </button>
           <button type="button" id="tab-btn-stream" onclick="switchStreamOptionTab('stream')"
-            class="flex-1 py-1.5 px-1 rounded-md text-[11px] font-medium transition-all flex items-center justify-center gap-1 text-slate-400 hover:text-slate-200 cursor-pointer">
+            class="flex-1 py-1 px-1 rounded-md text-[10.5px] font-medium transition-all flex items-center justify-center gap-1 text-slate-400 hover:text-slate-200 cursor-pointer">
             <span>⚙️</span> <span>방송 옵션</span>
           </button>
           <button type="button" id="tab-btn-chat" onclick="switchStreamOptionTab('chat')"
-            class="flex-1 py-1.5 px-1 rounded-md text-[11px] font-medium transition-all flex items-center justify-center gap-1 text-slate-400 hover:text-slate-200 cursor-pointer">
+            class="flex-1 py-1 px-1 rounded-md text-[10.5px] font-medium transition-all flex items-center justify-center gap-1 text-slate-400 hover:text-slate-200 cursor-pointer">
             <span>💬</span> <span>채팅 권한</span>
           </button>
         </div>
 
         <!-- 탭 1: 다시보기 설정 패널 -->
-        <div id="tab-pane-replay" class="bg-[#121721] p-2 rounded-lg border border-[#1E2738]">
-          <div id="container-replay-radios" class="grid grid-cols-3 gap-1.5">
-            <label class="cursor-pointer select-none flex items-center justify-between px-2 py-1.5 rounded bg-[#0B0F15] border border-[#1E2738] hover:border-[#2A374E] transition-all text-[11px] text-slate-200 font-medium" title="확인 후 수동 게시">
+        <div id="tab-pane-replay" class="bg-[#121721] p-1.5 rounded-lg border border-[#1E2738]">
+          <div id="container-replay-radios" class="grid grid-cols-3 gap-1">
+            <label class="cursor-pointer select-none flex items-center justify-between px-1.5 py-1 rounded bg-[#0B0F15] border border-[#1E2738] hover:border-[#2A374E] transition-all text-[10.5px] text-slate-200 font-medium" title="확인 후 수동 게시">
               <span class="flex items-center gap-1">
                 <span>👀</span> <span>확인 후</span>
                 <span id="lock-replay-manual" class="lock-replay-disabled text-[9px] text-amber-400 font-bold" style="display:none;" title="같이보기 방송 규정으로 선택 불가">🔒</span>
               </span>
               <input type="radio" name="replayPublishType" value="MANUAL" class="chzzk-radio" checked />
             </label>
-            <label class="cursor-pointer select-none flex items-center justify-between px-2 py-1.5 rounded bg-[#0B0F15] border border-[#1E2738] hover:border-[#2A374E] transition-all text-[11px] text-slate-200 font-medium" title="방송 종료 시 자동 게시">
+            <label class="cursor-pointer select-none flex items-center justify-between px-1.5 py-1 rounded bg-[#0B0F15] border border-[#1E2738] hover:border-[#2A374E] transition-all text-[10.5px] text-slate-200 font-medium" title="방송 종료 시 자동 게시">
               <span class="flex items-center gap-1">
                 <span>🤖</span> <span>자동게시</span>
                 <span id="lock-replay-auto" class="lock-replay-disabled text-[9px] text-amber-400 font-bold" style="display:none;" title="같이보기 방송 규정으로 선택 불가">🔒</span>
               </span>
               <input type="radio" name="replayPublishType" value="AUTO" class="chzzk-radio" />
             </label>
-            <label class="cursor-pointer select-none flex items-center justify-between px-2 py-1.5 rounded bg-[#0B0F15] border border-[#1E2738] hover:border-[#2A374E] transition-all text-[11px] text-slate-200 font-medium" title="다시보기 생성 안 함">
+            <label class="cursor-pointer select-none flex items-center justify-between px-1.5 py-1 rounded bg-[#0B0F15] border border-[#1E2738] hover:border-[#2A374E] transition-all text-[10.5px] text-slate-200 font-medium" title="다시보기 생성 안 함">
               <span class="flex items-center gap-1">
                 <span>🚫</span> <span>생성안함</span>
               </span>
@@ -548,18 +554,19 @@
         </div>
 
         <!-- 탭 2: 방송 세부 옵션 패널 (2x2 그리드: 연령제한, 클립허용, 해외시청, 유료프로모션) -->
-        <div id="tab-pane-stream" class="bg-[#121721] p-2 rounded-lg border border-[#1E2738] hidden">
-          <div class="grid grid-cols-2 gap-1.5">
+        <div id="tab-pane-stream" class="bg-[#121721] p-1.5 rounded-lg border border-[#1E2738] hidden">
+          <div class="grid grid-cols-2 gap-1">
             <!-- 연령 제한 -->
-            <label for="toggle-adult" class="cursor-pointer select-none flex items-center justify-between px-2 py-1.5 rounded bg-[#0B0F15] border border-[#1E2738]/80 hover:border-[#2A374E] transition-all text-[11px] text-slate-200 font-medium" title="연령 제한 (성인 방송)">
+            <label id="label-adult" for="toggle-adult" class="cursor-pointer select-none flex items-center justify-between px-1.5 py-1 rounded bg-[#0B0F15] border border-[#1E2738]/80 hover:border-[#2A374E] transition-all text-[10.5px] text-slate-200 font-medium" title="연령 제한 (성인 방송)">
               <span class="flex items-center gap-1.5">
                 <span>🔞</span> <span>연령제한</span>
+                <span id="lock-adult" class="text-[9px] text-amber-400 font-bold ml-0.5" style="display:none;" title="같이보기 콘텐츠 규정으로 연령 제한 고정됨">🔒</span>
               </span>
               <input type="checkbox" id="toggle-adult" class="chzzk-checkbox-input" />
             </label>
 
             <!-- 클립 허용 -->
-            <label id="label-clip" for="toggle-clip" class="cursor-pointer select-none flex items-center justify-between px-2 py-1.5 rounded bg-[#0B0F15] border border-[#1E2738]/80 hover:border-[#2A374E] transition-all text-[11px] text-slate-200 font-medium" title="시청자 클립 생성 허용">
+            <label id="label-clip" for="toggle-clip" class="cursor-pointer select-none flex items-center justify-between px-1.5 py-1 rounded bg-[#0B0F15] border border-[#1E2738]/80 hover:border-[#2A374E] transition-all text-[10.5px] text-slate-200 font-medium" title="시청자 클립 생성 허용">
               <span class="flex items-center gap-1.5">
                 <span>✂️</span> <span>클립허용</span>
                 <span id="lock-clip" class="text-[9px] text-amber-400 font-bold ml-0.5" style="display:none;" title="같이보기 규정으로 고정됨">🔒</span>
@@ -568,7 +575,7 @@
             </label>
 
             <!-- 해외 시청 -->
-            <label id="label-overseas" for="toggle-overseas" class="cursor-pointer select-none flex items-center justify-between px-2 py-1.5 rounded bg-[#0B0F15] border border-[#1E2738]/80 hover:border-[#2A374E] transition-all text-[11px] text-slate-200 font-medium" title="해외 시청 허용 (체크 시 해외 시청 가능, 해제 시 한국 시청자만 시청 가능 - krOnlyViewing)">
+            <label id="label-overseas" for="toggle-overseas" class="cursor-pointer select-none flex items-center justify-between px-1.5 py-1 rounded bg-[#0B0F15] border border-[#1E2738]/80 hover:border-[#2A374E] transition-all text-[10.5px] text-slate-200 font-medium" title="해외 시청 허용 (체크 시 해외 시청 가능, 해제 시 한국 시청자만 시청 가능 - krOnlyViewing)">
               <span class="flex items-center gap-1.5">
                 <span>🌐</span> <span>해외시청</span>
                 <span id="lock-overseas" class="text-[9px] text-amber-400 font-bold ml-0.5" style="display:none;" title="같이보기 규정으로 고정됨">🔒</span>
@@ -577,7 +584,7 @@
             </label>
 
             <!-- 유료 프로모션 표기 -->
-            <label for="toggle-paid-promotion" class="cursor-pointer select-none flex items-center justify-between px-2 py-1.5 rounded bg-[#0B0F15] border border-[#1E2738]/80 hover:border-[#2A374E] transition-all text-[11px] text-slate-200 font-medium" title="유료 프로모션 포함 (광고/협찬 방송 시 법적 표기)">
+            <label for="toggle-paid-promotion" class="cursor-pointer select-none flex items-center justify-between px-1.5 py-1 rounded bg-[#0B0F15] border border-[#1E2738]/80 hover:border-[#2A374E] transition-all text-[10.5px] text-slate-200 font-medium" title="유료 프로모션 포함 (광고/협찬 방송 시 법적 표기)">
               <span class="flex items-center gap-1.5">
                 <span>💵</span> <span>유료프로모션</span>
               </span>
@@ -587,29 +594,29 @@
         </div>
 
         <!-- 탭 3: 채팅 이용 권한 패널 -->
-        <div id="tab-pane-chat" class="bg-[#121721] p-2 rounded-lg border border-[#1E2738] space-y-2 hidden">
-          <div class="grid grid-cols-3 gap-1.5">
-            <label class="cursor-pointer select-none flex items-center justify-between px-2 py-1.5 rounded bg-[#0B0F15] border border-[#1E2738] hover:border-[#2A374E] transition-all text-[11px] text-slate-200 font-medium">
+        <div id="tab-pane-chat" class="bg-[#121721] p-1.5 rounded-lg border border-[#1E2738] space-y-1.5 hidden">
+          <div class="grid grid-cols-3 gap-1">
+            <label class="cursor-pointer select-none flex items-center justify-between px-1.5 py-1 rounded bg-[#0B0F15] border border-[#1E2738] hover:border-[#2A374E] transition-all text-[10.5px] text-slate-200 font-medium">
               <span class="flex items-center gap-1"><span>🤗</span> <span>모두</span></span>
               <input type="radio" name="chatAvailableGroup" value="ALL" class="chzzk-radio" checked onchange="onChatGroupChange('ALL')" />
             </label>
-            <label class="cursor-pointer select-none flex items-center justify-between px-2 py-1.5 rounded bg-[#0B0F15] border border-[#1E2738] hover:border-[#2A374E] transition-all text-[11px] text-slate-200 font-medium">
+            <label class="cursor-pointer select-none flex items-center justify-between px-1.5 py-1 rounded bg-[#0B0F15] border border-[#1E2738] hover:border-[#2A374E] transition-all text-[10.5px] text-slate-200 font-medium">
               <span class="flex items-center gap-1"><span>🤩</span> <span>팔로워</span></span>
               <input type="radio" name="chatAvailableGroup" value="FOLLOWER" class="chzzk-radio" onchange="onChatGroupChange('FOLLOWER')" />
             </label>
-            <label class="cursor-pointer select-none flex items-center justify-between px-2 py-1.5 rounded bg-[#0B0F15] border border-[#1E2738] hover:border-[#2A374E] transition-all text-[11px] text-slate-200 font-medium">
+            <label class="cursor-pointer select-none flex items-center justify-between px-1.5 py-1 rounded bg-[#0B0F15] border border-[#1E2738] hover:border-[#2A374E] transition-all text-[10.5px] text-slate-200 font-medium">
               <span class="flex items-center gap-1"><span>👮</span> <span>운영자</span></span>
               <input type="radio" name="chatAvailableGroup" value="MANAGER" class="chzzk-radio" onchange="onChatGroupChange('MANAGER')" />
             </label>
           </div>
 
           <!-- 팔로우 세부 설정 (채팅 권한 패널 내부로 통합: 팔로워 선택 시 노출) -->
-          <div id="follower-options" class="pt-2 border-t border-[#1E2738] flex items-center justify-between gap-2" style="display:none;">
+          <div id="follower-options" class="pt-1.5 border-t border-[#1E2738] flex items-center justify-between gap-2" style="display:none;">
             <div class="flex items-center gap-1.5 flex-1 min-w-0">
-              <label class="text-[11px] text-slate-300 font-medium whitespace-nowrap flex items-center gap-1">
+              <label class="text-[10.5px] text-slate-300 font-medium whitespace-nowrap flex items-center gap-1">
                 <span>🔒</span> 팔로우 시간
               </label>
-              <select id="min-follower-minute" class="chzzk-select text-[11px] py-1 px-2 flex-1">
+              <select id="min-follower-minute" class="chzzk-select text-[10.5px] py-0.5 px-1.5 flex-1">
                 <option value="0">제한 없음</option>
                 <option value="5">5분 이상</option>
                 <option value="10">10분 이상</option>
@@ -617,8 +624,8 @@
                 <option value="60">1시간 이상</option>
               </select>
             </div>
-            <label for="toggle-sub-exception" class="flex items-center gap-1.5 cursor-pointer select-none pl-2.5 border-l border-[#1E2738] flex-shrink-0" title="구독자는 팔로우 시간 제한 무관하게 채팅 가능">
-              <span class="text-[11px] text-slate-200 font-medium whitespace-nowrap">구독자 예외</span>
+            <label for="toggle-sub-exception" class="flex items-center gap-1.5 cursor-pointer select-none pl-2 border-l border-[#1E2738] flex-shrink-0" title="구독자는 팔로우 시간 제한 무관하게 채팅 가능">
+              <span class="text-[10.5px] text-slate-200 font-medium whitespace-nowrap">구독자 예외</span>
               <input type="checkbox" id="toggle-sub-exception" class="chzzk-checkbox-input" checked />
             </label>
           </div>
@@ -627,20 +634,16 @@
 
     </div>
 
-    <!-- ===== Load & Save Action & Revert (UI 하단 종료점) ===== -->
-    <div class="flex items-center gap-1.5 animate-slide-up pt-1 pb-0" style="animation-delay: 0.1s">
-      <button id="btn-load-settings" onclick="if (checkLoginGuard('방송 설정 불러오기')) loadCurrentSettings()" class="px-2.5 py-2.5 rounded-lg bg-[#161F2E] border border-[#1E2738] hover:border-[#00FFA3]/50 text-slate-300 hover:text-[#00FFA3] transition-all text-xs font-medium flex items-center justify-center gap-1 cursor-pointer flex-shrink-0" title="치지직 현재 방송 설정 다시 불러오기">
+    <!-- ===== Load & Save Action (UI 하단 종료점) ===== -->
+    <div class="flex items-center gap-1.5 animate-slide-up pt-0.5 pb-0" style="animation-delay: 0.1s">
+      <button id="btn-load-settings" onclick="if (checkLoginGuard('방송 설정 불러오기')) loadCurrentSettings()" class="px-2.5 py-1.5 rounded-lg bg-[#161F2E] border border-[#1E2738] hover:border-[#00FFA3]/50 text-slate-300 hover:text-[#00FFA3] transition-all text-[11.5px] font-medium flex items-center justify-center gap-1.5 cursor-pointer flex-shrink-0" title="치지직 현재 방송 설정 다시 불러오기 (수정 취소/동기화)">
         <svg id="load-spinner" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
         <span>불러오기</span>
       </button>
-      <button id="btn-save" class="save-btn flex-1 !w-auto py-2.5 text-xs font-bold" onclick="saveAll()">
+      <button id="btn-save" class="save-btn flex-1 !w-auto !py-1.5 text-xs font-bold" onclick="saveAll()">
         <span id="save-text">적용</span>
         <span id="save-dirty-badge" class="ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-extrabold bg-[#080A0D] text-[#00FFA3] shadow-sm animate-pulse" style="display:none;">● 변경됨</span>
         <svg id="save-spinner" class="animate-spin ml-1.5 inline-block" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="display:none;"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round"/></svg>
-      </button>
-      <button id="btn-revert" onclick="if (checkLoginGuard('되돌리기')) revertBroadcastState()" class="px-2.5 py-2.5 rounded-lg bg-[#161F2E] border border-[#1E2738] hover:border-slate-500 text-slate-400 hover:text-white transition-all text-xs font-medium flex items-center justify-center gap-1 cursor-pointer disabled:opacity-30 disabled:pointer-events-none flex-shrink-0" title="수정 중인 설정을 기존 저장 상태로 되돌리기" disabled>
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
-        <span>되돌리기</span>
       </button>
     </div>
   </div>
@@ -1660,6 +1663,101 @@
     </div>
   </div>
 
+  <!-- ===== [같이보기 모달 1] 🔄 같이보기 송출 재정비 안내 모달 ===== -->
+  <div id="modal-wp-restart" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-3 hidden" onclick="if(event.target===this) closeWatchPartyRestartModal()">
+    <div class="bg-[#0B0F15] border border-[#1E2738] rounded-xl max-w-sm w-full p-4 shadow-2xl space-y-3.5" onclick="event.stopPropagation()">
+      <div class="flex items-center justify-between border-b border-[#1E2738] pb-2.5">
+        <span class="text-xs font-bold text-slate-100">같이보기 송출 재정비 안내</span>
+        <button type="button" onclick="closeWatchPartyRestartModal()" class="w-6 h-6 rounded-md hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center text-sm font-bold cursor-pointer">✕</button>
+      </div>
+      <div class="space-y-2.5 text-xs text-slate-300 leading-relaxed">
+        <p class="text-[11.5px] text-slate-200">
+          이 같이보기는 원활한 방송을 위해 자동으로 송출 장비를 재설정합니다.
+        </p>
+        <div class="p-2.5 rounded-lg bg-[#0E1522] border border-[#1E2738] space-y-1.5 text-[11px] text-slate-300">
+          <p class="text-[#7B5FFF] font-semibold">
+            • 송출 프로그램(OBS/Prism 등)의 <b>[설정 &gt; 고급 &gt; 자동으로 다시 연결]</b> 옵션을 반드시 활성화해 주세요.
+          </p>
+          <p class="text-slate-400">
+            • 같이보기 on/off 시 송출이 잠시 끊겼다가 자동 재시작되며, 그 사이 시청자에게는 안내 화면이 노출됩니다.
+          </p>
+          <p class="text-slate-400">
+            • 채팅과 후원 참여 내역은 모두 유지됩니다.
+          </p>
+          <p class="text-slate-400">
+            • 다시보기는 전·중·후로 분할된 영상으로, 라이브가 끊기는 시점의 다시보기 게시 옵션에 따라 저장됩니다.
+          </p>
+        </div>
+      </div>
+      <div class="flex items-center justify-end pt-1">
+        <button type="button" onclick="closeWatchPartyRestartModal()" class="w-full py-2 rounded-lg bg-[#5C3BFF] hover:bg-[#7B5FFF] text-white text-xs font-bold cursor-pointer transition-colors shadow-md">
+          확인
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== [같이보기 모달 2] 📢 중간광고 제어 불가 안내 모달 ===== -->
+  <div id="modal-wp-midroll" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-3 hidden" onclick="if(event.target===this) closeWatchPartyMidRollModal()">
+    <div class="bg-[#0B0F15] border border-[#1E2738] rounded-xl max-w-sm w-full p-4 shadow-2xl space-y-3.5" onclick="event.stopPropagation()">
+      <div class="flex items-center justify-between border-b border-[#1E2738] pb-2.5">
+        <span class="text-xs font-bold text-slate-100">안내</span>
+        <button type="button" onclick="closeWatchPartyMidRollModal()" class="w-6 h-6 rounded-md hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center text-sm font-bold cursor-pointer">✕</button>
+      </div>
+      <div class="text-xs text-slate-300 leading-relaxed py-1">
+        선택하신 같이보기는 중간광고를 직접 제어할 수 없으며, 콘텐츠 흐름에 따라 적절한 시점에 중간광고가 재생됩니다.
+      </div>
+      <div class="flex items-center justify-end pt-1">
+        <button type="button" onclick="closeWatchPartyMidRollModal()" class="w-full py-2 rounded-lg bg-[#5C3BFF] hover:bg-[#7B5FFF] text-white text-xs font-bold cursor-pointer transition-colors shadow-md">
+          확인
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== [같이보기 모달 3] 📣 응원 전광판 설정 모달 ===== -->
+  <div id="modal-donation-board" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-3 hidden" onclick="if(event.target===this) closeDonationBoardModal()">
+    <div class="bg-[#0B0F15] border border-[#1E2738] rounded-xl max-w-sm w-full p-4 shadow-2xl space-y-3" onclick="event.stopPropagation()">
+      <div class="flex items-center justify-between border-b border-[#1E2738] pb-2">
+        <div class="flex items-center gap-1.5">
+          <span class="text-sm">📣</span>
+          <span class="text-xs font-bold text-slate-100">응원 전광판 설정</span>
+        </div>
+        <button type="button" onclick="closeDonationBoardModal()" class="w-6 h-6 rounded-md hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center text-sm font-bold cursor-pointer">✕</button>
+      </div>
+      <p class="text-[11px] text-slate-400 leading-normal">
+        우리 채널만의 응원 메시지를 설정하고 시청자들의 후원으로 응원 화력을 키워보세요!
+      </p>
+      <!-- 전광판 미리보기 배너 -->
+      <div class="rounded-lg bg-[#141517] border border-[#2b2d35] p-2.5 text-center shadow-inner">
+        <div class="text-[9.5px] text-slate-500 font-mono mb-1">전광판 미리보기</div>
+        <div id="preview-board-banner" class="text-xs font-bold text-slate-300 tracking-wide break-all min-h-[18px]">원하는 대로 전광판 메시지를 입력해보세요!</div>
+      </div>
+      <!-- 입력창 -->
+      <div class="space-y-1">
+        <input id="input-board-message" type="text" maxlength="25" oninput="onBoardMessageInput(this.value)" class="w-full bg-[#0E1522] border border-[#1E2738] focus:border-[#5C3BFF] rounded-lg px-2.5 py-1.5 text-xs text-white outline-none" placeholder="전광판 노출 메시지 입력 (최대 25자)" />
+        <div class="flex justify-between items-center text-[10px] text-slate-500">
+          <span>공백·특수문자 포함 최대 25자</span>
+          <span id="count-board-message" class="font-mono text-slate-400">0/25</span>
+        </div>
+      </div>
+      <!-- 프리셋 버튼들 -->
+      <div class="space-y-1">
+        <div class="text-[10px] font-semibold text-slate-400">추천 프리셋 문구:</div>
+        <div id="board-preset-chips" class="flex flex-wrap gap-1 max-h-24 overflow-y-auto"></div>
+      </div>
+      <p class="text-[10px] text-slate-500 pt-0.5">• 전광판 문구는 방송 설정(카테고리/옵션 등)과 함께 치지직 서버에 저장됩니다.</p>
+      <div class="flex items-center gap-2 pt-1">
+        <button type="button" onclick="closeDonationBoardModal()" class="flex-1 py-1.5 rounded-lg bg-[#161F2E] hover:bg-[#1E2738] text-slate-300 hover:text-white text-xs font-bold cursor-pointer transition-colors border border-[#1E2738]">
+          확인 (폼 반영)
+        </button>
+        <button type="button" onclick="saveDonationBoardNow()" class="flex-1 py-1.5 rounded-lg bg-[#5C3BFF] hover:bg-[#7B5FFF] text-white text-xs font-bold cursor-pointer transition-colors shadow-md flex items-center justify-center gap-1">
+          <span>💾</span> 즉시 저장
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- ===== [개별 모달 1] 💬 채팅 후원 세부 설정 ===== -->
   <div id="modal-dsetting-chat" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-[9999] flex items-center justify-center p-2.5 hidden" onclick="if(event.target===this) closeDonationModal('chat')">
     <div class="bg-[#0B0F15] border border-[#1E2738] rounded-xl max-w-md w-full shadow-2xl overflow-hidden" onclick="event.stopPropagation()">
@@ -1992,7 +2090,8 @@
         chatGroup: typeof getSelectedChatGroup === 'function' ? getSelectedChatGroup() : 'ALL',
         minFollowerMinute: elMinFollower ? elMinFollower.value : '0',
         subException: elSubEx ? elSubEx.checked : true,
-        watchPartyNo: (document.getElementById('select-watch-party')?.value || '')
+        watchPartyNo: (document.getElementById('select-watch-party')?.value || ''),
+        boardMessage: currentDonationBoardMessage || ''
       };
     }
 
@@ -2020,7 +2119,8 @@
         cur.paidPromotion !== base.paidPromotion ||
         cur.replayPublishType !== base.replayPublishType ||
         cur.chatGroup !== base.chatGroup ||
-        cur.watchPartyNo !== base.watchPartyNo
+        cur.watchPartyNo !== base.watchPartyNo ||
+        cur.boardMessage !== base.boardMessage
       );
 
       // 팔로워 모드일 때만 팔로우 시간 및 구독자 예외 비교
@@ -2108,12 +2208,14 @@
       if (selWp) {
         selWp.value = base.watchPartyNo || '';
       }
+      currentDonationBoardMessage = base.boardMessage || '';
       if (base.watchPartyNo) {
         const wpItem = availableWatchParties.find(p => String(p.watchPartyNo) === String(base.watchPartyNo));
         if (wpItem) {
           applyWatchPartyLock(wpItem, false);
         }
       } else {
+        preWatchPartySnapshot = null;
         releaseWatchPartyLock(false);
       }
 
@@ -4413,7 +4515,13 @@
           const opt = document.createElement('option');
           opt.value = String(p.watchPartyNo);
           const catStr = p.category && p.category.categoryValue ? ` [${p.category.categoryValue}]` : '';
-          opt.textContent = `${p.watchPartyTitle}${catStr}`;
+          const isSelectable = p.selectable !== false;
+          if (!isSelectable) {
+            opt.disabled = true;
+            opt.textContent = `${p.watchPartyTitle}${catStr} (선택 불가)`;
+          } else {
+            opt.textContent = `${p.watchPartyTitle}${catStr}`;
+          }
           select.appendChild(opt);
         });
       }
@@ -4422,17 +4530,110 @@
       }
     }
 
+    let currentDonationBoardMessage = '';
+    let preWatchPartySnapshot = null;
+
+    function capturePreWatchPartySnapshot() {
+      const replayChecked = document.querySelector('input[name="replayPublishType"]:checked')?.value || 'MANUAL';
+      return {
+        categoryId: document.getElementById('category-id')?.value || '',
+        categoryType: document.getElementById('category-type')?.value || 'ETC',
+        categorySearch: document.getElementById('category-search')?.value || '',
+        adult: document.getElementById('toggle-adult')?.checked ?? false,
+        clip: document.getElementById('toggle-clip')?.checked ?? true,
+        overseas: document.getElementById('toggle-overseas')?.checked ?? true,
+        replay: replayChecked,
+        chatDonation: document.getElementById('toggle-chat-donation')?.checked ?? false
+      };
+    }
+
+    function openWatchPartyRestartModal() {
+      const modal = document.getElementById('modal-wp-restart');
+      if (modal) modal.classList.remove('hidden');
+    }
+
+    function closeWatchPartyRestartModal() {
+      const modal = document.getElementById('modal-wp-restart');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    function openWatchPartyMidRollModal() {
+      const modal = document.getElementById('modal-wp-midroll');
+      if (modal) modal.classList.remove('hidden');
+    }
+
+    function closeWatchPartyMidRollModal() {
+      const modal = document.getElementById('modal-wp-midroll');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    function onBoardMessageInput(val) {
+      currentDonationBoardMessage = (val || '').slice(0, 25);
+      const preview = document.getElementById('preview-board-banner');
+      const count = document.getElementById('count-board-message');
+      if (count) count.textContent = `${currentDonationBoardMessage.length}/25`;
+      if (preview) {
+        preview.textContent = currentDonationBoardMessage || '원하는 대로 전광판 메시지를 입력해보세요!';
+        preview.className = currentDonationBoardMessage
+          ? 'text-xs font-bold text-[#00FFA3] tracking-wide break-all min-h-[18px]'
+          : 'text-xs font-bold text-slate-300 tracking-wide break-all min-h-[18px]';
+      }
+    }
+
+    function setBoardMessagePreset(text) {
+      const input = document.getElementById('input-board-message');
+      if (input) {
+        input.value = text;
+        onBoardMessageInput(text);
+      }
+    }
+
+    function openDonationBoardModal() {
+      if (!activeWatchParty || !activeWatchParty.donationBoardInfo) return;
+      const modal = document.getElementById('modal-donation-board');
+      const input = document.getElementById('input-board-message');
+      const presetsBox = document.getElementById('board-preset-chips');
+
+      if (input) {
+        input.value = currentDonationBoardMessage;
+        onBoardMessageInput(currentDonationBoardMessage);
+      }
+
+      if (presetsBox) {
+        const msgs = activeWatchParty.donationBoardInfo.defaultMessages || [];
+        presetsBox.innerHTML = msgs.map(m => `
+          <button type="button" onclick="setBoardMessagePreset('${escapeHtml(m.text)}')" class="px-2 py-1 rounded bg-[#161F2E] hover:bg-[#1E2738] border border-[#1E2738] text-[11px] text-slate-200 hover:text-[#00FFA3] cursor-pointer transition-colors text-left truncate max-w-full">
+            ${escapeHtml(m.text)}
+          </button>
+        `).join('');
+      }
+
+      if (modal) modal.classList.remove('hidden');
+    }
+
+    function closeDonationBoardModal() {
+      const modal = document.getElementById('modal-donation-board');
+      if (modal) modal.classList.add('hidden');
+      checkBroadcastStateDirty();
+    }
+
+    function saveDonationBoardNow() {
+      closeDonationBoardModal();
+      saveBroadcastSetting();
+    }
+
     function applyWatchPartyLock(wp, showNotify = true) {
       activeWatchParty = wp;
+      const isRs = !!(wp && wp.watchPartyType === 'RS');
       const badge = document.getElementById('watch-party-badge');
-      const notice = document.getElementById('watch-party-notice');
       if (badge) {
-        badge.textContent = '🎬 같이보기 방송';
-        badge.className = 'text-[10px] px-1.5 py-0.5 rounded font-bold text-[#00FFA3] bg-[#00FFA3]/10 border border-[#00FFA3]/30';
+        badge.textContent = isRs ? '🎬 같이보기+ 방송' : '🎬 같이보기 방송';
+        badge.className = 'text-[9.5px] px-1.5 py-0.5 rounded font-bold text-[#00FFA3] bg-[#00FFA3]/10 border border-[#00FFA3]/30 leading-none';
       }
+      const notice = document.getElementById('watch-party-notice');
       if (notice) notice.style.display = 'flex';
 
-      // 1. 카테고리 고정
+      // 1. 카테고리 고정 (캠페인에 지정된 카테고리가 있는 경우 고정, 없으면 기본값 talk 설정)
       const elCatSearch = document.getElementById('category-search');
       const elCatId = document.getElementById('category-id');
       const elCatType = document.getElementById('category-type');
@@ -4440,118 +4641,234 @@
       const elCatWrapper = document.getElementById('category-wrapper');
       const lockCat = document.getElementById('lock-category');
 
-      if (wp && wp.category) {
+      if (wp && wp.category && (wp.category.categoryId || wp.category.categoryValue)) {
         if (elCatId) elCatId.value = wp.category.categoryId || '';
         if (elCatType) elCatType.value = wp.category.categoryType || 'ENTERTAINMENT';
         if (elCatSearch) elCatSearch.value = wp.category.categoryValue || wp.category.categoryId || '';
-      }
-      if (elCatSearch) elCatSearch.disabled = true;
-      if (elCatClear) elCatClear.style.display = 'none';
-      if (elCatWrapper) elCatWrapper.classList.add('locked-by-party');
-      if (lockCat) lockCat.style.display = 'inline';
-
-      // 2. 다른 같이보기 태그 정리 및 현재 같이보기 태그 자동 추가
-      const otherWpTags = availableWatchParties
-        .filter(p => String(p.watchPartyNo) !== String(wp?.watchPartyNo))
-        .map(p => p.watchPartyTag)
-        .filter(Boolean);
-      currentTags = currentTags.filter(t => !otherWpTags.includes(t));
-
-      if (wp && wp.watchPartyTag) {
-        if (!currentTags.includes(wp.watchPartyTag)) {
-          currentTags.push(wp.watchPartyTag);
+        if (elCatSearch) elCatSearch.disabled = true;
+        if (elCatClear) elCatClear.style.display = 'none';
+        if (elCatWrapper) elCatWrapper.classList.add('locked-by-party');
+        if (lockCat) lockCat.style.display = 'inline';
+      } else {
+        // 강제되는 카테고리가 없는 경우 기본값 talk 적용 (수정 가능)
+        if (showNotify || !elCatId || !elCatId.value) {
+          if (elCatId) elCatId.value = 'talk';
+          if (elCatType) elCatType.value = 'ETC';
+          if (elCatSearch) elCatSearch.value = 'talk';
         }
+        if (elCatSearch) elCatSearch.disabled = false;
+        if (elCatWrapper) elCatWrapper.classList.remove('locked-by-party');
+        if (lockCat) lockCat.style.display = 'none';
+        if (elCatClear) elCatClear.style.display = (elCatId && elCatId.value) ? 'block' : 'none';
       }
+
+      // 2. 태그 영역: 같이보기 지정 태그 표시 갱신
       renderTags();
 
-      // 3. 시청 국가 한국만 가능 (krOnlyViewing: true => overseas: false)
+      // 3. 해외 시청 (캠페인 krOnlyViewing 규정으로 100% 강제 동기화 및 잠금)
       const elOverseas = document.getElementById('toggle-overseas');
       const labelOverseas = document.getElementById('label-overseas');
       const lockOverseas = document.getElementById('lock-overseas');
-      if (elOverseas) {
-        elOverseas.checked = false;
-        elOverseas.disabled = true;
+      if (wp && wp.krOnlyViewing !== undefined) {
+        if (elOverseas) {
+          elOverseas.checked = !wp.krOnlyViewing;
+          elOverseas.disabled = true;
+        }
+        if (labelOverseas) labelOverseas.classList.add('locked-by-party');
+        if (lockOverseas) lockOverseas.style.display = 'inline';
       }
-      if (labelOverseas) labelOverseas.classList.add('locked-by-party');
-      if (lockOverseas) lockOverseas.style.display = 'inline';
 
-      // 4. 클립 비허용 (clipActive: false)
+      // 4. 클립 생성 허용 (clipActive가 false인 경우에만 잠금)
       const elClip = document.getElementById('toggle-clip');
       const labelClip = document.getElementById('label-clip');
       const lockClip = document.getElementById('lock-clip');
-      if (elClip) {
-        elClip.checked = false;
-        elClip.disabled = true;
+      const isClipLocked = !!(wp && wp.clipActive === false);
+      if (isClipLocked) {
+        if (elClip) {
+          elClip.checked = false;
+          elClip.disabled = true;
+        }
+        if (labelClip) labelClip.classList.add('locked-by-party');
+        if (lockClip) lockClip.style.display = 'inline';
+      } else {
+        if (elClip) elClip.disabled = false;
+        if (labelClip) labelClip.classList.remove('locked-by-party');
+        if (lockClip) lockClip.style.display = 'none';
       }
-      if (labelClip) labelClip.classList.add('locked-by-party');
-      if (lockClip) lockClip.style.display = 'inline';
 
-      // 5. 다시보기 없음 고정 (replayPublishType: 'NONE' 강제, '확인 후' 및 '자동게시'에 잠금 표시)
+      // 5. 다시보기 (allowReplayVideo가 false인 경우에만 '생성 안 함' 강제 잠금)
       const radioNone = document.querySelector('input[name="replayPublishType"][value="NONE"]');
       const containerReplay = document.getElementById('container-replay-radios');
-      if (radioNone) radioNone.checked = true;
-      document.querySelectorAll('input[name="replayPublishType"]').forEach(r => r.disabled = true);
-      if (containerReplay) containerReplay.classList.add('locked-by-party');
-      document.querySelectorAll('.lock-replay-disabled').forEach(el => el.style.display = 'inline');
+      const isReplayLocked = !!(wp && wp.allowReplayVideo === false);
+      if (isReplayLocked) {
+        if (radioNone) radioNone.checked = true;
+        document.querySelectorAll('input[name="replayPublishType"]').forEach(r => r.disabled = true);
+        if (containerReplay) containerReplay.classList.add('locked-by-party');
+        document.querySelectorAll('.lock-replay-disabled').forEach(el => el.style.display = 'inline');
+      } else {
+        document.querySelectorAll('input[name="replayPublishType"]').forEach(r => r.disabled = false);
+        if (containerReplay) containerReplay.classList.remove('locked-by-party');
+        document.querySelectorAll('.lock-replay-disabled').forEach(el => el.style.display = 'none');
+      }
+
+      // 6. 연령 제한 (성인 콘텐츠인 경우에만 19세 강제 고정)
+      const elAdult = document.getElementById('toggle-adult');
+      const labelAdult = document.getElementById('label-adult');
+      const lockAdult = document.getElementById('lock-adult');
+      const isAdultLocked = !!(wp && wp.adult);
+      if (isAdultLocked) {
+        if (elAdult) {
+          elAdult.checked = true;
+          elAdult.disabled = true;
+        }
+        if (labelAdult) labelAdult.classList.add('locked-by-party');
+        if (lockAdult) lockAdult.style.display = 'inline';
+      } else {
+        if (elAdult) elAdult.disabled = false;
+        if (labelAdult) labelAdult.classList.remove('locked-by-party');
+        if (lockAdult) lockAdult.style.display = 'none';
+      }
+
+      // 7. 같이보기+(RS)인 경우 채팅 후원 필수 자동 ON
+      if (isRs) {
+        const elChatDonation = document.getElementById('toggle-chat-donation');
+        if (elChatDonation && !elChatDonation.checked) {
+          elChatDonation.checked = true;
+          if (typeof updateDonationDetailButtonsState === 'function') {
+            updateDonationDetailButtonsState();
+          }
+        }
+      }
+
+      // 8. 응원 전광판 버튼 노출 및 초기화
+      const btnBoard = document.getElementById('btn-open-donation-board');
+      if (btnBoard) {
+        btnBoard.style.display = (wp && wp.donationBoardInfo) ? 'inline-flex' : 'none';
+      }
+      if (wp && wp.donationBoardInfo) {
+        currentDonationBoardMessage = wp.donationBoardInfo.channelDonationBoardMessage || '';
+      } else {
+        currentDonationBoardMessage = '';
+      }
+
+      // 안내 문구 생성
+      const lockedItems = [];
+      if (wp && wp.category && (wp.category.categoryId || wp.category.categoryValue)) lockedItems.push('카테고리');
+      lockedItems.push(wp && wp.krOnlyViewing ? '한국 전용' : '해외 시청 허용');
+      if (isClipLocked) lockedItems.push('클립 OFF');
+      if (isReplayLocked) lockedItems.push('다시보기 OFF');
+      if (isAdultLocked) lockedItems.push('연령 제한(19세)');
+      if (isRs) lockedItems.push('채팅 후원 필수(ON)');
+
+      const noticeText = document.getElementById('watch-party-notice-text');
+      if (noticeText) {
+        noticeText.textContent = `같이보기 규정에 따라 ${lockedItems.join(', ')} 설정이 고정/적용됩니다.`;
+      }
 
       if (showNotify && wp) {
         const title = wp.watchPartyTitle || '같이보기';
-        showToast('같이보기 방송 설정', 'info', `"${title}" 규정에 맞춰 카테고리, 한국 전용, 클립 OFF, 다시보기 OFF가 고정되었습니다.`);
+        const lockSummary = lockedItems.length > 0 ? ` (${lockedItems.join(', ')})` : '';
+        showToast('같이보기 방송 설정', 'info', `"${title}" 규정에 맞춰 설정이 조정되었습니다.${lockSummary}`);
       }
     }
 
     function releaseWatchPartyLock(showNotify = true) {
       activeWatchParty = null;
+      currentDonationBoardMessage = '';
       const badge = document.getElementById('watch-party-badge');
       const notice = document.getElementById('watch-party-notice');
       if (badge) {
         badge.textContent = '일반 방송';
-        badge.className = 'text-[9.5px] px-1.5 py-0.2 rounded font-medium text-slate-400 bg-slate-800/80 border border-slate-700/50 leading-none';
+        badge.className = 'text-[9.5px] px-1.5 py-0.5 rounded font-medium text-slate-400 bg-slate-800/80 border border-slate-700/50 leading-none';
       }
       if (notice) notice.style.display = 'none';
+      const btnBoard = document.getElementById('btn-open-donation-board');
+      if (btnBoard) btnBoard.style.display = 'none';
 
-      // 1. 같이보기 불필요 태그 자동 정리
-      const allWpTags = availableWatchParties.map(p => p.watchPartyTag).filter(Boolean);
-      if (allWpTags.length > 0) {
-        currentTags = currentTags.filter(t => !allWpTags.includes(t));
-        renderTags();
-      }
+      // 1. 태그 렌더링 갱신 (지정 태그 표시 제거)
+      renderTags();
 
-      // 2. 카테고리 잠금 해제
+      // 2. 카테고리 복원 및 잠금 해제
       const elCatSearch = document.getElementById('category-search');
       const elCatId = document.getElementById('category-id');
+      const elCatType = document.getElementById('category-type');
       const elCatClear = document.getElementById('category-clear');
       const elCatWrapper = document.getElementById('category-wrapper');
       const lockCat = document.getElementById('lock-category');
+      if (preWatchPartySnapshot) {
+        if (elCatId) elCatId.value = preWatchPartySnapshot.categoryId || '';
+        if (elCatType) elCatType.value = preWatchPartySnapshot.categoryType || 'ETC';
+        if (elCatSearch) elCatSearch.value = preWatchPartySnapshot.categorySearch || preWatchPartySnapshot.categoryId || '';
+      }
       if (elCatSearch) elCatSearch.disabled = false;
       if (elCatClear) elCatClear.style.display = (elCatId && elCatId.value) ? 'block' : 'none';
       if (elCatWrapper) elCatWrapper.classList.remove('locked-by-party');
       if (lockCat) lockCat.style.display = 'none';
 
-      // 3. 해외 시청 잠금 해제
+      // 3. 해외 시청 복원 및 잠금 해제
       const elOverseas = document.getElementById('toggle-overseas');
       const labelOverseas = document.getElementById('label-overseas');
       const lockOverseas = document.getElementById('lock-overseas');
-      if (elOverseas) elOverseas.disabled = false;
+      if (elOverseas) {
+        if (preWatchPartySnapshot) {
+          elOverseas.checked = preWatchPartySnapshot.overseas;
+        }
+        elOverseas.disabled = false;
+      }
       if (labelOverseas) labelOverseas.classList.remove('locked-by-party');
       if (lockOverseas) lockOverseas.style.display = 'none';
 
-      // 4. 클립 허용 잠금 해제
+      // 4. 클립 허용 복원 및 잠금 해제
       const elClip = document.getElementById('toggle-clip');
       const labelClip = document.getElementById('label-clip');
       const lockClip = document.getElementById('lock-clip');
-      if (elClip) elClip.disabled = false;
+      if (elClip) {
+        if (preWatchPartySnapshot) {
+          elClip.checked = preWatchPartySnapshot.clip;
+        }
+        elClip.disabled = false;
+      }
       if (labelClip) labelClip.classList.remove('locked-by-party');
       if (lockClip) lockClip.style.display = 'none';
 
-      // 5. 다시보기 잠금 해제 ('확인 후' 및 '자동게시' 잠금 표시 제거)
+      // 5. 다시보기 복원 및 잠금 해제
       const containerReplay = document.getElementById('container-replay-radios');
+      if (preWatchPartySnapshot) {
+        const prevRadio = document.querySelector(`input[name="replayPublishType"][value="${preWatchPartySnapshot.replay}"]`);
+        if (prevRadio) prevRadio.checked = true;
+      }
       document.querySelectorAll('input[name="replayPublishType"]').forEach(r => r.disabled = false);
       if (containerReplay) containerReplay.classList.remove('locked-by-party');
       document.querySelectorAll('.lock-replay-disabled').forEach(el => el.style.display = 'none');
 
+      // 6. 연령 제한 복원 및 잠금 해제
+      const elAdult = document.getElementById('toggle-adult');
+      const labelAdult = document.getElementById('label-adult');
+      const lockAdult = document.getElementById('lock-adult');
+      if (elAdult) {
+        if (preWatchPartySnapshot) {
+          elAdult.checked = preWatchPartySnapshot.adult;
+        }
+        elAdult.disabled = false;
+      }
+      if (labelAdult) labelAdult.classList.remove('locked-by-party');
+      if (lockAdult) lockAdult.style.display = 'none';
+
+      // 7. 채팅 후원 복원
+      if (preWatchPartySnapshot && preWatchPartySnapshot.chatDonation !== undefined) {
+        const elChatDonation = document.getElementById('toggle-chat-donation');
+        if (elChatDonation) {
+          elChatDonation.checked = preWatchPartySnapshot.chatDonation;
+          if (typeof updateDonationDetailButtonsState === 'function') {
+            updateDonationDetailButtonsState();
+          }
+        }
+      }
+
+      preWatchPartySnapshot = null;
+
       if (showNotify) {
-        showToast('일반 방송 전환', 'info', '카테고리, 해외 시청, 클립, 다시보기가 잠금 해제되었으며 불필요한 태그가 정리되었습니다.');
+        showToast('일반 방송 전환', 'info', '카테고리 및 방송 옵션이 같이보기 전의 원래 상태로 복원되었습니다.');
       }
     }
 
@@ -4559,9 +4876,19 @@
       if (!val) {
         releaseWatchPartyLock(true);
       } else {
+        // 같이보기 첫 진입 시 직전 방송 설정을 스냅샷으로 보존 (해제 시 원복용)
+        if (!preWatchPartySnapshot) {
+          preWatchPartySnapshot = capturePreWatchPartySnapshot();
+        }
         const wp = availableWatchParties.find(p => String(p.watchPartyNo) === String(val));
         if (wp) {
           applyWatchPartyLock(wp, true);
+          if (wp.hasLiveRestartTrigger) {
+            openWatchPartyRestartModal();
+          }
+          if (wp.midRollAdIntegrationControl) {
+            openWatchPartyMidRollModal();
+          }
         }
       }
       checkBroadcastStateDirty();
@@ -5680,10 +6007,14 @@
                 if (selWp) selWp.value = String(content.watchParty.watchPartyNo);
                 const wpItem = availableWatchParties.find(p => String(p.watchPartyNo) === String(content.watchParty.watchPartyNo)) || content.watchParty;
                 applyWatchPartyLock(wpItem, false);
+                if (content.watchParty.donationBoardInfo && content.watchParty.donationBoardInfo.channelDonationBoardMessage) {
+                  currentDonationBoardMessage = content.watchParty.donationBoardInfo.channelDonationBoardMessage;
+                }
               } else {
                 currentLiveSetting.watchPartyNo = null;
                 const selWp = document.getElementById('select-watch-party');
                 if (selWp) selWp.value = "";
+                preWatchPartySnapshot = null;
                 releaseWatchPartyLock(false);
               }
 
@@ -5846,7 +6177,7 @@
       }
     }
 
-    async function updateDonationSetting(type) {
+    async function updateDonationSetting(type, silent = false) {
       if (!userChannelId) return;
 
       const MAP = {
@@ -5871,16 +6202,16 @@
         if (res.ok) {
           currentDonationState[cfg.key] = targetActive;
           updateDonationDetailButtonsState();
-          showToast('🎉 후원 옵션 변경 성공!', 'success');
+          if (!silent) showToast('🎉 후원 옵션 변경 성공!', 'success');
         } else {
           if (el) el.checked = currentDonationState[cfg.key];
           updateDonationDetailButtonsState();
-          showToast('후원 옵션 변경 실패', 'error', '쿠키 로그인 상태를 확인하세요.');
+          if (!silent) showToast('후원 옵션 변경 실패', 'error', '쿠키 로그인 상태를 확인하세요.');
         }
       } catch (e) {
         if (el) el.checked = currentDonationState[cfg.key];
         updateDonationDetailButtonsState();
-        showToast('통신 오류', 'error', e.message);
+        if (!silent) showToast('통신 오류', 'error', e.message);
       }
     }
 
@@ -6034,8 +6365,44 @@
         const targetWpNo = document.getElementById('select-watch-party')?.value || '';
         const isWp = !!targetWpNo;
 
-        // 같이보기 모드일 때 필수 규정 적용 (카테고리, 한국 전용, 클립 비허용, 다시보기 없음)
-        if (isWp && activeWatchParty && activeWatchParty.category) {
+        // 선택 불가 같이보기 캠페인 가드
+        if (isWp && activeWatchParty && activeWatchParty.selectable === false) {
+          showToast('선택 불가 같이보기', 'error', '현재 선택할 수 없는 같이보기 캠페인입니다.');
+          btn.disabled = false;
+          saveText.textContent = '적용';
+          spinner.style.display = 'none';
+          return;
+        }
+
+        // 같이보기+(RS) 선택 시 필수인 채팅 후원 자동 ON 동기화
+        if (isWp && activeWatchParty && activeWatchParty.watchPartyType === 'RS') {
+          const elChat = document.getElementById('toggle-chat-donation');
+          if (elChat && !elChat.checked) {
+            elChat.checked = true;
+          }
+        }
+
+        // 1. 후원 3종 설정 선행 저장 (같이보기+ RS 방송의 채팅 후원 필수 요구조건 충족을 위해 선행)
+        const chatActive = document.getElementById('toggle-chat-donation')?.checked ?? false;
+        const videoActive = document.getElementById('toggle-video-donation')?.checked ?? false;
+        const missionActive = document.getElementById('toggle-mission-donation')?.checked ?? false;
+
+        if (chatActive !== currentDonationState.chatDonationActive) {
+          await updateDonationSetting('CHAT', true);
+        }
+        if (videoActive !== currentDonationState.videoDonationActive) {
+          await updateDonationSetting('VIDEO', true);
+        }
+        if (missionActive !== currentDonationState.missionDonationActive) {
+          await updateDonationSetting('MISSION', true);
+        }
+
+        // 캠페인별 규칙 적용 (카테고리/클립/다시보기/성인/해외시청/응원전광판)
+        const isWpAdult = !!(isWp && activeWatchParty && activeWatchParty.adult);
+        const isWpClipFalse = !!(isWp && activeWatchParty && activeWatchParty.clipActive === false);
+        const isWpReplayFalse = !!(isWp && activeWatchParty && activeWatchParty.allowReplayVideo === false);
+
+        if (isWp && activeWatchParty && activeWatchParty.category && (activeWatchParty.category.categoryId || activeWatchParty.category.categoryValue)) {
           catId = activeWatchParty.category.categoryId || catId;
           catType = activeWatchParty.category.categoryType || catType;
         }
@@ -6046,20 +6413,21 @@
           categoryType: catType,
           liveCategory: catId,
           tags: currentTags || [],
-          adult: targetAdult,
-          clipActive: isWp ? false : targetClip,
-          replayPublishType: isWp ? 'NONE' : targetReplay,
+          adult: isWpAdult ? true : targetAdult,
+          clipActive: isWpClipFalse ? false : targetClip,
+          replayPublishType: isWpReplayFalse ? 'NONE' : targetReplay,
           paidPromotion: targetPaid,
-          krOnlyViewing: isWp ? true : targetKrOnly,
+          krOnlyViewing: isWp ? !!activeWatchParty.krOnlyViewing : targetKrOnly,
           cvExposure: base.cvExposure !== undefined ? base.cvExposure : true,
-          timeMachineActive: isWp ? false : (base.timeMachineActive !== undefined ? base.timeMachineActive : true),
+          timeMachineActive: isWpClipFalse ? false : (base.timeMachineActive !== undefined ? base.timeMachineActive : true),
           aiCaptionActive: !!base.aiCaptionActive,
           streamerShopCatalogTagActive: !!base.streamerShopCatalogTagActive,
           defaultThumbnailImageUrl: base.defaultThumbnailImageUrl || null,
           dropsCampaignNo: base.dropsCampaignNo || null,
           paidProductId: base.paidProductId || null,
           broadcastLanguage: base.broadcastLanguage || null,
-          watchPartyNo: isWp ? Number(targetWpNo) : null
+          watchPartyNo: isWp ? Number(targetWpNo) : null,
+          channelDonationBoardMessage: (isWp && activeWatchParty && activeWatchParty.donationBoardInfo) ? (currentDonationBoardMessage || '') : void 0
         };
 
         const resLive = await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/live-setting/normal`, {
@@ -6069,14 +6437,21 @@
         });
 
         if (resLive.ok) {
-          currentLiveSetting.adult = targetAdult;
-          currentLiveSetting.clipActive = isWp ? false : targetClip;
-          currentLiveSetting.krOnlyViewing = isWp ? true : targetKrOnly;
-          currentLiveSetting.replayPublishType = isWp ? 'NONE' : targetReplay;
-          currentLiveSetting.watchPartyNo = isWp ? Number(targetWpNo) : null;
+          currentLiveSetting.adult = payloadLive.adult;
+          currentLiveSetting.clipActive = payloadLive.clipActive;
+          currentLiveSetting.krOnlyViewing = payloadLive.krOnlyViewing;
+          currentLiveSetting.replayPublishType = payloadLive.replayPublishType;
+          currentLiveSetting.watchPartyNo = payloadLive.watchPartyNo;
           liveSuccess = true;
         } else {
-          showToast('방송 정보 저장 실패', 'error', '치지직 서버 권한을 확인하세요.');
+          let errorMsg = '치지직 서버 권한을 확인하세요.';
+          try {
+            const errData = await resLive.json();
+            if (errData && errData.message) {
+              errorMsg = errData.message;
+            }
+          } catch (e) {}
+          showToast('방송 정보 저장 실패', 'error', errorMsg);
         }
       } catch (err) {
         showToast('방송 정보 저장 오류', 'error', err.message);
@@ -6100,29 +6475,22 @@
         if (resChat.ok) {
           chatSuccess = true;
         } else {
-          showToast('채팅 설정 저장 실패', 'error');
+          let chatErrorMsg = '채팅 설정 저장에 실패했습니다.';
+          try {
+            const errChat = await resChat.json();
+            if (errChat && errChat.message) chatErrorMsg = errChat.message;
+          } catch (e) {}
+          showToast('채팅 설정 저장 실패', 'error', chatErrorMsg);
         }
       } catch (err) {
         showToast('채팅 설정 저장 오류', 'error', err.message);
       }
 
-      // 3. 후원 3종 설정 저장
-      const chatActive = document.getElementById('toggle-chat-donation')?.checked ?? false;
-      const videoActive = document.getElementById('toggle-video-donation')?.checked ?? false;
-      const missionActive = document.getElementById('toggle-mission-donation')?.checked ?? false;
-
-      if (chatActive !== currentDonationState.chatDonationActive) {
-        await updateDonationSetting('CHAT');
+      // 3. 방송 설정 저장이 성공한 경우에만 화면에 최신 방송 & 채팅 정보 다시 동기화
+      // (저장이 실패한 경우 사용자가 선택해둔 같이보기나 폼 입력값이 리셋되는 문제 방지)
+      if (liveSuccess) {
+        await loadCurrentSettings(true);
       }
-      if (videoActive !== currentDonationState.videoDonationActive) {
-        await updateDonationSetting('VIDEO');
-      }
-      if (missionActive !== currentDonationState.missionDonationActive) {
-        await updateDonationSetting('MISSION');
-      }
-
-      // 설정 저장 완료 후 GET을 통해 화면에 최신 방송 & 채팅 정보 다시 불러오기
-      await loadCurrentSettings(true);
 
       btn.disabled = false;
       spinner.style.display = 'none';
@@ -6152,12 +6520,12 @@
         const pane = document.getElementById(`tab-pane-${t}`);
         if (t === tab) {
           if (btn) {
-            btn.className = 'flex-1 py-1.5 px-1 rounded-md text-[11px] font-bold transition-all flex items-center justify-center gap-1 bg-[#1A2436] text-[#00FFA3] border border-[#00FFA3]/40 shadow-sm cursor-pointer';
+            btn.className = 'flex-1 py-1 px-1 rounded-md text-[10.5px] font-bold transition-all flex items-center justify-center gap-1 bg-[#1A2436] text-[#00FFA3] border border-[#00FFA3]/40 shadow-sm cursor-pointer';
           }
           if (pane) pane.classList.remove('hidden');
         } else {
           if (btn) {
-            btn.className = 'flex-1 py-1.5 px-1 rounded-md text-[11px] font-medium transition-all flex items-center justify-center gap-1 text-slate-400 hover:text-slate-200 cursor-pointer';
+            btn.className = 'flex-1 py-1 px-1 rounded-md text-[10.5px] font-medium transition-all flex items-center justify-center gap-1 text-slate-400 hover:text-slate-200 cursor-pointer';
           }
           if (pane) pane.classList.add('hidden');
         }
@@ -6427,20 +6795,6 @@
 
     let isTagInputOpen = false;
 
-    function getWatchPartyTag() {
-      return (activeWatchParty && activeWatchParty.watchPartyTag) ? activeWatchParty.watchPartyTag : null;
-    }
-
-    function isWatchPartyTag(tag) {
-      const wpTag = getWatchPartyTag();
-      return wpTag && tag === wpTag;
-    }
-
-    function getUserTags() {
-      const wpTag = getWatchPartyTag();
-      return currentTags.filter(t => t !== wpTag);
-    }
-
     function addTag(value) {
       if (!value) return false;
       value = value.replace(/\s+/g, '');
@@ -6449,9 +6803,8 @@
         showToast('입력 오류', 'error', '공백 및 특수문자는 사용할 수 없습니다.');
         return false;
       }
-      const userTags = getUserTags();
-      if (userTags.length >= 5) {
-        showToast('태그 제한', 'warn', '일반 태그는 최대 5개까지 추가할 수 있습니다.');
+      if (currentTags.length >= 5) {
+        showToast('태그 제한', 'warn', '태그는 최대 5개까지 추가할 수 있습니다.');
         return false;
       }
       if (currentTags.includes(value)) {
@@ -6464,19 +6817,15 @@
     }
 
     function removeTag(index) {
-      const target = currentTags[index];
-      if (isWatchPartyTag(target)) {
-        showToast('삭제 불가', 'warn', '같이보기 규정 태그는 같이보기 방송을 해제해야 삭제됩니다.');
-        return;
+      if (index >= 0 && index < currentTags.length) {
+        currentTags.splice(index, 1);
+        renderTags();
       }
-      currentTags.splice(index, 1);
-      renderTags();
     }
 
     function openTagInput() {
-      const userTags = getUserTags();
-      if (userTags.length >= 5) {
-        showToast('태그 제한', 'warn', '일반 태그는 최대 5개까지 추가할 수 있습니다.');
+      if (currentTags.length >= 5) {
+        showToast('태그 제한', 'warn', '태그는 최대 5개까지 추가할 수 있습니다.');
         return;
       }
       isTagInputOpen = true;
@@ -6502,7 +6851,7 @@
       const inputEl = document.getElementById('tag-inline-input');
 
       if (inlineBox) inlineBox.style.display = 'none';
-      if (btnOpen && getUserTags().length < 5) btnOpen.style.display = 'inline-flex';
+      if (btnOpen && currentTags.length < 5) btnOpen.style.display = 'inline-flex';
       if (inputEl) inputEl.value = '';
     }
 
@@ -6517,7 +6866,7 @@
       const ok = addTag(val);
       if (ok) {
         inputEl.value = '';
-        if (getUserTags().length >= 5) {
+        if (currentTags.length >= 5) {
           closeTagInput();
         } else {
           requestAnimationFrame(() => {
@@ -6533,34 +6882,40 @@
       const inlineBox = document.getElementById('tag-inline-box');
       const btnOpen = document.getElementById('btn-open-tag');
 
-      const userTags = getUserTags();
-      const wpTag = getWatchPartyTag();
-
       if (countEl) {
-        countEl.textContent = wpTag ? `${userTags.length}/5 (같이보기 +1)` : `${userTags.length}/5`;
+        countEl.textContent = `${currentTags.length}/5`;
       }
 
       if (chipsWrapper) {
-        chipsWrapper.innerHTML = currentTags.map((tag, i) => {
-          const isWp = isWatchPartyTag(tag);
-          if (isWp) {
-            return `
-              <span class="tag-chip !border-amber-500/40 !bg-amber-500/10 !text-amber-300" title="같이보기 규정 태그 (자동 고정)">
-                🎬 #${escapeHtml(tag)}
-                <span class="text-[9px] ml-0.5 opacity-80" title="같이보기 고정">🔒</span>
-              </span>
-            `;
-          }
-          return `
-            <span class="tag-chip">
-              #${escapeHtml(tag)}
-              <button type="button" onclick="removeTag(${i})" title="태그 삭제">✕</button>
+        let html = '';
+
+        // 1. 치지직 같이보기 시스템 규정 필수 태그 (스튜디오 동일: 삭제 불가 전용 고정 뱃지)
+        if (activeWatchParty && activeWatchParty.watchPartyTag) {
+          const isRs = activeWatchParty.watchPartyType === 'RS';
+          const badgeClass = isRs
+            ? '!border-[#00FFA3]/40 !bg-[#00FFA3]/10 !text-[#00FFA3]'
+            : '!border-purple-500/40 !bg-purple-500/10 !text-purple-300';
+
+          html += `
+            <span class="tag-chip ${badgeClass} font-semibold cursor-default flex items-center gap-1 select-none" title="치지직 같이보기 규정 태그 (자동 부여 및 고정)">
+              <span class="text-[9.5px]">🔒</span>
+              <span>#${escapeHtml(activeWatchParty.watchPartyTag)}</span>
             </span>
           `;
-        }).join('');
+        }
+
+        // 2. 사용자가 직접 등록한 일반 태그 목록 (최대 5개, 삭제 가능)
+        html += currentTags.map((tag, i) => `
+          <span class="tag-chip">
+            #${escapeHtml(tag)}
+            <button type="button" onclick="removeTag(${i})" title="태그 삭제">✕</button>
+          </span>
+        `).join('');
+
+        chipsWrapper.innerHTML = html;
       }
 
-      if (userTags.length >= 5) {
+      if (currentTags.length >= 5) {
         if (inlineBox) inlineBox.style.display = 'none';
         if (btnOpen) btnOpen.style.display = 'none';
         isTagInputOpen = false;

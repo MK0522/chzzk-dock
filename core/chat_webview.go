@@ -38,6 +38,300 @@ var (
 	chatHwnd           uintptr
 )
 
+const chatOverlayScript = `
+(function() {
+  if (window.__chzzkChatOverlayInjected) return;
+  window.__chzzkChatOverlayInjected = true;
+
+  function initOverlay() {
+    if (document.getElementById('chzzk-floating-toolbar')) return;
+
+    var bar = document.createElement('div');
+    bar.id = 'chzzk-floating-toolbar';
+
+    // 이전 저장 위치 복원 (localStorage: 채팅창 전용 키)
+    var savedPos = null;
+    try {
+      var raw = localStorage.getItem('chzzk_chat_pin_pos');
+      if (raw) savedPos = JSON.parse(raw);
+    } catch(e) {}
+
+    // 기본 위치: 좌측 상단 (치지직 우측 상단 공식 메뉴 가림 방지)
+    var initialTop = (savedPos && typeof savedPos.top === 'number') ? savedPos.top + 'px' : '10px';
+    var initialLeft = (savedPos && typeof savedPos.left === 'number') ? savedPos.left + 'px' : '14px';
+
+    bar.style.cssText = [
+      'position: fixed !important',
+      'top: ' + initialTop + ' !important',
+      'left: ' + initialLeft + ' !important',
+      'display: flex !important',
+      'gap: 5px !important',
+      'align-items: center !important',
+      'z-index: 9999999 !important',
+      'user-select: none !important',
+      '-webkit-user-select: none !important',
+      'touch-action: none !important'
+    ].join(';');
+
+    function createBtn(id, text, title) {
+      var btn = document.createElement('button');
+      btn.id = id;
+      btn.title = title;
+      btn.innerHTML = text;
+      btn.style.cssText = [
+        'width: 28px !important',
+        'height: 28px !important',
+        'border-radius: 7px !important',
+        'border: 1.5px solid #334155 !important',
+        'background: #161F2E !important',
+        'color: #94A3B8 !important',
+        'cursor: grab !important',
+        'display: flex !important',
+        'align-items: center !important',
+        'justify-content: center !important',
+        'font-size: 13px !important',
+        'padding: 0 !important',
+        'margin: 0 !important',
+        'transition: background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s !important',
+        'box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35) !important'
+      ].join(';');
+
+      btn.onmouseenter = function() {
+        if (!btn.dataset.active && !isDragging) {
+          btn.style.borderColor = '#475569';
+          btn.style.background = '#1E293B';
+          btn.style.color = '#F1F5F9';
+        }
+      };
+      btn.onmouseleave = function() {
+        if (!btn.dataset.active && !isDragging) {
+          btn.style.borderColor = '#334155';
+          btn.style.background = '#161F2E';
+          btn.style.color = '#94A3B8';
+        }
+      };
+      return btn;
+    }
+
+    var reloadBtn = createBtn('chzzk-floating-reload-btn', '🔄', '새로고침 (드래그하여 위치 이동)');
+    var pinBtn = createBtn('chzzk-floating-pin-btn', '📌', '항상 위에 고정 (드래그하여 위치 이동)');
+
+    bar.appendChild(reloadBtn);
+    bar.appendChild(pinBtn);
+
+    var isDragging = false;
+    var hasMoved = false;
+    var startX = 0, startY = 0;
+    var origLeft = 0, origTop = 0;
+
+    // --- 툴바 드래그 이동 핸들러 ---
+    bar.addEventListener('mousedown', function(e) {
+      if (e.button !== 0) return;
+      isDragging = true;
+      hasMoved = false;
+      startX = e.clientX;
+      startY = e.clientY;
+
+      var rect = bar.getBoundingClientRect();
+      origLeft = rect.left;
+      origTop = rect.top;
+
+      reloadBtn.style.cursor = 'grabbing';
+      pinBtn.style.cursor = 'grabbing';
+      e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', function(e) {
+      if (!isDragging) return;
+      var dx = e.clientX - startX;
+      var dy = e.clientY - startY;
+
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+        hasMoved = true;
+      }
+
+      var newLeft = origLeft + dx;
+      var newTop = origTop + dy;
+
+      var maxLeft = window.innerWidth - bar.offsetWidth;
+      var maxTop = window.innerHeight - bar.offsetHeight;
+      newLeft = Math.max(0, Math.min(maxLeft, newLeft));
+      newTop = Math.max(0, Math.min(maxTop, newTop));
+
+      bar.style.left = newLeft + 'px';
+      bar.style.top = newTop + 'px';
+      bar.style.right = 'auto';
+    });
+
+    document.addEventListener('mouseup', function(e) {
+      if (!isDragging) return;
+      isDragging = false;
+      reloadBtn.style.cursor = 'grab';
+      pinBtn.style.cursor = 'grab';
+
+      if (hasMoved) {
+        try {
+          var rect = bar.getBoundingClientRect();
+          localStorage.setItem('chzzk_chat_pin_pos', JSON.stringify({
+            left: rect.left,
+            top: rect.top
+          }));
+        } catch(err) {}
+      }
+    });
+
+    // 개별 버튼 클릭 핸들러 (드래그 이동 시 실행 방지)
+    reloadBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      e.preventDefault();
+      if (hasMoved) {
+        hasMoved = false;
+        return;
+      }
+      location.reload();
+    });
+
+    pinBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      e.preventDefault();
+      if (hasMoved) {
+        hasMoved = false;
+        return;
+      }
+      if (window.chrome && window.chrome.webview) {
+        window.chrome.webview.postMessage('toggle-topmost');
+      }
+    });
+
+    document.documentElement.appendChild(bar);
+
+    // Topmost UI Synchronizer
+    window.__updateTopmostUI = function(isTopmost) {
+      var b = document.getElementById('chzzk-floating-pin-btn');
+      if (!b) return;
+      if (isTopmost) {
+        b.dataset.active = 'true';
+        b.style.background = '#00FFA3 !important';
+        b.style.borderColor = '#00C77F !important';
+        b.style.color = '#000000 !important';
+        b.style.boxShadow = '0 0 14px rgba(0, 255, 163, 0.7), 0 3px 8px rgba(0, 0, 0, 0.3) !important';
+        b.title = '항상 위 고정 활성화됨 (클릭 시 해제, 드래그 이동 가능)';
+      } else {
+        delete b.dataset.active;
+        b.style.background = '#161F2E !important';
+        b.style.borderColor = '#334155 !important';
+        b.style.color = '#94A3B8 !important';
+        b.style.boxShadow = '0 4px 10px rgba(0, 0, 0, 0.35) !important';
+        b.title = '항상 위에 고정 (드래그하여 위치 이동)';
+      }
+    };
+
+    if (window.chrome && window.chrome.webview) {
+      window.chrome.webview.postMessage('get-topmost-state');
+    }
+  }
+
+  // [외부 링크 가드] Toast UI 생성 및 표시
+  window.__showToast = function(msg) {
+    var toast = document.getElementById('chzzk-dock-toast');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'chzzk-dock-toast';
+      toast.style.cssText = [
+        'position: fixed !important',
+        'bottom: 18px !important',
+        'left: 50% !important',
+        'transform: translateX(-50%) translateY(20px) !important',
+        'background: rgba(15, 23, 42, 0.95) !important',
+        'border: 1.5px solid #00FFA3 !important',
+        'color: #F8FAFC !important',
+        'padding: 8px 16px !important',
+        'border-radius: 8px !important',
+        'font-size: 12px !important',
+        'font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important',
+        'font-weight: 600 !important',
+        'box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6) !important',
+        'z-index: 10000000 !important',
+        'pointer-events: none !important',
+        'transition: opacity 0.25s ease, transform 0.25s ease !important',
+        'opacity: 0 !important',
+        'white-space: nowrap !important'
+      ].join(';');
+      document.documentElement.appendChild(toast);
+    }
+    toast.textContent = msg;
+    toast.style.opacity = '1';
+    toast.style.transform = 'translateX(-50%) translateY(0)';
+    if (window.__toastTimer) clearTimeout(window.__toastTimer);
+    window.__toastTimer = setTimeout(function() {
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateX(-50%) translateY(20px)';
+    }, 2500);
+  };
+
+  // [외부 링크 가드] 네이버 외 외부 도메인 판별
+  function isInternalHost(hostname) {
+    if (!hostname) return true;
+    var h = hostname.toLowerCase();
+    return h === 'naver.com' || h.endsWith('.naver.com');
+  }
+
+  // [외부 링크 가드] <a> 클릭 이벤트 캡처 가로채기
+  document.addEventListener('click', function(e) {
+    var target = e.target;
+    while (target && target.tagName !== 'A') {
+      target = target.parentElement;
+    }
+    if (!target || !target.href) return;
+
+    var url;
+    try {
+      url = new URL(target.href);
+    } catch(err) {
+      return;
+    }
+
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
+
+    var isBlank = (target.target === '_blank');
+    var isExternal = !isInternalHost(url.hostname);
+
+    if (isBlank || isExternal) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (window.chrome && window.chrome.webview) {
+        window.chrome.webview.postMessage('open-external:' + target.href);
+      }
+    }
+  }, true);
+
+  // [외부 링크 가드] window.open 가로채기
+  var originalWindowOpen = window.open;
+  window.open = function(url, target, features) {
+    if (url) {
+      try {
+        var parsed = new URL(url, location.href);
+        if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+          if (!isInternalHost(parsed.hostname) || target === '_blank') {
+            if (window.chrome && window.chrome.webview) {
+              window.chrome.webview.postMessage('open-external:' + parsed.href);
+              return null;
+            }
+          }
+        }
+      } catch(e) {}
+    }
+    return originalWindowOpen.apply(this, arguments);
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initOverlay);
+  } else {
+    initOverlay();
+  }
+})();
+`
+
 func getChatWindowStatePath() string {
 	appData := os.Getenv("LOCALAPPDATA")
 	if appData == "" {
@@ -136,6 +430,27 @@ func captureCurrentChatWindowState(hwnd uintptr) ChatWindowState {
 		Height:  h,
 		Topmost: isChatTopmost,
 	}
+}
+
+// InjectChatCookies: WebView2 CookieManager에 .naver.com 단일 도메인으로 최신 쿠키 주입
+func InjectChatCookies(cm *edge.ICoreWebView2CookieManager, aut, ses string) {
+	if cm == nil || aut == "" || ses == "" {
+		return
+	}
+	dom := ".naver.com"
+	if cookie, err := cm.CreateCookie("NID_AUT", aut, dom, "/"); err == nil && cookie != nil {
+		_ = cookie.PutIsSecure(true)
+		_ = cookie.PutIsHttpOnly(true)
+		_ = cm.AddOrUpdateCookie(cookie)
+		cookie.Release()
+	}
+	if cookie, err := cm.CreateCookie("NID_SES", ses, dom, "/"); err == nil && cookie != nil {
+		_ = cookie.PutIsSecure(true)
+		_ = cookie.PutIsHttpOnly(true)
+		_ = cm.AddOrUpdateCookie(cookie)
+		cookie.Release()
+	}
+	LogInfo("[Chat Webview] 네이버 인증 쿠키(.naver.com)를 WebView2에 주입 완료.")
 }
 
 func chatWndProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr {
@@ -318,8 +633,28 @@ func RunChatWebview(channelId string) {
 		src, _ := sender.GetSource()
 		LogInfo("[Chat Webview] 채팅 페이지 로드 완료: %s", src)
 		// 상단 플로팅 툴바(📌 항상 위, 🔄 새로고침) 주입
-		chromium.Eval(remoteOverlayScript)
+		chromium.Eval(chatOverlayScript)
 		chromium.Eval(fmt.Sprintf("if (window.__updateTopmostUI) window.__updateTopmostUI(%t);", isChatTopmost))
+
+		// [Outbound Sync] 웹뷰 브라우저 내부에서 네이버가 새 세션을 갱신한 경우 시스템 금고에 자동 역동기화
+		if cm, err := chromium.GetCookieManager(); err == nil && cm != nil {
+			_ = callGetCookies(cm, "https://chzzk.naver.com", func(listPtr uintptr, err error) {
+				if err != nil || listPtr == 0 {
+					return
+				}
+				aut, ses, found := inspectCookies(listPtr)
+				if found && aut != "" && ses != "" {
+					latestCfg := LoadConfig()
+					if latestCfg.NidSes != ses || latestCfg.NidAut != aut {
+						SaveConfig(map[string]interface{}{
+							"nid_aut": aut,
+							"nid_ses": ses,
+						})
+						LogInfo("[Chat Webview] 웹뷰 브라우저에서 갱신된 최신 네이버 세션 쿠키를 시스템 금고에 자동 역저장 완료.")
+					}
+				}
+			})
+		}
 	}
 
 	if !chromium.Embed(hwnd) {
@@ -329,7 +664,7 @@ func RunChatWebview(channelId string) {
 	}
 
 	chromium.SetBackgroundColour(0x0B, 0x0E, 0x11, 255)
-	chromium.Init(remoteOverlayScript)
+	chromium.Init(chatOverlayScript)
 
 	// WebMessage 이벤트 핸들러 (항상 위 토글, 상태 동기화, 외부 링크 브라우저 핸드오프)
 	chromium.MessageCallback = func(message string, sender *edge.ICoreWebView2, args *edge.ICoreWebView2WebMessageReceivedEventArgs) {
@@ -352,32 +687,11 @@ func RunChatWebview(channelId string) {
 		}
 	}
 
-	// 수동 쿠키 주입 (auth_method == "manual" 상태일 때만 1회 주입)
+	// [Inbound Sync] Windows 시스템 금고의 최신 세션 쿠키를 .naver.com 단일 도메인으로 상시 주입
 	cfg := LoadConfig()
-	if cfg.AuthMethod == "manual" && cfg.NidAut != "" && cfg.NidSes != "" {
+	if cfg.NidAut != "" && cfg.NidSes != "" {
 		if cm, err := chromium.GetCookieManager(); err == nil && cm != nil {
-			domains := []string{
-				".naver.com",
-				".chzzk.naver.com",
-			}
-			for _, dom := range domains {
-				if cookie, err := cm.CreateCookie("NID_AUT", cfg.NidAut, dom, "/"); err == nil && cookie != nil {
-					_ = cookie.PutIsSecure(true)
-					_ = cookie.PutIsHttpOnly(true)
-					_ = cm.AddOrUpdateCookie(cookie)
-					cookie.Release()
-				}
-				if cookie, err := cm.CreateCookie("NID_SES", cfg.NidSes, dom, "/"); err == nil && cookie != nil {
-					_ = cookie.PutIsSecure(true)
-					_ = cookie.PutIsHttpOnly(true)
-					_ = cm.AddOrUpdateCookie(cookie)
-					cookie.Release()
-				}
-			}
-			SaveConfig(map[string]interface{}{
-				"auth_method": "webview",
-			})
-			LogInfo("[Chat Webview] 수동 설정 쿠키를 webview_profile에 1회 동기화 완료.")
+			InjectChatCookies(cm, cfg.NidAut, cfg.NidSes)
 		}
 	}
 
