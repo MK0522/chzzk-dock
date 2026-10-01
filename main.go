@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"os"
@@ -19,10 +20,14 @@ import (
 	"unsafe"
 
 	"chzzk-obs-dock/core"
+	"golang.org/x/sys/windows"
 )
 
-//go:embed chzzk-obs-dock.html
+//go:embed ui/chzzk-obs-dock.html
 var embeddedHTML []byte
+
+//go:embed ui/obs-stats-dock.html
+var embeddedStatsHTML []byte
 
 //go:embed icon.ico
 var embeddedIcon []byte
@@ -37,10 +42,10 @@ var embeddedGuide2 []byte
 var embeddedLauncherScript []byte
 
 // ============================================================
-//  CHZZK OBS Dock Server v0.5.12 (Modular Architecture)
+//  CHZZK OBS Dock Server v0.6.0 (Modular Architecture)
 // ============================================================
 const (
-	APP_VERSION       = "v0.5.12"
+	APP_VERSION       = "v0.6.0"
 	DEFAULT_HTTP_PORT = 8081
 	USER_AGENT        = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 )
@@ -111,6 +116,11 @@ var apiGetPaths = map[string]bool{
 	"/gpu-status":             true,
 	"/external-browser-status": true,
 	"/save-external-browser":   true,
+	"/check-update":            true,
+	"/update-status":           true,
+	"/broadcast-presets":       true,
+	"/api/disk-total":          true,
+	"/api/open-folder":         true,
 }
 
 func sendBytes(w http.ResponseWriter, body []byte, status int, contentType string) {
@@ -129,13 +139,75 @@ func sendJSON(w http.ResponseWriter, data interface{}, status int) {
 var (
 	renderedHTMLCache []byte
 	renderedHTMLOnce  sync.Once
+	globalMutexHandle uintptr
+	restartExecutor   = restartSelf
 )
 
 func getRenderedHTML() []byte {
+	// 로컬 개발 환경에서 ui/chzzk-obs-dock.html 변경 시 즉각 반영 (핫 리로드)
+	if data, err := os.ReadFile(filepath.Join("ui", "chzzk-obs-dock.html")); err == nil && len(data) > 0 {
+		return bytes.ReplaceAll(data, []byte("{{APP_VERSION}}"), []byte(APP_VERSION))
+	}
+	if exePath, err := os.Executable(); err == nil {
+		localHtml := filepath.Join(filepath.Dir(exePath), "ui", "chzzk-obs-dock.html")
+		if data, err := os.ReadFile(localHtml); err == nil && len(data) > 0 {
+			return bytes.ReplaceAll(data, []byte("{{APP_VERSION}}"), []byte(APP_VERSION))
+		}
+	}
 	renderedHTMLOnce.Do(func() {
 		renderedHTMLCache = bytes.ReplaceAll(embeddedHTML, []byte("{{APP_VERSION}}"), []byte(APP_VERSION))
 	})
 	return renderedHTMLCache
+}
+
+func getRenderedStatsHTML() []byte {
+	// 로컬 개발 환경에서 ui/obs-stats-dock.html 변경 시 즉각 반영 (핫 리로드)
+	if data, err := os.ReadFile(filepath.Join("ui", "obs-stats-dock.html")); err == nil && len(data) > 0 {
+		return data
+	}
+	if exePath, err := os.Executable(); err == nil {
+		localHtml := filepath.Join(filepath.Dir(exePath), "ui", "obs-stats-dock.html")
+		if data, err := os.ReadFile(localHtml); err == nil && len(data) > 0 {
+			return data
+		}
+	}
+	return embeddedStatsHTML
+}
+
+// handleDiskTotal: GET /api/disk-total?drive=C (또는 D)
+func handleDiskTotal(w http.ResponseWriter, r *http.Request) {
+	drive := strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("drive")))
+	if drive == "" || len(drive) > 1 || drive[0] < 'A' || drive[0] > 'Z' {
+		drive = "C"
+	}
+
+	rootPath, err := windows.UTF16PtrFromString(drive + `:\`)
+	if err != nil {
+		sendJSON(w, map[string]string{"error": "invalid drive"}, http.StatusBadRequest)
+		return
+	}
+
+	var totalBytes uint64
+	if err := windows.GetDiskFreeSpaceEx(rootPath, nil, &totalBytes, nil); err != nil {
+		sendJSON(w, map[string]string{"error": "failed to get disk size"}, http.StatusInternalServerError)
+		return
+	}
+
+	sendJSON(w, map[string]interface{}{
+		"totalBytes": totalBytes,
+	}, http.StatusOK)
+}
+
+// handleOpenFolder: GET /api/open-folder?path=D:\Recordings
+func handleOpenFolder(w http.ResponseWriter, r *http.Request) {
+	path := strings.TrimSpace(r.URL.Query().Get("path"))
+	if path != "" {
+		cleanPath := filepath.Clean(path)
+		go func() {
+			_ = exec.Command("explorer.exe", cleanPath).Start()
+		}()
+	}
+	sendJSON(w, map[string]string{"status": "ok"}, http.StatusOK)
 }
 
 func getTrayTooltip() string {
@@ -143,51 +215,9 @@ func getTrayTooltip() string {
 }
 
 var (
-	shell32DLL                  = syscall.NewLazyDLL("shell32.dll")
-	procShellExecuteW           = shell32DLL.NewProc("ShellExecuteW")
 	user32DLL                   = syscall.NewLazyDLL("user32.dll")
 	procAllowSetForegroundWindow = user32DLL.NewProc("AllowSetForegroundWindow")
 )
-
-// OpenURL: 시스템 기본 브라우저로 입력된 URL을 엽니다.
-func OpenURL(url string) error {
-	switch runtime.GOOS {
-	case "windows":
-		// [SYS-501] cmd /c start 및 powershell 호출 제거
-		// Win32 공식 ShellExecuteW API를 직접 바인딩하여 백신 오탐을 원천 차단하고 즉시 실행합니다.
-		opPtr, err := syscall.UTF16PtrFromString("open")
-		if err != nil {
-			return err
-		}
-		urlPtr, err := syscall.UTF16PtrFromString(url)
-		if err != nil {
-			return err
-		}
-		ret, _, err := procShellExecuteW.Call(
-			0,
-			uintptr(unsafe.Pointer(opPtr)),
-			uintptr(unsafe.Pointer(urlPtr)),
-			0,
-			0,
-			1, // SW_SHOWNORMAL
-		)
-		// ShellExecuteW는 성공 시 32보다 큰 인스턴스 핸들을 반환합니다.
-		if ret <= 32 {
-			return fmt.Errorf("ShellExecuteW failed (code %d): %w", ret, err)
-		}
-		return nil
-	case "darwin":
-		// macOS: open 주소
-		cmd := exec.Command("open", url)
-		return cmd.Start()
-	case "linux":
-		// Linux: xdg-open 주소
-		cmd := exec.Command("xdg-open", url)
-		return cmd.Start()
-	default:
-		return fmt.Errorf("지원하지 않는 운영체제입니다: %s", runtime.GOOS)
-	}
-}
 
 func getLauncherScriptData() []byte {
 	if localScript, err := os.ReadFile("scripts/chzzk_dock_launcher.lua"); err == nil {
@@ -557,11 +587,7 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 					sendJSON(w, map[string]interface{}{"status": "error", "message": "잘못된 URL입니다."}, http.StatusBadRequest)
 					return
 				}
-				if err := OpenURL(rawURL); err != nil {
-					core.LogError("[HTTP] /open-browser failed for url %s: %v", rawURL, err)
-					sendJSON(w, map[string]interface{}{"status": "error", "message": "브라우저 실행에 실패했습니다."}, http.StatusInternalServerError)
-					return
-				}
+				core.OpenBrowser(rawURL)
 				sendJSON(w, map[string]interface{}{"status": "ok"}, http.StatusOK)
 				return
 			}
@@ -694,6 +720,52 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
+			if path == "/check-update" {
+				force := r.URL.Query().Get("force") == "true"
+				info, err := core.CheckForUpdate(APP_VERSION, force)
+				if err != nil {
+					log.Printf("[Updater] Update check failed (force=%v): %v", force, err)
+					sendJSON(w, map[string]interface{}{
+						"code":    500,
+						"message": err.Error(),
+					}, http.StatusOK)
+					return
+				}
+				sendJSON(w, map[string]interface{}{
+					"code": 200,
+					"info": info,
+				}, http.StatusOK)
+				return
+			}
+
+			if path == "/update-status" {
+				progress := core.GetUpdateProgress()
+				sendJSON(w, map[string]interface{}{
+					"code":     200,
+					"progress": progress,
+				}, http.StatusOK)
+				return
+			}
+
+			if path == "/broadcast-presets" {
+				presets := core.GetBroadcastPresets()
+				sendJSON(w, map[string]interface{}{
+					"code":    200,
+					"presets": presets,
+				}, http.StatusOK)
+				return
+			}
+
+			if path == "/api/disk-total" {
+				handleDiskTotal(w, r)
+				return
+			}
+
+			if path == "/api/open-folder" {
+				handleOpenFolder(w, r)
+				return
+			}
+
 			if proxyDispatch(w, r, "GET") {
 				return
 			}
@@ -727,6 +799,15 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 		if path == "/show-ui" || path == "/api/show-ui" {
 			core.ShowDockWindow()
 			sendJSON(w, map[string]interface{}{"code": 200, "message": "UI 표시 완료"}, http.StatusOK)
+			return
+		}
+
+		// OBS 실시간 통계 독 정적 HTML 페이지 서빙
+		if path == "/stats" || path == "/stats.html" || path == "/obs-stats.html" {
+			w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+			w.Header().Set("Pragma", "no-cache")
+			w.Header().Set("Expires", "0")
+			sendBytes(w, getRenderedStatsHTML(), http.StatusOK, "text/html; charset=utf-8")
 			return
 		}
 
@@ -978,29 +1059,103 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 				}, http.StatusBadRequest)
 				return
 			}
-			if reqData.TimeoutSec != 0 && (reqData.TimeoutSec < 5 || reqData.TimeoutSec > 86400) {
+			if reqData.TimeoutSec != -1 && reqData.TimeoutSec != 0 && (reqData.TimeoutSec < 5 || reqData.TimeoutSec > 86400) {
 				sendJSON(w, map[string]interface{}{
 					"code":    400,
-					"message": "대기 시간은 0(사용 안 함) 또는 5초에서 86400초(24시간) 사이여야 합니다.",
+					"message": "대기 시간은 -1(사용 안 함), 0(즉시 종료) 또는 5초에서 86400초(24시간) 사이여야 합니다.",
 				}, http.StatusBadRequest)
 				return
 			}
 			core.SetWatchdogTimeoutSec(reqData.TimeoutSec)
 			st := core.LoadSettings()
 			st.WatchdogTimeoutSec = reqData.TimeoutSec
-			st.WatchdogDisabled = (reqData.TimeoutSec == 0)
+			st.WatchdogDisabled = (reqData.TimeoutSec == -1)
 			_ = core.SaveSettings(st)
 			if trayInstance != nil {
 				trayInstance.UpdateTooltip(getTrayTooltip())
 			}
 			msg := "대기 시간이 성공적으로 변경되었습니다."
 			if reqData.TimeoutSec == 0 {
+				msg = "OBS 종료 시 즉시 종료되도록 설정되었습니다."
+			} else if reqData.TimeoutSec == -1 {
 				msg = "OBS 자동 종료가 비활성화되었습니다. (상시 실행 유지)"
 			}
 			sendJSON(w, map[string]interface{}{
 				"code":        200,
 				"message":     msg,
 				"timeout_sec": reqData.TimeoutSec,
+			}, http.StatusOK)
+			return
+		}
+
+		if path == "/save-broadcast-presets" {
+			var reqData struct {
+				Presets []core.BroadcastPreset `json:"presets"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&reqData); err != nil {
+				sendJSON(w, map[string]interface{}{
+					"code":    400,
+					"message": "잘못된 요청 형식입니다.",
+				}, http.StatusBadRequest)
+				return
+			}
+
+			// Ponytail validation: 최대 10개, 이름 10자 이내, 제목 50자 이내, 태그 최대 5개 (각 15자 이내)
+			if len(reqData.Presets) > 10 {
+				sendJSON(w, map[string]interface{}{
+					"code":    400,
+					"message": "프리셋은 최대 10개까지만 저장할 수 있습니다.",
+				}, http.StatusBadRequest)
+				return
+			}
+			for i, p := range reqData.Presets {
+				name := strings.TrimSpace(p.Name)
+				title := strings.TrimSpace(p.Title)
+				if name == "" || len([]rune(name)) > 10 {
+					sendJSON(w, map[string]interface{}{
+						"code":    400,
+						"message": fmt.Sprintf("프리셋 #%d의 이름은 1~10자 이내여야 합니다.", i+1),
+					}, http.StatusBadRequest)
+					return
+				}
+				if title == "" || len([]rune(title)) > 50 {
+					sendJSON(w, map[string]interface{}{
+						"code":    400,
+						"message": fmt.Sprintf("프리셋 #%d의 제목은 1~50자 이내여야 합니다.", i+1),
+					}, http.StatusBadRequest)
+					return
+				}
+				if len(p.Tags) > 5 {
+					sendJSON(w, map[string]interface{}{
+						"code":    400,
+						"message": fmt.Sprintf("프리셋 #%d의 태그는 최대 5개까지 가능합니다.", i+1),
+					}, http.StatusBadRequest)
+					return
+				}
+				for _, t := range p.Tags {
+					if len([]rune(t)) > 15 {
+						sendJSON(w, map[string]interface{}{
+							"code":    400,
+							"message": fmt.Sprintf("프리셋 #%d의 각 태그는 최대 15자까지 가능합니다.", i+1),
+						}, http.StatusBadRequest)
+						return
+					}
+				}
+			}
+
+			if err := core.SaveBroadcastPresets(reqData.Presets); err != nil {
+				core.LogError("[Settings] Failed to save broadcast presets: %v", err)
+				sendJSON(w, map[string]interface{}{
+					"code":    500,
+					"message": "프리셋 저장에 실패했습니다.",
+				}, http.StatusInternalServerError)
+				return
+			}
+			core.LogInfo("[Settings] 방송 정보 프리셋 %d개가 settings.json에 저장되었습니다.", len(reqData.Presets))
+			sendJSON(w, map[string]interface{}{
+				"code":    200,
+				"presets": reqData.Presets,
+				"message": "프리셋이 성공적으로 저장되었습니다.",
 			}, http.StatusOK)
 			return
 		}
@@ -1075,7 +1230,8 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 
 		if path == "/save-port" {
 			var reqData struct {
-				Port int `json:"port"`
+				Port    int  `json:"port"`
+				Restart bool `json:"restart"`
 			}
 			if err := json.NewDecoder(r.Body).Decode(&reqData); err != nil {
 				sendJSON(w, map[string]interface{}{
@@ -1104,7 +1260,26 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			core.LogInfo("[Settings] 기본 HTTP 서버 포트 설정이 %d번으로 저장되었습니다.", reqData.Port)
+			core.LogInfo("[Settings] 기본 HTTP 서버 포트 설정이 %d번으로 저장되었습니다 (Restart: %v).", reqData.Port, reqData.Restart)
+
+			if reqData.Restart && reqData.Port != activeHttpPort {
+				sendJSON(w, map[string]interface{}{
+					"code":             200,
+					"port":             reqData.Port,
+					"restart_required": true,
+					"restarting":       true,
+					"message":          fmt.Sprintf("기본 포트가 %d번으로 설정되었습니다.\n프로그램을 재시작합니다.", reqData.Port),
+				}, http.StatusOK)
+
+				if restartExecutor != nil {
+					go func() {
+						time.Sleep(300 * time.Millisecond)
+						restartExecutor()
+					}()
+				}
+				return
+			}
+
 			sendJSON(w, map[string]interface{}{
 				"code":             200,
 				"port":             reqData.Port,
@@ -1172,6 +1347,49 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		if path == "/execute-update" {
+			var reqData struct {
+				DownloadURL   string `json:"download_url"`
+				LatestVersion string `json:"latest_version"`
+			}
+			if r.Body != nil {
+				_ = json.NewDecoder(r.Body).Decode(&reqData)
+			}
+			if reqData.DownloadURL == "" || reqData.LatestVersion == "" {
+				info, err := core.CheckForUpdate(APP_VERSION, false)
+				if err == nil && info != nil {
+					if reqData.DownloadURL == "" && info.DownloadURL != "" {
+						reqData.DownloadURL = info.DownloadURL
+					}
+					if reqData.LatestVersion == "" && info.LatestVersion != "" {
+						reqData.LatestVersion = info.LatestVersion
+					}
+				}
+			}
+			if reqData.DownloadURL == "" {
+				sendJSON(w, map[string]interface{}{
+					"code":    400,
+					"message": "다운로드 URL이 제공되지 않았습니다.",
+				}, http.StatusBadRequest)
+				return
+			}
+
+			err := core.StartDownloadAndInstall(reqData.LatestVersion, reqData.DownloadURL, 0, killAllSubProcesses)
+			if err != nil {
+				sendJSON(w, map[string]interface{}{
+					"code":    500,
+					"message": err.Error(),
+				}, http.StatusInternalServerError)
+				return
+			}
+
+			sendJSON(w, map[string]interface{}{
+				"code":    200,
+				"message": "업데이트 다운로드를 시작했습니다.",
+			}, http.StatusOK)
+			return
+		}
+
 		if proxyDispatch(w, r, "POST") {
 			return
 		}
@@ -1209,10 +1427,48 @@ func exitApp() {
 	os.Exit(0)
 }
 
+func restartSelf() {
+	exePath, err := os.Executable()
+	if err != nil {
+		core.LogError("[Main] 재시작 실패 (os.Executable): %v", err)
+		return
+	}
+
+	var cleanArgs []string
+	for i := 1; i < len(os.Args); i++ {
+		if (os.Args[i] == "--port" || os.Args[i] == "-p") && i+1 < len(os.Args) {
+			i++
+			continue
+		}
+		cleanArgs = append(cleanArgs, os.Args[i])
+	}
+
+	killAllSubProcesses()
+	core.DestroyDockWindow()
+	if trayInstance != nil {
+		trayInstance.Stop()
+	}
+
+	if globalMutexHandle != 0 {
+		kernel32DLL := syscall.NewLazyDLL("kernel32.dll")
+		kernel32DLL.NewProc("CloseHandle").Call(globalMutexHandle)
+		globalMutexHandle = 0
+	}
+
+	cmd := exec.Command(exePath, cleanArgs...)
+	if err := cmd.Start(); err != nil {
+		core.LogError("[Main] 새 프로세스 실행 실패: %v", err)
+	}
+
+	os.Exit(0)
+}
+
 func getWatchdogLabel(sec int) string {
 	switch sec {
-	case 0:
+	case -1:
 		return "사용 안 함 (자동 종료 비활성화)"
+	case 0:
+		return "즉시 종료"
 	case 10:
 		return "10초"
 	case 30:
@@ -1230,8 +1486,10 @@ func getWatchdogLabel(sec int) string {
 
 func getWatchdogTrayLabel(sec int) string {
 	switch sec {
-	case 0:
+	case -1:
 		return "사용 안 함"
+	case 0:
+		return "즉시 종료"
 	case 10:
 		return "10초 뒤 종료"
 	case 30:
@@ -1395,13 +1653,13 @@ func runTray(silentMode bool) {
 		},
 		{IsSeparator: true},
 		{
-			Label: "로그 확인하기",
+			Label: "로그 확인하기 (개발중)",
 			Callback: func() {
 				_ = core.ViewLogsInNotepad()
 			},
 		},
 		{
-			Label: "로그 저장 (.txt)",
+			Label: "로그 저장 (.txt) (개발중)",
 			Callback: func() {
 				_, _ = core.SaveLogsWithDialog()
 			},
@@ -1537,12 +1795,14 @@ func main() {
 	mutexName := `Local\ChzzkDock`
 	mutexNamePtr, _ := syscall.UTF16PtrFromString(mutexName)
 	mutexHandle, _, errCall := kernel32.NewProc("CreateMutexW").Call(0, 0, uintptr(unsafe.Pointer(mutexNamePtr)))
+	globalMutexHandle = mutexHandle
 	errno, isErrno := errCall.(syscall.Errno)
 	if isErrno && errno == 183 { // ERROR_ALREADY_EXISTS
 		// 1. 백그라운드/스크립트 무음 모드(--silent 등)인 경우 조용히 즉시 종료
 		if silentMode {
-			if mutexHandle != 0 {
-				kernel32.NewProc("CloseHandle").Call(mutexHandle)
+			if globalMutexHandle != 0 {
+				kernel32.NewProc("CloseHandle").Call(globalMutexHandle)
+				globalMutexHandle = 0
 			}
 			os.Exit(0)
 		}
@@ -1552,14 +1812,16 @@ func main() {
 		// 2. 일반 실행인 경우: 기존 인스턴스의 독 UI 화면을 화면 앞으로 복원/활성화
 		activateExistingInstance(user32)
 
-		if mutexHandle != 0 {
-			kernel32.NewProc("CloseHandle").Call(mutexHandle)
+		if globalMutexHandle != 0 {
+			kernel32.NewProc("CloseHandle").Call(globalMutexHandle)
+			globalMutexHandle = 0
 		}
 		os.Exit(0)
 	}
 	defer func() {
-		if mutexHandle != 0 {
-			kernel32.NewProc("CloseHandle").Call(mutexHandle)
+		if globalMutexHandle != 0 {
+			kernel32.NewProc("CloseHandle").Call(globalMutexHandle)
+			globalMutexHandle = 0
 		}
 	}()
 

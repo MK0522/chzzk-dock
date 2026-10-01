@@ -20,7 +20,19 @@ type AppSettings struct {
 	NotifyOnShutdown     *bool `json:"notify_on_shutdown,omitempty"`     // OBS 종료/미감지로 자동 종료 시 Windows 알림 표시 (기본값: true)
 	EnableGPU            *bool `json:"enable_gpu,omitempty"`             // 웹뷰 창 GPU 하드웨어 가속 여부 (기본값: true)
 	ExternalBrowserGuard *bool `json:"external_browser_guard,omitempty"` // 네이버 외 외부 링크 클릭 시 기본 브라우저로 열기 (기본값: true)
-	RemoteTesterUnlocked bool  `json:"remote_tester_unlocked,omitempty"` // 리모컨 테스터 인증 승인 여부
+	RemoteTesterUnlocked bool              `json:"remote_tester_unlocked,omitempty"` // 리모컨 테스터 인증 승인 여부
+	BroadcastPresets     []BroadcastPreset `json:"broadcast_presets,omitempty"`     // 방송 정보 프리셋 목록 (최대 10개)
+}
+
+// BroadcastPreset: 방송 정보(제목, 카테고리, 태그) 프리셋 데이터 모델
+type BroadcastPreset struct {
+	ID           string   `json:"id"`
+	Name         string   `json:"name"`
+	Title        string   `json:"title"`
+	CategoryID   string   `json:"category_id"`
+	CategoryType string   `json:"category_type,omitempty"`
+	CategoryName string   `json:"category_name"`
+	Tags         []string `json:"tags"`
 }
 
 func (s AppSettings) IsRemoteTesterUnlocked() bool {
@@ -243,11 +255,12 @@ func LoadSettings() AppSettings {
 		defPop := false
 		cachedSettings = AppSettings{WatchdogTimeoutSec: 60, HttpPort: 8081, PopupOnStart: &defPop}
 	} else {
-		if s.WatchdogDisabled || s.WatchdogTimeoutSec == 0 {
+		if s.WatchdogDisabled || s.WatchdogTimeoutSec < 0 {
 			s.WatchdogDisabled = true
+			s.WatchdogTimeoutSec = -1
+		} else if s.WatchdogTimeoutSec == 0 {
+			s.WatchdogDisabled = false
 			s.WatchdogTimeoutSec = 0
-		} else if s.WatchdogTimeoutSec < 0 {
-			s.WatchdogTimeoutSec = 60
 		}
 		if s.HttpPort < 1024 || s.HttpPort > 65535 {
 			s.HttpPort = 8081
@@ -270,11 +283,12 @@ func SaveSettings(s AppSettings) error {
 	if s.SchemaVersion == 0 {
 		s.SchemaVersion = 1
 	}
-	if s.WatchdogDisabled || s.WatchdogTimeoutSec == 0 {
+	if s.WatchdogDisabled || s.WatchdogTimeoutSec < 0 {
 		s.WatchdogDisabled = true
+		s.WatchdogTimeoutSec = -1
+	} else if s.WatchdogTimeoutSec == 0 {
+		s.WatchdogDisabled = false
 		s.WatchdogTimeoutSec = 0
-	} else if s.WatchdogTimeoutSec < 0 {
-		s.WatchdogTimeoutSec = 60
 	}
 	if s.HttpPort < 1024 || s.HttpPort > 65535 {
 		s.HttpPort = 8081
@@ -345,6 +359,22 @@ func GetRemoteTesterUnlocked() bool {
 func SetRemoteTesterUnlocked(val bool) error {
 	st := LoadSettings()
 	st.SetRemoteTesterUnlocked(val)
+	return SaveSettings(st)
+}
+
+// GetBroadcastPresets: 방송 정보 프리셋 목록 조회 (%LOCALAPPDATA%\ChzzkObsDock\settings.json)
+func GetBroadcastPresets() []BroadcastPreset {
+	st := LoadSettings()
+	if st.BroadcastPresets == nil {
+		return []BroadcastPreset{}
+	}
+	return st.BroadcastPresets
+}
+
+// SaveBroadcastPresets: 방송 정보 프리셋 목록 저장 (%LOCALAPPDATA%\ChzzkObsDock\settings.json)
+func SaveBroadcastPresets(presets []BroadcastPreset) error {
+	st := LoadSettings()
+	st.BroadcastPresets = presets
 	return SaveSettings(st)
 }
 

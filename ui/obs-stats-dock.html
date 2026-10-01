@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OBS 실시간 방송 통계 대시보드 (Stream Stats Dock)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            obsBg: '#0D1117',
+            obsCard: '#161B22',
+            obsBorder: '#30363D',
+            obsBorderSubtle: '#21262D',
+            obsAccent: '#00FFA3',
+            obsText: '#E6EDF3',
+            obsMuted: '#8B949E',
+            obsRowHover: '#1C2129',
+          },
+          fontFamily: {
+            sans: ['Pretendard', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #0D1117;
+      color: #E6EDF3;
+      user-select: none;
+      -webkit-user-select: none;
+      font-feature-settings: "tnum" 1;
+    }
+    .mono-num {
+      font-family: 'JetBrains Mono', monospace;
+      font-variant-numeric: tabular-nums;
+    }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: #0D1117; }
+    ::-webkit-scrollbar-thumb { background: #21262D; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #30363D; }
+
+    /* 점(dot)만 반짝이는 펄스 애니메이션 (박스는 깜빡이지 않음) */
+    .dot-pulse {
+      animation: dotGlow 1.4s infinite ease-in-out;
+    }
+    @keyframes dotGlow {
+      0%, 100% { opacity: 1; transform: scale(1); filter: drop-shadow(0 0 4px currentColor); }
+      50% { opacity: 0.25; transform: scale(0.8); filter: drop-shadow(0 0 0px currentColor); }
+    }
+  </style>
+</head>
+<body class="p-2.5 sm:p-3 bg-obsBg text-obsText antialiased text-xs flex flex-col justify-start">
+
+  <!-- TOP BAR -->
+  <header class="flex items-center justify-between pb-2 mb-2 border-b border-obsBorderSubtle">
+    <div class="flex items-center space-x-2">
+      <div class="w-5 h-5 rounded flex items-center justify-center bg-obsBorderSubtle text-obsAccent">
+        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+        </svg>
+      </div>
+      <h1 class="text-[13.5px] font-bold tracking-tight text-white">
+        통계 (Stats)
+      </h1>
+    </div>
+
+    <!-- 우측 단위 전환, 초기화 컨트롤 -->
+    <div class="flex items-center space-x-1.5">
+      <!-- 단위 전환 (MB / GB) -->
+      <div class="inline-flex rounded p-0.5 bg-obsBorderSubtle border border-obsBorder/60 text-[10px] font-mono">
+        <button id="btn-mb" type="button" onclick="setUnitMode('MB')" class="px-1.5 py-0.5 rounded font-semibold text-obsBg bg-obsAccent transition-all shadow-sm cursor-pointer">
+          MB
+        </button>
+        <button id="btn-gb" type="button" onclick="setUnitMode('GB')" class="px-1.5 py-0.5 rounded text-obsMuted hover:text-obsText transition-all cursor-pointer">
+          GB
+        </button>
+      </div>
+
+      <button type="button" id="btn-reset-stats" onclick="resetStatsAction()" class="flex items-center space-x-1 px-2.5 py-0.5 rounded bg-obsBorderSubtle hover:bg-rose-950/40 hover:border-rose-500/50 hover:text-rose-300 text-obsText text-[11px] font-medium border border-obsBorder/60 transition-all shadow-sm cursor-pointer active:scale-95" title="통계 지표 초기화">
+        <svg class="w-3 h-3 text-obsMuted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="23 4 23 10 17 10"></polyline>
+          <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+        </svg>
+        <span>초기화</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- METRIC SECTION (상단: 3분할 통합 박스 [시스템/렌더링/저장], 하단: 방송/녹화 아코디언) -->
+  <main class="space-y-2.5">
+    
+    <!-- 1. 상단: 통합 박스 (3영역 분할) -->
+    <section class="bg-obsCard border border-obsBorder rounded-lg p-3 shadow-sm grid grid-cols-3 divide-x divide-obsBorderSubtle gap-3 items-center">
+      <!-- 1열: CPU 이용률, 메모리 사용량, FPS -->
+      <div class="space-y-2 pr-3">
+        <!-- CPU 이용률 -->
+        <div class="flex items-center justify-between text-xs">
+          <span class="text-obsMuted font-medium">CPU 이용률</span>
+          <div class="mono-num font-semibold text-white tracking-tight">
+            <span id="val-cpu">0.00</span> <span class="text-xs font-normal text-obsMuted">%</span>
+          </div>
+        </div>
+
+        <!-- 메모리 사용량 -->
+        <div class="flex items-center justify-between text-xs">
+          <span class="text-obsMuted font-medium">메모리 사용량</span>
+          <div class="mono-num font-semibold text-white tracking-tight">
+            <span id="val-mem">0.0</span> <span id="label-mem-unit" class="text-xs font-normal text-obsMuted">MB</span>
+          </div>
+        </div>
+
+        <!-- FPS -->
+        <div class="flex items-center justify-between text-xs">
+          <span class="text-obsMuted font-medium">FPS</span>
+          <div class="mono-num font-bold text-obsAccent text-[14.5px] tracking-tight flex items-baseline gap-1">
+            <span id="val-fps">00.00</span> <span id="label-fps-unit" class="text-[11px] font-normal text-obsAccent/80">fps</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2열: 인코딩 지연 손실, 렌더링 지연 손실, 프레임 평균 렌더링 시간 -->
+      <div class="space-y-2 px-3">
+        <!-- 인코딩 지연 손실 -->
+        <div class="flex items-center justify-between text-xs">
+          <span class="text-obsMuted font-medium">인코딩 지연 손실</span>
+          <div class="mono-num text-xs font-semibold">
+            <span id="val-enc-drop" class="text-obsAccent">0</span>
+            <span class="text-obsMuted"> / </span>
+            <span id="val-enc-total" class="text-obsMuted">0</span>
+            <span id="val-enc-pct" class="text-obsAccent font-medium ml-0.5">(0.0%)</span>
+          </div>
+        </div>
+
+        <!-- 렌더링 지연 손실 -->
+        <div class="flex items-center justify-between text-xs">
+          <span class="text-obsMuted font-medium">렌더링 지연 손실</span>
+          <div class="mono-num text-xs font-semibold">
+            <span id="val-rnd-drop" class="text-obsAccent">0</span>
+            <span class="text-obsMuted"> / </span>
+            <span id="val-rnd-total" class="text-obsMuted">0</span>
+            <span id="val-rnd-pct" class="text-obsAccent font-medium ml-0.5">(0.0%)</span>
+          </div>
+        </div>
+
+        <!-- 프레임 평균 렌더링 시간 -->
+        <div class="flex items-center justify-between text-xs">
+          <span class="text-obsMuted font-medium">프레임 평균 렌더링 시간</span>
+          <div class="mono-num font-semibold text-white tracking-tight">
+            <span id="val-render-time">0.0</span> <span class="text-xs font-normal text-obsMuted">ms</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3열: 저장 영역 (고시인성 프로그레스 바 & 녹화 시에만 하단에 추정 시간 노출) -->
+      <div class="space-y-1.5 pl-3 flex flex-col justify-center">
+        <!-- 저장 영역: 전체 용량 뱃지(마우스 호버 시 탐색기 용량 툴팁) + 프로그레스 바(클릭 시 폴더 열기) -->
+        <div class="flex items-center gap-2 select-none">
+          <!-- 전체 용량 뱃지 (마우스 올리면 윈도우 파일 탐색기 기준 용량 툴팁 표시) -->
+          <span id="label-disk-total" class="mono-num text-[11px] font-bold text-obsMuted bg-obsBg/90 px-1.5 py-0.5 rounded border border-obsBorderSubtle shrink-0 shadow-inner hover:text-white hover:border-obsAccent/50 transition-colors cursor-help" title="탐색기 용량 조회 중...">1TB</span>
+          
+          <!-- 프로그레스 바 (마우스 호버 시 녹화 경로 툴팁, 클릭 시 폴더 열기) -->
+          <div id="box-disk-bar" onclick="openRecordDirectory()" class="relative flex-1 bg-zinc-950/90 h-5 rounded overflow-hidden flex items-center border border-zinc-700/60 shadow-inner hover:border-obsAccent/60 transition-colors cursor-pointer group" title="녹화 폴더 열기(클릭)">
+            <!-- 채워진 사용량 바 (고시인성 에메랄드/그라디언트) -->
+            <div id="bar-disk-used" class="h-full bg-gradient-to-r from-emerald-600 via-teal-500 to-cyan-500 transition-all duration-500" style="width: 37.7%"></div>
+            <!-- 게이지 바 내부 % 텍스트 -->
+            <div class="absolute inset-0 flex items-center justify-between px-2 text-[10px] font-mono font-bold tracking-tight">
+              <span id="label-disk-pct" class="text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">37.7% 사용 중</span>
+              <span id="label-disk-free" class="text-emerald-200 drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] font-extrabold">622.6 GB 여유</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 바 아래: 녹화 진행 시에만 노출되는 실시간 추정 가능 시간 (녹화 중단 시 숨김) -->
+        <div class="flex items-center justify-end text-[11px] mono-num min-h-[16px]">
+          <span id="val-disk-time" class="text-obsAccent/90 font-semibold tracking-tight"></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. 하단: [방송/녹화 아코디언 패널] (기본 접힘, 클릭 시 확장) -->
+    <details class="group bg-obsCard border border-obsBorder rounded-lg overflow-hidden shadow-sm">
+      <summary class="flex items-center justify-between px-3.5 py-2 text-xs font-semibold text-obsMuted hover:text-white cursor-pointer select-none bg-obsBg/40 hover:bg-obsRowHover transition-colors list-none">
+        <div class="flex items-center gap-2">
+          <span>방송 / 녹화 상세</span>
+        </div>
+        <div class="flex items-center gap-1.5 text-obsMuted text-[11px]">
+          <span class="text-[10px] font-normal group-open:hidden">펼치기</span>
+          <span class="text-[10px] font-normal hidden group-open:inline">접기</span>
+          <svg class="w-3.5 h-3.5 transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </div>
+      </summary>
+
+      <div class="w-full overflow-x-auto border-t border-obsBorderSubtle">
+        <table class="w-full min-w-[560px] text-left border-collapse">
+          <thead>
+            <tr class="text-[11px] font-medium text-obsMuted border-b border-obsBorderSubtle/80 bg-obsBg/40">
+              <th class="py-1.5 px-3.5 w-20 text-left font-medium">출력</th>
+              <th class="py-1.5 px-3.5 text-left font-medium">손실된 프레임 (네트워크)</th>
+              <th class="py-1.5 px-3.5 text-right font-medium">누적 시간</th>
+              <th class="py-1.5 px-3.5 text-right font-medium">데이터 출력 합계</th>
+              <th class="py-1.5 px-3.5 text-right font-medium">비트레이트</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-obsBorderSubtle/60 text-xs">
+            <!-- Row 1: 방송 -->
+            <tr class="hover:bg-obsRowHover/60 transition-colors">
+              <td class="py-2.5 px-3.5 w-20">
+                <span id="badge-stream-status" class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium bg-zinc-900/80 text-zinc-500 border border-zinc-700/50 shadow-inner tracking-wide transition-colors">
+                  <span class="w-1.5 h-1.5 rounded-full border border-zinc-600 bg-transparent shrink-0"></span>
+                  <span>방송</span>
+                </span>
+              </td>
+              <td class="py-2.5 px-3.5 mono-num text-obsMuted" title="네트워크 손실 프레임 (손실 / 전체)">
+                <span id="val-net-drop" class="text-obsAccent font-semibold">0</span>
+                <span class="text-obsMuted"> / </span>
+                <span id="val-net-total" class="text-obsMuted">0</span>
+                <span id="val-net-pct" class="text-obsAccent font-medium ml-0.5">(0.0%)</span>
+              </td>
+              <td class="py-2.5 px-3.5 mono-num text-right font-medium" title="방송 누적 시간">
+                <span id="stream-time" class="text-obsAccent/90 font-semibold">00:00:00</span>
+              </td>
+              <td class="py-2.5 px-3.5 mono-num text-right font-medium" title="데이터 출력 합계">
+                <span id="stream-data" class="text-white font-semibold">0.0</span> <span id="stream-unit" class="text-[11px] font-normal text-obsMuted">MB</span>
+              </td>
+              <td class="py-2.5 px-3.5 mono-num text-right font-bold text-obsAccent" title="실시간 방송 비트레이트">
+                <span id="val-stream-bitrate">0</span> <span class="text-[11px] font-normal text-obsAccent/80">kb/s</span>
+              </td>
+            </tr>
+
+            <!-- Row 2: 녹화 -->
+            <tr class="hover:bg-obsRowHover/60 transition-colors text-obsMuted">
+              <td class="py-2.5 px-3.5 w-20">
+                <span id="badge-record-status" class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium bg-zinc-900/80 text-zinc-500 border border-zinc-700/50 shadow-inner tracking-wide transition-colors">
+                  <span class="w-1.5 h-1.5 rounded-full border border-zinc-600 bg-transparent shrink-0"></span>
+                  <span>녹화</span>
+                </span>
+              </td>
+              <td class="py-2.5 px-3.5 mono-num text-obsMuted/60 cursor-help" title="인코딩/렌더링 지연 손실 참조">
+                -
+              </td>
+              <td class="py-2.5 px-3.5 mono-num text-right font-medium" title="녹화 누적 시간">
+                <span id="val-record-time" class="text-rose-400/90 font-semibold">00:00:00</span>
+              </td>
+              <td class="py-2.5 px-3.5 mono-num text-right font-medium" title="녹화 파일 용량">
+                <span id="rec-data" class="text-white font-semibold">0.0</span> <span id="rec-unit" class="text-[11px] font-normal text-obsMuted/70">MB</span>
+              </td>
+              <!-- 녹화 실시간 비트레이트 -->
+              <td class="py-2.5 px-3.5 mono-num text-right font-bold text-rose-400" title="실시간 녹화 비트레이트">
+                <span id="val-record-bitrate">0</span> <span id="label-rec-bitrate-unit" class="text-[11px] font-normal text-rose-400/80">kb/s</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
+
+  </main>
+
+  <!-- WebSocket 통신 & 데이터 변환 스크립트 -->
+  <script>
+    const WS_URL = 'ws://127.0.0.1:4455';
+    const POLL_INTERVAL = 500; // 0.5초 직통 주기
+
+    let ws = null;
+    let isConnected = false;
+    let pollTimer = null;
+    let reqSeq = 0;
+    let currentUnit = 'MB'; // 'MB' or 'GB' (윈도우 탐색기 기준 1024 단위)
+
+    let rawStreamBytes = 0;
+    let rawRecordBytes = 0;
+
+    async function handleHello(d) {
+      const identifyData = {
+        rpcVersion: 1,
+        eventSubscriptions: 1023
+      };
+
+      if (d && d.authentication) {
+        const password = localStorage.getItem('obs_ws_password') || '';
+        try {
+          const enc = new TextEncoder();
+          const sha256 = async (str) => {
+            const buf = await crypto.subtle.digest('SHA-256', enc.encode(str));
+            return btoa(String.fromCharCode(...new Uint8Array(buf)));
+          };
+          const secret = await sha256(password + d.authentication.salt);
+          identifyData.authentication = await sha256(secret + d.authentication.challenge);
+        } catch (authErr) {
+          console.error('[Stats] OBS Auth Error:', authErr);
+        }
+      }
+
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          op: 1,
+          d: identifyData
+        }));
+      }
+    }
+
+    let expectedNextPoll = 0;
+
+    function connectOBS() {
+      if (ws) {
+        try { ws.close(); } catch (_) {}
+      }
+      isConnected = false;
+      expectedNextPoll = 0;
+      try {
+        ws = new WebSocket(WS_URL);
+
+        ws.onopen = () => {
+          // OBS v5는 연결 직후 op: 0 (Hello)을 전송하므로 대기
+        };
+
+        ws.onmessage = async (e) => {
+          try {
+            const msg = JSON.parse(e.data);
+            if (msg.op === 0) {
+              await handleHello(msg.d);
+            } else if (msg.op === 2) {
+              isConnected = true;
+              expectedNextPoll = performance.now() + POLL_INTERVAL;
+              sendReq('GetVideoSettings');
+              sendReq('GetRecordDirectory');
+              schedulePoll();
+            } else {
+              handleMessage(msg);
+            }
+          } catch (err) {
+            console.warn('[Stats] Message error:', err);
+          }
+        };
+
+        ws.onclose = () => {
+          isConnected = false;
+          expectedNextPoll = 0;
+          clearTimeout(pollTimer);
+          setTimeout(connectOBS, 2000);
+        };
+
+        ws.onerror = () => {
+          if (ws) ws.close();
+        };
+      } catch (err) {
+        setTimeout(connectOBS, 2000);
+      }
+    }
+
+    // 0.5초 재귀 폴링 (누적 오차(Drift) 자동 보정 보호장치 적용)
+    function schedulePoll() {
+      clearTimeout(pollTimer);
+      if (!isConnected) return;
+
+      sendReq('GetStats');
+      sendReq('GetStreamStatus');
+      sendReq('GetRecordStatus');
+
+      const now = performance.now();
+      if (!expectedNextPoll) {
+        expectedNextPoll = now + POLL_INTERVAL;
+      }
+      const drift = now - expectedNextPoll;
+      expectedNextPoll += POLL_INTERVAL;
+
+      // 지연 오차(drift)를 제외한 다음 틱 대기시간 산출 (음수 방지)
+      const nextDelay = Math.max(0, POLL_INTERVAL - drift);
+
+      // 백그라운드 탭 절전 등으로 오차가 심하게 누적된 경우 기준점 재설정
+      if (drift > POLL_INTERVAL * 2) {
+        expectedNextPoll = now + POLL_INTERVAL;
+      }
+
+      pollTimer = setTimeout(schedulePoll, nextDelay);
+    }
+
+    function sendReq(requestType, requestData = {}) {
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+      reqSeq++;
+      ws.send(JSON.stringify({
+        op: 6,
+        d: {
+          requestType,
+          requestId: `${requestType}-${reqSeq}`,
+          requestData
+        }
+      }));
+    }
+
+    let currentRecordDir = '';
+
+    // 툴팁용 경로 축약 규칙 (30자 이하 보장):
+    // 1. 30자 이하면 전체 경로 그대로 표시
+    // 2. 30자 초과 시 최상위 드라이브(C/D) + 중간 생략(...) + 폴더명(최대 10자 보장) -> 30자 이하 유지
+    function formatPathForTooltip(fullPath) {
+      if (!fullPath) return '폴더 경로 없음';
+      const norm = fullPath.replace(/\//g, '\\').replace(/\\+$/, '');
+      if (norm.length <= 30) return norm;
+      const parts = norm.split('\\');
+      const folder = parts[parts.length - 1];
+      return `${parts[0]}\\...\\${folder.length > 10 ? folder.slice(0, 10) + '...' : folder}`;
+    }
+
+    let lastFetchedDrive = '';
+    let cachedTotalDiskBytes = 1000 * 1024 * 1024 * 1024; // 기본 1TB
+
+    // 첫 로딩 및 드라이브(C, D 등) 변경 시에만 백엔드 호출 (전체 디스크 용량 바이트 수 조회)
+    function fetchTotalDiskSpace(path) {
+      if (!path) return;
+      const drive = path.charAt(0).toUpperCase();
+      if (drive && drive === lastFetchedDrive) return; // 동일 드라이브면 스킵
+      lastFetchedDrive = drive;
+
+      fetch(`/api/disk-total?drive=${encodeURIComponent(drive)}`, {
+        headers: { 'X-Requested-With': 'ChzzkDock' }
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.totalBytes) {
+            cachedTotalDiskBytes = data.totalBytes;
+            const displaySpec = formatTotalDiskSize(data.totalBytes);
+            const explorerSize = formatExplorerDiskSize(data.totalBytes);
+            const labelTotal = document.getElementById('label-disk-total');
+            if (labelTotal) {
+              labelTotal.textContent = displaySpec;
+              labelTotal.title = `윈도우 탐색기 인식: ${explorerSize}\n(총 ${data.totalBytes.toLocaleString()} 바이트)`;
+            }
+            renderDiskSpace(Math.max(0, cachedTotalDiskBytes - currentFreeDiskBytes), cachedTotalDiskBytes);
+          }
+        })
+        .catch(() => {});
+    }
+
+    function updateRecordDirectoryUI(fullPath) {
+      if (!fullPath) return;
+      currentRecordDir = fullPath;
+      const box = document.getElementById('box-disk-bar');
+      if (box) box.title = `${formatPathForTooltip(fullPath)}\n(폴더 열기(클릭))`;
+      fetchTotalDiskSpace(fullPath);
+    }
+
+    // 파일 탐색기로 해당 폴더 열기 (Go 백엔드 연동)
+    function openRecordDirectory() {
+      if (!currentRecordDir) return;
+      fetch(`/api/open-folder?path=${encodeURIComponent(currentRecordDir)}`, {
+        headers: { 'X-Requested-With': 'ChzzkDock' }
+      }).catch(err => {
+        console.log('[Stats] 파일 탐색기 열기 요청:', currentRecordDir);
+      });
+    }
+
+    // OBS 손실률 공식 기준 색상 적용 (< 1.0% 정상, 1.0% ~ 4.9% 경고 노랑, >= 5.0% 위험 빨강)
+    function applyLossThreshold(dropEl, pctEl, dropCount, totalCount) {
+      const pct = totalCount > 0 ? (dropCount / totalCount) * 100 : 0;
+      const pctStr = `(${pct.toFixed(1)}%)`;
+      if (dropEl) dropEl.textContent = dropCount.toLocaleString();
+      if (pctEl) pctEl.textContent = pctStr;
+
+      if (pct >= 5.0) {
+        if (dropEl) dropEl.className = 'text-rose-500 font-bold';
+        if (pctEl) pctEl.className = 'text-rose-500 font-bold ml-0.5';
+      } else if (pct >= 1.0) {
+        if (dropEl) dropEl.className = 'text-amber-400 font-semibold';
+        if (pctEl) pctEl.className = 'text-amber-400 font-semibold ml-0.5';
+      } else {
+        if (dropEl) dropEl.className = 'text-obsText font-semibold';
+        if (pctEl) pctEl.className = 'text-obsMuted font-normal ml-0.5';
+      }
+    }
+
+    let targetFps = 60;
+
+    // FPS 색상 (OBS 기준: >= 95% 정상, 80% ~ 95% 경고 노랑, < 80% 위험 빨강)
+    function applyFpsThreshold(fpsEl, activeFps, target = 60) {
+      if (!fpsEl) return;
+      fpsEl.textContent = activeFps.toFixed(2);
+      const unitEl = document.getElementById('label-fps-unit');
+      const ratio = target > 0 ? (activeFps / target) : 1;
+      if (ratio < 0.8) {
+        fpsEl.className = 'mono-num font-bold text-rose-500 text-[14.5px] tracking-tight';
+        if (unitEl) unitEl.className = 'text-[11px] font-normal text-rose-400';
+      } else if (ratio < 0.95) {
+        fpsEl.className = 'mono-num font-bold text-amber-400 text-[14.5px] tracking-tight';
+        if (unitEl) unitEl.className = 'text-[11px] font-normal text-amber-300';
+      } else {
+        fpsEl.className = 'mono-num font-bold text-obsAccent text-[14.5px] tracking-tight';
+        if (unitEl) unitEl.className = 'text-[11px] font-normal text-obsAccent/80';
+      }
+    }
+
+    // 전체 디스크 용량 표기 (제조사 마케팅 스펙 기준 반올림: 1TB, 500GB 등)
+    function formatTotalDiskSize(totalBytes) {
+      if (!totalBytes || totalBytes <= 0) return '???';
+      const GB = 1024 * 1024 * 1024;
+      const tbRatio = totalBytes / (GB * 1024);
+      if (tbRatio >= 0.88) return Math.round(tbRatio) + 'TB';
+      if (totalBytes >= GB) return Math.round(totalBytes / GB) + 'GB';
+      return Math.round(totalBytes / (1024 * 1024)) + 'MB';
+    }
+
+    // 윈도우 탐색기 기준 용량 포맷팅 (1024 GiB 단위: 931 GB, 1.82 TB 등)
+    function formatExplorerDiskSize(totalBytes) {
+      if (!totalBytes || totalBytes <= 0) return '0 GB';
+      const GB = 1024 * 1024 * 1024;
+      const TB = GB * 1024;
+      if (totalBytes >= TB) {
+        return (totalBytes / TB).toFixed(2) + ' TB';
+      }
+      return Math.round(totalBytes / GB) + ' GB';
+    }
+
+    // 디스크 공간 렌더링 (% 바 표시 및 Windows 단위 기준 용량 계산)
+    function renderDiskSpace(usedBytes, totalBytes) {
+      if (!totalBytes || totalBytes <= 0) return;
+      const freeBytes = Math.max(0, totalBytes - usedBytes);
+      const usedPct = (usedBytes / totalBytes) * 100;
+
+      // MB부터 GB까지 동적 여유 용량 표기
+      const MB = 1024 * 1024;
+      const GB = MB * 1024;
+      let freeStr = '';
+      if (freeBytes >= GB) {
+        freeStr = `${(freeBytes / GB).toFixed(1)} GB 여유`;
+      } else if (freeBytes >= MB) {
+        freeStr = `${Math.round(freeBytes / MB)} MB 여유`;
+      } else {
+        freeStr = `${(freeBytes / MB).toFixed(2)} MB 여유`;
+      }
+
+      const barUsed = document.getElementById('bar-disk-used');
+      const labelPct = document.getElementById('label-disk-pct');
+      const labelFree = document.getElementById('label-disk-free');
+      const labelTotal = document.getElementById('label-disk-total');
+
+      if (barUsed) {
+        barUsed.style.width = `${Math.min(100, Math.max(0, usedPct))}%`;
+        if (usedPct >= 90) {
+          barUsed.className = 'h-full bg-rose-600 transition-all duration-500 shadow-sm';
+        } else if (usedPct >= 80) {
+          barUsed.className = 'h-full bg-amber-500 transition-all duration-500 shadow-sm';
+        } else {
+          barUsed.className = 'h-full bg-gradient-to-r from-emerald-600 via-teal-500 to-cyan-500 transition-all duration-500 shadow-sm';
+        }
+      }
+
+      currentFreeDiskBytes = freeBytes;
+      if (labelPct) labelPct.textContent = `${usedPct.toFixed(1)}% 사용 중`;
+      if (labelFree) labelFree.textContent = freeStr;
+      if (labelTotal) labelTotal.textContent = formatTotalDiskSize(totalBytes);
+    }
+
+    let currentFreeDiskBytes = 0;
+
+    // 녹화 진행 시에만 실시간 비트레이트 기반 남은 녹화 가능 시간 계산 (바 아래 표시)
+    function updateEstimatedRecordTime(isRecording, bitrateKbps) {
+      const timeEl = document.getElementById('val-disk-time');
+      if (!timeEl) return;
+      if (!isRecording || !bitrateKbps || bitrateKbps <= 0 || !currentFreeDiskBytes || currentFreeDiskBytes <= 0) {
+        timeEl.textContent = '';
+        return;
+      }
+      const bytesPerSec = (bitrateKbps * 1000) / 8;
+      const remSec = Math.floor(currentFreeDiskBytes / bytesPerSec);
+      const hours = Math.floor(remSec / 3600);
+      const mins = Math.floor((remSec % 3600) / 60);
+
+      if (hours > 0) {
+        timeEl.textContent = `${hours}시간 ${mins}분 (추정)`;
+      } else {
+        timeEl.textContent = `${mins}분 (추정)`;
+      }
+    }
+
+    function handleMessage(msg) {
+      if (msg.op === 7 && msg.d?.responseData) {
+        const id = msg.d.requestId || '';
+        const data = msg.d.responseData;
+
+        if (id.startsWith('GetStats')) {
+          renderStats(data);
+        } else if (id.startsWith('GetStreamStatus')) {
+          renderStream(data);
+        } else if (id.startsWith('GetRecordStatus')) {
+          renderRecord(data);
+        } else if (id.startsWith('GetRecordDirectory')) {
+          updateRecordDirectoryUI(data.recordDirectory);
+        } else if (id.startsWith('GetVideoSettings')) {
+          if (data.fpsNumerator && data.fpsDenominator) {
+            targetFps = Math.round(data.fpsNumerator / data.fpsDenominator) || 60;
+          }
+        }
+      } else if (msg.op === 5 && msg.d?.eventType) {
+        if (msg.d.eventType === 'StreamStateChanged') {
+          updateStreamState(msg.d.eventData?.outputActive);
+        } else if (msg.d.eventType === 'RecordStateChanged') {
+          updateRecordState(msg.d.eventData?.outputActive);
+          sendReq('GetRecordDirectory');
+        } else if (msg.d.eventType === 'CurrentProfileChanged') {
+          sendReq('GetRecordDirectory');
+        }
+      }
+    }
+
+    // 누적 통계 기준 오프셋 (초기화 버튼 클릭 시점의 기준값 저장 -> OBS 통계창과 동일한 차분 연산)
+    const statsOffset = {
+      encSkipped: 0,
+      encTotal: 0,
+      rndSkipped: 0,
+      rndTotal: 0,
+      netSkipped: 0,
+      netTotal: 0
+    };
+
+    // 최신 수신된 원시 카운터 캐시
+    const rawCounters = {
+      encSkipped: 0,
+      encTotal: 0,
+      rndSkipped: 0,
+      rndTotal: 0,
+      netSkipped: 0,
+      netTotal: 0
+    };
+
+    // 1. 시스템 & 인코딩 & 렌더링 렌더러
+    function renderStats(d) {
+      document.getElementById('val-cpu').textContent = (d.cpuUsage || 0).toFixed(2);
+      document.getElementById('val-mem').textContent = (d.memoryUsage || 0).toFixed(1);
+
+      rawCounters.encSkipped = d.outputSkippedFrames || 0;
+      rawCounters.encTotal = d.outputTotalFrames || 0;
+      rawCounters.rndSkipped = d.renderSkippedFrames || 0;
+      rawCounters.rndTotal = d.renderTotalFrames || 0;
+
+      // OBS 재부팅/초기화 등으로 원시 카운터가 오프셋보다 작아지면 오프셋 리셋
+      if (rawCounters.encTotal < statsOffset.encTotal) {
+        statsOffset.encSkipped = 0;
+        statsOffset.encTotal = 0;
+      }
+      if (rawCounters.rndTotal < statsOffset.rndTotal) {
+        statsOffset.rndSkipped = 0;
+        statsOffset.rndTotal = 0;
+      }
+
+      // 인코딩 지연 손실 (초기화 시점 기준 차분)
+      const eDrop = Math.max(0, rawCounters.encSkipped - statsOffset.encSkipped);
+      const eTotal = Math.max(0, rawCounters.encTotal - statsOffset.encTotal);
+      document.getElementById('val-enc-total').textContent = eTotal.toLocaleString();
+      applyLossThreshold(
+        document.getElementById('val-enc-drop'),
+        document.getElementById('val-enc-pct'),
+        eDrop,
+        eTotal
+      );
+
+      // FPS
+      applyFpsThreshold(document.getElementById('val-fps'), d.activeFps || 0, targetFps);
+      document.getElementById('val-render-time').textContent = (d.averageFrameRenderTime || 0).toFixed(1);
+
+      // 렌더링 지연 손실 (초기화 시점 기준 차분)
+      const rDrop = Math.max(0, rawCounters.rndSkipped - statsOffset.rndSkipped);
+      const rTotal = Math.max(0, rawCounters.rndTotal - statsOffset.rndTotal);
+      document.getElementById('val-rnd-total').textContent = rTotal.toLocaleString();
+      applyLossThreshold(
+        document.getElementById('val-rnd-drop'),
+        document.getElementById('val-rnd-pct'),
+        rDrop,
+        rTotal
+      );
+
+      // OBS 제공 남은 디스크 용량 (MB 단위 -> Bytes 변환 및 게이지 렌더링)
+      if (d.availableDiskSpace !== undefined && d.availableDiskSpace !== null) {
+        const freeBytes = d.availableDiskSpace * 1024 * 1024;
+        renderDiskSpace(Math.max(0, cachedTotalDiskBytes - freeBytes), cachedTotalDiskBytes);
+      }
+    }
+
+    // 2. 스트리밍 출력
+    function renderStream(d) {
+      updateStreamState(d.outputActive);
+
+      const kbps = d.outputKbitsPerSec || 0;
+      document.getElementById('val-stream-bitrate').textContent = kbps.toLocaleString();
+
+      // 방송 누적 시간 (시간 앞, 초 단위 정수까지만 표기: 00:00:00.000 -> 00:00:00)
+      const rawStreamTime = d.outputTimecode || '00:00:00';
+      const cleanStreamTime = rawStreamTime.split('.')[0] || '00:00:00';
+      const streamTimeEl = document.getElementById('stream-time');
+      if (streamTimeEl) streamTimeEl.textContent = cleanStreamTime;
+
+      rawCounters.netSkipped = d.outputSkippedFrames || 0;
+      rawCounters.netTotal = d.outputTotalFrames || 0;
+
+      if (rawCounters.netTotal < statsOffset.netTotal) {
+        statsOffset.netSkipped = 0;
+        statsOffset.netTotal = 0;
+      }
+
+      // 네트워크 프레임 드롭 손실 (초기화 시점 기준 차분)
+      const sDrop = Math.max(0, rawCounters.netSkipped - statsOffset.netSkipped);
+      const sTotal = Math.max(0, rawCounters.netTotal - statsOffset.netTotal);
+      document.getElementById('val-net-total').textContent = sTotal.toLocaleString();
+      applyLossThreshold(
+        document.getElementById('val-net-drop'),
+        document.getElementById('val-net-pct'),
+        sDrop,
+        sTotal
+      );
+
+      rawStreamBytes = d.outputBytes || 0;
+      updateBytesDisplay();
+    }
+
+    let lastRecordBytes = 0;
+    let lastRecordTime = 0;
+    let currentRecordBitrate = 0;
+
+    // 녹화 실시간 비트레이트 산출 (OBS v5 미제공 보완용 델타 연산)
+    function calcRecordBitrate(currentBytes, isActive) {
+      if (!isActive || currentBytes <= 0) {
+        lastRecordBytes = 0;
+        lastRecordTime = 0;
+        currentRecordBitrate = 0;
+        return 0;
+      }
+      const now = performance.now();
+      if (lastRecordTime > 0 && currentBytes > lastRecordBytes) {
+        const deltaSec = (now - lastRecordTime) / 1000;
+        if (deltaSec >= 0.4) {
+          currentRecordBitrate = Math.round(((currentBytes - lastRecordBytes) * 8) / (deltaSec * 1000));
+          lastRecordBytes = currentBytes;
+          lastRecordTime = now;
+        }
+      } else if (lastRecordTime === 0) {
+        lastRecordBytes = currentBytes;
+        lastRecordTime = now;
+      }
+      return currentRecordBitrate;
+    }
+
+    // 3. 녹화 출력 (시간 앞, 용량 뒤, 실시간 비트레이트 지원)
+    function renderRecord(d) {
+      updateRecordState(d.outputActive);
+      // 녹화 누적 시간 (초 단위 정수까지만 표기: 00:00:00.000 -> 00:00:00)
+      const rawRecTime = d.outputTimecode || '00:00:00';
+      const cleanRecTime = rawRecTime.split('.')[0] || '00:00:00';
+      document.getElementById('val-record-time').textContent = cleanRecTime;
+      rawRecordBytes = d.outputBytes || 0;
+      updateBytesDisplay();
+
+      // 녹화 실시간 비트레이트
+      const recBitrateEl = document.getElementById('val-record-bitrate');
+      const recBitrateUnitEl = document.getElementById('label-rec-bitrate-unit');
+      const kbps = calcRecordBitrate(d.outputBytes, d.outputActive);
+      if (d.outputActive && kbps > 0) {
+        if (recBitrateEl) recBitrateEl.textContent = kbps.toLocaleString();
+        if (recBitrateUnitEl) recBitrateUnitEl.style.display = 'inline';
+      } else {
+        if (recBitrateEl) recBitrateEl.textContent = '-';
+        if (recBitrateUnitEl) recBitrateUnitEl.style.display = 'none';
+      }
+
+      // 녹화 시에만 실시간 비트레이트 기반 남은 녹화 가능 시간(추정) 노출
+      updateEstimatedRecordTime(d.outputActive, kbps);
+    }
+
+    // 상태 배지: 꺼져있는 불 vs 불 켜짐(방송: 네온 그린 / 녹화: 탤리 레드)
+    // 시각적 명확화: 박스 자체는 깜빡이지 않고 고정, 오직 dot(점)만 반짝임
+    function updateStreamState(active) {
+      const badge = document.getElementById('badge-stream-status');
+      if (!badge) return;
+      if (active) {
+        badge.className = 'inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-bold bg-[#00FFA3]/15 text-[#00FFA3] border border-[#00FFA3]/60 shadow-[0_0_8px_rgba(0,255,163,0.25)] tracking-wide transition-colors';
+        badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-[#00FFA3] dot-pulse shrink-0"></span><span>방송</span>';
+      } else {
+        badge.className = 'inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium bg-zinc-900/80 text-zinc-500 border border-zinc-700/50 shadow-inner tracking-wide transition-colors';
+        badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full border border-zinc-600 bg-transparent shrink-0"></span><span>방송</span>';
+      }
+    }
+
+    function updateRecordState(active) {
+      const badge = document.getElementById('badge-record-status');
+      if (!badge) return;
+      if (active) {
+        badge.className = 'inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-bold bg-rose-500/15 text-rose-300 border border-rose-500/60 shadow-[0_0_8px_rgba(244,63,94,0.3)] tracking-wide transition-colors';
+        badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-rose-500 dot-pulse shrink-0"></span><span>녹화</span>';
+      } else {
+        badge.className = 'inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium bg-zinc-900/80 text-zinc-500 border border-zinc-700/50 shadow-inner tracking-wide transition-colors';
+        badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full border border-zinc-600 bg-transparent shrink-0"></span><span>녹화</span>';
+      }
+    }
+
+    // 데이터 단위 토글 [MB vs GB] (윈도우 탐색기 기준)
+    function setUnitMode(unit) {
+      currentUnit = unit;
+      const activeCls = 'px-1.5 py-0.5 rounded font-semibold text-obsBg bg-obsAccent transition-all shadow-sm cursor-pointer';
+      const inactiveCls = 'px-1.5 py-0.5 rounded text-obsMuted hover:text-obsText transition-all cursor-pointer';
+      document.getElementById('btn-mb').className = unit === 'MB' ? activeCls : inactiveCls;
+      document.getElementById('btn-gb').className = unit === 'GB' ? activeCls : inactiveCls;
+      updateBytesDisplay();
+    }
+
+    function updateBytesDisplay() {
+      const isGb = currentUnit === 'GB';
+      const divisor = isGb ? (1024 * 1024 * 1024) : (1024 * 1024);
+      const digits = isGb ? 2 : 1;
+
+      const sVal = (rawStreamBytes / divisor).toFixed(digits);
+      const rVal = (rawRecordBytes / divisor).toFixed(digits);
+
+      document.getElementById('stream-data').textContent = sVal;
+      document.getElementById('stream-unit').textContent = currentUnit;
+      document.getElementById('rec-data').textContent = rVal;
+      document.getElementById('rec-unit').textContent = currentUnit;
+    }
+
+    // 통계 지표 초기화 (인코딩, 렌더링, 네트워크 손실 프레임만 0부터 다시 카운팅, OBS 통계창과 동일)
+    function resetStatsAction() {
+      // 1. 현재 카운터를 오프셋 기준점으로 고정
+      statsOffset.encSkipped = rawCounters.encSkipped;
+      statsOffset.encTotal = rawCounters.encTotal;
+      statsOffset.rndSkipped = rawCounters.rndSkipped;
+      statsOffset.rndTotal = rawCounters.rndTotal;
+      statsOffset.netSkipped = rawCounters.netSkipped;
+      statsOffset.netTotal = rawCounters.netTotal;
+
+      // 2. 인코딩, 렌더링, 네트워크 손실 UI만 즉시 0 리셋 (CPU, 메모리, FPS, 저장 공간 등은 실시간 상태 유지)
+      document.getElementById('val-enc-total').textContent = '0';
+      applyLossThreshold(document.getElementById('val-enc-drop'), document.getElementById('val-enc-pct'), 0, 0);
+
+      document.getElementById('val-rnd-total').textContent = '0';
+      applyLossThreshold(document.getElementById('val-rnd-drop'), document.getElementById('val-rnd-pct'), 0, 0);
+
+      document.getElementById('val-net-total').textContent = '0';
+      applyLossThreshold(document.getElementById('val-net-drop'), document.getElementById('val-net-pct'), 0, 0);
+
+      // 3. 버튼 시각 피드백 (플래시 애니메이션)
+      const btn = document.getElementById('btn-reset-stats');
+      if (btn) {
+        btn.classList.add('bg-rose-500/30', 'border-rose-400', 'text-rose-200');
+        setTimeout(() => {
+          btn.classList.remove('bg-rose-500/30', 'border-rose-400', 'text-rose-200');
+        }, 350);
+      }
+    }
+
+    // 기동 시 연결
+    connectOBS();
+  </script>
+</body>
+</html>

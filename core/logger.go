@@ -87,11 +87,6 @@ func (m *MemoryLogger) Log(level LogLevel, format string, args ...interface{}) {
 	// 터미널 및 디버그 출력
 	timeStr := entry.Timestamp.Format("2006-01-02 15:04:05")
 	fmt.Printf("[%s] [%s] %s\n", timeStr, level.String(), msg)
-
-	// ERROR 레벨 발생 시 윈도우 알림 발송
-	if level == LevelError {
-		ShowAlert("CHZZK OBS Dock 오류", msg)
-	}
 }
 
 // GetLogsText: 지금까지 수집된 메모리 로그 전체를 텍스트로 반환

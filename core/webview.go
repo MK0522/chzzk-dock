@@ -26,6 +26,51 @@ import (
 
 const (
 	LOGIN_URL = "https://nid.naver.com/nidlogin.login?url=https%3A%2F%2Fchzzk.naver.com%2F"
+
+	// ExternalLinkGuardScript: 네이버 및 로컬 호스트 외 외부 도메인 클릭 시 기본 브라우저로 위임하는 스크립트
+	ExternalLinkGuardScript = `
+	(function() {
+		function isInternalHost(hostname) {
+			if (!hostname) return true;
+			var h = hostname.toLowerCase();
+			return h === 'naver.com' || h.endsWith('.naver.com') || h === '127.0.0.1' || h === 'localhost';
+		}
+		document.addEventListener('click', function(e) {
+			var target = e.target;
+			while (target && target.tagName !== 'A') {
+				target = target.parentElement;
+			}
+			if (!target || !target.href) return;
+			var url;
+			try { url = new URL(target.href); } catch(err) { return; }
+			if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
+			if (target.target === '_blank' || !isInternalHost(url.hostname)) {
+				e.preventDefault();
+				e.stopPropagation();
+				if (window.chrome && window.chrome.webview) {
+					window.chrome.webview.postMessage('open-external:' + target.href);
+				}
+			}
+		}, true);
+		var origOpen = window.open;
+		window.open = function(url, target, feat) {
+			if (url) {
+				try {
+					var p = new URL(url, location.href);
+					if (p.protocol === 'http:' || p.protocol === 'https:') {
+						if (!isInternalHost(p.hostname) || target === '_blank') {
+							if (window.chrome && window.chrome.webview) {
+								window.chrome.webview.postMessage('open-external:' + p.href);
+								return null;
+							}
+						}
+					}
+				} catch(e) {}
+			}
+			return origOpen.apply(this, arguments);
+		};
+	})();
+	`
 )
 
 var (
@@ -425,7 +470,16 @@ func RunLoginWebview() {
 		return
 	}
 
-	// [로그인 상태 유지 자동화] NID_AUT 장기 쿠키 발급을 위한 로그인 상태 유지 체크박스(#loginStay) 자동 활성화 스크립트 등록
+	chromium.MessageCallback = func(message string, sender *edge.ICoreWebView2, args *edge.ICoreWebView2WebMessageReceivedEventArgs) {
+		if strings.HasPrefix(message, "open-external:") {
+			targetURL := strings.TrimPrefix(message, "open-external:")
+			if GetExternalBrowserGuard() {
+				OpenBrowser(targetURL)
+			}
+		}
+	}
+
+	// [로그인 상태 유지 자동화] NID_AUT 장기 쿠키 발급 및 외부 링크 기본 브라우저 열기 가드
 	keepLoginScript := `
 	(function() {
 		function autoCheckKeep() {
@@ -458,6 +512,7 @@ func RunLoginWebview() {
 	})();
 	`
 	chromium.Init(keepLoginScript)
+	chromium.Init(ExternalLinkGuardScript)
 
 	LogInfo("[Webview Login] 로그인 페이지로 이동: %s", LOGIN_URL)
 	chromium.Navigate(LOGIN_URL)

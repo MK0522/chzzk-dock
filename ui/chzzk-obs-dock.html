@@ -230,6 +230,12 @@
     .tag-chip button { background: none; border: none; color: rgba(0, 255, 163, 0.6); cursor: pointer; padding: 0; display: flex; font-size: 13px; }
     .tag-chip button:hover { color: #FF4D6A; }
 
+    @keyframes pulsePop {
+      0% { transform: scale(0.98); background-color: rgba(0, 255, 163, 0.18); }
+      100% { transform: scale(1); background-color: transparent; }
+    }
+    .pulse-feedback { animation: pulsePop 0.35s ease-out; }
+
     .section-card {
       background: #0E131A; border: 1px solid #1B2332; border-radius: 10px;
       padding: 12px; transition: border-color 0.2s, box-shadow 0.2s;
@@ -388,6 +394,56 @@
         grid-template-columns: 1fr;
       }
     }
+
+    /* Settings Modal Navigation Tabs */
+    .settings-nav-btn {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 7px 10px;
+      border-radius: 8px;
+      text-align: left;
+      font-size: 11.5px;
+      cursor: pointer;
+      transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+      border: 1px solid transparent;
+      user-select: none;
+      white-space: nowrap;
+    }
+    .settings-nav-btn.active {
+      background: #161F2E;
+      color: #00FFA3;
+      border-color: rgba(0, 255, 163, 0.35);
+      font-weight: 700;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+    }
+    .settings-nav-btn:not(.active) {
+      color: #94A3B8;
+      font-weight: 500;
+    }
+    .settings-nav-btn:not(.active):hover {
+      color: #F1F5F9;
+      background: #111722;
+      border-color: rgba(255, 255, 255, 0.05);
+    }
+    @media (max-width: 440px) {
+      .settings-layout-box {
+        flex-direction: column !important;
+      }
+      .settings-nav-container {
+        width: 100% !important;
+        flex-direction: row !important;
+        overflow-x: auto !important;
+        border-right: none !important;
+        border-bottom: 1px solid #1E2738 !important;
+        padding-right: 0 !important;
+        padding-bottom: 6px !important;
+      }
+      .settings-nav-btn {
+        padding: 5px 8px !important;
+        font-size: 11px !important;
+      }
+    }
   </style>
 </head>
 <body class="dark font-sans text-white antialiased overflow-x-hidden">
@@ -452,6 +508,18 @@
     <!-- ===== 통합 방송 설정 카드 (단일 블록) ===== -->
     <div id="card-broadcast" class="section-card !p-2 space-y-1.5 shadow-lg border border-[#1E2738] animate-slide-up" style="animation-delay: 0.08s">
       
+      <!-- [FEAT-06-03] 방송 정보 프리셋 바 (초슬림 1열) -->
+      <div id="preset-toolbar-wrapper" class="flex items-center justify-between pb-1.5 border-b border-[#1E2738]/70 text-xs">
+        <button type="button" onclick="openPresetLoadModal()" class="flex items-center gap-1.5 px-2 py-0.5 rounded bg-[#121721] hover:bg-[#161F2E] border border-[#243044] hover:border-[#00FFA3]/50 text-slate-200 hover:text-white transition-all cursor-pointer leading-none group" title="방송 프리셋 관리 (불러오기, 새로 저장, 덮어쓰기)">
+          <span class="text-[11px] font-bold text-slate-100 group-hover:text-[#00FFA3] flex items-center gap-1 leading-none transition-colors">
+            <span>📋</span> 프리셋
+          </span>
+          <span id="preset-slot-count-badge" class="text-[9.5px] px-1.5 py-0.2 rounded bg-[#161F2E] text-slate-400 group-hover:text-slate-300 font-mono border border-[#243044] leading-none">
+            0/10
+          </span>
+        </button>
+      </div>
+
       <!-- 방송 제목 -->
       <div class="space-y-0.5">
         <div class="flex justify-between items-center h-5">
@@ -1303,221 +1371,226 @@
     </div>
   </div>
 
-  <!-- ===== SETTINGS & COOKIE LOGIN PANEL ===== -->
-  <div id="settings-panel" class="settings-panel px-2.5 py-3">
-    <div class="flex items-center justify-between mb-2.5 border-b border-chzzk-border pb-2">
+  <!-- ===== SETTINGS & COOKIE LOGIN PANEL (사이드 내비게이션 바 개편) ===== -->
+  <div id="settings-panel" class="settings-panel px-2.5 py-3 flex flex-col">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-2.5 border-b border-chzzk-border pb-2 flex-shrink-0">
       <div class="flex items-center gap-1.5">
         <span class="text-base">⚙️</span>
-        <span class="text-xs font-bold text-white">독 환경 및 로그인 설정</span>
+        <span class="text-xs font-bold text-white">독 환경 설정</span>
       </div>
-      <button onclick="toggleSettings()" class="w-6 h-6 rounded-md bg-chzzk-card border border-chzzk-border flex items-center justify-center hover:border-chzzk-muted transition-colors">
+      <button onclick="toggleSettings()" class="w-6 h-6 rounded-md bg-chzzk-card border border-chzzk-border flex items-center justify-center hover:border-chzzk-muted transition-colors cursor-pointer" title="설정 닫기">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5A6577" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
 
-    <!-- Settings Sections -->
-    <div class="space-y-2.5">
-      <!-- 화면 배율 및 폰트 크기 조절 카드 (3단계) -->
-      <div class="section-card space-y-2">
-        <div class="flex items-center justify-between">
-          <div class="text-[11px] font-semibold text-white/90 flex items-center gap-1">
-            <span>🔤</span> <span>독 화면 및 폰트 크기</span>
-          </div>
-          <span id="font-scale-current-label" class="text-[10px] text-[#00FFA3] font-bold font-mono">120% (크게)</span>
-        </div>
-        <div class="grid grid-cols-3 gap-1 p-0.5 bg-[#0B0F15] rounded-lg border border-[#1E2738]">
-          <button id="btn-scale-100" onclick="setFontScale(1.0)" class="py-1 text-[11px] font-medium rounded text-slate-400 hover:text-slate-200 transition-all text-center">
-            보통 (100%)
-          </button>
-          <button id="btn-scale-120" onclick="setFontScale(1.2)" class="py-1 text-[11px] font-bold rounded text-[#00FFA3] bg-[#161F2E] border border-[#00FFA3]/40 transition-all text-center">
-            크게 (120%)
-          </button>
-          <button id="btn-scale-135" onclick="setFontScale(1.35)" class="py-1 text-[11px] font-medium rounded text-slate-400 hover:text-slate-200 transition-all text-center">
-            아주 크게 (135%)
-          </button>
-        </div>
-        <div class="text-[9px] text-slate-500">
-          * 기본값 120%가 적용되어 있으며, OBS 창 크기나 고해상도 환경에 맞춰 언제든 변경할 수 있습니다.
-        </div>
-      </div>
-
-      <!-- [그룹 1] 🔐 치지직 로그인 및 계정 연동 (접기/펼치기 아코디언) -->
-      <div class="rounded-lg border border-[#1E2738] bg-[#090D14] overflow-hidden">
-        <button type="button" onclick="toggleSettingsGroup('login')" class="w-full px-3 py-2 flex items-center justify-between bg-[#111722] hover:bg-[#161F2E] transition-colors cursor-pointer text-left select-none">
-          <div class="flex items-center gap-1.5 min-w-0">
-            <span class="text-xs">🔐</span>
-            <span class="text-xs font-bold text-slate-100">치지직 로그인 및 계정 연동</span>
-            <span id="group-login-badge" class="text-[9px] px-1.5 py-0.5 rounded font-bold bg-gray-800 text-gray-400">대기 중</span>
-          </div>
-          <span id="group-login-arrow" class="text-[10px] text-slate-400 transition-transform duration-200 ml-1">▼</span>
+    <!-- Navigation Bar & Tab Content Layout -->
+    <div class="settings-layout-box flex gap-2.5 flex-1 min-h-0">
+      <!-- Left Sidebar Navigation -->
+      <nav class="settings-nav-container w-28 flex-shrink-0 flex flex-col gap-1 border-r border-[#1E2738]/80 pr-2 select-none">
+        <button type="button" onclick="switchSettingsTab('login')" id="tab-btn-login" class="settings-nav-btn active">
+          <span class="text-sm">🔐</span>
+          <span>로그인</span>
         </button>
-        <div id="group-login-content" class="p-2 space-y-2.5 border-t border-[#1E2738]/60">
-          <!-- 방법 A: 팝업 로그인 카드 -->
-          <div class="section-card space-y-2.5">
-            <div class="flex items-center justify-between">
-              <div class="text-[11px] font-semibold text-[#00FFA3]">방법 A. 팝업 로그인 (자동)</div>
-              <span id="badge-method-a" class="text-[9px] px-1.5 py-0.5 rounded font-bold bg-gray-800 text-gray-400">대기 중</span>
-            </div>
-            <button id="btn-webview-login" onclick="startWebviewLogin()" class="save-btn text-xs py-2.5 bg-gradient-to-r from-emerald-400 to-teal-400 !text-[#080A0D] font-extrabold shadow-md">
-              🌐 네이버 로그인 팝업 열기 (자동)
-            </button>
-          </div>
+        <button type="button" onclick="switchSettingsTab('general')" id="tab-btn-general" class="settings-nav-btn">
+          <span class="text-sm">⚙️</span>
+          <span>일반</span>
+        </button>
+        <button type="button" onclick="switchSettingsTab('advanced')" id="tab-btn-advanced" class="settings-nav-btn">
+          <span class="text-sm">🛠️</span>
+          <span>고급</span>
+        </button>
+        <button type="button" onclick="switchSettingsTab('info')" id="tab-btn-info" class="settings-nav-btn">
+          <span class="text-sm">ℹ️</span>
+          <span>앱 정보</span>
+        </button>
+      </nav>
 
-          <!-- 방법 B: 쿠키 수동 입력 카드 -->
-          <div class="section-card space-y-2">
-            <div class="flex items-center justify-between mb-1">
-              <div class="flex items-center gap-1.5">
-                <div class="text-[11px] font-semibold text-amber-400">방법 B. 쿠키 수동 입력</div>
-                <button type="button" onclick="toggleCookieHelp()" class="text-[10px] px-1.5 py-0.5 rounded bg-amber-400/15 hover:bg-amber-400/25 text-amber-300 font-medium transition-colors inline-flex items-center gap-1 border border-amber-400/30" title="쿠키 값 확인 및 복사 방법 안내">
-                  <span>❓ 도움말</span>
-                </button>
+      <!-- Right Tab Content Area -->
+      <div class="flex-1 min-w-0 overflow-y-auto pr-0.5 space-y-2.5">
+
+        <!-- ===== TAB 1: 로그인 (Login) ===== -->
+        <div id="tab-content-login" class="space-y-2.5">
+          <!-- 치지직 연동 카드 (방법 A, B 묶음 박스) -->
+          <div class="section-card p-3 bg-chzzk-card/70 border border-chzzk-border space-y-2.5">
+            <div class="flex items-center justify-between pb-1 border-b border-[#1E2738]/80">
+              <div class="flex items-center gap-1.5 min-w-0">
+                <span class="text-xs">🔐</span>
+                <span class="text-xs font-bold text-slate-100">치지직 연동</span>
               </div>
-              <span id="badge-method-b" class="text-[9px] px-1.5 py-0.5 rounded font-bold bg-gray-800 text-gray-400">미입력</span>
+              <span id="group-login-badge" class="text-[9px] px-1.5 py-0.5 rounded font-bold bg-gray-800 text-gray-400">대기 중</span>
             </div>
 
-            <!-- 쿠키 확인 가이드 (도움말 아코디언) -->
-            <div id="cookie-help-box" class="hidden p-2.5 rounded-lg bg-[#0a0d13] border border-amber-400/30 text-[10px] space-y-2 text-gray-300 leading-relaxed shadow-inner">
-              <div class="font-bold text-amber-300 flex items-center justify-between text-[11px] border-b border-gray-800 pb-1.5">
-                <span class="flex items-center gap-1"><span>📖</span> 네이버 쿠키(NID_AUT, NID_SES) 복사 방법</span>
-                <button type="button" onclick="toggleCookieHelp()" class="text-gray-400 hover:text-gray-200 text-xs px-1 font-mono">✕</button>
+            <!-- 방법 A: 팝업 로그인 카드 -->
+            <div class="p-2.5 rounded-lg bg-[#0B0F15] border border-[#1E2738] space-y-2">
+              <div class="flex items-center justify-between">
+                <div class="text-[11px] font-semibold text-[#00FFA3]">방법 A. 팝업 로그인</div>
+                <span id="badge-method-a" class="text-[9px] px-1.5 py-0.5 rounded font-bold bg-gray-800 text-gray-400">대기 중</span>
               </div>
-              <ol class="list-decimal list-inside space-y-1.5 text-gray-300 text-[10px]">
-                <li>
-                  브라우저(Chrome, Edge, Whale 등)에서
-                  <button type="button" onclick="openExternalUrl('https://chzzk.naver.com', '치지직')" class="text-emerald-400 font-semibold underline hover:text-emerald-300 inline-flex items-center gap-0.5">
-                    <span>치지직(chzzk.naver.com)</span><span class="text-[8px]">↗</span>
+              <button id="btn-webview-login" onclick="startWebviewLogin()" class="save-btn text-xs py-2.5 bg-gradient-to-r from-emerald-400 to-teal-400 !text-[#080A0D] font-extrabold shadow-md cursor-pointer">
+                🌐 네이버 로그인 팝업 열기
+              </button>
+            </div>
+
+            <!-- 방법 B: 쿠키 수동 입력 카드 -->
+            <div class="p-2.5 rounded-lg bg-[#0B0F15] border border-[#1E2738] space-y-2">
+              <div class="flex items-center justify-between mb-1">
+                <div class="flex items-center gap-1.5">
+                  <div class="text-[11px] font-semibold text-amber-400">방법 B. 쿠키 수동 입력</div>
+                  <button type="button" onclick="toggleCookieHelp()" class="text-[10px] px-1.5 py-0.5 rounded bg-amber-400/15 hover:bg-amber-400/25 text-amber-300 font-medium transition-colors inline-flex items-center gap-1 border border-amber-400/30 cursor-pointer" title="쿠키 값 확인 및 복사 방법 안내">
+                    <span>❓ 도움말</span>
                   </button>
-                  에 접속하여 로그인합니다.
-                </li>
-                <li>
-                  키보드 <kbd class="px-1.5 py-0.5 bg-gray-800 border border-gray-700 rounded text-amber-300 font-mono text-[9px] font-bold">F12</kbd> (또는 웹페이지 우클릭 ➔ <strong>[검사]</strong>)를 눌러 <strong>개발자 도구</strong>를 엽니다.
-                </li>
-                <li>
-                  상단 탭 메뉴에서 <strong class="text-white bg-gray-800 px-1 py-0.5 rounded">[애플리케이션]</strong>(Application) 또는 <strong class="text-white bg-gray-800 px-1 py-0.5 rounded">[저장공간]</strong>(Storage) 탭을 클릭합니다.
-                  <span class="text-gray-400 block pl-3 text-[9px]">* 창 폭이 좁아 탭이 안 보이면 상단 우측 <strong>»</strong> 화살표 아이콘을 클릭하세요.</span>
-                </li>
-                <li>
-                  좌측 트리 메뉴에서 <strong class="text-white">[저장용량]</strong> ➔ <strong class="text-white">[쿠키]</strong> ➔ <strong class="text-emerald-400">https://chzzk.naver.com</strong>(또는 naver.com)을 선택합니다.
-                </li>
-                <li>
-                  우측 표 목록에서 이름이 <code class="text-amber-300 bg-gray-900 border border-gray-700 px-1 py-0.5 rounded font-mono font-bold">NID_AUT</code>와 <code class="text-amber-300 bg-gray-900 border border-gray-700 px-1 py-0.5 rounded font-mono font-bold">NID_SES</code>인 항목을 찾습니다.
-                  <!-- 참고 이미지 1 -->
-                  <div class="my-2 bg-[#06090e] rounded-lg border border-gray-800 p-2 shadow-sm">
-                    <div class="text-[9.5px] text-amber-300 font-bold mb-1.5 flex items-center justify-between">
-                      <span class="flex items-center gap-1"><span>📸</span> [참고 1] 개발자 도구 쿠키 확인 화면</span>
-                      <button type="button" onclick="openExternalUrl('http://localhost:8081/guide-image/1', '가이드 1 원본')" class="text-[9px] text-emerald-400 hover:text-emerald-300 font-medium">🔍 새창 확대</button>
-                    </div>
-                    <img src="/guide-image/1" alt="쿠키 확인 개발자도구" class="w-full rounded border border-gray-800 cursor-pointer hover:border-amber-400 transition-colors" onclick="openExternalUrl(this.src, '가이드 1 원본')" title="클릭하여 원본 크기로 보기" />
-                  </div>
-                </li>
-                <li>
-                  각 항목의 <strong>[값(Value)]</strong> 필드를 더블클릭하여 복사(<kbd class="px-1 py-0.5 bg-gray-800 border border-gray-700 rounded text-amber-300 font-mono text-[9px]">Ctrl+C</kbd>)한 뒤, 아래 입력칸에 붙여넣습니다.
-                  <!-- 참고 이미지 2 -->
-                  <div class="my-2 bg-[#06090e] rounded-lg border border-gray-800 p-2 shadow-sm">
-                    <div class="text-[9.5px] text-amber-300 font-bold mb-1.5 flex items-center justify-between">
-                      <span class="flex items-center gap-1"><span>📸</span> [참고 2] 쿠키 값 더블클릭 복사 화면</span>
-                      <button type="button" onclick="openExternalUrl('http://localhost:8081/guide-image/2', '가이드 2 원본')" class="text-[9px] text-emerald-400 hover:text-emerald-300 font-medium">🔍 새창 확대</button>
-                    </div>
-                    <img src="/guide-image/2" alt="쿠키 복사 화면" class="w-full rounded border border-gray-800 cursor-pointer hover:border-amber-400 transition-colors" onclick="openExternalUrl(this.src, '가이드 2 원본')" title="클릭하여 원본 크기로 보기" />
-                  </div>
-                </li>
-                <li>
-                  아래 <strong>[쿠키 직접 저장]</strong> 버튼을 누르면 연동이 완료됩니다!
-                </li>
-              </ol>
-              <div class="text-[9px] text-amber-200/80 bg-amber-950/40 p-1.5 rounded border border-amber-800/40 flex items-start gap-1">
-                <span>🛡️</span>
-                <span>입력된 쿠키는 외부 서버로 일절 전송되지 않으며, 오직 내 컴퓨터의 <strong>Windows 자격 증명 관리자(보안 금고)</strong>에만 안전하게 암호화 보관됩니다.</span>
+                </div>
+                <span id="badge-method-b" class="text-[9px] px-1.5 py-0.5 rounded font-bold bg-gray-800 text-gray-400">미입력</span>
               </div>
-            </div>
 
-            <div class="space-y-1">
-              <label class="text-[9px] text-chzzk-muted font-medium">NID_AUT</label>
-              <input id="cookie-nid-aut" type="password" class="chzzk-input text-[11px]" placeholder="NID_AUT 쿠키 값" />
+              <!-- 쿠키 확인 가이드 (도움말 아코디언) -->
+              <div id="cookie-help-box" class="hidden p-2.5 rounded-lg bg-[#0a0d13] border border-amber-400/30 text-[10px] space-y-2 text-gray-300 leading-relaxed shadow-inner">
+                <div class="font-bold text-amber-300 flex items-center justify-between text-[11px] border-b border-gray-800 pb-1.5">
+                  <span class="flex items-center gap-1"><span>📖</span> 네이버 쿠키(NID_AUT, NID_SES) 복사 방법</span>
+                  <button type="button" onclick="toggleCookieHelp()" class="text-gray-400 hover:text-gray-200 text-xs px-1 font-mono cursor-pointer">✕</button>
+                </div>
+                <ol class="list-decimal list-inside space-y-1.5 text-gray-300 text-[10px]">
+                  <li>
+                    브라우저(Chrome, Edge, Whale 등)에서
+                    <button type="button" onclick="openExternalUrl('https://chzzk.naver.com', '치지직')" class="text-emerald-400 font-semibold underline hover:text-emerald-300 inline-flex items-center gap-0.5 cursor-pointer">
+                      <span>치지직(chzzk.naver.com)</span><span class="text-[8px]">↗</span>
+                    </button>
+                    에 접속하여 로그인합니다.
+                  </li>
+                  <li>
+                    키보드 <kbd class="px-1.5 py-0.5 bg-gray-800 border border-gray-700 rounded text-amber-300 font-mono text-[9px] font-bold">F12</kbd> (또는 웹페이지 우클릭 ➔ <strong>[검사]</strong>)를 눌러 <strong>개발자 도구</strong>를 엽니다.
+                  </li>
+                  <li>
+                    상단 탭 메뉴에서 <strong class="text-white bg-gray-800 px-1 py-0.5 rounded">[애플리케이션]</strong>(Application) 또는 <strong class="text-white bg-gray-800 px-1 py-0.5 rounded">[저장공간]</strong>(Storage) 탭을 클릭합니다.
+                    <span class="text-gray-400 block pl-3 text-[9px]">* 창 폭이 좁아 탭이 안 보이면 상단 우측 <strong>»</strong> 화살표 아이콘을 클릭하세요.</span>
+                  </li>
+                  <li>
+                    좌측 트리 메뉴에서 <strong class="text-white">[저장용량]</strong> ➔ <strong class="text-white">[쿠키]</strong> ➔ <strong class="text-emerald-400">https://chzzk.naver.com</strong>(또는 naver.com)을 선택합니다.
+                  </li>
+                  <li>
+                    우측 표 목록에서 이름이 <code class="text-amber-300 bg-gray-900 border border-gray-700 px-1 py-0.5 rounded font-mono font-bold">NID_AUT</code>와 <code class="text-amber-300 bg-gray-900 border border-gray-700 px-1 py-0.5 rounded font-mono font-bold">NID_SES</code>인 항목을 찾습니다.
+                    <!-- 참고 이미지 1 -->
+                    <div class="my-2 bg-[#06090e] rounded-lg border border-gray-800 p-2 shadow-sm">
+                      <div class="text-[9.5px] text-amber-300 font-bold mb-1.5 flex items-center justify-between">
+                        <span class="flex items-center gap-1"><span>📸</span> [참고 1] 개발자 도구 쿠키 확인 화면</span>
+                        <button type="button" onclick="openExternalUrl('http://localhost:8081/guide-image/1', '가이드 1 원본')" class="text-[9px] text-emerald-400 hover:text-emerald-300 font-medium cursor-pointer">🔍 새창 확대</button>
+                      </div>
+                      <img src="/guide-image/1" alt="쿠키 확인 개발자도구" class="w-full rounded border border-gray-800 cursor-pointer hover:border-amber-400 transition-colors" onclick="openExternalUrl(this.src, '가이드 1 원본')" title="클릭하여 원본 크기로 보기" />
+                    </div>
+                  </li>
+                  <li>
+                    각 항목의 <strong>[값(Value)]</strong> 필드를 더블클릭하여 복사(<kbd class="px-1 py-0.5 bg-gray-800 border border-gray-700 rounded text-amber-300 font-mono text-[9px]">Ctrl+C</kbd>)한 뒤, 아래 입력칸에 붙여넣습니다.
+                    <!-- 참고 이미지 2 -->
+                    <div class="my-2 bg-[#06090e] rounded-lg border border-gray-800 p-2 shadow-sm">
+                      <div class="text-[9.5px] text-amber-300 font-bold mb-1.5 flex items-center justify-between">
+                        <span class="flex items-center gap-1"><span>📸</span> [참고 2] 쿠키 값 더블클릭 복사 화면</span>
+                        <button type="button" onclick="openExternalUrl('http://localhost:8081/guide-image/2', '가이드 2 원본')" class="text-[9px] text-emerald-400 hover:text-emerald-300 font-medium cursor-pointer">🔍 새창 확대</button>
+                      </div>
+                      <img src="/guide-image/2" alt="쿠키 복사 화면" class="w-full rounded border border-gray-800 cursor-pointer hover:border-amber-400 transition-colors" onclick="openExternalUrl(this.src, '가이드 2 원본')" title="클릭하여 원본 크기로 보기" />
+                    </div>
+                  </li>
+                  <li>
+                    아래 <strong>[쿠키 직접 저장]</strong> 버튼을 누르면 연동이 완료됩니다!
+                  </li>
+                </ol>
+                <div class="text-[9px] text-amber-200/80 bg-amber-950/40 p-1.5 rounded border border-amber-800/40 flex items-start gap-1">
+                  <span>🛡️</span>
+                  <span>입력된 쿠키는 외부 서버로 일절 전송되지 않으며, 오직 내 컴퓨터의 <strong>Windows 자격 증명 관리자(보안 금고)</strong>에만 안전하게 암호화 보관됩니다.</span>
+                </div>
+              </div>
+
+              <div class="space-y-1">
+                <label class="text-[9px] text-chzzk-muted font-medium">NID_AUT</label>
+                <input id="cookie-nid-aut" type="password" class="chzzk-input text-[11px]" placeholder="NID_AUT 쿠키 값" />
+              </div>
+              <div class="space-y-1">
+                <label class="text-[9px] text-chzzk-muted font-medium">NID_SES</label>
+                <input id="cookie-nid-ses" type="password" class="chzzk-input text-[11px]" placeholder="NID_SES 쿠키 값" />
+              </div>
+              <button onclick="saveManualCookies()" class="sub-btn !bg-chzzk-card hover:!border-amber-400 text-amber-400 font-semibold py-1.5 cursor-pointer">
+                💾 쿠키 직접 저장
+              </button>
             </div>
-            <div class="space-y-1">
-              <label class="text-[9px] text-chzzk-muted font-medium">NID_SES</label>
-              <input id="cookie-nid-ses" type="password" class="chzzk-input text-[11px]" placeholder="NID_SES 쿠키 값" />
-            </div>
-            <button onclick="saveManualCookies()" class="sub-btn !bg-chzzk-card hover:!border-amber-400 text-amber-400 font-semibold py-1.5">
-              💾 쿠키 직접 저장
-            </button>
           </div>
         </div>
-      </div>
 
-      <!-- [그룹 2] ⚙️ 독 관리 및 실행 제어 (접기/펼치기 아코디언) -->
-      <div class="rounded-lg border border-[#1E2738] bg-[#090D14] overflow-hidden">
-        <button type="button" onclick="toggleSettingsGroup('management')" class="w-full px-3 py-2 flex items-center justify-between bg-[#111722] hover:bg-[#161F2E] transition-colors cursor-pointer text-left select-none">
-          <div class="flex items-center gap-1.5 min-w-0">
-            <span class="text-xs">⚙️</span>
-            <span class="text-xs font-bold text-slate-100">독 관리 및 실행 제어</span>
-            <span class="text-[9px] text-slate-400 font-normal truncate">(종료, 포트, 팝업, 자동시작)</span>
+        <!-- ===== TAB 2: 일반 (General) ===== -->
+        <div id="tab-content-general" class="space-y-2.5 hidden">
+          <!-- 화면 배율 및 폰트 크기 조절 카드 (3단계) -->
+          <div class="section-card space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-slate-100">🔤 독 화면 및 폰트 크기</span>
+            </div>
+            <div class="grid grid-cols-3 gap-1 p-0.5 bg-[#0B0F15] rounded-lg border border-[#1E2738]">
+              <button id="btn-scale-100" onclick="setFontScale(1.0)" class="py-1 text-[11px] font-medium rounded text-slate-400 hover:text-slate-200 transition-all text-center cursor-pointer">
+                보통 (100%)
+              </button>
+              <button id="btn-scale-120" onclick="setFontScale(1.2)" class="py-1 text-[11px] font-bold rounded text-[#00FFA3] bg-[#161F2E] border border-[#00FFA3]/40 transition-all text-center cursor-pointer">
+                크게 (120%)
+              </button>
+              <button id="btn-scale-135" onclick="setFontScale(1.35)" class="py-1 text-[11px] font-medium rounded text-slate-400 hover:text-slate-200 transition-all text-center cursor-pointer">
+                아주 크게 (135%)
+              </button>
+            </div>
           </div>
-          <span id="group-management-arrow" class="text-[10px] text-slate-400 transition-transform duration-200 ml-1">▼</span>
-        </button>
-        <div id="group-management-content" class="p-2 space-y-2.5 border-t border-[#1E2738]/60">
-          <!-- Chzzk-Dock 자동시작 (스크립트 설치 관리 카드) -->
+
+          <!-- 앱 자동 시작 (스크립트 설치 관리 카드) -->
           <div class="section-card py-2.5 px-3 border border-[#1E2738] bg-[#0B1017]">
             <div class="flex items-center justify-between">
               <div class="min-w-0 pr-2">
-                <div class="flex items-center gap-1.5">
-                  <span class="text-xs font-bold text-slate-100">Chzzk-Dock 자동시작</span>
-                  <span id="obs-script-status-badge" class="text-[9px] px-1.5 py-0.5 rounded font-medium bg-gray-800 text-gray-400 border border-gray-700">확인 중...</span>
-                </div>
-                <p class="text-[9.5px] text-slate-400 mt-0.5">
-                  OBS 실행 시 독 서버 자동 시작 &amp; 종료
-                </p>
+                <span class="text-xs font-bold text-slate-100">🚀 앱 자동 시작</span>
               </div>
               <div class="flex items-center gap-2 flex-shrink-0">
                 <button type="button" onclick="browseAndInstallObsFolder()" class="text-slate-500 hover:text-[#00FFA3] text-[9px] transition-colors cursor-pointer" title="OBS 설치 폴더를 직접 변경하려면 클릭하세요">
                   폴더 변경
                 </button>
-                <button type="button" id="btn-obs-script-action" onclick="handleObsScriptAction()" class="px-2.5 py-1 text-[11px] font-bold rounded transition-all cursor-pointer bg-[#161F2E] border border-[#243044] text-slate-300 hover:text-white">
+                <button type="button" id="btn-obs-script-action" onclick="handleObsScriptAction()" class="px-3 py-1.5 text-[11px] font-bold rounded transition-all cursor-pointer bg-[#161F2E] border border-[#243044] text-slate-300 hover:text-white">
                   확인 중...
                 </button>
               </div>
             </div>
 
             <!-- OBS 스크립트 1회 등록 가이드 박스 -->
-            <div id="obs-script-guide-box" class="mt-2.5 pt-2 border-t border-[#1E2738]/80 text-[10px] text-slate-400 leading-relaxed">
-              <div class="flex items-start gap-1.5 text-slate-300">
-                <span class="text-emerald-400 flex-shrink-0">💡</span>
-                <div>
-                  <span class="font-bold text-slate-200">최초 1회 등록 필수:</span> OBS 상단 메뉴 <span class="text-[#00FFA3] font-semibold">[도구] ➔ [스크립트]</span>의 <span class="text-white font-bold">[+]</span> 버튼을 눌러 설치된 <code class="text-slate-300 bg-slate-800 px-1 py-0.5 rounded">chzzk_dock_launcher.lua</code>를 등록해 두시면, 이후 OBS 실행 시 독 서버가 자동 시작됩니다.
-                </div>
+            <div id="obs-script-guide-box" class="mt-2 pt-2 border-t border-[#1E2738]/80 text-[10px] text-slate-400 leading-relaxed">
+              <div class="font-semibold text-slate-200 flex items-center gap-1 mb-1">
+                <span class="text-emerald-400">💡</span> <span>OBS 스크립트 등록 순서 (최초 1회)</span>
               </div>
+              <ol class="list-decimal list-inside space-y-1 text-slate-300">
+                <li>OBS 상단 메뉴 <span class="text-[#00FFA3] font-semibold">[도구]</span> ➔ <span class="text-[#00FFA3] font-semibold">[스크립트]</span> 클릭</li>
+                <li><span class="text-white font-bold">[+]</span> 버튼 클릭 후 <code class="text-slate-300 bg-slate-800 px-1 py-0.5 rounded">chzzk_dock_launcher.lua</code> 추가</li>
+                <li>스크립트 선택 후 옵션 설정 완료</li>
+              </ol>
             </div>
           </div>
 
-          <!-- OBS 자동 종료 대기 시간 설정 -->
-          <div class="section-card p-2.5 bg-chzzk-card/70 border border-chzzk-border space-y-2.5">
+          <!-- OBS 자동 종료 대기 시간 설정 & 알림 토글 -->
+          <div class="section-card p-2.5 bg-chzzk-card/70 border border-chzzk-border space-y-2">
             <div>
-              <div class="text-[11px] font-semibold text-white/90">⏱️ OBS와 함께 종료 (대기 시간)</div>
-              <div class="text-[9px] text-chzzk-muted">OBS Studio 종료 감지 시 지정된 시간 뒤 치지직 독 서버를 자동으로 함께 종료합니다.</div>
+              <div class="text-xs font-bold text-slate-100">⏱️ OBS와 함께 종료</div>
             </div>
             <div class="flex items-center gap-2">
               <select id="select-watchdog-timeout" onchange="onWatchdogTimeoutChange(this.value)" class="chzzk-input text-[11px] py-1 flex-1">
-                <option value="0">사용 안 함 (자동 종료 비활성화)</option>
+                <option value="0">즉시 종료 (OBS 종료 시 즉시)</option>
                 <option value="10">10초 뒤 종료</option>
                 <option value="30">30초 뒤 종료</option>
                 <option value="60" selected>1분 뒤 종료 (기본값)</option>
                 <option value="300">5분 뒤 종료</option>
                 <option value="600">10분 뒤 종료</option>
+                <option value="-1">사용 안 함 (자동 종료 비활성화)</option>
                 <option value="custom">직접 입력</option>
               </select>
               <div id="custom-watchdog-container" class="hidden flex items-center gap-1.5 flex-1">
-                <input id="input-custom-watchdog" type="number" min="5" max="86400" class="chzzk-input text-[11px] py-1 w-20 text-center" placeholder="초(sec)" />
+                <input id="input-custom-watchdog" type="number" min="1" max="86400" class="chzzk-input text-[11px] py-1 w-20 text-center" placeholder="초(sec)" />
                 <span class="text-[11px] text-chzzk-muted">초</span>
-                <button onclick="saveCustomWatchdogTimeout()" class="sub-btn !bg-chzzk-card hover:!border-chzzk-accent text-chzzk-accent text-[10px] py-1 px-2 font-medium">저장</button>
+                <button onclick="saveCustomWatchdogTimeout()" class="sub-btn !bg-chzzk-card hover:!border-chzzk-accent text-chzzk-accent text-[10px] py-1 px-2 font-medium cursor-pointer">저장</button>
               </div>
             </div>
 
-            <!-- [SYS-03] 자동 종료 시 Windows 알림 토글 -->
+            <!-- 자동 종료 시 Windows 알림 토글 -->
             <div class="pt-2 border-t border-[#1E2738]/80 flex items-center justify-between">
               <div class="pr-2">
-                <div class="text-[10.5px] font-semibold text-white/90">🔔 자동 종료 시 Windows 알림 받기</div>
-                <div class="text-[9px] text-chzzk-muted leading-tight mt-0.5">OBS 종료 또는 미감지로 독이 자동 종료될 때 알림을 표시합니다.</div>
+                <div class="text-xs font-bold text-slate-100">🔔 자동 종료 시 Windows 알림 받기</div>
               </div>
               <label class="toggle-switch">
                 <input type="checkbox" id="toggle-shutdown-notify" onchange="saveShutdownNotifySetting(this.checked)" checked>
@@ -1526,11 +1599,27 @@
             </div>
           </div>
 
+          <!-- 프로그램 시작 시 독 팝업창 자동 열기 설정 -->
+          <div class="section-card p-2.5 bg-chzzk-card/70 border border-chzzk-border space-y-2">
+            <div class="flex items-center justify-between">
+              <div class="pr-2">
+                <div class="text-xs font-bold text-slate-100">🖥️ 프로그램 시작 시 독 팝업창 열기</div>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="toggle-popup-on-start" onchange="savePopupOnStartSetting(this.checked)">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== TAB 3: 고급 (Advanced) ===== -->
+        <div id="tab-content-advanced" class="space-y-2.5 hidden">
           <!-- 서버 포트 설정 & 충돌 방지 검사 -->
           <div class="section-card p-2.5 bg-chzzk-card/70 border border-chzzk-border space-y-2">
             <div class="flex items-center justify-between">
               <div>
-                <div class="text-[11px] font-semibold text-white/90">🌐 서버 포트 설정 (HTTP Port)</div>
+                <div class="text-xs font-bold text-slate-100">🌐 서버 포트 설정</div>
                 <div class="text-[9px] text-chzzk-muted">기본 포트: 8081 (충돌 시 안전한 랜덤 포트 자동 전환)</div>
               </div>
               <span id="badge-port-status" class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950/80 text-emerald-400 border border-emerald-500/30 font-mono">
@@ -1548,7 +1637,8 @@
             <div class="space-y-1.5 pt-0.5">
               <div class="flex items-center gap-1.5">
                 <div class="relative flex-1 min-w-[90px]">
-                  <input id="input-custom-port" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="5" class="chzzk-input text-[11px] py-1.5 w-full text-center font-mono placeholder:text-slate-500" placeholder="포트 (1024~65535)" />
+                  <input id="input-custom-port" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="5" class="chzzk-input text-[11px] py-1.5 pr-6 w-full text-center font-mono placeholder:text-slate-500" placeholder="포트 (1024~65535)" />
+                  <button id="port-clear" type="button" onclick="clearCustomPort()" class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-chzzk-danger text-xs font-bold leading-none cursor-pointer" style="display:none;" title="포트 지우기">✕</button>
                 </div>
                 <button type="button" onclick="checkCustomPort()" class="!w-auto px-3 py-1.5 rounded bg-[#161F2E] border border-[#243044] hover:border-chzzk-accent text-chzzk-accent text-[11px] font-semibold whitespace-nowrap cursor-pointer transition-colors">
                   🔍 점검
@@ -1561,26 +1651,12 @@
             </div>
           </div>
 
-          <!-- 프로그램 시작 시 독 팝업창 자동 열기 설정 -->
-          <div class="section-card p-2.5 bg-chzzk-card/70 border border-chzzk-border space-y-2">
-            <div class="flex items-center justify-between">
-              <div class="pr-2">
-                <div class="text-[11px] font-semibold text-white/90">🖥️ 시작 시 독 팝업창 자동 열기</div>
-                <div class="text-[9px] text-chzzk-muted leading-tight mt-0.5">프로그램(exe) 직접 실행 시 독 화면을 바로 띄웁니다. (끄면 트레이로만 조용히 시작)</div>
-              </div>
-              <label class="toggle-switch">
-                <input type="checkbox" id="toggle-popup-on-start" onchange="savePopupOnStartSetting(this.checked)">
-                <span class="toggle-slider"></span>
-              </label>
-            </div>
-          </div>
-
           <!-- 웹뷰 GPU 하드웨어 가속 설정 -->
           <div class="section-card p-2.5 bg-chzzk-card/70 border border-chzzk-border space-y-2">
             <div class="flex items-center justify-between">
               <div class="pr-2">
-                <div class="text-[11px] font-semibold text-white/90">⚡ 웹뷰 GPU 하드웨어 가속</div>
-                <div class="text-[9px] text-chzzk-muted leading-tight mt-0.5">웹뷰 창(로그인/리모컨)의 GPU 렌더링 가속을 사용합니다. 화면 깨짐 발생 시 해제하세요. (창을 다시 열 때 적용)</div>
+                <div class="text-xs font-bold text-slate-100">⚡ 웹뷰 GPU 하드웨어 가속</div>
+                <div class="text-[9px] text-chzzk-muted leading-tight mt-0.5">화면 깨짐 및 WebView 동작 이상시 해제(재실행 권장)</div>
               </div>
               <label class="toggle-switch">
                 <input type="checkbox" id="toggle-enable-gpu" onchange="saveGPUSetting(this.checked)">
@@ -1592,9 +1668,9 @@
           <!-- 외부 링크 기본 브라우저 열기 설정 -->
           <div class="section-card p-2.5 bg-chzzk-card/70 border border-chzzk-border space-y-2">
             <div class="flex items-center justify-between">
-              <div class="pr-2">
-                <div class="text-[11px] font-semibold text-white/90">🔗 외부 링크 기본 브라우저 열기</div>
-                <div class="text-[9px] text-chzzk-muted leading-tight mt-0.5">웹뷰 내 외부 링크 클릭 시 기본 브라우저로 엽니다. <span id="label-default-browser" class="text-chzzk-mint font-medium"></span></div>
+              <div class="pr-2 flex items-center gap-1.5 flex-wrap">
+                <span class="text-xs font-bold text-slate-100">🔗 외부 링크 기본 브라우저 열기</span>
+                <span id="label-default-browser" class="hidden px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-sky-950/80 text-sky-400 border border-sky-800/60"></span>
               </div>
               <label class="toggle-switch">
                 <input type="checkbox" id="toggle-external-browser" onchange="saveExternalBrowserSetting(this.checked)">
@@ -1603,23 +1679,460 @@
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- [LEG-01] 비공식 API 면책 조항 및 Rate Limiting 안내 -->
-      <div class="p-2.5 rounded bg-chzzk-card/60 border border-chzzk-border text-[10px] text-chzzk-muted leading-relaxed">
-        <p class="font-medium text-amber-400/90 mb-0.5">⚠️ 비공식 API 연동 안내</p>
-        본 도구는 네이버 치지직 비공식 스튜디오 엔드포인트를 사용하며, 네이버 공식 서비스와 무관합니다. 트래픽 과부하 방지를 위해 3초 Rate Limiting이 적용되어 있습니다.
-      </div>
-    </div>
+        <!-- ===== TAB 4: 앱 정보 (App Info) ===== -->
+        <div id="tab-content-info" class="space-y-2.5 hidden">
+          <!-- 소프트웨어 업데이트 -->
+          <div class="section-card p-2.5 bg-chzzk-card/70 border border-chzzk-border space-y-2">
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="text-[11px] font-semibold text-white/90 flex items-center gap-1.5">
+                  <span>🚀</span> <span>소프트웨어 업데이트</span>
+                </div>
+                <div class="text-[9.5px] text-chzzk-muted mt-0.5" id="label-update-status">
+                  현재 버전: <b class="text-slate-300 font-mono">{{APP_VERSION}}</b>
+                </div>
+              </div>
+              <span id="badge-update-status" class="px-2 py-0.5 rounded text-[9.5px] font-bold bg-emerald-950/80 text-emerald-400 border border-emerald-500/30">
+                최신 상태
+              </span>
+            </div>
 
-    <div class="text-[10px] text-chzzk-muted text-center mt-3 py-1">
-      <p class="font-medium text-white/70">CHZZK OBS Dock {{APP_VERSION}}</p>
+            <div id="update-action-row" class="flex items-center gap-1.5 pt-0.5">
+              <button type="button" id="btn-check-update" onclick="manualCheckForUpdate()" class="flex-1 py-1.5 px-2 rounded bg-[#161F2E] border border-[#243044] hover:border-chzzk-accent text-chzzk-accent text-[11px] font-semibold transition-colors cursor-pointer flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none">
+                <span>🔍</span> <span>업데이트 확인</span>
+              </button>
+              <button type="button" id="btn-run-update" onclick="openUpdateModal()" class="hidden flex-1 py-1.5 px-2 rounded bg-[#00FFA3] hover:bg-[#00E591] text-black text-[11px] font-bold transition-all cursor-pointer flex items-center justify-center gap-1 shadow-sm">
+                <span>⚡</span> <span id="label-run-update">지금 업데이트</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- [LEG-01] 비공식 API 면책 조항 및 Rate Limiting 안내 -->
+          <div class="p-2.5 rounded bg-chzzk-card/60 border border-chzzk-border text-[10px] text-chzzk-muted leading-relaxed">
+            <p class="font-medium text-amber-400/90 mb-0.5">⚠️ 비공식 API 연동 안내</p>
+            본 도구는 네이버 치지직 비공식 스튜디오 엔드포인트를 사용하며, 네이버 공식 서비스와 무관합니다. 트래픽 과부하 방지를 위해 3초 Rate Limiting이 적용되어 있습니다.
+          </div>
+
+          <!-- 오픈소스 라이선스 고지 (Open Source Licenses) -->
+          <div class="section-card p-2.5 bg-chzzk-card/70 border border-chzzk-border space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-slate-100 flex items-center gap-1.5">
+                <span>📜</span> <span>오픈소스 라이선스</span>
+              </span>
+              <span class="text-[9px] text-slate-500">클릭하여 전문 확인</span>
+            </div>
+
+            <div class="space-y-1.5">
+              <!-- wailsapp/go-webview2 -->
+              <details class="group bg-[#0B0F15] rounded border border-[#1E2738] overflow-hidden">
+                <summary class="p-2 cursor-pointer flex items-center justify-between select-none hover:bg-[#161F2E] transition-colors text-[10.5px]">
+                  <span class="font-mono font-medium text-slate-200">wailsapp/go-webview2</span>
+                  <span class="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-sky-950/80 text-sky-400 border border-sky-800/50">MIT</span>
+                </summary>
+                <div class="p-2.5 pt-1.5 border-t border-[#1E2738] bg-[#070A0F] text-[9.5px] font-mono text-slate-400 whitespace-pre-wrap leading-relaxed select-text max-h-36 overflow-y-auto">MIT License
+
+Copyright (c) 2021 Lea Anthony
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.</div>
+              </details>
+
+              <!-- golang.org/x/sys -->
+              <details class="group bg-[#0B0F15] rounded border border-[#1E2738] overflow-hidden">
+                <summary class="p-2 cursor-pointer flex items-center justify-between select-none hover:bg-[#161F2E] transition-colors text-[10.5px]">
+                  <span class="font-mono font-medium text-slate-200">golang.org/x/sys</span>
+                  <span class="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-emerald-950/80 text-emerald-400 border border-emerald-800/50">BSD-3-Clause</span>
+                </summary>
+                <div class="p-2.5 pt-1.5 border-t border-[#1E2738] bg-[#070A0F] text-[9.5px] font-mono text-slate-400 whitespace-pre-wrap leading-relaxed select-text max-h-36 overflow-y-auto">Copyright (c) 2009 The Go Authors. All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are
+met:
+
+   * Redistributions of source code must retain the above copyright
+notice, this list of conditions and the following disclaimer.
+   * Redistributions in binary form must reproduce the above
+copyright notice, this list of conditions and the following disclaimer
+in the documentation and/or other materials provided with the
+distribution.
+   * Neither the name of Google Inc. nor the names of its
+contributors may be used to endorse or promote products derived from
+this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</div>
+              </details>
+
+              <!-- Tailwind CSS -->
+              <details class="group bg-[#0B0F15] rounded border border-[#1E2738] overflow-hidden">
+                <summary class="p-2 cursor-pointer flex items-center justify-between select-none hover:bg-[#161F2E] transition-colors text-[10.5px]">
+                  <span class="font-mono font-medium text-slate-200">Tailwind CSS</span>
+                  <span class="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-sky-950/80 text-sky-400 border border-sky-800/50">MIT</span>
+                </summary>
+                <div class="p-2.5 pt-1.5 border-t border-[#1E2738] bg-[#070A0F] text-[9.5px] font-mono text-slate-400 whitespace-pre-wrap leading-relaxed select-text max-h-36 overflow-y-auto">MIT License
+
+Copyright (c) Tailwind Labs, Inc.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.</div>
+              </details>
+
+              <!-- Lucide Icons -->
+              <details class="group bg-[#0B0F15] rounded border border-[#1E2738] overflow-hidden">
+                <summary class="p-2 cursor-pointer flex items-center justify-between select-none hover:bg-[#161F2E] transition-colors text-[10.5px]">
+                  <span class="font-mono font-medium text-slate-200">Lucide Icons</span>
+                  <span class="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-purple-950/80 text-purple-400 border border-purple-800/50">ISC</span>
+                </summary>
+                <div class="p-2.5 pt-1.5 border-t border-[#1E2738] bg-[#070A0F] text-[9.5px] font-mono text-slate-400 whitespace-pre-wrap leading-relaxed select-text max-h-36 overflow-y-auto">ISC License
+
+Copyright (c) for portions of Lucide are held by Cole Bemis 2013-2022 as part of Feather (MIT). All other copyright (c) for Lucide are held by Lucide Contributors 2022.
+
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted, provided that the above
+copyright notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.</div>
+              </details>
+
+              <!-- jchv/go-winloader -->
+              <details class="group bg-[#0B0F15] rounded border border-[#1E2738] overflow-hidden">
+                <summary class="p-2 cursor-pointer flex items-center justify-between select-none hover:bg-[#161F2E] transition-colors text-[10.5px]">
+                  <span class="font-mono font-medium text-slate-200">jchv/go-winloader</span>
+                  <span class="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-sky-950/80 text-sky-400 border border-sky-800/50">MIT</span>
+                </summary>
+                <div class="p-2.5 pt-1.5 border-t border-[#1E2738] bg-[#070A0F] text-[9.5px] font-mono text-slate-400 whitespace-pre-wrap leading-relaxed select-text max-h-36 overflow-y-auto">MIT License
+
+Copyright (c) 2021 John Chadwick
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.</div>
+              </details>
+            </div>
+          </div>
+
+          <!-- 버전 정보 및 크레딧 -->
+          <div class="text-[10px] text-chzzk-muted text-center pt-2">
+            <p class="font-medium text-white/70">CHZZK OBS Dock {{APP_VERSION}}</p>
+            <p class="text-[9px] text-slate-500 mt-0.5">Streamer-first lightweight tool</p>
+          </div>
+        </div>
+
+      </div>
     </div>
   </div>
 
-  <!-- ===== 공통 비동기 확인 모달 (showConfirmModal) ===== -->
-  <div id="modal-custom-confirm" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-3 hidden" onclick="if(event.target===this) window.__resolveConfirmModal(false)">
-    <div class="bg-[#111116] border border-[#262635] rounded-xl max-w-sm w-full p-4 shadow-2xl space-y-3.5" onclick="event.stopPropagation()">
+  <!-- ===== 자동 업데이트 다운로드 및 설치 모달 (modal-updater) ===== -->
+  <div id="modal-updater" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-3 hidden" onclick="if(event.target===this) closeUpdateModal()">
+    <div class="bg-[#111116] border border-[#262635] rounded-xl max-w-md w-full p-4 shadow-2xl space-y-3.5" onclick="event.stopPropagation()">
+      <div class="flex items-center justify-between border-b border-[#1E1E2A] pb-2.5">
+        <div class="flex items-center gap-2">
+          <span class="text-base" id="update-modal-icon">🚀</span>
+          <span class="text-xs font-bold text-white" id="update-modal-title">소프트웨어 업데이트</span>
+        </div>
+        <button type="button" onclick="closeUpdateModal()" id="btn-close-updater" class="w-6 h-6 rounded-md hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center text-sm font-bold cursor-pointer">
+          ✕
+        </button>
+      </div>
+
+      <!-- 1단계: 업데이트 알림 및 선택 뷰 (Sparkle 스타일) -->
+      <div id="update-prompt-view" class="space-y-3">
+        <div>
+          <h4 class="text-sm font-bold text-white flex items-center gap-1.5">
+            <span>🎉</span> <span id="update-prompt-title">CHZZK OBS Dock 새 버전이 있습니다!</span>
+          </h4>
+          <p class="text-[11.5px] text-slate-300 mt-1 leading-relaxed" id="update-prompt-desc">
+            CHZZK OBS Dock <b class="text-[#00FFA3] font-mono" id="update-latest-ver">v0.0.0</b>을(를) 사용할 수 있습니다 (<span class="text-slate-400 font-mono" id="update-current-ver">v0.0.0</span> 사용 중). 지금 다운로드하시겠습니까?
+          </p>
+        </div>
+
+        <!-- 릴리즈 노트 링크 박스 -->
+        <div class="p-3 rounded-lg bg-[#161B24] border border-[#232D3F] flex items-center justify-between gap-3">
+          <div class="text-[11px] text-slate-300 leading-tight">
+            <div class="font-semibold text-slate-200 flex items-center gap-1.5">
+              <span>📋</span> <span>릴리즈 노트</span>
+            </div>
+            <div class="text-[10px] text-slate-400 mt-0.5">상세 패치 내역 및 변경 사항</div>
+          </div>
+          <button type="button" onclick="openReleaseNotesLink()" class="px-2.5 py-1.5 rounded bg-[#1F2937] hover:bg-[#2D3748] text-[#00FFA3] hover:text-emerald-300 text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer border border-[#374151]">
+            <span>🔗 GitHub에서 보기</span>
+          </button>
+        </div>
+
+        <!-- 하단 3버튼 액션 (건너뛰기 / 나중에 / 설치) -->
+        <div class="flex items-center justify-between pt-2 border-t border-[#1E1E2A]">
+          <button type="button" onclick="skipCurrentUpdateVersion()" class="px-2.5 py-1.5 rounded-lg bg-transparent hover:bg-slate-800 text-slate-400 hover:text-slate-200 text-[11px] font-medium transition-colors cursor-pointer">
+            이 버전 건너뛰기
+          </button>
+          <div class="flex items-center gap-2">
+            <button type="button" onclick="closeUpdateModal()" class="px-3 py-1.5 rounded-lg bg-[#1C1C26] hover:bg-[#282837] text-zinc-300 text-[11px] font-medium transition-colors cursor-pointer">
+              나중에 알림
+            </button>
+            <button type="button" onclick="startUpdateDownload()" class="px-3.5 py-1.5 rounded-lg bg-[#00FFA3] hover:bg-[#00E591] text-black text-[11px] font-bold transition-all cursor-pointer shadow-sm">
+              <span id="btn-start-update-label">업데이트 설치</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2단계: 다운로드 진행 상태 뷰 (기본 숨김) -->
+      <div id="update-progress-view" class="space-y-2.5 hidden">
+        <div class="flex justify-between items-center text-xs">
+          <span id="update-status-text" class="text-slate-300 font-medium flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#00FFA3] animate-pulse"></span>
+            인스톨러 파일 수신 중...
+          </span>
+          <span id="update-percent-text" class="font-bold text-[#00FFA3]">0%</span>
+        </div>
+
+        <div class="w-full bg-[#181D26] h-2.5 rounded-full overflow-hidden border border-[#232D3F] p-0.5">
+          <div id="update-progress-bar" class="h-full bg-[#00FFA3] rounded-full transition-all duration-200" style="width: 0%;"></div>
+        </div>
+
+        <div class="flex justify-between items-center text-[10.5px] text-slate-400 pt-0.5">
+          <span id="update-size-detail">0.0 MB / 0.0 MB</span>
+          <span id="update-speed-detail">대기 중...</span>
+        </div>
+
+        <div id="update-notice-box" class="p-2.5 rounded-lg bg-[#161B22] border border-[#232D3F] text-[11px] text-slate-300 leading-relaxed hidden">
+          <p id="update-notice-msg"></p>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-2 border-t border-[#1E1E2A]">
+          <button type="button" id="btn-update-cancel" onclick="closeUpdateModal()" class="px-3 py-1.5 rounded-lg bg-[#1C1C26] hover:bg-[#282837] text-zinc-300 text-xs font-medium transition-colors cursor-pointer">
+            백그라운드에서 진행
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== [FEAT-06-03] 방송 정보 프리셋 불러오기 & 관리 모달 (블러/불투명 없는 투명 배경) ===== -->
+  <div id="modal-preset-load" class="fixed inset-0 bg-black/25 z-[9990] flex items-center justify-center p-3 hidden" onclick="if(event.target===this) closePresetLoadModal()">
+    <div class="bg-[#151D28] border-2 border-[#2E3F58] rounded-xl max-w-sm w-full p-3.5 shadow-[0_16px_50px_rgba(0,0,0,0.85)] space-y-3" onclick="event.stopPropagation()">
+      <div class="flex items-center justify-between border-b border-[#243044] pb-2">
+        <div class="flex items-center gap-1.5">
+          <span class="text-sm">📥</span>
+          <span class="text-xs font-bold text-white">방송 프리셋 불러오기</span>
+          <span id="load-modal-slot-count" class="text-[9.5px] px-1.5 py-0.2 rounded bg-[#0D131B] text-slate-400 font-mono border border-[#243044]">
+            0 / 10
+          </span>
+        </div>
+        <button type="button" onclick="closePresetLoadModal()" class="w-6 h-6 rounded hover:bg-white/5 text-slate-400 hover:text-white flex items-center justify-center text-xs font-bold cursor-pointer">
+          ✕
+        </button>
+      </div>
+
+      <!-- 프리셋 목록 컨테이너 -->
+      <div id="preset-load-list" class="space-y-1.5 max-h-[300px] overflow-y-auto pr-0.5 no-scrollbar">
+        <!-- 동적 렌더링 -->
+      </div>
+
+      <!-- 하단 액션 버튼 바 -->
+      <div class="flex items-center justify-between pt-2 border-t border-[#243044]">
+        <button type="button" onclick="openPresetSaveModalFromLoad()" class="text-[10.5px] text-[#00FFA3] hover:underline flex items-center gap-1 cursor-pointer">
+          <span>➕</span> <span>현재 설정 새로 저장</span>
+        </button>
+        <button type="button" onclick="closePresetLoadModal()" class="px-3 py-1 rounded bg-[#1B2535] hover:bg-[#253247] text-slate-300 text-xs font-medium cursor-pointer transition-colors">
+          닫기
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== [FEAT-06-03] 방송 정보 프리셋 저장/덮어쓰기 모달 (블러/불투명 없는 투명 배경) ===== -->
+  <div id="modal-preset-save" class="fixed inset-0 bg-black/25 z-[9990] flex items-center justify-center p-3 hidden" onclick="if(event.target===this) closePresetSaveModal()">
+    <div class="bg-[#151D28] border-2 border-[#2E3F58] rounded-xl max-w-sm w-full p-3.5 shadow-[0_16px_50px_rgba(0,0,0,0.85)] space-y-3" onclick="event.stopPropagation()">
+      <div class="flex items-center justify-between border-b border-[#243044] pb-2">
+        <div class="flex items-center gap-1.5">
+          <span class="text-sm">💾</span>
+          <span class="text-xs font-bold text-white">방송 정보 프리셋 저장</span>
+          <span id="save-modal-slot-count" class="text-[9.5px] px-1.5 py-0.2 rounded bg-[#0D131B] text-slate-400 font-mono border border-[#243044]">
+            0 / 10
+          </span>
+        </div>
+        <button type="button" onclick="closePresetSaveModal()" class="w-6 h-6 rounded hover:bg-white/5 text-slate-400 hover:text-white flex items-center justify-center text-xs font-bold cursor-pointer">
+          ✕
+        </button>
+      </div>
+
+      <!-- 모드 전환 탭 (새로 저장 vs 기존 덮어쓰기) -->
+      <div class="grid grid-cols-2 gap-1 p-0.5 bg-[#0C1118] rounded-lg border border-[#243044]">
+        <button type="button" id="tab-btn-save-new" onclick="switchPresetSaveTab('new')" class="py-1 text-[11px] font-semibold rounded transition-all text-center bg-[#1B2535] text-[#00FFA3] shadow-sm cursor-pointer">
+          ➕ 새 프리셋 등록
+        </button>
+        <button type="button" id="tab-btn-save-overwrite" onclick="switchPresetSaveTab('overwrite')" class="py-1 text-[11px] font-semibold rounded transition-all text-center text-slate-400 hover:text-white cursor-pointer">
+          🔄 기존 덮어쓰기
+        </button>
+      </div>
+
+      <!-- 탭 1: 새 프리셋 등록 -->
+      <div id="tab-content-save-new" class="space-y-2">
+        <div class="space-y-0.5">
+          <div class="flex justify-between items-center text-[10.5px]">
+            <label class="font-semibold text-slate-200">프리셋 이름 <span class="text-[#00FFA3]">*</span></label>
+            <span id="save-new-name-counter" class="text-slate-400 font-mono text-[10px]">0 / 10자</span>
+          </div>
+          <input id="input-save-new-name" type="text" maxlength="10" placeholder="예: ☕ 저챗, ⚔️ 롤 솔랭, 🎮 종겜" 
+            oninput="validatePresetSaveNew()"
+            class="chzzk-input text-xs !py-1 !bg-[#0D131B] border-[#2E3F58] focus:border-[#00FFA3]" autocomplete="off" />
+        </div>
+
+        <!-- 현재 방송 설정 스냅샷 (왼쪽 박스 형태) -->
+        <div class="flex items-start gap-2 p-2 rounded-lg bg-[#00FFA3]/5 border border-[#00FFA3]/30 text-[10.5px]">
+          <div class="shrink-0 px-2 py-1 rounded bg-[#00FFA3]/20 border border-[#00FFA3]/40 text-[10px] font-bold text-[#00FFA3] text-center min-w-[58px]">
+            현재 설정
+          </div>
+          <div class="min-w-0 flex-1 space-y-0.5">
+            <div class="truncate text-white font-medium" id="save-preview-title">-</div>
+            <div class="text-[10px] text-slate-400 truncate flex items-center gap-1">
+              <span class="text-slate-500">카테고리:</span>
+              <span id="save-preview-cat" class="text-[#00FFA3] font-medium">-</span>
+            </div>
+            <div class="flex items-center gap-1 flex-wrap text-[10px] text-slate-400">
+              <span class="text-slate-500 shrink-0">태그:</span>
+              <div id="save-preview-tags" class="flex items-center gap-1 flex-wrap"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 탭 2: 기존 프리셋 덮어쓰기 -->
+      <div id="tab-content-save-overwrite" class="space-y-2 hidden">
+        <div class="space-y-0.5">
+          <label class="font-semibold text-slate-200 text-[10.5px]">덮어쓸 대상 프리셋 선택 <span class="text-[#00FFA3]">*</span></label>
+          <select id="select-preset-overwrite" class="chzzk-select text-xs !bg-[#0D131B] border-[#2E3F58]" onchange="onSelectOverwritePreset(this.value)">
+            <!-- 동적 옵션 렌더링 -->
+          </select>
+        </div>
+
+        <!-- 비교 영역: 기존 설정 vs 현재 설정 -->
+        <div id="overwrite-comparison-section" class="space-y-1.5 pt-0.5">
+          <!-- 1. 기존 설정 -->
+          <div class="flex items-start gap-2 p-2 rounded-lg bg-[#0D131B] border border-[#243044] text-[10.5px]">
+            <div class="shrink-0 px-2 py-1 rounded bg-[#1B2535] border border-[#2E3F58] text-[10px] font-bold text-slate-300 text-center min-w-[58px]">
+              기존 설정
+            </div>
+            <div class="min-w-0 flex-1 space-y-0.5">
+              <div class="truncate text-slate-200 font-medium" id="ow-prev-title">-</div>
+              <div class="text-[10px] text-slate-400 truncate flex items-center gap-1">
+                <span class="text-slate-500">카테고리:</span>
+                <span id="ow-prev-cat" class="text-slate-300">-</span>
+              </div>
+              <div class="text-[10px] text-slate-400 truncate flex items-center gap-1">
+                <span class="text-slate-500">태그:</span>
+                <span id="ow-prev-tags" class="text-slate-400">-</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 연결 인디케이터 -->
+          <div class="flex items-center justify-center gap-1 text-[10px] text-slate-400 font-medium py-0.5">
+            <span class="text-[#00FFA3]">▼</span>
+            <span>현재 설정으로 덮어씁니다</span>
+            <span class="text-[#00FFA3]">▼</span>
+          </div>
+
+          <!-- 2. 현재 설정 -->
+          <div class="flex items-start gap-2 p-2 rounded-lg bg-[#00FFA3]/5 border border-[#00FFA3]/30 text-[10.5px]">
+            <div class="shrink-0 px-2 py-1 rounded bg-[#00FFA3]/20 border border-[#00FFA3]/40 text-[10px] font-bold text-[#00FFA3] text-center min-w-[58px]">
+              현재 설정
+            </div>
+            <div class="min-w-0 flex-1 space-y-0.5">
+              <div class="truncate text-white font-medium" id="ow-curr-title">-</div>
+              <div class="text-[10px] text-slate-400 truncate flex items-center gap-1">
+                <span class="text-slate-500">카테고리:</span>
+                <span id="ow-curr-cat" class="text-[#00FFA3] font-medium">-</span>
+              </div>
+              <div class="text-[10px] text-slate-400 truncate flex items-center gap-1">
+                <span class="text-slate-500">태그:</span>
+                <span id="ow-curr-tags" class="text-slate-300">-</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 경고 / 유효성 메시지 -->
+      <div id="save-preset-validation-msg" class="hidden text-[10px] text-amber-300 bg-amber-950/40 border border-amber-500/30 rounded px-2 py-1 flex items-center gap-1">
+        <span>⚠️</span> <span id="save-preset-validation-text">프리셋 이름을 입력해 주세요.</span>
+      </div>
+
+      <!-- 하단 액션 버튼 -->
+      <div class="flex items-center justify-end gap-1.5 pt-1 border-t border-[#243044]">
+        <button type="button" onclick="closePresetSaveModal()" class="px-2.5 py-1 rounded bg-[#1B2535] hover:bg-[#253247] text-slate-300 text-xs font-medium cursor-pointer transition-colors">
+          취소
+        </button>
+        <button type="button" id="btn-confirm-save-action" onclick="executePresetSaveAction()" class="px-3.5 py-1 rounded bg-[#00FFA3] hover:bg-[#00E591] text-black text-xs font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer">
+          저장하기
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 공통 비동기 팝업/확인 모달 (Unified Modal System) ===== -->
+  <div id="modal-custom-confirm" class="fixed inset-0 bg-black/25 z-[9999] flex items-center justify-center p-3 hidden" onclick="if(event.target===this) window.__resolveConfirmModal(false)">
+    <div class="bg-[#151D28] border-2 border-[#2E3F58] rounded-xl max-w-sm w-full p-4 shadow-[0_16px_50px_rgba(0,0,0,0.85)] space-y-3.5" onclick="event.stopPropagation()">
       <div class="flex items-center justify-between border-b border-[#1E1E2A] pb-2.5">
         <div class="flex items-center gap-2">
           <span id="confirm-modal-icon" class="text-base">⚠️</span>
@@ -1633,145 +2146,14 @@
       <div class="text-xs text-slate-300 leading-relaxed space-y-1">
         <p id="confirm-modal-message" class="text-[11.5px] text-slate-200 whitespace-pre-line"></p>
         <p id="confirm-modal-submessage" class="text-[10.5px] text-slate-400 whitespace-pre-line hidden"></p>
+        <div id="confirm-modal-custom-content" class="hidden"></div>
       </div>
 
-      <div class="flex items-center justify-end gap-2 pt-2 border-t border-[#1E1E2A]">
+      <div id="confirm-modal-buttons" class="flex items-center justify-end gap-2 pt-2 border-t border-[#1E1E2A]">
         <button type="button" id="confirm-modal-cancel" onclick="window.__resolveConfirmModal(false)" class="px-3 py-1.5 rounded-lg bg-[#1C1C26] hover:bg-[#282837] text-zinc-300 text-xs font-medium transition-colors cursor-pointer">
           취소
         </button>
         <button type="button" id="confirm-modal-ok" onclick="window.__resolveConfirmModal(true)" class="px-3.5 py-1.5 rounded-lg bg-[#00FFA3] hover:bg-[#00E591] text-black text-xs font-bold transition-all cursor-pointer">
-          확인
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ===== 치지직 리모컨 준비 중 안내 모달 ===== -->
-  <div id="modal-remote-notice" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-3 hidden" onclick="if(event.target===this) closeRemoteNoticeModal()">
-    <div class="bg-[#0B0F15] border border-[#1E2738] rounded-xl max-w-sm w-full p-4 shadow-2xl space-y-3.5" onclick="event.stopPropagation()">
-      <div class="flex items-center justify-between border-b border-[#1E2738] pb-2.5">
-        <div class="flex items-center gap-2">
-          <span class="text-base">🚧</span>
-          <span class="text-xs font-bold text-slate-100">기능 준비 중 안내</span>
-        </div>
-        <button type="button" onclick="closeRemoteNoticeModal()" class="w-6 h-6 rounded-md hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center text-sm font-bold cursor-pointer">
-          ✕
-        </button>
-      </div>
-
-      <div class="space-y-2 text-xs text-slate-300 leading-relaxed">
-        <p class="font-bold text-amber-400 flex items-center gap-1.5">
-          <span>⚠️</span> <span>내장 리모컨 미완성 기능 안내</span>
-        </p>
-        <p class="text-[11.5px] text-slate-300">
-          OBS 독 내부 리모컨(영도/미션/피드 제어)은 치지직 스튜디오 공식 연동을 위해 <b>기능 검증 및 개발 진행 중인 미완성 기능</b>입니다.
-        </p>
-        <div class="p-2.5 rounded-lg bg-[#0E1522] border border-[#1E2738] space-y-1 text-[11px] text-slate-300">
-          <div class="font-bold text-[#00FFA3] flex items-center gap-1">
-            <span>✨</span> <span>치지직 공식 리모컨 독립창 이용 권장</span>
-          </div>
-          <p class="text-[10px] text-slate-400">
-            영상 재생·스킵, 볼륨 조절 및 TTS 제어가 완벽히 지원되는 네이버 공식 리모컨 창을 바로 실행할 수 있습니다.
-          </p>
-        </div>
-      </div>
-
-      <div class="flex items-center justify-end gap-2 pt-1">
-        <button type="button" onclick="openRemoteFromModal()" class="px-3.5 py-1.5 rounded-lg bg-[#5C3BFF] hover:bg-[#7B5FFF] text-white text-xs font-bold cursor-pointer transition-colors flex items-center gap-1.5 shadow-md">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-          공식 리모컨 열기
-        </button>
-        <button type="button" onclick="closeRemoteNoticeModal()" class="px-3.5 py-1.5 rounded-lg bg-[#161F2E] hover:bg-[#1E2738] text-[#00FFA3] text-xs font-bold cursor-pointer transition-colors">
-          확인
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ===== 후원 수익 요약 미완성 안내 모달 ===== -->
-  <div id="modal-revenue-notice" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-3 hidden" onclick="if(event.target===this) closeRevenueNoticeModal()">
-    <div class="bg-[#0B0F15] border border-[#1E2738] rounded-xl max-w-sm w-full p-4 shadow-2xl space-y-3.5" onclick="event.stopPropagation()">
-      <div class="flex items-center justify-between border-b border-[#1E2738] pb-2.5">
-        <div class="flex items-center gap-2">
-          <span class="text-base">🚧</span>
-          <span class="text-xs font-bold text-slate-100">기능 준비 중 안내</span>
-        </div>
-        <button type="button" onclick="closeRevenueNoticeModal()" class="w-6 h-6 rounded-md hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center text-sm font-bold cursor-pointer">
-          ✕
-        </button>
-      </div>
-
-      <div class="space-y-2 text-xs text-slate-300 leading-relaxed">
-        <p class="font-bold text-amber-400 flex items-center gap-1.5">
-          <span>⚠️</span> <span>후원 수익 요약 미완성 기능 안내</span>
-        </p>
-        <p class="text-[11.5px] text-slate-300">
-          후원 수익 요약 기능은 현재 <b>개발 및 연동 테스트 진행 중인 미완성 기능</b>입니다.
-        </p>
-        <div class="p-2.5 rounded-lg bg-[#0E1522] border border-[#1E2738] space-y-1 text-[11px] text-slate-300">
-          <div class="font-bold text-[#00FFA3] flex items-center gap-1">
-            <span>ℹ️</span> <span>정산 내역 확인 안내</span>
-          </div>
-          <p class="text-[10.5px] text-slate-400">
-            정확한 후원 수익 집계 및 정산 내역은 치지직 스튜디오 공식 웹사이트의 정산 관리 메뉴에서 확인해 주시기 바랍니다.
-          </p>
-        </div>
-      </div>
-
-      <div class="flex items-center justify-end pt-1">
-        <button type="button" onclick="closeRevenueNoticeModal()" class="px-3.5 py-1.5 rounded-lg bg-[#161F2E] hover:bg-[#1E2738] text-[#00FFA3] text-xs font-bold cursor-pointer transition-colors">
-          확인
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ===== [같이보기 모달 1] 🔄 같이보기 송출 재정비 안내 모달 ===== -->
-  <div id="modal-wp-restart" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-3 hidden" onclick="if(event.target===this) closeWatchPartyRestartModal()">
-    <div class="bg-[#0B0F15] border border-[#1E2738] rounded-xl max-w-sm w-full p-4 shadow-2xl space-y-3.5" onclick="event.stopPropagation()">
-      <div class="flex items-center justify-between border-b border-[#1E2738] pb-2.5">
-        <span class="text-xs font-bold text-slate-100">같이보기 송출 재정비 안내</span>
-        <button type="button" onclick="closeWatchPartyRestartModal()" class="w-6 h-6 rounded-md hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center text-sm font-bold cursor-pointer">✕</button>
-      </div>
-      <div class="space-y-2.5 text-xs text-slate-300 leading-relaxed">
-        <p class="text-[11.5px] text-slate-200">
-          이 같이보기는 원활한 방송을 위해 자동으로 송출 장비를 재설정합니다.
-        </p>
-        <div class="p-2.5 rounded-lg bg-[#0E1522] border border-[#1E2738] space-y-1.5 text-[11px] text-slate-300">
-          <p class="text-[#7B5FFF] font-semibold">
-            • 송출 프로그램(OBS/Prism 등)의 <b>[설정 &gt; 고급 &gt; 자동으로 다시 연결]</b> 옵션을 반드시 활성화해 주세요.
-          </p>
-          <p class="text-slate-400">
-            • 같이보기 on/off 시 송출이 잠시 끊겼다가 자동 재시작되며, 그 사이 시청자에게는 안내 화면이 노출됩니다.
-          </p>
-          <p class="text-slate-400">
-            • 채팅과 후원 참여 내역은 모두 유지됩니다.
-          </p>
-          <p class="text-slate-400">
-            • 다시보기는 전·중·후로 분할된 영상으로, 라이브가 끊기는 시점의 다시보기 게시 옵션에 따라 저장됩니다.
-          </p>
-        </div>
-      </div>
-      <div class="flex items-center justify-end pt-1">
-        <button type="button" onclick="closeWatchPartyRestartModal()" class="w-full py-2 rounded-lg bg-[#5C3BFF] hover:bg-[#7B5FFF] text-white text-xs font-bold cursor-pointer transition-colors shadow-md">
-          확인
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ===== [같이보기 모달 2] 📢 중간광고 제어 불가 안내 모달 ===== -->
-  <div id="modal-wp-midroll" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-3 hidden" onclick="if(event.target===this) closeWatchPartyMidRollModal()">
-    <div class="bg-[#0B0F15] border border-[#1E2738] rounded-xl max-w-sm w-full p-4 shadow-2xl space-y-3.5" onclick="event.stopPropagation()">
-      <div class="flex items-center justify-between border-b border-[#1E2738] pb-2.5">
-        <span class="text-xs font-bold text-slate-100">안내</span>
-        <button type="button" onclick="closeWatchPartyMidRollModal()" class="w-6 h-6 rounded-md hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center text-sm font-bold cursor-pointer">✕</button>
-      </div>
-      <div class="text-xs text-slate-300 leading-relaxed py-1">
-        선택하신 같이보기는 중간광고를 직접 제어할 수 없으며, 콘텐츠 흐름에 따라 적절한 시점에 중간광고가 재생됩니다.
-      </div>
-      <div class="flex items-center justify-end pt-1">
-        <button type="button" onclick="closeWatchPartyMidRollModal()" class="w-full py-2 rounded-lg bg-[#5C3BFF] hover:bg-[#7B5FFF] text-white text-xs font-bold cursor-pointer transition-colors shadow-md">
           확인
         </button>
       </div>
@@ -1959,6 +2341,18 @@
         <button type="button" onclick="closeDonationModal('mission')" class="w-6 h-6 rounded-md hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center text-sm font-bold">✕</button>
       </div>
       <div class="p-3.5 space-y-3.5 text-xs text-slate-300">
+        <!-- 사용 여부 설정 -->
+        <div class="p-2.5 rounded-lg bg-[#090D13] border border-[#1A2333] space-y-1.5">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-slate-200">사용 여부 설정</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="dsetting-mission-active">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <p class="text-[10.5px] text-slate-400">• 설정을 끄면 미션 후원을 받을 수 없습니다.</p>
+        </div>
+
         <!-- 후원 조건 설정 -->
         <div class="p-2.5 rounded-lg bg-[#090D13] border border-[#1A2333] space-y-2">
           <div class="font-bold text-slate-200">후원 조건 설정</div>
@@ -1976,16 +2370,24 @@
               <span class="text-[11px] text-slate-300">%</span>
             </div>
           </div>
+          <div class="pt-1.5 border-t border-[#1A2333]/60 space-y-0.5 text-[10.5px] text-slate-400">
+            <p>• 미션에 실패할 경우 받을 수 있는 응원금입니다 (10%~90%).</p>
+            <p>• 응원금이 1,000치즈 미만일 경우 최소 금액인 1,000치즈를 받습니다.</p>
+          </div>
         </div>
+
         <!-- 기본 설정 -->
-        <div class="p-2.5 rounded-lg bg-[#090D13] border border-[#1A2333] space-y-2">
-          <div class="font-bold text-slate-200">기본 설정</div>
+        <div class="p-2.5 rounded-lg bg-[#090D13] border border-[#1A2333] space-y-1.5">
           <div class="flex items-center justify-between text-[11px]">
-            <span class="text-slate-300">후원 노출 금액 설정</span>
+            <span class="font-bold text-slate-200">후원 금액 표시 여부 설정</span>
             <label class="toggle-switch">
               <input type="checkbox" id="dsetting-mission-exposure">
               <span class="toggle-slider"></span>
             </label>
+          </div>
+          <div class="space-y-0.5 text-[10.5px] text-slate-400">
+            <p>• OFF 설정 시 채팅창 내에 표시되는 미션 후원내역에 금액이 표시되지 않습니다.</p>
+            <p>• 후원 알림 오버레이 및 스튜디오 내에서는 금액을 확인하실 수 있습니다.</p>
           </div>
         </div>
         <div class="pt-1 flex justify-end">
@@ -2490,6 +2892,22 @@
       updatePanelScrollLock();
     }
 
+    // ===== 설정창 내비게이션 탭 전환 (로그인 / 일반 / 고급 / 앱 정보) =====
+    function switchSettingsTab(tabName) {
+      const tabs = ['login', 'general', 'advanced', 'info'];
+      tabs.forEach(t => {
+        const btn = document.getElementById(`tab-btn-${t}`);
+        const content = document.getElementById(`tab-content-${t}`);
+        if (t === tabName) {
+          if (btn) btn.classList.add('active');
+          if (content) content.classList.remove('hidden');
+        } else {
+          if (btn) btn.classList.remove('active');
+          if (content) content.classList.add('hidden');
+        }
+      });
+    }
+
     function toggleUrlsPanel() {
       if (!checkLoginGuard('알림 URL & 방송 정보')) return;
       const panel = document.getElementById('urls-panel');
@@ -2527,44 +2945,83 @@
     }
 
 
-    // ===== 공통 비동기 확인 모달 (showConfirmModal) =====
+    // ===== 공통 비동기 팝업/확인 모달 시스템 (Unified Modal System) =====
     let confirmModalResolver = null;
+
+    function showNoticeModal({
+      title = '안내',
+      message = '',
+      submessage = '',
+      html = '',
+      icon = 'ℹ️',
+      buttons = null
+    } = {}) {
+      const modal = document.getElementById('modal-custom-confirm');
+      const elTitle = document.getElementById('confirm-modal-title');
+      const elMsg = document.getElementById('confirm-modal-message');
+      const elSub = document.getElementById('confirm-modal-submessage');
+      const elCustom = document.getElementById('confirm-modal-custom-content');
+      const elIcon = document.getElementById('confirm-modal-icon');
+      const btnContainer = document.getElementById('confirm-modal-buttons');
+
+      if (elTitle) elTitle.textContent = title;
+      if (elIcon) elIcon.textContent = icon;
+      if (elMsg) { elMsg.textContent = message; elMsg.classList.toggle('hidden', !message); }
+      if (elSub) { elSub.textContent = submessage; elSub.classList.toggle('hidden', !submessage); }
+      if (elCustom) { elCustom.innerHTML = html; elCustom.classList.toggle('hidden', !html); }
+
+      if (btnContainer) {
+        btnContainer.innerHTML = '';
+        const list = buttons && buttons.length > 0 ? buttons : [
+          {
+            text: '확인',
+            className: 'px-3.5 py-1.5 rounded-lg bg-[#00FFA3] hover:bg-[#00E591] text-black text-xs font-bold transition-all cursor-pointer',
+            onClick: () => window.__resolveConfirmModal(true)
+          }
+        ];
+        list.forEach(b => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = b.className || 'px-3.5 py-1.5 rounded-lg bg-[#161F2E] hover:bg-[#1E2738] text-[#00FFA3] text-xs font-bold cursor-pointer transition-colors';
+          btn.textContent = b.text;
+          btn.onclick = (e) => {
+            if (b.onClick) b.onClick(e);
+            else window.__resolveConfirmModal(true);
+          };
+          btnContainer.appendChild(btn);
+        });
+      }
+
+      if (modal) {
+        modal.classList.remove('hidden');
+      }
+    }
+
     function showConfirmModal({ title = '확인', message = '', submessage = '', confirmText = '확인', cancelText = '취소', danger = false, icon = '⚠️' } = {}) {
       return new Promise((resolve) => {
         confirmModalResolver = resolve;
-        const modal = document.getElementById('modal-custom-confirm');
-        const elTitle = document.getElementById('confirm-modal-title');
-        const elMsg = document.getElementById('confirm-modal-message');
-        const elSub = document.getElementById('confirm-modal-submessage');
-        const elIcon = document.getElementById('confirm-modal-icon');
-        const btnOk = document.getElementById('confirm-modal-ok');
-        const btnCancel = document.getElementById('confirm-modal-cancel');
-
-        if (elTitle) elTitle.textContent = title;
-        if (elMsg) elMsg.textContent = message;
-        if (elIcon) elIcon.textContent = icon;
-        if (elSub) {
-          if (submessage) {
-            elSub.textContent = submessage;
-            elSub.classList.remove('hidden');
-          } else {
-            elSub.classList.add('hidden');
-          }
-        }
-        if (btnCancel) btnCancel.textContent = cancelText;
-        if (btnOk) {
-          btnOk.textContent = confirmText;
-          if (danger) {
-            btnOk.className = 'px-3.5 py-1.5 rounded-lg bg-red-500/90 hover:bg-red-500 text-white text-xs font-bold shadow-lg shadow-red-500/20 transition-all cursor-pointer';
-          } else {
-            btnOk.className = 'px-3.5 py-1.5 rounded-lg bg-[#00FFA3] hover:bg-[#00E591] text-black text-xs font-bold transition-all cursor-pointer';
-          }
-        }
-
-        if (modal) {
-          modal.classList.remove('hidden');
-          if (btnCancel) btnCancel.focus();
-        }
+        showNoticeModal({
+          title,
+          message,
+          submessage,
+          icon,
+          buttons: [
+            {
+              text: cancelText,
+              className: 'px-3 py-1.5 rounded-lg bg-[#1C1C26] hover:bg-[#282837] text-zinc-300 text-xs font-medium transition-colors cursor-pointer',
+              onClick: () => window.__resolveConfirmModal(false)
+            },
+            {
+              text: confirmText,
+              className: danger
+                ? 'px-3.5 py-1.5 rounded-lg bg-red-500/90 hover:bg-red-500 text-white text-xs font-bold shadow-lg shadow-red-500/20 transition-all cursor-pointer'
+                : 'px-3.5 py-1.5 rounded-lg bg-[#00FFA3] hover:bg-[#00E591] text-black text-xs font-bold transition-all cursor-pointer',
+              onClick: () => window.__resolveConfirmModal(true)
+            }
+          ]
+        });
+        const cancelBtn = document.getElementById('confirm-modal-buttons')?.firstElementChild;
+        if (cancelBtn) cancelBtn.focus();
       });
     }
 
@@ -2578,6 +3035,10 @@
       }
     };
 
+    window.__closeConfirmModal = function() {
+      window.__resolveConfirmModal(false);
+    };
+
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         const modal = document.getElementById('modal-custom-confirm');
@@ -2588,18 +3049,24 @@
     });
 
     function openRemoteNoticeModal() {
-      const modal = document.getElementById('modal-remote-notice');
-      if (modal) modal.classList.remove('hidden');
-    }
-
-    function closeRemoteNoticeModal() {
-      const modal = document.getElementById('modal-remote-notice');
-      if (modal) modal.classList.add('hidden');
-    }
-
-    function openRemoteFromModal() {
-      closeRemoteNoticeModal();
-      openRemoteWebview();
+      showNoticeModal({
+        icon: '🚧',
+        title: '기능 준비 중 안내',
+        message: 'OBS 독 내부 리모컨(영도/미션/피드 제어)은 치지직 스튜디오 공식 연동을 위해 기능 검증 및 개발 진행 중인 미완성 기능입니다.\n영상 재생·스킵, 볼륨 조절 및 TTS 제어가 완벽히 지원되는 네이버 공식 리모컨 창을 바로 실행할 수 있습니다.',
+        submessage: '✨ 치지직 공식 리모컨 독립창 이용 권장',
+        buttons: [
+          {
+            text: '공식 리모컨 열기',
+            className: 'px-3.5 py-1.5 rounded-lg bg-[#5C3BFF] hover:bg-[#7B5FFF] text-white text-xs font-bold cursor-pointer transition-colors shadow-md',
+            onClick: () => { window.__closeConfirmModal(); openRemoteWebview(); }
+          },
+          {
+            text: '확인',
+            className: 'px-3.5 py-1.5 rounded-lg bg-[#161F2E] hover:bg-[#1E2738] text-[#00FFA3] text-xs font-bold cursor-pointer transition-colors',
+            onClick: () => window.__closeConfirmModal()
+          }
+        ]
+      });
     }
 
     function toggleRemotePanel() {
@@ -4161,21 +4628,37 @@
     async function saveMissionDonationSetting() {
       if (!userChannelId) return;
       const minAmount = parseFormattedAmount(document.getElementById('dsetting-mission-min-amount')?.value) || 1000;
-      const failRate = Number(document.getElementById('dsetting-mission-fail-rate')?.value) || 10;
+      let failRate = Number(document.getElementById('dsetting-mission-fail-rate')?.value);
+      if (isNaN(failRate) || failRate < 10) failRate = 10;
+      if (failRate > 90) failRate = 90;
       const exposure = !!document.getElementById('dsetting-mission-exposure')?.checked;
-      const isMissionActive = document.getElementById('toggle-mission-donation') ? document.getElementById('toggle-mission-donation').checked : (currentDonationState.missionDonationActive !== false);
+      const misActiveEl = document.getElementById('dsetting-mission-active');
+      const isMissionActive = misActiveEl ? !!misActiveEl.checked : (document.getElementById('toggle-mission-donation') ? document.getElementById('toggle-mission-donation').checked : (currentDonationState.missionDonationActive !== false));
 
       try {
-        await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/donations/mission/setting`, {
+        const res = await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/donations/mission/setting`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            channelId: userChannelId,
             donationActive: isMissionActive,
             minCurrencyPayAmount: minAmount,
             failCheeringRate: failRate,
             exposureAmount: exposure
           })
         });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.message || `치지직 서버 응답 오류 (HTTP ${res.status})`);
+        }
+
+        // 메인 패널 토글 및 상태 동기화
+        const mainToggle = document.getElementById('toggle-mission-donation');
+        if (mainToggle) mainToggle.checked = isMissionActive;
+        currentDonationState.missionDonationActive = isMissionActive;
+        updateDonationDetailButtonsState();
+
         const existingToasts = document.querySelectorAll('#toast-container .toast');
         existingToasts.forEach(t => t.remove());
         showToast('💾 미션 후원 설정 저장 완료', 'success', '미션 후원 규칙이 성공적으로 반영되었습니다.');
@@ -4300,13 +4783,12 @@
     }
 
     function openRevenueNoticeModal() {
-      const modal = document.getElementById('modal-revenue-notice');
-      if (modal) modal.classList.remove('hidden');
-    }
-
-    function closeRevenueNoticeModal() {
-      const modal = document.getElementById('modal-revenue-notice');
-      if (modal) modal.classList.add('hidden');
+      showNoticeModal({
+        icon: '🚧',
+        title: '기능 준비 중 안내',
+        message: '후원 수익 요약 기능은 현재 개발 및 연동 테스트 진행 중인 미완성 기능입니다.',
+        submessage: 'ℹ️ 정확한 후원 수익 집계 및 정산 내역은 치지직 스튜디오 공식 웹사이트의 정산 관리 메뉴에서 확인해 주시기 바랍니다.'
+      });
     }
 
     function switchUrlTab(tab) {
@@ -4702,23 +5184,19 @@
     }
 
     function openWatchPartyRestartModal() {
-      const modal = document.getElementById('modal-wp-restart');
-      if (modal) modal.classList.remove('hidden');
-    }
-
-    function closeWatchPartyRestartModal() {
-      const modal = document.getElementById('modal-wp-restart');
-      if (modal) modal.classList.add('hidden');
+      showNoticeModal({
+        icon: '🔄',
+        title: '같이보기 송출 재정비 안내',
+        message: '이 같이보기는 원활한 방송을 위해 자동으로 송출 장비를 재설정합니다.\n\n• 송출 프로그램(OBS/Prism 등)의 [설정 > 고급 > 자동으로 다시 연결] 옵션을 반드시 켜주세요.\n• 같이보기 on/off 시 송출이 잠시 끊겼다가 자동 재시작되며 안내 화면이 노출됩니다.\n• 채팅과 후원 참여 내역은 모두 유지됩니다.\n• 다시보기는 분할된 영상으로 저장됩니다.'
+      });
     }
 
     function openWatchPartyMidRollModal() {
-      const modal = document.getElementById('modal-wp-midroll');
-      if (modal) modal.classList.remove('hidden');
-    }
-
-    function closeWatchPartyMidRollModal() {
-      const modal = document.getElementById('modal-wp-midroll');
-      if (modal) modal.classList.add('hidden');
+      showNoticeModal({
+        icon: '📢',
+        title: '안내',
+        message: '선택하신 같이보기는 중간광고를 직접 제어할 수 없으며, 콘텐츠 흐름에 따라 적절한 시점에 중간광고가 재생됩니다.'
+      });
     }
 
     function onBoardMessageInput(val) {
@@ -5073,6 +5551,28 @@
         });
       }
 
+      const portInput = document.getElementById('input-custom-port');
+      if (portInput) {
+        portInput.addEventListener('input', () => {
+          updatePortClearButton();
+        });
+        portInput.addEventListener('blur', () => {
+          if (!portInput.value.trim()) {
+            portInput.value = currentActivePort || currentConfiguredPort || 8081;
+            updatePortClearButton();
+          }
+        });
+        portInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape') {
+            if (!portInput.value.trim()) {
+              portInput.value = currentActivePort || currentConfiguredPort || 8081;
+              updatePortClearButton();
+            }
+            portInput.blur();
+          }
+        });
+      }
+
       const catSearch = document.getElementById('category-search');
       if (catSearch) {
         let selectedCatIdx = -1;
@@ -5186,6 +5686,7 @@
       const cardBroadcast = document.getElementById('card-broadcast');
       if (cardBroadcast) {
         cardBroadcast.addEventListener('click', (e) => {
+          if (e.target.closest('#preset-toolbar-wrapper')) return;
           if (!checkLoginGuard('방송 설정')) {
             e.preventDefault();
             e.stopPropagation();
@@ -5201,6 +5702,8 @@
       loadPopupOnStartSetting();
       loadGPUSetting();
       loadExternalBrowserSetting();
+      loadBroadcastPresets();
+      checkForUpdate(false);
     }
 
     // DOM 로드 완료 상태에 무관하게 즉시 또는 이벤트 시점에 100% 실행 보장
@@ -5303,8 +5806,8 @@
         groupLoginBadge.className = "text-[9px] px-1.5 py-0.5 rounded font-bold bg-amber-950 text-amber-400 border border-amber-800/60";
       }
       if (btnWebview) {
-        btnWebview.innerHTML = "🔑 네이버 로그인 시작 (자동)";
-        btnWebview.className = "save-btn text-xs py-2.5 bg-gradient-to-r from-emerald-400 to-teal-400 !text-[#080A0D] font-extrabold shadow-md";
+        btnWebview.innerHTML = "🔑 네이버 로그인 시작";
+        btnWebview.className = "save-btn text-xs py-2.5 bg-gradient-to-r from-emerald-400 to-teal-400 !text-[#080A0D] font-extrabold shadow-md cursor-pointer";
         btnWebview.onclick = startWebviewLogin;
       }
       if (inputAut) inputAut.className = "chzzk-input border-amber-500/60 bg-amber-950/20 text-amber-300";
@@ -5403,8 +5906,8 @@
               groupLoginBadge.className = "text-[9px] px-1.5 py-0.5 rounded font-bold bg-emerald-950 text-[#00FFA3] border border-emerald-800/60";
             }
             if (btnWebview) {
-              btnWebview.innerHTML = "🚪 치지직 연동 해제 (로그아웃)";
-              btnWebview.className = "save-btn text-xs py-2 bg-rose-900/60 hover:bg-rose-800 text-rose-200 border border-rose-600/60 transition-colors";
+              btnWebview.innerHTML = "🚪 로그아웃";
+              btnWebview.className = "save-btn text-xs py-2 bg-rose-900/60 hover:bg-rose-800 text-rose-200 border border-rose-600/60 transition-colors cursor-pointer";
               btnWebview.onclick = handleLogout;
             }
             if (inputAut) inputAut.className = "chzzk-input border-emerald-500/40 bg-emerald-950/10 text-emerald-300";
@@ -5444,7 +5947,7 @@
           const customInput = document.getElementById('input-custom-watchdog');
           if (!select) return;
 
-          const presets = ['0', '10', '30', '60', '300', '600'];
+          const presets = ['0', '10', '30', '60', '300', '600', '-1'];
           if (presets.includes(String(sec))) {
             select.value = String(sec);
             if (customContainer) customContainer.classList.add('hidden');
@@ -5501,6 +6004,8 @@
         });
         if (res.ok) {
           if (sec === 0) {
+            showToast('⏱️ 자동 종료 설정', 'info', 'OBS 종료 시 지연 없이 즉시 함께 종료되도록 설정되었습니다.');
+          } else if (sec === -1) {
             showToast('⏱️ 자동 종료 설정', 'info', 'OBS 자동 종료가 비활성화되었습니다. (상시 실행 유지)');
           } else {
             let label = `${sec}초`;
@@ -5521,6 +6026,25 @@
     // ===== 서버 포트 관리 및 충돌 점검 제어 =====
     let currentActivePort = 8081;
     let currentConfiguredPort = 8081;
+    let pendingPortToSave = null;
+
+    function clearCustomPort() {
+      const input = document.getElementById('input-custom-port');
+      if (input) {
+        input.value = '';
+        const clearBtn = document.getElementById('port-clear');
+        if (clearBtn) clearBtn.style.display = 'none';
+        input.focus();
+      }
+    }
+
+    function updatePortClearButton() {
+      const input = document.getElementById('input-custom-port');
+      const clearBtn = document.getElementById('port-clear');
+      if (input && clearBtn) {
+        clearBtn.style.display = input.value.length > 0 ? 'block' : 'none';
+      }
+    }
 
     async function loadPortStatus() {
       try {
@@ -5557,6 +6081,7 @@
         if (inputPort && !inputPort.value) {
           inputPort.value = currentConfiguredPort;
         }
+        updatePortClearButton();
       } catch (e) {
         console.warn('[CHZZK Dock] 포트 상태 조회 예외:', e);
       }
@@ -5599,9 +6124,40 @@
       }
     }
 
-    async function saveCustomPort() {
+    function openPortApplyModal(port) {
+      pendingPortToSave = port;
+      showNoticeModal({
+        icon: '🌐',
+        title: '서버 포트 변경 적용',
+        message: `기본 HTTP 서버 포트를 ${port}번으로 변경합니다.\n포트 설정을 지금 즉시 재시작하여 적용할지, 프로그램의 다음 실행 시 적용할지 선택해 주세요.`,
+        submessage: '💡 지금 적용 선택 시 독 서버가 즉시 새 포트로 재시작되며 새 주소로 자동 이동합니다.',
+        buttons: [
+          {
+            text: '취소',
+            className: 'px-2.5 py-1 rounded bg-[#1B2535] hover:bg-[#253247] text-slate-300 text-xs font-medium cursor-pointer transition-colors',
+            onClick: () => closePortApplyModal()
+          },
+          {
+            text: '다음 실행시 적용',
+            className: 'px-3 py-1 rounded bg-[#1E293B] hover:bg-[#2C3B52] border border-[#334155] text-slate-200 hover:text-white text-xs font-semibold cursor-pointer transition-colors',
+            onClick: () => confirmSavePort(false)
+          },
+          {
+            text: '지금 적용',
+            className: 'px-3 py-1 rounded bg-[#00FFA3] hover:bg-[#00E591] text-black text-xs font-bold transition-all cursor-pointer',
+            onClick: () => confirmSavePort(true)
+          }
+        ]
+      });
+    }
+
+    function closePortApplyModal() {
+      window.__closeConfirmModal();
+      pendingPortToSave = null;
+    }
+
+    function saveCustomPort() {
       const input = document.getElementById('input-custom-port');
-      const resultEl = document.getElementById('port-check-result');
       if (!input) return;
 
       const port = parseInt(input.value, 10);
@@ -5610,26 +6166,53 @@
         return;
       }
 
+      openPortApplyModal(port);
+    }
+
+    async function confirmSavePort(applyNow) {
+      const port = pendingPortToSave;
+      if (!port) {
+        closePortApplyModal();
+        return;
+      }
+
+      const resultEl = document.getElementById('port-check-result');
+      closePortApplyModal();
+
       if (resultEl) {
         resultEl.className = 'text-[10px] leading-tight text-chzzk-muted font-medium';
-        resultEl.textContent = `⏳ 포트 ${port}번 저장 중...`;
+        resultEl.textContent = applyNow
+          ? `🔄 포트 ${port}번으로 즉시 적용 및 재시작 중...`
+          : `⏳ 포트 ${port}번 저장 중...`;
       }
 
       try {
         const res = await apiFetch('/save-port', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ port })
+          body: JSON.stringify({ port, restart: applyNow })
         });
         const data = await res.json();
 
         if (res.ok && data.code === 200) {
           currentConfiguredPort = port;
-          if (resultEl) {
-            resultEl.className = 'text-[10px] leading-tight text-emerald-400 font-medium';
-            resultEl.textContent = `💾 기본 포트 ${port}번 저장 완료 (프로그램 재시작 시 적용)`;
+          if (applyNow) {
+            if (resultEl) {
+              resultEl.className = 'text-[10px] leading-tight text-emerald-400 font-medium';
+              resultEl.textContent = `🚀 포트 ${port}번 즉시 적용 완료! 잠시 후 새 주소로 자동 이동합니다...`;
+            }
+            showToast('🌐 포트 즉시 적용', 'success', `포트 ${port}번으로 재시작합니다. 잠시 후 이동합니다...`);
+            setTimeout(() => {
+              const newUrl = `${window.location.protocol}//${window.location.hostname}:${port}${window.location.pathname}${window.location.search}`;
+              window.location.href = newUrl;
+            }, 1200);
+          } else {
+            if (resultEl) {
+              resultEl.className = 'text-[10px] leading-tight text-emerald-400 font-medium';
+              resultEl.textContent = `💾 기본 포트 ${port}번 저장 완료 (다음 실행 시 적용)`;
+            }
+            showToast('🌐 포트 설정 저장됨', 'success', `기본 포트가 ${port}번으로 설정되었습니다. 프로그램 재시작 시 적용됩니다.`);
           }
-          showToast('🌐 포트 설정 저장됨', 'success', `기본 포트가 ${port}번으로 설정되었습니다. 독 재시작 시 새 포트로 작동합니다.`);
         } else {
           const msg = data.message || '포트 저장에 실패했습니다.';
           if (resultEl) {
@@ -5755,7 +6338,26 @@
         }
         const labelEl = document.getElementById('label-default-browser');
         if (labelEl && data && data.browser_name) {
-          labelEl.textContent = `(감지: ${data.browser_name})`;
+          const rawName = data.browser_name;
+          labelEl.textContent = rawName;
+          labelEl.classList.remove('hidden');
+
+          const nameLower = rawName.toLowerCase();
+          let colorClass = "bg-slate-800/80 text-slate-300 border border-slate-700/60";
+          if (nameLower.includes('whale') || nameLower.includes('웨일')) {
+            colorClass = "bg-emerald-950/90 text-[#00FFA3] border border-emerald-500/50";
+          } else if (nameLower.includes('chrome') || nameLower.includes('크롬')) {
+            colorClass = "bg-amber-950/90 text-amber-300 border border-amber-500/50";
+          } else if (nameLower.includes('edge') || nameLower.includes('엣지')) {
+            colorClass = "bg-sky-950/90 text-sky-300 border border-sky-500/50";
+          } else if (nameLower.includes('firefox') || nameLower.includes('파이어폭스')) {
+            colorClass = "bg-orange-950/90 text-orange-400 border border-orange-500/50";
+          } else if (nameLower.includes('brave') || nameLower.includes('브레이브')) {
+            colorClass = "bg-rose-950/90 text-rose-400 border border-rose-500/50";
+          } else if (nameLower.includes('opera') || nameLower.includes('오페라')) {
+            colorClass = "bg-red-950/90 text-red-400 border border-red-500/50";
+          }
+          labelEl.className = `px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold ${colorClass}`;
         }
       } catch (e) {
         console.warn('Failed to load external browser setting:', e);
@@ -5776,6 +6378,825 @@
         }
       } catch (e) {
         showToast('통신 오류', 'error', e.message);
+      }
+    }
+
+    // ===== [FEAT-06-03] 방송 정보 프리셋 관리 파이프라인 (최대 10개, 불러오기/저장/덮어쓰기) =====
+    const MAX_PRESET_SLOTS = 10;
+    const MAX_PRESET_NAME_LEN = 10;
+    let broadcastPresets = [];
+    let activePresetId = null;
+    let currentSaveTab = 'new'; // 'new' | 'overwrite'
+
+    async function loadBroadcastPresets() {
+      try {
+        const res = await apiFetch('/broadcast-presets');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.code === 200 && Array.isArray(data.presets)) {
+            broadcastPresets = data.presets;
+            updatePresetToolbarLabel();
+          }
+        }
+      } catch (err) {
+        console.warn('[Presets] Failed to load broadcast presets:', err);
+      }
+    }
+
+    function updatePresetToolbarLabel() {
+      const badgeEl = document.getElementById('preset-slot-count-badge');
+      if (badgeEl) {
+        badgeEl.textContent = `${broadcastPresets.length}/${MAX_PRESET_SLOTS}`;
+      }
+    }
+
+    // ── 1. 프리셋 불러오기 모달 제어 ──
+    function openPresetLoadModal() {
+      const modal = document.getElementById('modal-preset-load');
+      const slotEl = document.getElementById('load-modal-slot-count');
+      if (!modal) return;
+
+      if (slotEl) {
+        slotEl.textContent = `${broadcastPresets.length} / ${MAX_PRESET_SLOTS}`;
+        slotEl.className = (broadcastPresets.length >= MAX_PRESET_SLOTS)
+          ? 'text-[9.5px] px-1.5 py-0.2 rounded bg-rose-950 text-rose-400 font-mono border border-rose-800/40'
+          : 'text-[9.5px] px-1.5 py-0.2 rounded bg-[#161F2E] text-slate-400 font-mono border border-[#243044]';
+      }
+
+      renderPresetLoadList();
+      modal.classList.remove('hidden');
+    }
+
+    function closePresetLoadModal() {
+      const modal = document.getElementById('modal-preset-load');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    function renderPresetLoadList() {
+      const listEl = document.getElementById('preset-load-list');
+      if (!listEl) return;
+
+      listEl.innerHTML = '';
+      if (broadcastPresets.length === 0) {
+        listEl.innerHTML = `
+          <div class="py-6 px-3 text-center rounded-lg bg-[#0E131A] border border-dashed border-[#1E2738] space-y-2">
+            <span class="text-2xl select-none">📋</span>
+            <div class="text-xs text-slate-300 font-medium">저장된 방송 프리셋이 없습니다.</div>
+            <div class="text-[10.5px] text-slate-500">현재 방송 정보 설정을 [💾 저장] 버튼을 눌러 등록해 보세요.</div>
+          </div>
+        `;
+        return;
+      }
+
+      broadcastPresets.forEach(preset => {
+        const isActive = (preset.id === activePresetId);
+        const card = document.createElement('div');
+        card.className = `p-2.5 rounded-lg border transition-all space-y-1.5 ${
+          isActive 
+            ? 'bg-[#0E131A] border-[#00FFA3]/50 shadow-[0_0_10px_rgba(0,255,163,0.1)]' 
+            : 'bg-[#0E131A] border-[#1E2738] hover:border-[#2A374E]'
+        }`;
+
+        card.innerHTML = `
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-1.5 min-w-0">
+              <span class="font-bold text-xs text-white truncate max-w-[140px]">${escapeHtml(preset.name)}</span>
+              ${isActive ? '<span class="text-[9px] px-1 py-0.2 rounded font-bold bg-[#00FFA3]/20 text-[#00FFA3] border border-[#00FFA3]/40">현재 활성</span>' : ''}
+            </div>
+            <div class="flex items-center gap-1 shrink-0">
+              <button type="button" onclick="promptRenamePreset('${preset.id}')" class="px-1.5 py-0.5 rounded text-[10px] bg-[#161F2E] hover:bg-[#1E2738] text-slate-300 hover:text-white border border-[#243044] cursor-pointer" title="프리셋 이름 변경">
+                ✏️ 수정
+              </button>
+              <button type="button" onclick="requestDeletePreset('${preset.id}')" class="px-1.5 py-0.5 rounded text-[10px] bg-[#161F2E] hover:bg-rose-950/80 text-slate-400 hover:text-rose-300 border border-[#243044] hover:border-rose-800/50 cursor-pointer" title="프리셋 삭제">
+                🗑️ 삭제
+              </button>
+            </div>
+          </div>
+
+          <div id="rename-box-${preset.id}" class="hidden flex items-center gap-1 pt-0.5">
+            <input id="rename-input-${preset.id}" type="text" maxlength="10" value="${escapeHtml(preset.name)}" class="chzzk-input text-xs !py-0.5 flex-1" />
+            <button type="button" onclick="submitRenamePreset('${preset.id}')" class="px-2 py-0.5 rounded bg-[#00FFA3] text-black text-[11px] font-bold cursor-pointer">확인</button>
+            <button type="button" onclick="cancelRenamePreset('${preset.id}')" class="px-2 py-0.5 rounded bg-[#161F2E] text-slate-300 text-[11px] cursor-pointer">취소</button>
+          </div>
+
+          <div class="text-[11px] text-slate-300 truncate font-medium">
+            ${escapeHtml(preset.title)}
+          </div>
+          <div class="flex items-center gap-1.5 text-[10px] flex-wrap">
+            <span class="text-[#00FFA3] bg-[#00FFA3]/10 px-1 py-0.2 rounded border border-[#00FFA3]/20 font-medium">${escapeHtml(preset.category_name || '-')}</span>
+            ${(preset.tags || []).map(t => `<span class="text-slate-400 bg-[#161F2E] px-1 py-0.2 rounded">#${escapeHtml(t)}</span>`).join('')}
+          </div>
+
+          <div class="pt-0.5 flex items-center gap-1">
+            <button type="button" onclick="applyPresetFromModal('${preset.id}')" class="flex-1 py-1 rounded bg-[#161F2E] hover:bg-[#00FFA3] hover:text-black border border-[#243044] hover:border-[#00FFA3] text-slate-200 text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-1">
+              <span>📥</span> <span>이 설정으로 불러오기</span>
+            </button>
+            <button type="button" onclick="openPresetSaveModal('${preset.id}')" class="px-2 py-1 rounded bg-[#161F2E] hover:bg-[#1E2738] border border-[#243044] text-slate-300 text-xs font-medium transition-colors cursor-pointer flex items-center gap-1" title="현재 설정을 이 프리셋에 덮어쓰기">
+              <span>🔄</span> <span>덮어쓰기</span>
+            </button>
+          </div>
+        `;
+        listEl.appendChild(card);
+      });
+    }
+
+    function promptRenamePreset(id) {
+      const box = document.getElementById(`rename-box-${id}`);
+      if (!box) return;
+      const isHidden = box.classList.contains('hidden');
+      box.classList.toggle('hidden', !isHidden);
+      if (isHidden) {
+        const input = document.getElementById(`rename-input-${id}`);
+        if (input) setTimeout(() => input.focus(), 50);
+      }
+    }
+
+    function cancelRenamePreset(id) {
+      const box = document.getElementById(`rename-box-${id}`);
+      if (box) box.classList.add('hidden');
+    }
+
+    async function submitRenamePreset(id) {
+      const input = document.getElementById(`rename-input-${id}`);
+      if (!input) return;
+      const newName = input.value.trim();
+
+      if (!newName) {
+        showToast('수정 오류', 'warn', '프리셋 이름을 입력해 주세요.');
+        return;
+      }
+      if (newName.length > MAX_PRESET_NAME_LEN) {
+        showToast('수정 오류', 'warn', `프리셋 이름은 최대 ${MAX_PRESET_NAME_LEN}자까지 가능합니다.`);
+        return;
+      }
+      if (broadcastPresets.some(p => p.id !== id && p.name === newName)) {
+        showToast('수정 오류', 'warn', '이미 같은 이름의 프리셋이 존재합니다.');
+        return;
+      }
+
+      const target = broadcastPresets.find(p => p.id === id);
+      if (!target) return;
+      target.name = newName;
+
+      try {
+        const res = await apiFetch('/save-broadcast-presets', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ presets: broadcastPresets })
+        });
+        if (res.ok) {
+          updatePresetToolbarLabel();
+          renderPresetLoadList();
+          showToast('프리셋 이름 변경', 'success', `'${newName}'(으)로 이름이 변경되었습니다.`);
+        } else {
+          showToast('저장 실패', 'error', '프리셋 이름 저장에 실패했습니다.');
+        }
+      } catch (err) {
+        showToast('저장 실패', 'error', err.message);
+      }
+    }
+
+    async function requestDeletePreset(id) {
+      const target = broadcastPresets.find(p => p.id === id);
+      if (!target) return;
+
+      const ok = await showConfirmModal({
+        title: '프리셋 삭제 확인',
+        message: `'${target.name}' 프리셋을 정말 삭제하시겠습니까?`,
+        submessage: '삭제된 프리셋은 복구할 수 없습니다.',
+        confirmText: '삭제',
+        cancelText: '취소',
+        danger: true,
+        icon: '🗑️'
+      });
+      if (!ok) return;
+
+      const nextPresets = broadcastPresets.filter(p => p.id !== id);
+      try {
+        const res = await apiFetch('/save-broadcast-presets', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ presets: nextPresets })
+        });
+        if (res.ok) {
+          broadcastPresets = nextPresets;
+          if (activePresetId === id) activePresetId = null;
+          updatePresetToolbarLabel();
+          renderPresetLoadList();
+          showToast('프리셋 삭제 완료', 'info', `'${target.name}' 프리셋이 삭제되었습니다.`);
+        } else {
+          showToast('삭제 실패', 'error', '프리셋 저장 중 오류가 발생했습니다.');
+        }
+      } catch (err) {
+        showToast('삭제 실패', 'error', err.message);
+      }
+    }
+
+    function applyPresetFromModal(id) {
+      applyPreset(id);
+      closePresetLoadModal();
+    }
+
+    function applyPreset(id) {
+      const target = broadcastPresets.find(p => p.id === id);
+      if (!target) return;
+
+      activePresetId = id;
+
+      // 1. 방송 제목 적용
+      const elTitle = document.getElementById('live-title');
+      const elTitleClear = document.getElementById('title-clear');
+      const countEl = document.getElementById('title-count');
+      if (elTitle) {
+        elTitle.value = target.title || '';
+        if (countEl) countEl.textContent = `${elTitle.value.length}/50`;
+        if (elTitleClear) elTitleClear.style.display = elTitle.value ? 'block' : 'none';
+        flashElement(elTitle);
+      }
+
+      // 2. 카테고리 적용 (같이보기 락이 걸려있지 않은 경우에만)
+      const elCatSearch = document.getElementById('category-search');
+      const elCatId = document.getElementById('category-id');
+      const elCatType = document.getElementById('category-type');
+      const elCatClear = document.getElementById('category-clear');
+      if (elCatSearch && !elCatSearch.disabled) {
+        elCatSearch.value = target.category_name || '';
+        if (elCatId) elCatId.value = target.category_id || '';
+        if (elCatType) elCatType.value = target.category_type || '';
+        if (elCatClear) elCatClear.style.display = (target.category_id || target.category_name) ? 'block' : 'none';
+        flashElement(elCatSearch);
+      }
+
+      // 3. 태그 적용 (기존 캠페인 태그 락 유지하면서 교체)
+      currentTags = Array.isArray(target.tags) ? [...target.tags] : [];
+      renderTags();
+      const tagContainer = document.getElementById('tag-container');
+      if (tagContainer) flashElement(tagContainer);
+
+      // 4. Dirty 상태 갱신
+      checkBroadcastStateDirty();
+      updatePresetToolbarLabel();
+      showToast('프리셋 불러오기 완료', 'info', `'${target.name}' 설정을 불러왔습니다. 제목 수정 후 [방송 정보 적용]을 누르세요.`);
+    }
+
+    function flashElement(el) {
+      if (!el) return;
+      el.classList.add('pulse-feedback');
+      setTimeout(() => el.classList.remove('pulse-feedback'), 400);
+    }
+
+    // ── 2. 프리셋 저장/덮어쓰기 모달 제어 ──
+    function openPresetSaveModal(presetIdToOverwrite = null) {
+      closePresetLoadModal();
+      const modal = document.getElementById('modal-preset-save');
+      const slotEl = document.getElementById('save-modal-slot-count');
+      if (!modal) return;
+
+      if (slotEl) {
+        slotEl.textContent = `${broadcastPresets.length} / ${MAX_PRESET_SLOTS}`;
+        slotEl.className = (broadcastPresets.length >= MAX_PRESET_SLOTS)
+          ? 'text-[9.5px] px-1.5 py-0.2 rounded bg-rose-950 text-rose-400 font-mono border border-rose-800/40'
+          : 'text-[9.5px] px-1.5 py-0.2 rounded bg-[#161F2E] text-slate-400 font-mono border border-[#243044]';
+      }
+
+      // 현재 방송 설정 스냅샷 미리보기 채우기
+      const curTitle = (document.getElementById('live-title')?.value || '').trim();
+      const curCat = (document.getElementById('category-search')?.value || '').trim();
+
+      const previewTitle = document.getElementById('save-preview-title');
+      const previewCat = document.getElementById('save-preview-cat');
+      const previewTags = document.getElementById('save-preview-tags');
+
+      if (previewTitle) previewTitle.textContent = curTitle || '(제목 없음)';
+      if (previewCat) previewCat.textContent = curCat || '(카테고리 없음)';
+      if (previewTags) {
+        previewTags.innerHTML = '';
+        if (currentTags.length === 0) {
+          previewTags.innerHTML = '<span class="text-slate-500">(태그 없음)</span>';
+        } else {
+          currentTags.forEach(t => {
+            previewTags.innerHTML += `<span class="px-1.5 py-0.2 rounded bg-[#161F2E] border border-[#243044] text-[#00FFA3] text-[9.5px]">#${escapeHtml(t)}</span>`;
+          });
+        }
+      }
+
+      // 덮어쓰기 셀렉트박스 옵션 구성
+      populateOverwriteSelect(presetIdToOverwrite);
+
+      // 슬롯이 가득 찼거나 특정 대상을 덮어쓰기 위해 열었으면 덮어쓰기 탭 활성화
+      if (presetIdToOverwrite || broadcastPresets.length >= MAX_PRESET_SLOTS) {
+        switchPresetSaveTab('overwrite');
+      } else {
+        switchPresetSaveTab('new');
+      }
+
+      const inputName = document.getElementById('input-save-new-name');
+      if (inputName) {
+        inputName.value = '';
+        validatePresetSaveNew();
+      }
+
+      modal.classList.remove('hidden');
+    }
+
+    function openPresetSaveModalFromLoad() {
+      openPresetSaveModal();
+    }
+
+    function closePresetSaveModal() {
+      const modal = document.getElementById('modal-preset-save');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    function populateOverwriteSelect(selectedId = null) {
+      const selectEl = document.getElementById('select-preset-overwrite');
+      if (!selectEl) return;
+
+      selectEl.innerHTML = '';
+      if (broadcastPresets.length === 0) {
+        selectEl.innerHTML = '<option value="">(덮어쓸 기존 프리셋 없음)</option>';
+        onSelectOverwritePreset('');
+        return;
+      }
+
+      broadcastPresets.forEach(preset => {
+        const opt = document.createElement('option');
+        opt.value = preset.id;
+        opt.textContent = `${preset.name} - [${preset.category_name || '카테고리 없음'}] ${preset.title}`;
+        if (selectedId && preset.id === selectedId) {
+          opt.selected = true;
+        } else if (!selectedId && preset.id === activePresetId) {
+          opt.selected = true;
+        }
+        selectEl.appendChild(opt);
+      });
+
+      onSelectOverwritePreset(selectEl.value);
+    }
+
+    function onSelectOverwritePreset(presetId) {
+      const section = document.getElementById('overwrite-comparison-section');
+      const target = broadcastPresets.find(p => p.id === presetId);
+      if (!target || !section) {
+        if (section) section.classList.add('hidden');
+        return;
+      }
+
+      section.classList.remove('hidden');
+      const elPrevTitle = document.getElementById('ow-prev-title');
+      const elPrevCat = document.getElementById('ow-prev-cat');
+      const elPrevTags = document.getElementById('ow-prev-tags');
+      if (elPrevTitle) elPrevTitle.textContent = target.title || '(제목 없음)';
+      if (elPrevCat) elPrevCat.textContent = target.category_name || '(카테고리 없음)';
+      if (elPrevTags) elPrevTags.textContent = (target.tags && target.tags.length > 0) ? target.tags.map(t => '#' + t).join(' ') : '(태그 없음)';
+
+      const curTitle = (document.getElementById('live-title')?.value || '').trim();
+      const curCat = (document.getElementById('category-search')?.value || '').trim();
+      const elCurrTitle = document.getElementById('ow-curr-title');
+      const elCurrCat = document.getElementById('ow-curr-cat');
+      const elCurrTags = document.getElementById('ow-curr-tags');
+      if (elCurrTitle) elCurrTitle.textContent = curTitle || '(제목 없음)';
+      if (elCurrCat) elCurrCat.textContent = curCat || '(카테고리 없음)';
+      if (elCurrTags) elCurrTags.textContent = (currentTags.length > 0) ? currentTags.map(t => '#' + t).join(' ') : '(태그 없음)';
+    }
+
+    function switchPresetSaveTab(tab) {
+      currentSaveTab = tab;
+      const btnNew = document.getElementById('tab-btn-save-new');
+      const btnOw = document.getElementById('tab-btn-save-overwrite');
+      const contentNew = document.getElementById('tab-content-save-new');
+      const contentOw = document.getElementById('tab-content-save-overwrite');
+
+      if (tab === 'new') {
+        if (btnNew) {
+          btnNew.className = 'py-1 text-[11px] font-semibold rounded transition-all text-center bg-[#1B2535] text-[#00FFA3] shadow-sm cursor-pointer';
+        }
+        if (btnOw) {
+          btnOw.className = 'py-1 text-[11px] font-semibold rounded transition-all text-center text-slate-400 hover:text-white cursor-pointer';
+        }
+        if (contentNew) contentNew.classList.remove('hidden');
+        if (contentOw) contentOw.classList.add('hidden');
+        validatePresetSaveNew();
+      } else {
+        if (btnNew) {
+          btnNew.className = 'py-1 text-[11px] font-semibold rounded transition-all text-center text-slate-400 hover:text-white cursor-pointer';
+        }
+        if (btnOw) {
+          btnOw.className = 'py-1 text-[11px] font-semibold rounded transition-all text-center bg-[#1B2535] text-[#00FFA3] shadow-sm cursor-pointer';
+        }
+        if (contentNew) contentNew.classList.add('hidden');
+        if (contentOw) contentOw.classList.remove('hidden');
+        validatePresetSaveOverwrite();
+      }
+    }
+
+    function validatePresetSaveNew() {
+      if (currentSaveTab !== 'new') return;
+      const nameInput = document.getElementById('input-save-new-name');
+      const counter = document.getElementById('save-new-name-counter');
+      const valMsg = document.getElementById('save-preset-validation-msg');
+      const valText = document.getElementById('save-preset-validation-text');
+      const btnConfirm = document.getElementById('btn-confirm-save-action');
+      if (!nameInput || !btnConfirm) return;
+
+      const name = nameInput.value.trim();
+      if (counter) counter.textContent = `${name.length} / ${MAX_PRESET_NAME_LEN}자`;
+
+      const curTitle = (document.getElementById('live-title')?.value || '').trim();
+      const curCat = (document.getElementById('category-search')?.value || '').trim();
+
+      let err = null;
+      if (broadcastPresets.length >= MAX_PRESET_SLOTS) {
+        err = `슬롯이 가득 찼습니다 (최대 ${MAX_PRESET_SLOTS}개). 기존 프리셋에 덮어쓰거나 삭제하세요.`;
+      } else if (!name) {
+        err = '프리셋 이름을 입력해 주세요 (최대 10자).';
+      } else if (name.length > MAX_PRESET_NAME_LEN) {
+        err = `프리셋 이름은 최대 ${MAX_PRESET_NAME_LEN}자까지 가능합니다.`;
+      } else if (broadcastPresets.some(p => p.name === name)) {
+        err = '이미 같은 이름의 프리셋이 존재합니다.';
+      } else if (!curTitle) {
+        err = '현재 방송 제목이 비어있습니다. 제목을 먼저 입력하세요.';
+      } else if (!curCat) {
+        err = '현재 카테고리가 비어있습니다. 카테고리를 먼저 선택하세요.';
+      } else if (currentTags.length > 5) {
+        err = '태그는 최대 5개까지만 등록할 수 있습니다.';
+      }
+
+      if (err) {
+        if (valMsg) valMsg.classList.remove('hidden');
+        if (valText) valText.textContent = err;
+        btnConfirm.disabled = true;
+      } else {
+        if (valMsg) valMsg.classList.add('hidden');
+        btnConfirm.disabled = false;
+      }
+    }
+
+    function validatePresetSaveOverwrite() {
+      if (currentSaveTab !== 'overwrite') return;
+      const valMsg = document.getElementById('save-preset-validation-msg');
+      const valText = document.getElementById('save-preset-validation-text');
+      const btnConfirm = document.getElementById('btn-confirm-save-action');
+      if (!btnConfirm) return;
+
+      const targetId = document.getElementById('select-preset-overwrite')?.value;
+      const curTitle = (document.getElementById('live-title')?.value || '').trim();
+      const curCat = (document.getElementById('category-search')?.value || '').trim();
+
+      let err = null;
+      if (!targetId || broadcastPresets.length === 0) {
+        err = '덮어쓸 대상 프리셋이 없습니다.';
+      } else if (!curTitle) {
+        err = '현재 방송 제목이 비어있습니다.';
+      } else if (!curCat) {
+        err = '현재 카테고리가 비어있습니다.';
+      }
+
+      if (err) {
+        if (valMsg) valMsg.classList.remove('hidden');
+        if (valText) valText.textContent = err;
+        btnConfirm.disabled = true;
+      } else {
+        if (valMsg) valMsg.classList.add('hidden');
+        btnConfirm.disabled = false;
+      }
+    }
+
+    async function executePresetSaveAction() {
+      const curTitle = (document.getElementById('live-title')?.value || '').trim();
+      const curCatSearch = (document.getElementById('category-search')?.value || '').trim();
+      const curCatId = (document.getElementById('category-id')?.value || '').trim();
+      const curCatType = (document.getElementById('category-type')?.value || '').trim();
+
+      if (!curTitle || !curCatSearch) {
+        showToast('저장 불가', 'warn', '방송 제목과 카테고리를 먼저 설정해 주세요.');
+        return;
+      }
+
+      if (currentSaveTab === 'new') {
+        const nameInput = document.getElementById('input-save-new-name');
+        const name = nameInput ? nameInput.value.trim() : '';
+        if (!name) {
+          validatePresetSaveNew();
+          return;
+        }
+        if (broadcastPresets.length >= MAX_PRESET_SLOTS) {
+          showToast('슬롯 초과', 'warn', `프리셋은 최대 ${MAX_PRESET_SLOTS}개까지만 등록할 수 있습니다.`);
+          return;
+        }
+
+        const newPreset = {
+          id: 'preset_' + Date.now(),
+          name: name,
+          title: curTitle,
+          category_id: curCatId,
+          category_type: curCatType,
+          category_name: curCatSearch,
+          tags: [...currentTags]
+        };
+
+        const nextPresets = [...broadcastPresets, newPreset];
+        try {
+          const res = await apiFetch('/save-broadcast-presets', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ presets: nextPresets })
+          });
+          if (res.ok) {
+            broadcastPresets = nextPresets;
+            activePresetId = newPreset.id;
+            updatePresetToolbarLabel();
+            closePresetSaveModal();
+            showToast('프리셋 등록 완료', 'success', `'${name}' 프리셋이 성공적으로 저장되었습니다!`);
+          } else {
+            const data = await res.json().catch(() => ({}));
+            showToast('저장 실패', 'error', data.message || '프리셋 저장 중 오류가 발생했습니다.');
+          }
+        } catch (err) {
+          showToast('저장 실패', 'error', err.message);
+        }
+      } else {
+        // 기존 덮어쓰기 모드
+        const targetId = document.getElementById('select-preset-overwrite')?.value;
+        const target = broadcastPresets.find(p => p.id === targetId);
+        if (!target) {
+          showToast('덮어쓰기 오류', 'warn', '덮어쓸 대상 프리셋을 선택해 주세요.');
+          return;
+        }
+
+        const ok = await showConfirmModal({
+          title: '프리셋 덮어쓰기 확인',
+          message: `'${target.name}' 프리셋의 설정을 현재 방송 정보로 덮어쓰시겠습니까?`,
+          submessage: '선택한 프리셋의 제목, 카테고리, 태그가 현재 설정으로 즉시 변경됩니다.',
+          confirmText: '덮어쓰기',
+          cancelText: '취소',
+          danger: false,
+          icon: '🔄'
+        });
+        if (!ok) return;
+
+        target.title = curTitle;
+        target.category_id = curCatId;
+        target.category_type = curCatType;
+        target.category_name = curCatSearch;
+        target.tags = [...currentTags];
+
+        try {
+          const res = await apiFetch('/save-broadcast-presets', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ presets: broadcastPresets })
+          });
+          if (res.ok) {
+            activePresetId = target.id;
+            updatePresetToolbarLabel();
+            closePresetSaveModal();
+            showToast('프리셋 덮어쓰기 완료', 'success', `'${target.name}' 프리셋이 현재 설정으로 갱신되었습니다!`);
+          } else {
+            const data = await res.json().catch(() => ({}));
+            showToast('저장 실패', 'error', data.message || '프리셋 저장 중 오류가 발생했습니다.');
+          }
+        } catch (err) {
+          showToast('저장 실패', 'error', err.message);
+        }
+      }
+    }
+
+    // ===== 소프트웨어 자동 업데이트 파이프라인 =====
+    let cachedUpdateInfo = null;
+    let updatePollTimer = null;
+    let isCheckingUpdate = false;
+
+    async function checkForUpdate(manual = false) {
+      if (isCheckingUpdate) return;
+      isCheckingUpdate = true;
+
+      const btnCheck = document.getElementById('btn-check-update');
+      const badgeStatus = document.getElementById('badge-update-status');
+      const labelStatus = document.getElementById('label-update-status');
+      const btnRun = document.getElementById('btn-run-update');
+      const labelRun = document.getElementById('label-run-update');
+
+      if (btnCheck) {
+        btnCheck.disabled = true;
+        if (manual) {
+          btnCheck.innerHTML = '<span>⏳</span> <span>확인 중...</span>';
+        }
+      }
+
+      try {
+        const res = await apiFetch(`/check-update?force=${manual ? 'true' : 'false'}`);
+        if (!res.ok) {
+          if (manual) {
+            showToast('업데이트 확인 실패', 'error', '서버 통신에 실패했습니다.');
+          } else {
+            console.warn('[Updater] Silent startup check failed with HTTP status:', res.status);
+          }
+          return;
+        }
+        const data = await res.json();
+        if (data.code === 200 && data.info) {
+          cachedUpdateInfo = data.info;
+          if (data.info.has_update) {
+            if (badgeStatus) {
+              badgeStatus.className = 'px-2 py-0.5 rounded text-[9.5px] font-bold bg-amber-950/80 text-amber-400 border border-amber-500/30';
+              badgeStatus.textContent = `${data.info.latest_version} 출시`;
+            }
+            if (labelStatus) {
+              labelStatus.innerHTML = `현재: <b class="text-slate-300 font-mono">${data.info.current_version}</b> ➔ 최신: <b class="text-[#00FFA3] font-mono">${data.info.latest_version}</b>`;
+            }
+            if (btnRun) {
+              btnRun.classList.remove('hidden');
+              if (labelRun) labelRun.textContent = `${data.info.latest_version} 지금 업데이트`;
+            }
+
+            const skippedVer = localStorage.getItem('chzzk_skip_update_version');
+            if (manual) {
+              openUpdateModal();
+            } else if (skippedVer !== data.info.latest_version) {
+              openUpdateModal();
+            }
+          } else {
+            if (badgeStatus) {
+              badgeStatus.className = 'px-2 py-0.5 rounded text-[9.5px] font-bold bg-emerald-950/80 text-emerald-400 border border-emerald-500/30';
+              badgeStatus.textContent = '최신 상태';
+            }
+            if (labelStatus) {
+              labelStatus.innerHTML = `현재 버전: <b class="text-slate-300 font-mono">${data.info.current_version}</b> (최신)`;
+            }
+            if (btnRun) btnRun.classList.add('hidden');
+            if (manual) {
+              showToast('✅ 최신 버전 사용 중', 'info', `현재 최신 버전(${data.info.current_version})을 사용하고 있습니다.`);
+            }
+          }
+        } else if (manual) {
+          showToast('업데이트 확인 안내', 'warn', data.message || '최신 버전을 확인할 수 없습니다.');
+        } else {
+          console.warn('[Updater] Silent startup check returned non-200 code:', data.message);
+        }
+      } catch (err) {
+        if (manual) {
+          showToast('업데이트 확인 오류', 'error', err.message);
+        } else {
+          console.warn('[Updater] Silent startup check network exception:', err.message);
+        }
+      } finally {
+        isCheckingUpdate = false;
+        if (btnCheck) {
+          btnCheck.disabled = false;
+          btnCheck.innerHTML = '<span>🔍</span> <span>업데이트 확인</span>';
+        }
+      }
+    }
+
+    function manualCheckForUpdate() {
+      checkForUpdate(true);
+    }
+
+    function openUpdateModal(forceProgress = false) {
+      if (!cachedUpdateInfo) return;
+      const modal = document.getElementById('modal-updater');
+      const promptView = document.getElementById('update-prompt-view');
+      const progressView = document.getElementById('update-progress-view');
+      const latestVerEl = document.getElementById('update-latest-ver');
+      const currentVerEl = document.getElementById('update-current-ver');
+
+      if (latestVerEl) latestVerEl.textContent = cachedUpdateInfo.latest_version || '';
+      if (currentVerEl) currentVerEl.textContent = cachedUpdateInfo.current_version || '';
+
+      const installBtnLabel = document.getElementById('btn-start-update-label');
+      if (installBtnLabel) {
+        installBtnLabel.textContent = cachedUpdateInfo.already_downloaded ? '즉시 설치 (다운로드 완료됨)' : '업데이트 설치';
+      }
+
+      if (forceProgress) {
+        if (promptView) promptView.classList.add('hidden');
+        if (progressView) progressView.classList.remove('hidden');
+      } else {
+        if (promptView) promptView.classList.remove('hidden');
+        if (progressView) progressView.classList.add('hidden');
+      }
+
+      if (modal) modal.classList.remove('hidden');
+    }
+
+    function closeUpdateModal() {
+      if (updatePollTimer) clearInterval(updatePollTimer);
+      const modal = document.getElementById('modal-updater');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    function openReleaseNotesLink() {
+      const url = cachedUpdateInfo?.release_url || 'https://github.com/MK0522/chzzk-dock/releases';
+      openExternalUrl(url, 'GitHub 릴리즈');
+    }
+
+    function skipCurrentUpdateVersion() {
+      if (cachedUpdateInfo?.latest_version) {
+        localStorage.setItem('chzzk_skip_update_version', cachedUpdateInfo.latest_version);
+      }
+      closeUpdateModal();
+      showToast('업데이트 건너뛰기', 'info', `${cachedUpdateInfo?.latest_version || ''} 버전 알림을 건너뜁니다.`);
+    }
+
+    function startUpdateDownload() {
+      const promptView = document.getElementById('update-prompt-view');
+      const progressView = document.getElementById('update-progress-view');
+      if (promptView) promptView.classList.add('hidden');
+      if (progressView) progressView.classList.remove('hidden');
+      executeInstall();
+    }
+
+    async function executeInstall() {
+      const cancelBtn = document.getElementById('btn-update-cancel');
+      const progressBar = document.getElementById('update-progress-bar');
+      const percentText = document.getElementById('update-percent-text');
+      const statusText = document.getElementById('update-status-text');
+      const sizeDetail = document.getElementById('update-size-detail');
+      const speedDetail = document.getElementById('update-speed-detail');
+      const noticeBox = document.getElementById('update-notice-box');
+      const noticeMsg = document.getElementById('update-notice-msg');
+
+      if (cancelBtn) cancelBtn.textContent = '백그라운드에서 진행';
+
+      if (cachedUpdateInfo?.already_downloaded) {
+        if (statusText) statusText.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-[#00FFA3]"></span> 보관된 인스톨러로 즉시 설치 실행 중...`;
+        if (progressBar) progressBar.style.width = '100%';
+        if (percentText) percentText.textContent = '100%';
+      }
+
+      try {
+        const res = await apiFetch('/execute-update', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            download_url: cachedUpdateInfo?.download_url || '',
+            latest_version: cachedUpdateInfo?.latest_version || ''
+          })
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.message || '업데이트 실행 요청 실패');
+        }
+
+        if (updatePollTimer) clearInterval(updatePollTimer);
+        updatePollTimer = setInterval(async () => {
+          try {
+            const pRes = await apiFetch('/update-status');
+            if (!pRes.ok) return;
+            const pData = await pRes.json();
+            const p = pData.progress;
+            if (!p) return;
+
+            if (p.error) {
+              clearInterval(updatePollTimer);
+              if (progressBar) {
+                progressBar.style.width = '100%';
+                progressBar.className = 'h-full bg-rose-500 rounded-full';
+              }
+              if (percentText) {
+                percentText.textContent = '오류';
+                percentText.className = 'font-bold text-rose-400';
+              }
+              if (statusText) statusText.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span> 실패`;
+              if (noticeBox && noticeMsg) {
+                noticeBox.classList.remove('hidden');
+                noticeBox.className = 'p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-[11px] text-rose-300 leading-relaxed';
+                noticeMsg.textContent = p.error;
+              }
+              if (cancelBtn) cancelBtn.textContent = '닫기';
+              return;
+            }
+
+            if (progressBar) progressBar.style.width = p.percent + '%';
+            if (percentText) percentText.textContent = p.percent + '%';
+            if (sizeDetail && p.total > 0) {
+              const recMB = (p.received / (1024 * 1024)).toFixed(1);
+              const totMB = (p.total / (1024 * 1024)).toFixed(1);
+              sizeDetail.textContent = `${recMB} MB / ${totMB} MB`;
+            }
+            if (speedDetail && p.speed_bps > 0) {
+              const spdMB = (p.speed_bps / (1024 * 1024)).toFixed(1);
+              speedDetail.textContent = `~ ${spdMB} MB/s`;
+            }
+
+            if (p.done) {
+              clearInterval(updatePollTimer);
+              if (statusText) statusText.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-[#00FFA3]"></span> 설치 프로그램 실행 중...`;
+              if (noticeBox && noticeMsg) {
+                noticeBox.classList.remove('hidden');
+                noticeBox.className = 'p-2.5 rounded-lg bg-[#00FFA3]/10 border border-[#00FFA3]/30 text-[11px] text-slate-200 leading-relaxed';
+                noticeMsg.innerHTML = '✨ <b>다운로드가 완료되었습니다.</b><br>설치 프로그램이 실행되며 기존 독이 자동으로 닫힙니다.';
+              }
+              if (cancelBtn) cancelBtn.textContent = '닫기';
+            }
+          } catch (e) {
+            console.warn('Update poll error:', e);
+          }
+        }, 300);
+      } catch (err) {
+        showToast('업데이트 시작 실패', 'error', err.message);
+        if (cancelBtn) cancelBtn.textContent = '닫기';
       }
     }
 
@@ -5836,35 +7257,23 @@
     let currentObsStatus = { detected: false, path: '', installed: false, needs_update: false };
 
     function updateObsScriptUI() {
-      const badge = document.getElementById('obs-script-status-badge');
       const btn = document.getElementById('btn-obs-script-action');
-      if (!badge || !btn) return;
+      if (!btn) return;
 
       if (currentObsStatus.installed) {
         if (currentObsStatus.needs_update) {
-          badge.textContent = '업데이트 필요';
-          badge.className = 'text-[9px] px-1.5 py-0.5 rounded font-bold bg-amber-950/80 text-amber-400 border border-amber-800/50';
           btn.textContent = '🔄 스크립트 업데이트';
           btn.disabled = false;
-          btn.className = 'px-2.5 py-1 text-[11px] font-bold rounded transition-all cursor-pointer bg-amber-950/50 border border-amber-500/50 text-amber-300 hover:bg-amber-900/60 hover:text-white';
+          btn.className = 'px-3 py-1.5 text-[11px] font-bold rounded transition-all cursor-pointer bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-md font-extrabold';
         } else {
-          badge.textContent = '설치됨 (최신)';
-          badge.className = 'text-[9px] px-1.5 py-0.5 rounded font-bold bg-emerald-950/80 text-[#00FFA3] border border-emerald-800/50';
-          btn.textContent = '✔️ 설치됨';
+          btn.textContent = '✅ 설치 완료';
           btn.disabled = true;
-          btn.className = 'px-2.5 py-1 text-[11px] font-bold rounded bg-[#161F2E] border border-[#243044] text-emerald-400 opacity-80 cursor-default';
+          btn.className = 'px-3 py-1.5 text-[11px] font-bold rounded bg-emerald-950/80 border border-emerald-500/60 text-[#00FFA3] cursor-default shadow-sm';
         }
       } else {
-        if (currentObsStatus.detected) {
-          badge.textContent = '미설치';
-          badge.className = 'text-[9px] px-1.5 py-0.5 rounded font-medium bg-slate-800 text-slate-300 border border-slate-700';
-        } else {
-          badge.textContent = '경로 미감지';
-          badge.className = 'text-[9px] px-1.5 py-0.5 rounded font-medium bg-amber-950/80 text-amber-400 border border-amber-800/50';
-        }
         btn.textContent = '📥 스크립트 설치';
         btn.disabled = false;
-        btn.className = 'px-2.5 py-1 text-[11px] font-bold rounded transition-all cursor-pointer bg-emerald-950/50 border border-emerald-500/50 text-[#00FFA3] hover:bg-emerald-900/60 hover:text-white';
+        btn.className = 'px-3 py-1.5 text-[11px] font-bold rounded transition-all cursor-pointer bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-md font-extrabold';
       }
     }
 
@@ -6226,8 +7635,9 @@
         if (badgeA) { badgeA.textContent = "✅ 쿠키 연동됨"; badgeA.className = "text-[9px] px-1.5 py-0.5 rounded font-bold bg-emerald-950 text-[#00FFA3] border border-emerald-800/60"; }
         if (badgeB) { badgeB.textContent = "✅ 등록됨"; badgeB.className = "text-[9px] px-1.5 py-0.5 rounded font-bold bg-emerald-950 text-[#00FFA3] border border-emerald-800/60"; }
         if (btnWebview) {
-          btnWebview.innerHTML = "✅ 로그인 연결 완료 (재로그인은 클릭)";
-          btnWebview.className = "save-btn text-xs py-2.5 bg-gradient-to-r from-emerald-400 to-teal-400 !text-[#080A0D] font-extrabold shadow-md";
+          btnWebview.innerHTML = "🚪 로그아웃";
+          btnWebview.className = "save-btn text-xs py-2 bg-rose-900/60 hover:bg-rose-800 text-rose-200 border border-rose-600/60 transition-colors cursor-pointer";
+          btnWebview.onclick = handleLogout;
         }
         updateSavedBroadcastBaseline();
       } else {

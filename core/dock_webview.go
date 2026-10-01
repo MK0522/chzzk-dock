@@ -347,6 +347,18 @@ func InitDockWindow(port int, version string, showInitially bool) uintptr {
 	chromium.Resize()
 	chromium.Focus()
 
+	chromium.MessageCallback = func(message string, sender *edge.ICoreWebView2, args *edge.ICoreWebView2WebMessageReceivedEventArgs) {
+		if strings.HasPrefix(message, "open-external:") {
+			targetURL := strings.TrimPrefix(message, "open-external:")
+			if GetExternalBrowserGuard() {
+				OpenBrowser(targetURL)
+			}
+		}
+	}
+
+	// 외부 링크 가드 스크립트 적용 (네이버/로컬 외 외부 링크는 기본 웹 브라우저로 위임)
+	chromium.Init(ExternalLinkGuardScript)
+
 	// 초기 백색 화면 방지 (배경 다크 테마)
 	chromium.SetBackgroundColour(0x0B, 0x0E, 0x11, 255)
 
