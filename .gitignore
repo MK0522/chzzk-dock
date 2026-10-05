@@ -30,9 +30,13 @@ docs/RELEASE_HISTORY.md
 RELEASE_HISTORY.md
 AGENTS.md
 GEMINI.md
+docs/PROJECT_STRUCTURE_GUIDE.md
 
 # Test files (Do not upload to GitHub)
 *_test.go
 release_body.md
 docs/SESSION_ARCHITECTURE_ELI5.md
 docs/*.html
+docs/REFACTORING_BLUEPRINT.md
+docs/TEST_SPECIFICATIONS.md
+docs/ERROR_CODES.md

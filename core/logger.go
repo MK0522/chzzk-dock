@@ -78,8 +78,10 @@ func (m *MemoryLogger) Log(level LogLevel, format string, args ...interface{}) {
 
 	m.mu.Lock()
 	if len(m.entries) >= MaxLogEntries {
-		// 원형 FIFO 유지: 앞쪽 500개 제거
-		m.entries = m.entries[500:]
+		// 원형 FIFO 유지: 앞쪽 500개 제거 및 백킹 배열 참조 해제(GC 허용)
+		copy(m.entries, m.entries[500:])
+		clear(m.entries[len(m.entries)-500:])
+		m.entries = m.entries[:len(m.entries)-500]
 	}
 	m.entries = append(m.entries, entry)
 	m.mu.Unlock()
@@ -89,16 +91,36 @@ func (m *MemoryLogger) Log(level LogLevel, format string, args ...interface{}) {
 	fmt.Printf("[%s] [%s] %s\n", timeStr, level.String(), msg)
 }
 
-// GetLogsText: 지금까지 수집된 메모리 로그 전체를 텍스트로 반환
+var (
+	currentAppVersion = "v0.6.0"
+)
+
+// SetAppVersion: 진단 리포트용 앱 버전 설정
+func SetAppVersion(ver string) {
+	if ver != "" {
+		currentAppVersion = ver
+	}
+}
+
+// GetLogsText: 하드웨어/OS 사양과 수집된 메모리 로그 전체를 텍스트로 반환
 func (m *MemoryLogger) GetLogsText() string {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
 	var sb strings.Builder
 	sb.WriteString("==============================================================================\n")
-	sb.WriteString(fmt.Sprintf("  CHZZK OBS Dock - In-Memory Diagnostics Log (%s)\n", time.Now().Format("2006-01-02 15:04:05")))
-	sb.WriteString("  * 이 로그는 메모리에만 임시 저장되며, 프로그램 종료 시 자동 삭제됩니다.\n")
-	sb.WriteString("==============================================================================\n\n")
+	sb.WriteString(fmt.Sprintf("  CHZZK OBS Dock - 시스템 진단 리포트 (%s)\n", time.Now().Format("2006-01-02 15:04:05")))
+	sb.WriteString("==============================================================================\n")
+
+	// 하드웨어 및 OS 시스템 사양 출력
+	specLines := GetSystemSpecLines(currentAppVersion)
+	for _, line := range specLines {
+		sb.WriteString(line + "\n")
+	}
+
+	sb.WriteString("------------------------------------------------------------------------------\n")
+	sb.WriteString("  [최근 실행 및 오류 로그]\n")
+	sb.WriteString("------------------------------------------------------------------------------\n")
 
 	for _, e := range m.entries {
 		sb.WriteString(fmt.Sprintf("[%s] [%-5s] %s\n",
@@ -112,6 +134,7 @@ func (m *MemoryLogger) GetLogsText() string {
 		sb.WriteString("(기록된 로그가 없습니다.)\n")
 	}
 
+	sb.WriteString("==============================================================================\n")
 	return sb.String()
 }
 
@@ -152,6 +175,20 @@ func ViewLogsInNotepad() error {
 	if err := cmd.Start(); err != nil {
 		LogError("메모장 실행 실패: %v", err)
 		return err
+	}
+	return nil
+}
+
+// CopyLogsToClipboard: 진단 리포트 전체를 클립보드에 복사
+func CopyLogsToClipboard() error {
+	logText := appLogger.GetLogsText()
+	if err := SetClipboardText(logText); err != nil {
+		LogError("클립보드 복사 실패: %v", err)
+		return err
+	}
+	LogInfo("진단 리포트 클립보드 복사 완료 (%d bytes)", len(logText))
+	if GlobalTray != nil {
+		GlobalTray.ShowNotification("CHZZK OBS Dock", "시스템 진단 리포트가 클립보드에 복사되었습니다.\n(개발자에게 그대로 붙여넣기 하시면 됩니다.)")
 	}
 	return nil
 }

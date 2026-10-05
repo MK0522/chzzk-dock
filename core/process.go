@@ -1,7 +1,11 @@
 package core
 
 import (
+	"crypto/rand"
+	"encoding/binary"
 	"fmt"
+	"math/big"
+	"net"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -11,12 +15,34 @@ import (
 	"unsafe"
 )
 
+// ==============================================================================
+// [CHZZK OBS DOCK - Process, Network & OBS Integration Engine]
+// - 통합 모듈: Win32 프로세스 스냅샷(Toolhelp32), TCP 포트 점유 감지(iphlpapi), OBS 환경 감지 및 스크립트 설치
+// - Zero-PowerShell / Zero-WMI: 순수 Win32 API로 백신 오탐 원천 차단 및 0ms 즉시 응답
+// ==============================================================================
+
+// -----------------------------------------------------------------------------
+// 1. 공통 Win32 DLL 및 프로시저 정의
+// -----------------------------------------------------------------------------
+
+const (
+	TH32CS_SNAPPROCESS                = 0x00000002
+	PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+)
+
 var (
-	procOpenProcess                = kernel32.NewProc("OpenProcess")
+	iphlpapiDLL       = syscall.NewLazyDLL("iphlpapi.dll")
+	procGetOsTcpTable = iphlpapiDLL.NewProc("GetExtendedTcpTable")
+
+	procCreateT32Snap   = kernel32.NewProc("CreateToolhelp32Snapshot")
+	procProcess32FirstW = kernel32.NewProc("Process32FirstW")
+	procProcess32NextW  = kernel32.NewProc("Process32NextW")
+	procOpenProcess     = kernel32.NewProc("OpenProcess")
 	procQueryFullProcessImageNameW = kernel32.NewProc("QueryFullProcessImageNameW")
-	procShellExecuteW              = shell32.NewProc("ShellExecuteW")
-	procSHBrowseForFolderW         = shell32.NewProc("SHBrowseForFolderW")
-	procSHGetPathFromIDListW       = shell32.NewProc("SHGetPathFromIDListW")
+
+	procShellExecuteW        = shell32.NewProc("ShellExecuteW")
+	procSHBrowseForFolderW   = shell32.NewProc("SHBrowseForFolderW")
+	procSHGetPathFromIDListW = shell32.NewProc("SHGetPathFromIDListW")
 
 	procCoInitializeEx      = ole32DLL.NewProc("CoInitializeEx")
 	procCoUninitialize      = ole32DLL.NewProc("CoUninitialize")
@@ -24,9 +50,27 @@ var (
 	procSetWindowPos        = user32.NewProc("SetWindowPos")
 )
 
-const (
-	PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
-)
+type PROCESSENTRY32W struct {
+	DwSize              uint32
+	CntUsage            uint32
+	Th32ProcessID       uint32
+	Th32DefaultHeapID   uintptr
+	Th32ModuleID        uint32
+	CntThreads          uint32
+	Th32ParentProcessID uint32
+	PcPriClassBase      int32
+	DwFlags             uint32
+	SzExeFile           [260]uint16
+}
+
+type OsTcpRow struct {
+	State      uint32
+	LocalAddr  uint32
+	LocalPort  uint32
+	RemoteAddr uint32
+	RemotePort uint32
+	OwningPid  uint32
+}
 
 type BROWSEINFOW struct {
 	HwndOwner      uintptr
@@ -39,9 +83,42 @@ type BROWSEINFOW struct {
 	IImage         int32
 }
 
+// -----------------------------------------------------------------------------
+// 2. 프로세스 조회 및 스냅샷 (Process Inspection)
+// -----------------------------------------------------------------------------
+
+// IsProcessRunning: 특정 실행 파일명(예: "obs64.exe")이 시스템에서 실행 중인지 확인
+func IsProcessRunning(targetExe string) bool {
+	hSnap, _, _ := procCreateT32Snap.Call(TH32CS_SNAPPROCESS, 0)
+	if hSnap == 0 || hSnap == uintptr(syscall.InvalidHandle) {
+		return false
+	}
+	defer kernel32.NewProc("CloseHandle").Call(hSnap)
+
+	var entry PROCESSENTRY32W
+	entry.DwSize = uint32(unsafe.Sizeof(entry))
+
+	ret, _, _ := procProcess32FirstW.Call(hSnap, uintptr(unsafe.Pointer(&entry)))
+	if ret == 0 {
+		return false
+	}
+
+	for {
+		exeName := syscall.UTF16ToString(entry.SzExeFile[:])
+		if strings.EqualFold(exeName, targetExe) {
+			return true
+		}
+		ret, _, _ = procProcess32NextW.Call(hSnap, uintptr(unsafe.Pointer(&entry)))
+		if ret == 0 {
+			break
+		}
+	}
+	return false
+}
+
 // FindRunningObsPath: 실행 중인 obs64.exe / obs32.exe의 전체 실행 파일 경로 검색
 func FindRunningObsPath() string {
-	hSnap, _, _ := procCreateToolhelp32Snapshot.Call(TH32CS_SNAPPROCESS, 0)
+	hSnap, _, _ := procCreateT32Snap.Call(TH32CS_SNAPPROCESS, 0)
 	if hSnap == 0 || hSnap == uintptr(syscall.InvalidHandle) {
 		return ""
 	}
@@ -61,10 +138,10 @@ func FindRunningObsPath() string {
 			pid := entry.Th32ProcessID
 			hProcess, _, _ := procOpenProcess.Call(PROCESS_QUERY_LIMITED_INFORMATION, 0, uintptr(pid))
 			if hProcess != 0 {
-				defer kernel32.NewProc("CloseHandle").Call(hProcess)
 				var buf [1024]uint16
 				size := uint32(len(buf))
 				qRet, _, _ := procQueryFullProcessImageNameW.Call(hProcess, 0, uintptr(unsafe.Pointer(&buf[0])), uintptr(unsafe.Pointer(&size)))
+				kernel32.NewProc("CloseHandle").Call(hProcess)
 				if qRet != 0 {
 					return syscall.UTF16ToString(buf[:size])
 				}
@@ -79,25 +156,134 @@ func FindRunningObsPath() string {
 	return ""
 }
 
+// -----------------------------------------------------------------------------
+// 3. 네트워크 포트 탐색기 (Port Detector & Fallback Allocator)
+// -----------------------------------------------------------------------------
+
+// FindProcessUsingPort: 지정된 TCP 포트를 점유(LISTEN) 중인 프로세스의 PID와 이름을 반환합니다.
+func FindProcessUsingPort(port int) (uint32, string) {
+	var size uint32
+	procGetOsTcpTable.Call(0, uintptr(unsafe.Pointer(&size)), 1, 2, 5, 0)
+	if size == 0 {
+		return 0, ""
+	}
+
+	buf := make([]byte, size)
+	r1, _, _ := procGetOsTcpTable.Call(
+		uintptr(unsafe.Pointer(&buf[0])),
+		uintptr(unsafe.Pointer(&size)),
+		1, 2, 5, 0,
+	)
+	if r1 != 0 {
+		return 0, ""
+	}
+
+	numEntries := binary.LittleEndian.Uint32(buf[0:4])
+	rowSize := int(unsafe.Sizeof(OsTcpRow{}))
+
+	for i := 0; i < int(numEntries); i++ {
+		offset := 4 + (i * rowSize)
+		if offset+rowSize > len(buf) {
+			break
+		}
+
+		row := (*OsTcpRow)(unsafe.Pointer(&buf[offset]))
+
+		// 포트 번호 변환 (네트워크 바이트 순서)
+		p := ((row.LocalPort & 0xFF) << 8) | ((row.LocalPort >> 8) & 0xFF)
+
+		if int(p) == port {
+			var pname string = ""
+			if row.OwningPid != 0 {
+				netSnap, _, _ := procCreateT32Snap.Call(TH32CS_SNAPPROCESS, 0)
+				if netSnap != 0 && netSnap != uintptr(syscall.InvalidHandle) {
+					var entry PROCESSENTRY32W
+					entry.DwSize = uint32(unsafe.Sizeof(entry))
+
+					rFirst, _, _ := procProcess32FirstW.Call(netSnap, uintptr(unsafe.Pointer(&entry)))
+					if rFirst != 0 {
+						for {
+							if entry.Th32ProcessID == row.OwningPid {
+								pname = syscall.UTF16ToString(entry.SzExeFile[:])
+								break
+							}
+							rNext, _, _ := procProcess32NextW.Call(netSnap, uintptr(unsafe.Pointer(&entry)))
+							if rNext == 0 {
+								break
+							}
+						}
+					}
+					kernel32.NewProc("CloseHandle").Call(netSnap)
+				}
+			}
+			return row.OwningPid, pname
+		}
+	}
+	return 0, ""
+}
+
+// CheckPortAvailable: 지정된 포트가 사용 가능한지 검사합니다.
+func CheckPortAvailable(port int) (bool, uint32, string, error) {
+	if port < 1024 || port > 65535 {
+		return false, 0, "", fmt.Errorf("포트 번호는 1024 ~ 65535 사이여야 합니다 (입력값: %d)", port)
+	}
+
+	addr := fmt.Sprintf("127.0.0.1:%d", port)
+	l, err := net.Listen("tcp", addr)
+	if err != nil {
+		pid, procName := FindProcessUsingPort(port)
+		return false, pid, procName, err
+	}
+	_ = l.Close()
+	return true, 0, "", nil
+}
+
+// FindSafeFallbackPort: IANA 사설/동적 포트 대역(49152 ~ 65535)에서 안전한 랜덤 포트 탐색 및 바인딩
+func FindSafeFallbackPort() (int, net.Listener, error) {
+	const minPort = 49152
+	const maxPort = 65535
+	const maxAttempts = 30
+
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		n, err := rand.Int(rand.Reader, big.NewInt(maxPort-minPort+1))
+		if err != nil {
+			continue
+		}
+		candidate := int(n.Int64()) + minPort
+		addr := fmt.Sprintf("127.0.0.1:%d", candidate)
+
+		listener, err := net.Listen("tcp", addr)
+		if err == nil {
+			return candidate, listener, nil
+		}
+	}
+
+	fallbackListener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return 0, nil, fmt.Errorf("대체 포트 할당 실패: %w", err)
+	}
+	assignedPort := fallbackListener.Addr().(*net.TCPAddr).Port
+	return assignedPort, fallbackListener, nil
+}
+
+// -----------------------------------------------------------------------------
+// 4. OBS Studio 디렉터리 탐색 및 스크립트 관리 (OBS Integration)
+// -----------------------------------------------------------------------------
+
 // DetectObsScriptsDir: OBS Studio의 scripts 디렉터리를 탐색하고 실제 디스크 존재 여부를 반환합니다.
 func DetectObsScriptsDir() (string, bool) {
 	// 1순위: 현재 실행 중인 OBS 프로세스로부터 추론
 	if runningPath := FindRunningObsPath(); runningPath != "" {
-		// runningPath 예: C:\Program Files\obs-studio\bin\64bit\obs64.exe
-		obsRoot := filepath.Dir(filepath.Dir(filepath.Dir(runningPath))) // 3단계 상위 (bin/64bit/obs64.exe -> obsRoot)
-		candidate := filepath.Join(obsRoot, "data", "obs-plugins", "frontend-tools", "scripts")
+		candidate := ResolveObsScriptsDir(runningPath)
 		if stat, err := os.Stat(candidate); err == nil && stat.IsDir() {
 			return candidate, true
 		}
 	}
 
-	// 2순위: 표준 설치 경로 목록 확인
+	// 2순위: 표준 C 드라이브 설치 경로 확인
 	candidates := []string{
 		`C:\Program Files\obs-studio\data\obs-plugins\frontend-tools\scripts`,
 		`C:\Program Files (x86)\obs-studio\data\obs-plugins\frontend-tools\scripts`,
-		`D:\Program Files\obs-studio\data\obs-plugins\frontend-tools\scripts`,
-		`E:\Program Files\obs-studio\data\obs-plugins\frontend-tools\scripts`,
-		filepath.Join(os.Getenv("APPDATA"), "obs-studio", "scripts"),
 	}
 
 	for _, path := range candidates {
@@ -117,7 +303,7 @@ func FindObsScriptsDir() (string, error) {
 	return path, nil
 }
 
-// ResolveObsScriptsDir: 사용자가 입력하거나 선택한 폴더 경로로부터 scripts 디렉터리 경로를 스마트하게 도출합니다.
+// ResolveObsScriptsDir: 사용자가 입력하거나 선택한 폴더 경로로부터 scripts 디렉터리 경로를 도출합니다.
 func ResolveObsScriptsDir(inputPath string) string {
 	cleanPath := strings.TrimSpace(inputPath)
 	cleanPath = strings.Trim(cleanPath, `"'`)
@@ -141,13 +327,13 @@ func ResolveObsScriptsDir(inputPath string) string {
 	}
 
 	// 3. 입력된 경로 내에 scripts 하위 폴더가 존재하는 경우 (포터블 또는 커스텀 구조)
-	scriptsSub := filepath.Join(cleanPath, "scripts")
-	if stat, err := os.Stat(scriptsSub); err == nil && stat.IsDir() {
-		return scriptsSub
+	simpleSub := filepath.Join(cleanPath, "scripts")
+	if stat, err := os.Stat(simpleSub); err == nil && stat.IsDir() {
+		return simpleSub
 	}
 
-	// 4. bin\64bit 또는 bin 디렉터리를 선택한 경우 루트로 거슬러 올라감
-	norm := strings.ToLower(filepath.ToSlash(cleanPath))
+	// 4. bin\64bit 또는 bin 경로가 포함된 경우 루트 디렉터리로 거슬러 올라가 탐색
+	norm := filepath.ToSlash(cleanPath)
 	if idx := strings.Index(norm, "/bin/64bit"); idx != -1 {
 		rootDir := cleanPath[:idx]
 		return filepath.Join(rootDir, "data", "obs-plugins", "frontend-tools", "scripts")
@@ -166,12 +352,10 @@ func ResolveObsScriptsDir(inputPath string) string {
 }
 
 // BrowseForObsFolder: Win32 SHBrowseForFolderW를 사용하여 사용자에게 폴더 선택 다이얼로그를 표시합니다.
-// OBS 창 뒤로 숨지 않도록 HWND_TOPMOST 및 포그라운드 활성화를 적용합니다.
 func BrowseForObsFolder(title string) (string, error) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	// COINIT_APARTMENTTHREADED = 0x2, COINIT_DISABLE_OLE1DDE = 0x4
 	procCoInitializeEx.Call(0, 0x6)
 	defer procCoUninitialize.Call()
 
@@ -185,7 +369,6 @@ func BrowseForObsFolder(title string) (string, error) {
 
 	fgHwnd, _, _ := procGetForegroundWindow.Call()
 
-	// BFFM_INITIALIZED(1) 수신 시 창을 HWND_TOPMOST로 지정하여 OBS 최상단으로 강제 이동
 	callback := syscall.NewCallback(func(hwnd syscall.Handle, uMsg uint32, lParam, lpData uintptr) uintptr {
 		if uMsg == 1 { // BFFM_INITIALIZED
 			hwndTopmost := ^uintptr(0) // HWND_TOPMOST = -1
@@ -193,7 +376,7 @@ func BrowseForObsFolder(title string) (string, error) {
 				uintptr(hwnd),
 				hwndTopmost,
 				0, 0, 0, 0,
-				0x0001|0x0002|0x0040, // SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW
+				0x0001|0x0002|0x0040,
 			)
 			procSetForegroundWindow.Call(uintptr(hwnd))
 		}
@@ -201,7 +384,6 @@ func BrowseForObsFolder(title string) (string, error) {
 	})
 
 	var displayName [260]uint16
-	// BIF_RETURNONLYFSDIRS (0x0001) | BIF_NEWDIALOGSTYLE (0x0040) | BIF_EDITBOX (0x0010)
 	bi := BROWSEINFOW{
 		HwndOwner:      fgHwnd,
 		LpszTitle:      titleUTF16,
@@ -212,7 +394,7 @@ func BrowseForObsFolder(title string) (string, error) {
 
 	pidl, _, _ := procSHBrowseForFolderW.Call(uintptr(unsafe.Pointer(&bi)))
 	if pidl == 0 {
-		return "", nil // 사용자가 취소함
+		return "", nil // 취소
 	}
 	defer procCoTaskMemFree.Call(pidl)
 
@@ -233,7 +415,6 @@ func PrepareLauncherScriptWithExePath(scriptData []byte) []byte {
 	}
 	scriptStr := string(scriptData)
 	escapedPath := strings.ReplaceAll(exePath, `\`, `\\`)
-	// local BAKED_EXE_PATH = "" 부분을 실제 실행 파일 경로로 치환
 	scriptStr = strings.Replace(scriptStr, `local BAKED_EXE_PATH = ""`, fmt.Sprintf(`local BAKED_EXE_PATH = "%s"`, escapedPath), 1)
 	return []byte(scriptStr)
 }
@@ -265,10 +446,7 @@ func CheckScriptStatus(scriptsDir string, latestScript []byte) (installed bool, 
 	}
 	installed = true
 
-	// 현재 실행 파일 경로가 주입된 최신 스크립트 데이터 생성
 	expectedData := PrepareLauncherScriptWithExePath(latestScript)
-
-	// 줄바꿈 정규화 (\r\n -> \n) 후 비교
 	normExisting := strings.ReplaceAll(string(existingData), "\r\n", "\n")
 	normExpected := strings.ReplaceAll(string(expectedData), "\r\n", "\n")
 
@@ -291,18 +469,14 @@ func InstallLauncherScriptToObs(customDir string, scriptData []byte) (string, er
 		}
 	}
 
-	// 실제 chzzk-dock.exe 경로를 스크립트에 주입
 	scriptData = PrepareLauncherScriptWithExePath(scriptData)
-
 	targetPath := filepath.Join(targetDir, "chzzk_dock_launcher.lua")
 
-	// 1차 시도: 일반 권한으로 직접 쓰기 (폴더가 쓰기 가능한 경우 UAC 없이 즉시 완료)
 	_ = os.MkdirAll(targetDir, 0755)
 	if err := os.WriteFile(targetPath, scriptData, 0644); err == nil {
 		return targetPath, nil
 	}
 
-	// 2차 시도: 권한 부족(Program Files 등) 시 Win32 ShellExecuteW "runas"로 UAC 관리자 권한 요청
 	exePath, err := os.Executable()
 	if err != nil {
 		return "", fmt.Errorf("실행 파일 경로 확인 실패: %w", err)
@@ -318,14 +492,13 @@ func InstallLauncherScriptToObs(customDir string, scriptData []byte) (string, er
 		uintptr(unsafe.Pointer(filePtr)),
 		uintptr(unsafe.Pointer(paramPtr)),
 		0,
-		1, // SW_SHOWNORMAL (콘솔 창 없는 Windows GUI 바이너리이므로 화면 깜빡임 없이 휴리스틱 완화)
+		1,
 	)
 
 	if ret <= 32 {
 		return "", fmt.Errorf("관리자 권한(UAC) 승인이 거부되었거나 실패했습니다 (코드: %d): %w", ret, err)
 	}
 
-	// UAC 자식 프로세스가 파일 작성을 완료할 때까지 최대 5초간 확인 대기
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
 		time.Sleep(300 * time.Millisecond)

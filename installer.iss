@@ -1,9 +1,9 @@
-; ==============================================================================
+﻿; ==============================================================================
 ;  CHZZK OBS Dock - Inno Setup Installer Script
 ; ==============================================================================
 
 #define MyAppName "CHZZK OBS Dock"
-#define MyAppVersion "0.5.12"
+#define MyAppVersion "0.6.0"
 #define MyAppPublisher "CHZZK OBS Dock"
 #define MyAppURL "https://github.com/Dingteus/chzzk-dock"
 #define MyAppExeName "chzzk-dock.exe"
@@ -68,6 +68,7 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
+
 
 
 

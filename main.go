@@ -1,4 +1,4 @@
-package main
+﻿package main
 
 import (
 	_ "embed"
@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"mime/multipart"
 	"net"
 	"net/http"
 	"os"
@@ -387,8 +388,20 @@ func proxyUnofficialRequest(w http.ResponseWriter, r *http.Request, method, path
 		}
 	}
 
+	// 200~299 정상 응답은 에러 로그를 남기지 않으며, 400 이상 비정상 응답만 도메인 에러 코드로 기록
 	if resp.StatusCode >= 400 {
-		core.LogError("[Proxy %s %s] 치지직 API 오류 (%d): %s", method, targetURL, resp.StatusCode, string(respBytes))
+		var errCode string
+		switch resp.StatusCode {
+		case 401:
+			errCode = core.ErrApiUnauthorized
+		case 403:
+			errCode = core.ErrApiPermissionWait
+		case 500, 502, 503, 504:
+			errCode = core.ErrApiServerDown
+		default:
+			errCode = core.ErrApiOtherError
+		}
+		core.LogError("[Proxy %s %s] [%s] 치지직 API 오류 (%d): %s", method, targetURL, errCode, resp.StatusCode, string(respBytes))
 	}
 
 	core.SetCachedApiResponse(method, targetURL, respBytes, resp.StatusCode, contentType)
@@ -596,10 +609,11 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 				channelId := r.URL.Query().Get("channelId")
 				exePath, err := os.Executable()
 				if err != nil {
-					core.LogError("[HTTP] /remote-webview executable lookup failed: %v", err)
+					core.LogError("[HTTP] /remote-webview [%s] executable lookup failed: %v", core.ErrSysFileIoFailed, err)
 					sendJSON(w, map[string]interface{}{
-						"status":  "error",
-						"message": "실행 파일 경로를 찾을 수 없습니다.",
+						"status":     "error",
+						"error_code": core.ErrSysFileIoFailed,
+						"message":    "실행 파일 경로를 찾을 수 없습니다.",
 					}, http.StatusInternalServerError)
 					return
 				}
@@ -609,10 +623,11 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 				}
 				cmd := exec.Command(exePath, args...)
 				if err := cmd.Start(); err != nil {
-					core.LogError("[HTTP] /remote-webview start failed: %v", err)
+					core.LogError("[HTTP] /remote-webview [%s] start failed: %v", core.ErrSysWebviewRuntime, err)
 					sendJSON(w, map[string]interface{}{
-						"status":  "error",
-						"message": "리모컨 창을 시작할 수 없습니다.",
+						"status":     "error",
+						"error_code": core.ErrSysWebviewRuntime,
+						"message":    "리모컨 창을 시작할 수 없습니다.",
 					}, http.StatusInternalServerError)
 					return
 				}
@@ -629,10 +644,11 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 				channelId := r.URL.Query().Get("channelId")
 				exePath, err := os.Executable()
 				if err != nil {
-					core.LogError("[HTTP] /chat-webview executable lookup failed: %v", err)
+					core.LogError("[HTTP] /chat-webview [%s] executable lookup failed: %v", core.ErrSysFileIoFailed, err)
 					sendJSON(w, map[string]interface{}{
-						"status":  "error",
-						"message": "실행 파일 경로를 찾을 수 없습니다.",
+						"status":     "error",
+						"error_code": core.ErrSysFileIoFailed,
+						"message":    "실행 파일 경로를 찾을 수 없습니다.",
 					}, http.StatusInternalServerError)
 					return
 				}
@@ -642,10 +658,11 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 				}
 				cmd := exec.Command(exePath, args...)
 				if err := cmd.Start(); err != nil {
-					core.LogError("[HTTP] /chat-webview start failed: %v", err)
+					core.LogError("[HTTP] /chat-webview [%s] start failed: %v", core.ErrSysWebviewRuntime, err)
 					sendJSON(w, map[string]interface{}{
-						"status":  "error",
-						"message": "채팅 창을 시작할 수 없습니다.",
+						"status":     "error",
+						"error_code": core.ErrSysWebviewRuntime,
+						"message":    "채팅 창을 시작할 수 없습니다.",
 					}, http.StatusInternalServerError)
 					return
 				}
@@ -830,10 +847,11 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 		if path == "/browse-obs-folder" {
 			folder, err := core.BrowseForObsFolder("OBS Studio 설치 폴더(obs-studio) 또는 scripts 폴더를 선택하세요")
 			if err != nil {
-				core.LogError("[HTTP] /browse-obs-folder failed: %v", err)
+				core.LogError("[HTTP] /browse-obs-folder [%s] failed: %v", core.ErrSysObsPathNotFound, err)
 				sendJSON(w, map[string]interface{}{
-					"code":    500,
-					"message": "폴더 선택 중 오류가 발생했습니다.",
+					"code":       500,
+					"error_code": core.ErrSysObsPathNotFound,
+					"message":    "폴더 선택 중 오류가 발생했습니다.",
 				}, http.StatusInternalServerError)
 				return
 			}
@@ -865,10 +883,11 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 			scriptData := getLauncherScriptData()
 			installedPath, err := core.InstallLauncherScriptToObs(reqData.CustomDir, scriptData)
 			if err != nil {
-				core.LogError("[HTTP] /install-obs-script failed: %v", err)
+				core.LogError("[HTTP] /install-obs-script [%s] failed: %v", core.ErrSysFileIoFailed, err)
 				sendJSON(w, map[string]interface{}{
-					"code":    500,
-					"message": "OBS 스크립트 설치에 실패했습니다.",
+					"code":       500,
+					"error_code": core.ErrSysFileIoFailed,
+					"message":    "OBS 스크립트 설치에 실패했습니다.",
 				}, http.StatusInternalServerError)
 				return
 			}
@@ -884,8 +903,12 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 			scriptData := getLauncherScriptData()
 			createdPath, err := core.ExportLauncherScript(scriptData)
 			if err != nil {
-				core.LogError("[HTTP] /export-script failed: %v", err)
-				sendJSON(w, map[string]interface{}{"code": 500, "message": "스크립트 내보내기에 실패했습니다."}, http.StatusInternalServerError)
+				core.LogError("[HTTP] /export-script [%s] failed: %v", core.ErrSysFileIoFailed, err)
+				sendJSON(w, map[string]interface{}{
+					"code":       500,
+					"error_code": core.ErrSysFileIoFailed,
+					"message":    "스크립트 내보내기에 실패했습니다.",
+				}, http.StatusInternalServerError)
 				return
 			}
 			sendJSON(w, map[string]interface{}{
@@ -1144,10 +1167,11 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 			}
 
 			if err := core.SaveBroadcastPresets(reqData.Presets); err != nil {
-				core.LogError("[Settings] Failed to save broadcast presets: %v", err)
+				core.LogError("[Settings] [%s] Failed to save broadcast presets: %v", core.ErrSysFileIoFailed, err)
 				sendJSON(w, map[string]interface{}{
-					"code":    500,
-					"message": "프리셋 저장에 실패했습니다.",
+					"code":       500,
+					"error_code": core.ErrSysFileIoFailed,
+					"message":    "프리셋 저장에 실패했습니다.",
 				}, http.StatusInternalServerError)
 				return
 			}
@@ -1176,7 +1200,7 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 				core.LogWarn("[Port] Invalid port range: %d", reqData.Port)
 				sendJSON(w, map[string]interface{}{
 					"code":       400,
-					"error_code": core.ErrNetInvalidPortRange,
+					"error_code": core.ErrBenInvalidPortRange,
 					"available":  false,
 					"port":       reqData.Port,
 					"message":    fmt.Sprintf("포트 번호는 1024 ~ 65535 사이여야 합니다 (입력값: %d).", reqData.Port),
@@ -1244,17 +1268,17 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 			if reqData.Port < 1024 || reqData.Port > 65535 {
 				sendJSON(w, map[string]interface{}{
 					"code":       400,
-					"error_code": core.ErrNetInvalidPortRange,
+					"error_code": core.ErrBenInvalidPortRange,
 					"message":    fmt.Sprintf("포트 번호는 1024 ~ 65535 사이여야 합니다 (입력값: %d).", reqData.Port),
 				}, http.StatusBadRequest)
 				return
 			}
 
 			if err := core.SaveConfiguredPort(reqData.Port); err != nil {
-				core.LogError("[Settings] Failed to save port %d to settings.json: %v", reqData.Port, err)
+				core.LogError("[Settings] [%s] Failed to save port %d to settings.json: %v", core.ErrSysFileIoFailed, reqData.Port, err)
 				sendJSON(w, map[string]interface{}{
 					"code":       500,
-					"error_code": core.ErrSysSettingsIoFailed,
+					"error_code": core.ErrSysFileIoFailed,
 					"message":    "포트 설정을 저장하는 중 오류가 발생했습니다.",
 				}, http.StatusInternalServerError)
 				return
@@ -1390,6 +1414,91 @@ func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		if path == "/upload-thumbnail" {
+			if !core.CheckApiAuth(w, r) {
+				return
+			}
+			if err := r.ParseMultipartForm(6 * 1024 * 1024); err != nil {
+				sendJSON(w, map[string]interface{}{"code": 400, "message": "파일을 읽을 수 없습니다 (최대 5MB)."}, http.StatusBadRequest)
+				return
+			}
+			file, header, err := r.FormFile("file")
+			if err != nil {
+				sendJSON(w, map[string]interface{}{"code": 400, "message": "업로드할 파일이 없습니다."}, http.StatusBadRequest)
+				return
+			}
+			defer file.Close()
+
+			if header.Size > 5*1024*1024 {
+				sendJSON(w, map[string]interface{}{"code": 400, "message": "이미지 파일 크기는 5MB 이하여야 합니다."}, http.StatusBadRequest)
+				return
+			}
+
+			cfg := core.LoadConfig()
+			if cfg.NidAut == "" || cfg.NidSes == "" {
+				sendJSON(w, map[string]interface{}{"code": 401, "message": "로그인 쿠키가 설정되지 않았습니다. 설정에서 로그인하세요."}, http.StatusUnauthorized)
+				return
+			}
+
+			bodyBuf := &bytes.Buffer{}
+			mpWriter := multipart.NewWriter(bodyBuf)
+			part, err := mpWriter.CreateFormFile("file", header.Filename)
+			if err != nil {
+				sendJSON(w, map[string]interface{}{"code": 500, "message": "요청 생성 실패"}, http.StatusInternalServerError)
+				return
+			}
+			if _, err := io.Copy(part, file); err != nil {
+				sendJSON(w, map[string]interface{}{"code": 500, "message": "파일 버퍼 복사 실패"}, http.StatusInternalServerError)
+				return
+			}
+			mpWriter.Close()
+
+			uploadReq, err := http.NewRequest("POST", "https://comm-api.game.naver.com/nng_main/v1/remote/photo/upload", bodyBuf)
+			if err != nil {
+				sendJSON(w, map[string]interface{}{"code": 500, "message": "업로드 요청 생성 실패"}, http.StatusInternalServerError)
+				return
+			}
+			uploadReq.Header.Set("User-Agent", USER_AGENT)
+			uploadReq.Header.Set("Content-Type", mpWriter.FormDataContentType())
+			uploadReq.Header.Set("Cookie", fmt.Sprintf("NID_AUT=%s; NID_SES=%s", cfg.NidAut, cfg.NidSes))
+			uploadReq.Header.Set("Origin", "https://chzzk.naver.com")
+			uploadReq.Header.Set("Referer", "https://chzzk.naver.com/")
+
+			resp, err := httpClient.Do(uploadReq)
+			if err != nil {
+				sendJSON(w, map[string]interface{}{"code": 502, "message": "치지직 업로드 서버 연결 실패"}, http.StatusBadGateway)
+				return
+			}
+			defer resp.Body.Close()
+
+			respBytes, _ := io.ReadAll(resp.Body)
+			var uploadResult struct {
+				Code    int    `json:"code"`
+				Message string `json:"message"`
+				Content []struct {
+					URL        string `json:"url"`
+					ResultCode int    `json:"resultCode"`
+				} `json:"content"`
+			}
+			if err := json.Unmarshal(respBytes, &uploadResult); err == nil && len(uploadResult.Content) > 0 && uploadResult.Content[0].URL != "" {
+				core.LogInfo("[Thumbnail] 치지직 서버에 썸네일 업로드 완료: %s", uploadResult.Content[0].URL)
+				sendJSON(w, map[string]interface{}{
+					"code":     200,
+					"imageUrl": uploadResult.Content[0].URL,
+					"message":  "썸네일이 성공적으로 업로드되었습니다.",
+				}, http.StatusOK)
+				return
+			}
+
+			core.LogError("[Thumbnail] 치지직 서버 업로드 응답 실패: %s", string(respBytes))
+			sendJSON(w, map[string]interface{}{
+				"code":    500,
+				"message": "치지직 서버에서 이미지 URL을 반환하지 않았습니다.",
+				"raw":     string(respBytes),
+			}, http.StatusInternalServerError)
+			return
+		}
+
 		if proxyDispatch(w, r, "POST") {
 			return
 		}
@@ -1509,12 +1618,14 @@ func updateWatchdogTimeoutFromTray(sec int) {
 	core.SetWatchdogTimeoutSec(sec)
 	st := core.LoadSettings()
 	st.WatchdogTimeoutSec = sec
-	st.WatchdogDisabled = (sec == 0)
+	st.WatchdogDisabled = (sec == -1)
 	_ = core.SaveSettings(st)
 	if trayInstance != nil {
 		trayInstance.UpdateTooltip(getTrayTooltip())
-		if sec == 0 {
+		if sec == -1 {
 			trayInstance.ShowNotification("CHZZK OBS Dock", "OBS 자동 종료가 비활성화되었습니다. (상시 실행 유지)")
+		} else if sec == 0 {
+			trayInstance.ShowNotification("CHZZK OBS Dock", "OBS 종료 시 즉시 종료되도록 설정되었습니다.")
 		} else {
 			trayInstance.ShowNotification("CHZZK OBS Dock", fmt.Sprintf("OBS 종료 시 %s 뒤 함께 종료되도록 설정되었습니다.", getWatchdogLabel(sec)))
 		}
@@ -1601,6 +1712,11 @@ func runTray(silentMode bool) {
 			SubItems: []core.MenuItem{
 				{
 					Label: "사용 안 함 (자동 종료 비활성화)",
+					CheckFn: func() bool { return core.GetWatchdogTimeoutSec() == -1 },
+					Callback: func() { updateWatchdogTimeoutFromTray(-1) },
+				},
+				{
+					Label: "즉시 종료 (0초)",
 					CheckFn: func() bool { return core.GetWatchdogTimeoutSec() == 0 },
 					Callback: func() { updateWatchdogTimeoutFromTray(0) },
 				},
@@ -1634,7 +1750,7 @@ func runTray(silentMode bool) {
 				{
 					DynamicLabel: func() string {
 						sec := core.GetWatchdogTimeoutSec()
-						isPreset := (sec == 0 || sec == 10 || sec == 30 || sec == 60 || sec == 300 || sec == 600)
+						isPreset := (sec == -1 || sec == 0 || sec == 10 || sec == 30 || sec == 60 || sec == 300 || sec == 600)
 						if !isPreset {
 							return fmt.Sprintf("직접 입력 (%d초 뒤 종료)", sec)
 						}
@@ -1642,7 +1758,7 @@ func runTray(silentMode bool) {
 					},
 					CheckFn: func() bool {
 						sec := core.GetWatchdogTimeoutSec()
-						return !(sec == 0 || sec == 10 || sec == 30 || sec == 60 || sec == 300 || sec == 600)
+						return !(sec == -1 || sec == 0 || sec == 10 || sec == 30 || sec == 60 || sec == 300 || sec == 600)
 					},
 					DisabledFn: func() bool {
 						return true
@@ -1653,13 +1769,19 @@ func runTray(silentMode bool) {
 		},
 		{IsSeparator: true},
 		{
-			Label: "로그 확인하기 (개발중)",
+			Label: "📋 진단 리포트 클립보드 복사",
+			Callback: func() {
+				_ = core.CopyLogsToClipboard()
+			},
+		},
+		{
+			Label: "로그 확인하기 (메모장)",
 			Callback: func() {
 				_ = core.ViewLogsInNotepad()
 			},
 		},
 		{
-			Label: "로그 저장 (.txt) (개발중)",
+			Label: "로그 저장 (.txt)",
 			Callback: func() {
 				_, _ = core.SaveLogsWithDialog()
 			},
@@ -1709,28 +1831,15 @@ func activateExistingInstance(user32 *syscall.LazyDLL) {
 		core.ForceForegroundWindow(existingHwnd, false)
 	}
 
-	// 백엔드 HTTP /show-ui 호출 (기존 인스턴스가 숨겨져 있거나 아직 윈도우 핸들이 미생성된 경우 백엔드가 직접 창 복원)
-	go func() {
-		client := &http.Client{Timeout: 1 * time.Second}
-		portsToTry := []int{core.GetConfiguredPort(), DEFAULT_HTTP_PORT}
-		for _, p := range portsToTry {
-			if p > 0 {
-				req, err := http.NewRequest("GET", fmt.Sprintf("http://127.0.0.1:%d/show-ui", p), nil)
-				if err == nil {
-					req.Header.Set("X-Requested-With", "ChzzkDock")
-					_, _ = client.Do(req)
-				}
-			}
-		}
-	}()
-
-	time.Sleep(150 * time.Millisecond)
+	time.Sleep(50 * time.Millisecond)
 }
 
 // ============================================================
 //  Main Entrypoint
 // ============================================================
 func main() {
+	core.SetAppVersion(APP_VERSION)
+
 	// --login 서브커맨드 감지 시 로그인 웹뷰 팝업 창 전담 모드로 실행
 	if len(os.Args) > 1 && (os.Args[1] == "--login" || os.Args[1] == "-l") {
 		core.RunLoginWebview()
@@ -1879,8 +1988,8 @@ func main() {
 		}
 
 		// [중요] 점유 프로그램이 chzzk-dock.exe인 경우 (기존 인스턴스가 이미 서버를 구동 중인 상태)
-		if strings.EqualFold(procName, "chzzk-dock.exe") || strings.EqualFold(procName, "chzzk-obs-dock.exe") {
-			core.LogInfo("[Main] 포트(%d)를 점유 중인 프로세스가 이미 chzzk-dock.exe (PID: %d)입니다. 중복 서버를 시작하지 않고 종료합니다.", targetPort, pid)
+		if strings.EqualFold(procName, "chzzk-dock.exe") || strings.EqualFold(procName, "chzzk-dock") || strings.EqualFold(procName, "chzzk-obs-dock.exe") {
+			core.LogInfo("[Main] 포트(%d)를 점유 중인 프로세스가 이미 chzzk-dock (PID: %d)입니다. 중복 서버를 시작하지 않고 기존 창을 활성화합니다.", targetPort, pid)
 			if silentMode {
 				os.Exit(0)
 			}
@@ -1888,12 +1997,16 @@ func main() {
 			os.Exit(0)
 		}
 
-		core.LogWarn("[Main] 지정 포트(%d)가 타 프로그램 '%s'(PID: %d)에 의해 사용 중입니다 (%v). 안전한 대체 포트를 자동 할당합니다.", targetPort, procName, pid, err)
+		errCode := core.ErrBenDefaultPortCollision
+		if targetPort != DEFAULT_HTTP_PORT {
+			errCode = core.ErrBenCustomPortCollision
+		}
+		core.LogWarn("[Main] [%s] 지정 포트(%d)가 타 프로그램 '%s'(PID: %d)에 의해 사용 중입니다 (%v). 안전한 대체 포트를 자동 할당합니다.", errCode, targetPort, procName, pid, err)
 
 		// 안전한 대체 포트(49152 ~ 65535) 자동 탐색 및 바인딩
 		fallbackPort, fallbackListener, fbErr := core.FindSafeFallbackPort()
 		if fbErr != nil {
-			core.LogError("[Main] 대체 포트 할당 실패: %v", fbErr)
+			core.LogError("[Main] [%s] 대체 포트 할당 실패: %v", core.ErrBenPortScanFailed, fbErr)
 			showMessageBox("CHZZK OBS Dock - 안내", "포트 충돌 후 대체 가능한 안전 포트를 찾지 못했습니다.\n네트워크 환경을 확인한 후 다시 실행해 주세요.")
 			os.Exit(1)
 		}
@@ -1945,6 +2058,7 @@ func main() {
 
 	runTray(silentMode)
 }
+
 
 
 

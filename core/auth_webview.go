@@ -26,6 +26,9 @@ import (
 
 const (
 	LOGIN_URL = "https://nid.naver.com/nidlogin.login?url=https%3A%2F%2Fchzzk.naver.com%2F"
+	// URL 인코딩
+	// %3A :
+	// %2F /
 
 	// ExternalLinkGuardScript: 네이버 및 로컬 호스트 외 외부 도메인 클릭 시 기본 브라우저로 위임하는 스크립트
 	ExternalLinkGuardScript = `
@@ -74,13 +77,27 @@ const (
 )
 
 var (
-	ole32DLL          = syscall.NewLazyDLL("ole32.dll")
+	// [OLE32: COM 메모리 관리 도서관]
+	ole32DLL = syscall.NewLazyDLL("ole32.dll")
+
+	// procCoTaskMemFree: WebView2 C++ 엔진이 쿠키 문자열을 건네줄 때 빌려준 C++ 힙 메모리를
+	// 안전하게 반납(해제)하여 메모리 누수를 영구 차단하는 함수
 	procCoTaskMemFree = ole32DLL.NewProc("CoTaskMemFree")
 
-	procShowWindow      = user32.NewProc("ShowWindow")
-	procUpdateWindow    = user32.NewProc("UpdateWindow")
-	procSetTimer        = user32.NewProc("SetTimer")
-	procKillTimer       = user32.NewProc("KillTimer")
+	// [USER32: 윈도우 창 및 타이머 제어 함수들]
+	// procShowWindow: 윈도우 창을 화면에 표시(SW_SHOW)하거나 숨김(SW_HIDE) 처리
+	procShowWindow = user32.NewProc("ShowWindow")
+
+	// procUpdateWindow: 창의 클라이언트 영역을 즉시 새로고침하여 잔상 없이 화면 갱신
+	procUpdateWindow = user32.NewProc("UpdateWindow")
+
+	// procSetTimer: 로그인 완료 여부를 주기적으로 감시(Polling)하기 위한 Win32 타이머 등록
+	procSetTimer = user32.NewProc("SetTimer")
+
+	// procKillTimer: 로그인이 끝나거나 창이 닫힐 때 타이머를 해제하여 CPU 낭비 방어
+	procKillTimer = user32.NewProc("KillTimer")
+
+	// procPostQuitMessage: 로그인 창이 닫힐 때 Win32 메시지 루프에 종료 신호(WM_QUIT)를 전달
 	procPostQuitMessage = user32.NewProc("PostQuitMessage")
 )
 
@@ -201,6 +218,7 @@ func inspectCookies(listPtr uintptr) (aut, ses string, found bool) {
 	}
 	vtablePtr := *(*uintptr)(unsafe.Pointer(listPtr))
 	vtable := (*[5]uintptr)(unsafe.Pointer(vtablePtr))
+	defer syscall.SyscallN(vtable[2], listPtr) // IUnknown::Release: free ICoreWebView2CookieList
 
 	var count uint32
 	hr, _, _ := syscall.SyscallN(vtable[3], listPtr, uintptr(unsafe.Pointer(&count)))
@@ -233,9 +251,10 @@ func inspectCookies(listPtr uintptr) (aut, ses string, found bool) {
 			procCoTaskMemFree.Call(uintptr(unsafe.Pointer(valPtr)))
 		}
 
-		if cName == "NID_AUT" {
+		switch cName {
+		case "NID_AUT":
 			aut = cVal
-		} else if cName == "NID_SES" {
+		case "NID_SES":
 			ses = cVal
 		}
 
@@ -338,7 +357,7 @@ func RunLoginWebview() {
 	className, _ := syscall.UTF16PtrFromString("ChzzkLoginWindowClass")
 
 	if lastErr == 183 { // ERROR_ALREADY_EXISTS
-		LogWarn("[Webview] 이미 로그인 창이 실행 중입니다. 중복 실행을 건너뜁니다.")
+		LogWarn("[Webview] [%s] 이미 로그인 창이 실행 중입니다. 중복 실행을 건너뜁니다.", ErrAuthDuplicateLogin)
 		existingHwnd, _, _ := procFindWindowW.Call(uintptr(unsafe.Pointer(className)), 0)
 		if existingHwnd != 0 {
 			ForceForegroundWindow(existingHwnd, true)
@@ -379,8 +398,8 @@ func RunLoginWebview() {
 	darkBrush, _, _ := procCreateSolidBrush.Call(uintptr(0x001B1818))
 
 	wc := WNDCLASSW{
-		Style:         0x0002 | 0x0001, // CS_HREDRAW | CS_VREDRAW
-		LpfnWndProc:   syscall.NewCallback(loginWndProc),
+		Style:         0x0002 | 0x0001,                   // CS_HREDRAW | CS_VREDRAW
+		LpfnWndProc:   syscall.NewCallback(loginWndProc), // 윈도우 메시지 처리 함수 콜백 등록
 		HInstance:     syscall.Handle(hInst),
 		HIcon:         hIcon,
 		HCursor:       syscall.Handle(0),
@@ -409,7 +428,7 @@ func RunLoginWebview() {
 	)
 
 	if hwnd == 0 {
-		LogError("[Webview Error] 로그인 윈도우 생성 실패")
+		LogError("[Webview Error] [%s] 로그인 윈도우 생성 실패", ErrSysFileIoFailed)
 		return
 	}
 
@@ -436,7 +455,7 @@ func RunLoginWebview() {
 
 	// 프로세스 실패(크래시) 감지 콜백
 	chromium.ProcessFailedCallback = func(sender *edge.ICoreWebView2, args *edge.ICoreWebView2ProcessFailedEventArgs) {
-		LogError("[Webview Login] WebView2 렌더러 프로세스 장애 발생. 다시 시도해 주세요.")
+		LogError("[Webview Login] [%s] WebView2 렌더러 프로세스 장애 발생. 다시 시도해 주세요.", ErrSysWebviewRuntime)
 	}
 
 	// 페이지 로딩 완료 감지 콜백
@@ -465,7 +484,7 @@ func RunLoginWebview() {
 	}
 
 	if !chromium.Embed(hwnd) {
-		LogError("[Webview Error] WebView2 임베딩 실패 (Microsoft Edge WebView2 Runtime이 설치되어 있는지 확인하세요)")
+		LogError("[Webview Error] [%s] WebView2 임베딩 실패 (Microsoft Edge WebView2 Runtime이 설치되어 있는지 확인하세요)", ErrSysWebviewRuntime)
 		procDestroyWindow.Call(hwnd)
 		return
 	}
@@ -539,4 +558,3 @@ func RunLoginWebview() {
 	time.Sleep(100 * time.Millisecond)
 	LogInfo("[Webview Login] 로그인 윈도우 루프 종료")
 }
-

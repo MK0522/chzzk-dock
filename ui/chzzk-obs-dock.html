@@ -3044,7 +3044,34 @@ SOFTWARE.</div>
         const modal = document.getElementById('modal-custom-confirm');
         if (modal && !modal.classList.contains('hidden')) {
           window.__resolveConfirmModal(false);
+          return;
         }
+        const modalCrop = document.getElementById('modal-crop');
+        if (modalCrop && !modalCrop.classList.contains('hidden')) {
+          if (typeof closeCropModal === 'function') closeCropModal();
+          return;
+        }
+        const modalPresetSave = document.getElementById('modal-preset-save');
+        if (modalPresetSave && !modalPresetSave.classList.contains('hidden')) {
+          if (typeof closePresetSaveModal === 'function') closePresetSaveModal();
+          return;
+        }
+        const modalPresetLoad = document.getElementById('modal-preset-load');
+        if (modalPresetLoad && !modalPresetLoad.classList.contains('hidden')) {
+          if (typeof closePresetLoadModal === 'function') closePresetLoadModal();
+          return;
+        }
+        const modalDonationBoard = document.getElementById('modal-donation-board');
+        if (modalDonationBoard && !modalDonationBoard.classList.contains('hidden')) {
+          if (typeof closeDonationBoardModal === 'function') closeDonationBoardModal();
+          return;
+        }
+        ['chat', 'video', 'mission', 'sub'].forEach(type => {
+          const m = document.getElementById(`modal-dsetting-${type}`);
+          if (m && !m.classList.contains('hidden')) {
+            if (typeof closeDonationModal === 'function') closeDonationModal(type);
+          }
+        });
       }
     });
 
@@ -7753,6 +7780,7 @@ SOFTWARE.</div>
         }
         updateDonationDetailButtonsState();
       } finally {
+        if (loadSpinner) setTimeout(() => loadSpinner.classList.remove('animate-spin'), 350);
         if (iconBottom) setTimeout(() => iconBottom.classList.remove('animate-spin'), 350);
       }
     }
@@ -7886,209 +7914,207 @@ SOFTWARE.</div>
       let liveSuccess = false;
       let chatSuccess = false;
 
-      // 1. 방송 정보 & 세부 설정 저장 (PUT /live-setting/normal)
       try {
-        let title = document.getElementById('live-title').value.trim();
-        if (!title) {
-          if (savedBroadcastBaseline && savedBroadcastBaseline.title) {
-            title = savedBroadcastBaseline.title;
-            document.getElementById('live-title').value = title;
-            document.getElementById('title-count').textContent = `${title.length}/50`;
-            showToast('제목 복구', 'info', '제목이 비어있어 이전 값으로 복구되었습니다.');
-          } else {
-            showToast('입력 확인', 'warn', '방송 제목을 입력해 주세요.');
-            btn.disabled = false;
+        // 1. 방송 정보 & 세부 설정 저장 (PUT /live-setting/normal)
+        try {
+          let title = document.getElementById('live-title').value.trim();
+          if (!title) {
+            if (savedBroadcastBaseline && savedBroadcastBaseline.title) {
+              title = savedBroadcastBaseline.title;
+              document.getElementById('live-title').value = title;
+              document.getElementById('title-count').textContent = `${title.length}/50`;
+              showToast('제목 복구', 'info', '제목이 비어있어 이전 값으로 복구되었습니다.');
+            } else {
+              showToast('입력 확인', 'warn', '방송 제목을 입력해 주세요.');
+              saveText.textContent = '적용';
+              return;
+            }
+          }
+
+          let catSearchVal = (document.getElementById('category-search')?.value || '').trim();
+          let catId = (document.getElementById('category-id')?.value || '').trim();
+          let catType = (document.getElementById('category-type')?.value || '').trim();
+
+          // 카테고리가 비어있는 경우: 이전 값 복구, 이전 값도 없으면 'talk' 사용
+          if (!catId || !catSearchVal) {
+            if (savedBroadcastBaseline && savedBroadcastBaseline.categoryId) {
+              catId = savedBroadcastBaseline.categoryId;
+              catType = savedBroadcastBaseline.categoryType || 'ETC';
+              catSearchVal = savedBroadcastBaseline.categoryValue || savedBroadcastBaseline.categoryId;
+
+              document.getElementById('category-id').value = catId;
+              document.getElementById('category-type').value = catType;
+              document.getElementById('category-search').value = catSearchVal;
+              const clearBtn = document.getElementById('category-clear');
+              if (clearBtn) clearBtn.style.display = 'block';
+
+              showToast('카테고리 복구', 'info', `카테고리가 비어있어 이전 값(${catSearchVal})으로 복구되었습니다.`);
+            } else {
+              catId = 'talk';
+              catType = 'ETC';
+              catSearchVal = 'talk';
+
+              document.getElementById('category-id').value = 'talk';
+              document.getElementById('category-type').value = 'ETC';
+              document.getElementById('category-search').value = 'talk';
+              const clearBtn = document.getElementById('category-clear');
+              if (clearBtn) clearBtn.style.display = 'block';
+
+              showToast('기본 카테고리', 'info', '이전 카테고리가 없어 talk로 설정되었습니다.');
+            }
+          }
+          const targetAdult = document.getElementById('toggle-adult').checked;
+          const targetClip = document.getElementById('toggle-clip').checked;
+          const targetPaid = document.getElementById('toggle-paid-promotion')?.checked ?? false;
+          const targetOverseas = document.getElementById('toggle-overseas')?.checked ?? true;
+          const targetKrOnly = !targetOverseas;
+          const targetReplay = document.querySelector('input[name="replayPublishType"]:checked')?.value || 'MANUAL';
+          const targetWpNo = document.getElementById('select-watch-party')?.value || '';
+          const isWp = !!targetWpNo;
+
+          // 선택 불가 같이보기 캠페인 가드
+          if (isWp && activeWatchParty && activeWatchParty.selectable === false) {
+            showToast('선택 불가 같이보기', 'error', '현재 선택할 수 없는 같이보기 캠페인입니다.');
             saveText.textContent = '적용';
-            spinner.style.display = 'none';
             return;
           }
-        }
 
-        let catSearchVal = (document.getElementById('category-search')?.value || '').trim();
-        let catId = (document.getElementById('category-id')?.value || '').trim();
-        let catType = (document.getElementById('category-type')?.value || '').trim();
-
-        // 카테고리가 비어있는 경우: 이전 값 복구, 이전 값도 없으면 'talk' 사용
-        if (!catId || !catSearchVal) {
-          if (savedBroadcastBaseline && savedBroadcastBaseline.categoryId) {
-            catId = savedBroadcastBaseline.categoryId;
-            catType = savedBroadcastBaseline.categoryType || 'ETC';
-            catSearchVal = savedBroadcastBaseline.categoryValue || savedBroadcastBaseline.categoryId;
-
-            document.getElementById('category-id').value = catId;
-            document.getElementById('category-type').value = catType;
-            document.getElementById('category-search').value = catSearchVal;
-            const clearBtn = document.getElementById('category-clear');
-            if (clearBtn) clearBtn.style.display = 'block';
-
-            showToast('카테고리 복구', 'info', `카테고리가 비어있어 이전 값(${catSearchVal})으로 복구되었습니다.`);
-          } else {
-            catId = 'talk';
-            catType = 'ETC';
-            catSearchVal = 'talk';
-
-            document.getElementById('category-id').value = 'talk';
-            document.getElementById('category-type').value = 'ETC';
-            document.getElementById('category-search').value = 'talk';
-            const clearBtn = document.getElementById('category-clear');
-            if (clearBtn) clearBtn.style.display = 'block';
-
-            showToast('기본 카테고리', 'info', '이전 카테고리가 없어 talk로 설정되었습니다.');
-          }
-        }
-        const targetAdult = document.getElementById('toggle-adult').checked;
-        const targetClip = document.getElementById('toggle-clip').checked;
-        const targetPaid = document.getElementById('toggle-paid-promotion')?.checked ?? false;
-        const targetOverseas = document.getElementById('toggle-overseas')?.checked ?? true;
-        const targetKrOnly = !targetOverseas;
-        const targetReplay = document.querySelector('input[name="replayPublishType"]:checked')?.value || 'MANUAL';
-        const targetWpNo = document.getElementById('select-watch-party')?.value || '';
-        const isWp = !!targetWpNo;
-
-        // 선택 불가 같이보기 캠페인 가드
-        if (isWp && activeWatchParty && activeWatchParty.selectable === false) {
-          showToast('선택 불가 같이보기', 'error', '현재 선택할 수 없는 같이보기 캠페인입니다.');
-          btn.disabled = false;
-          saveText.textContent = '적용';
-          spinner.style.display = 'none';
-          return;
-        }
-
-        // 같이보기+(RS) 선택 시 필수인 채팅 후원 자동 ON 동기화
-        if (isWp && activeWatchParty && activeWatchParty.watchPartyType === 'RS') {
-          const elChat = document.getElementById('toggle-chat-donation');
-          if (elChat && !elChat.checked) {
-            elChat.checked = true;
-          }
-        }
-
-        // 1. 후원 3종 설정 선행 저장 (같이보기+ RS 방송의 채팅 후원 필수 요구조건 충족을 위해 선행)
-        const chatActive = document.getElementById('toggle-chat-donation')?.checked ?? false;
-        const videoActive = document.getElementById('toggle-video-donation')?.checked ?? false;
-        const missionActive = document.getElementById('toggle-mission-donation')?.checked ?? false;
-
-        if (chatActive !== currentDonationState.chatDonationActive) {
-          await updateDonationSetting('CHAT', true);
-        }
-        if (videoActive !== currentDonationState.videoDonationActive) {
-          await updateDonationSetting('VIDEO', true);
-        }
-        if (missionActive !== currentDonationState.missionDonationActive) {
-          await updateDonationSetting('MISSION', true);
-        }
-
-        // 캠페인별 규칙 적용 (카테고리/클립/다시보기/성인/해외시청/응원전광판)
-        const isWpAdult = !!(isWp && activeWatchParty && activeWatchParty.adult);
-        const isWpClipFalse = !!(isWp && activeWatchParty && activeWatchParty.clipActive === false);
-        const isWpReplayFalse = !!(isWp && activeWatchParty && activeWatchParty.allowReplayVideo === false);
-
-        if (isWp && activeWatchParty && activeWatchParty.category && (activeWatchParty.category.categoryId || activeWatchParty.category.categoryValue)) {
-          catId = activeWatchParty.category.categoryId || catId;
-          catType = activeWatchParty.category.categoryType || catType;
-        }
-
-        const base = currentLiveSetting.rawContent || {};
-        const payloadLive = {
-          defaultLiveTitle: title,
-          categoryType: catType,
-          liveCategory: catId,
-          tags: currentTags || [],
-          adult: isWpAdult ? true : targetAdult,
-          clipActive: isWpClipFalse ? false : targetClip,
-          replayPublishType: isWpReplayFalse ? 'NONE' : targetReplay,
-          paidPromotion: targetPaid,
-          krOnlyViewing: isWp ? !!activeWatchParty.krOnlyViewing : targetKrOnly,
-          cvExposure: base.cvExposure !== undefined ? base.cvExposure : true,
-          timeMachineActive: isWpClipFalse ? false : (base.timeMachineActive !== undefined ? base.timeMachineActive : true),
-          aiCaptionActive: !!base.aiCaptionActive,
-          streamerShopCatalogTagActive: !!base.streamerShopCatalogTagActive,
-          defaultThumbnailImageUrl: base.defaultThumbnailImageUrl || null,
-          dropsCampaignNo: base.dropsCampaignNo || null,
-          paidProductId: base.paidProductId || null,
-          broadcastLanguage: base.broadcastLanguage || null,
-          watchPartyNo: isWp ? Number(targetWpNo) : null,
-          channelDonationBoardMessage: (isWp && activeWatchParty && activeWatchParty.donationBoardInfo) ? (currentDonationBoardMessage || '') : void 0
-        };
-
-        const resLive = await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/live-setting/normal`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payloadLive)
-        });
-
-        if (resLive.ok) {
-          currentLiveSetting.adult = payloadLive.adult;
-          currentLiveSetting.clipActive = payloadLive.clipActive;
-          currentLiveSetting.krOnlyViewing = payloadLive.krOnlyViewing;
-          currentLiveSetting.replayPublishType = payloadLive.replayPublishType;
-          currentLiveSetting.watchPartyNo = payloadLive.watchPartyNo;
-          liveSuccess = true;
-        } else {
-          let errorMsg = '치지직 서버 권한을 확인하세요.';
-          try {
-            const errData = await resLive.json();
-            if (errData && errData.message) {
-              errorMsg = errData.message;
+          // 같이보기+(RS) 선택 시 필수인 채팅 후원 자동 ON 동기화
+          if (isWp && activeWatchParty && activeWatchParty.watchPartyType === 'RS') {
+            const elChat = document.getElementById('toggle-chat-donation');
+            if (elChat && !elChat.checked) {
+              elChat.checked = true;
             }
-          } catch (e) {}
-          showToast('방송 정보 저장 실패', 'error', errorMsg);
+          }
+
+          // 1. 후원 3종 설정 선행 저장 (같이보기+ RS 방송의 채팅 후원 필수 요구조건 충족을 위해 선행)
+          const chatActive = document.getElementById('toggle-chat-donation')?.checked ?? false;
+          const videoActive = document.getElementById('toggle-video-donation')?.checked ?? false;
+          const missionActive = document.getElementById('toggle-mission-donation')?.checked ?? false;
+
+          if (chatActive !== currentDonationState.chatDonationActive) {
+            await updateDonationSetting('CHAT', true);
+          }
+          if (videoActive !== currentDonationState.videoDonationActive) {
+            await updateDonationSetting('VIDEO', true);
+          }
+          if (missionActive !== currentDonationState.missionDonationActive) {
+            await updateDonationSetting('MISSION', true);
+          }
+
+          // 캠페인별 규칙 적용 (카테고리/클립/다시보기/성인/해외시청/응원전광판)
+          const isWpAdult = !!(isWp && activeWatchParty && activeWatchParty.adult);
+          const isWpClipFalse = !!(isWp && activeWatchParty && activeWatchParty.clipActive === false);
+          const isWpReplayFalse = !!(isWp && activeWatchParty && activeWatchParty.allowReplayVideo === false);
+
+          if (isWp && activeWatchParty && activeWatchParty.category && (activeWatchParty.category.categoryId || activeWatchParty.category.categoryValue)) {
+            catId = activeWatchParty.category.categoryId || catId;
+            catType = activeWatchParty.category.categoryType || catType;
+          }
+
+          const base = currentLiveSetting.rawContent || {};
+          const payloadLive = {
+            defaultLiveTitle: title,
+            categoryType: catType,
+            liveCategory: catId,
+            tags: currentTags || [],
+            adult: isWpAdult ? true : targetAdult,
+            clipActive: isWpClipFalse ? false : targetClip,
+            replayPublishType: isWpReplayFalse ? 'NONE' : targetReplay,
+            paidPromotion: targetPaid,
+            krOnlyViewing: isWp ? !!activeWatchParty.krOnlyViewing : targetKrOnly,
+            cvExposure: base.cvExposure !== undefined ? base.cvExposure : true,
+            timeMachineActive: isWpClipFalse ? false : (base.timeMachineActive !== undefined ? base.timeMachineActive : true),
+            aiCaptionActive: !!base.aiCaptionActive,
+            streamerShopCatalogTagActive: !!base.streamerShopCatalogTagActive,
+            defaultThumbnailImageUrl: base.defaultThumbnailImageUrl || null,
+            dropsCampaignNo: base.dropsCampaignNo || null,
+            paidProductId: base.paidProductId || null,
+            broadcastLanguage: base.broadcastLanguage || null,
+            watchPartyNo: isWp ? Number(targetWpNo) : null,
+            channelDonationBoardMessage: (isWp && activeWatchParty && activeWatchParty.donationBoardInfo) ? (currentDonationBoardMessage || '') : void 0
+          };
+
+          const resLive = await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/live-setting/normal`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payloadLive)
+          });
+
+          if (resLive.ok) {
+            currentLiveSetting.adult = payloadLive.adult;
+            currentLiveSetting.clipActive = payloadLive.clipActive;
+            currentLiveSetting.krOnlyViewing = payloadLive.krOnlyViewing;
+            currentLiveSetting.replayPublishType = payloadLive.replayPublishType;
+            currentLiveSetting.watchPartyNo = payloadLive.watchPartyNo;
+            liveSuccess = true;
+          } else {
+            let errorMsg = '치지직 서버 권한을 확인하세요.';
+            try {
+              const errData = await resLive.json();
+              if (errData && errData.message) {
+                errorMsg = errData.message;
+              }
+            } catch (e) {}
+            showToast('방송 정보 저장 실패', 'error', errorMsg);
+          }
+        } catch (err) {
+          showToast('방송 정보 저장 오류', 'error', err.message);
         }
-      } catch (err) {
-        showToast('방송 정보 저장 오류', 'error', err.message);
-      }
 
-      // 2. 채팅 설정 저장 (PUT /live-setting/chat)
-      try {
-        const group = getSelectedChatGroup();
-        const payloadChat = {
-          chatAvailableGroup: group,
-          minFollowerMinute: group === 'FOLLOWER' ? (parseInt(document.getElementById('min-follower-minute').value) || 0) : 0,
-          allowSubscriberInFollowerMode: document.getElementById('toggle-sub-exception').checked
-        };
+        // 2. 채팅 설정 저장 (PUT /live-setting/chat)
+        try {
+          const group = getSelectedChatGroup();
+          const payloadChat = {
+            chatAvailableGroup: group,
+            minFollowerMinute: group === 'FOLLOWER' ? (parseInt(document.getElementById('min-follower-minute').value) || 0) : 0,
+            allowSubscriberInFollowerMode: document.getElementById('toggle-sub-exception').checked
+          };
 
-        const resChat = await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/live-setting/chat`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payloadChat)
-        });
+          const resChat = await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/live-setting/chat`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payloadChat)
+          });
 
-        if (resChat.ok) {
-          chatSuccess = true;
+          if (resChat.ok) {
+            chatSuccess = true;
+          } else {
+            let chatErrorMsg = '채팅 설정 저장에 실패했습니다.';
+            try {
+              const errChat = await resChat.json();
+              if (errChat && errChat.message) chatErrorMsg = errChat.message;
+            } catch (e) {}
+            showToast('채팅 설정 저장 실패', 'error', chatErrorMsg);
+          }
+        } catch (err) {
+          showToast('채팅 설정 저장 오류', 'error', err.message);
+        }
+
+        // 3. 방송 설정 저장이 성공한 경우에만 화면에 최신 방송 & 채팅 정보 다시 동기화
+        // (저장이 실패한 경우 사용자가 선택해둔 같이보기나 폼 입력값이 리셋되는 문제 방지)
+        if (liveSuccess) {
+          await loadCurrentSettings(true);
+        }
+
+        if (liveSuccess && chatSuccess) {
+          saveText.textContent = '✅ 적용 완료!';
+          showToast('🎉 방송, 채팅 & 후원 설정 적용 완료!', 'success');
+          setTimeout(() => { saveText.textContent = '적용'; }, 1500);
+        } else if (liveSuccess) {
+          saveText.textContent = '✅ 적용 완료!';
+          showToast('방송 정보만 적용되었습니다.', 'warn');
+          setTimeout(() => { saveText.textContent = '적용'; }, 1500);
+        } else if (chatSuccess) {
+          saveText.textContent = '✅ 적용 완료!';
+          showToast('채팅 설정만 적용되었습니다.', 'warn');
+          setTimeout(() => { saveText.textContent = '적용'; }, 1500);
         } else {
-          let chatErrorMsg = '채팅 설정 저장에 실패했습니다.';
-          try {
-            const errChat = await resChat.json();
-            if (errChat && errChat.message) chatErrorMsg = errChat.message;
-          } catch (e) {}
-          showToast('채팅 설정 저장 실패', 'error', chatErrorMsg);
+          saveText.textContent = '적용';
         }
-      } catch (err) {
-        showToast('채팅 설정 저장 오류', 'error', err.message);
-      }
-
-      // 3. 방송 설정 저장이 성공한 경우에만 화면에 최신 방송 & 채팅 정보 다시 동기화
-      // (저장이 실패한 경우 사용자가 선택해둔 같이보기나 폼 입력값이 리셋되는 문제 방지)
-      if (liveSuccess) {
-        await loadCurrentSettings(true);
-      }
-
-      btn.disabled = false;
-      spinner.style.display = 'none';
-
-      if (liveSuccess && chatSuccess) {
-        saveText.textContent = '✅ 적용 완료!';
-        showToast('🎉 방송, 채팅 & 후원 설정 적용 완료!', 'success');
-        setTimeout(() => { saveText.textContent = '적용'; }, 1500);
-      } else if (liveSuccess) {
-        saveText.textContent = '✅ 적용 완료!';
-        showToast('방송 정보만 적용되었습니다.', 'warn');
-        setTimeout(() => { saveText.textContent = '적용'; }, 1500);
-      } else if (chatSuccess) {
-        saveText.textContent = '✅ 적용 완료!';
-        showToast('채팅 설정만 적용되었습니다.', 'warn');
-        setTimeout(() => { saveText.textContent = '적용'; }, 1500);
-      } else {
-        saveText.textContent = '적용';
+      } finally {
+        btn.disabled = false;
+        spinner.style.display = 'none';
       }
     }
 

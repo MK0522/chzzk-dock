@@ -118,7 +118,7 @@ func CredRead(targetName string) map[string]interface{} {
 
 	targetNamePtr, err := syscall.UTF16PtrFromString(targetName)
 	if err != nil {
-		return make(map[string]interface{})
+		return nil
 	}
 
 	var pCred *CREDENTIALW
@@ -130,18 +130,18 @@ func CredRead(targetName string) map[string]interface{} {
 	)
 
 	if r1 == 0 || pCred == nil {
-		return make(map[string]interface{})
+		return nil
 	}
 	defer procCredFree.Call(uintptr(unsafe.Pointer(pCred)))
 
 	if pCred.CredentialBlobSize == 0 || pCred.CredentialBlob == nil {
-		return make(map[string]interface{})
+		return nil
 	}
 
 	rawBytes := unsafe.Slice(pCred.CredentialBlob, pCred.CredentialBlobSize)
 	result := make(map[string]interface{})
 	if err := json.Unmarshal(rawBytes, &result); err != nil {
-		return make(map[string]interface{})
+		return nil
 	}
 
 	return result

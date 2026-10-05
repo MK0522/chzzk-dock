@@ -3,68 +3,18 @@ package core
 import (
 	"fmt"
 	"os"
-	"strings"
 	"sync"
-	"syscall"
 	"time"
-	"unsafe"
-)
-
-const (
-	TH32CS_SNAPPROCESS = 0x00000002
 )
 
 var (
-	procCreateToolhelp32Snapshot = kernel32.NewProc("CreateToolhelp32Snapshot")
-	procProcess32FirstW          = kernel32.NewProc("Process32FirstW")
-	procProcess32NextW           = kernel32.NewProc("Process32NextW")
-
 	// OnShutdownCallback: 워치독에 의한 자동 종료 시 자원 정리를 위한 콜백
 	OnShutdownCallback func()
 )
 
-type PROCESSENTRY32W struct {
-	DwSize              uint32
-	CntUsage            uint32
-	Th32ProcessID       uint32
-	Th32DefaultHeapID   uintptr
-	Th32ModuleID        uint32
-	CntThreads          uint32
-	Th32ParentProcessID uint32
-	PcPriClassBase      int32
-	DwFlags             uint32
-	SzExeFile           [260]uint16
-}
-
 // IsObsRunning: 시스템 프로세스 목록에서 obs64.exe 또는 obs32.exe가 실행 중인지 확인
 func IsObsRunning() bool {
-	hSnap, _, _ := procCreateToolhelp32Snapshot.Call(TH32CS_SNAPPROCESS, 0)
-	if hSnap == 0 || hSnap == uintptr(syscall.InvalidHandle) {
-		return false
-	}
-	defer kernel32.NewProc("CloseHandle").Call(hSnap)
-
-	var entry PROCESSENTRY32W
-	entry.DwSize = uint32(unsafe.Sizeof(entry))
-
-	ret, _, _ := procProcess32FirstW.Call(hSnap, uintptr(unsafe.Pointer(&entry)))
-	if ret == 0 {
-		return false
-	}
-
-	for {
-		exeName := syscall.UTF16ToString(entry.SzExeFile[:])
-		if strings.EqualFold(exeName, "obs64.exe") || strings.EqualFold(exeName, "obs32.exe") {
-			return true
-		}
-
-		ret, _, _ = procProcess32NextW.Call(hSnap, uintptr(unsafe.Pointer(&entry)))
-		if ret == 0 {
-			break
-		}
-	}
-
-	return false
+	return IsProcessRunning("obs64.exe") || IsProcessRunning("obs32.exe")
 }
 
 var (
