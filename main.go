@@ -1,4 +1,4 @@
-﻿package main
+package main
 
 import (
 	_ "embed"
@@ -6,8 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
-	"mime/multipart"
 	"net"
 	"net/http"
 	"os"
@@ -43,10 +41,10 @@ var embeddedGuide2 []byte
 var embeddedLauncherScript []byte
 
 // ============================================================
-//  CHZZK OBS Dock Server v0.6.0 (Modular Architecture)
+//  CHZZK OBS Dock Server v0.6.1-Beta (Modular Architecture)
 // ============================================================
 const (
-	APP_VERSION       = "v0.6.0"
+	APP_VERSION       = "v0.6.1-Beta"
 	DEFAULT_HTTP_PORT = 8081
 	USER_AGENT        = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 )
@@ -100,29 +98,6 @@ func killAllSubProcesses() {
 	subProcesses = nil
 }
 
-var apiGetPaths = map[string]bool{
-	"/config":                 true,
-	"/login-webview":          true,
-	"/login-wait":             true,
-	"/unofficial-user":        true,
-	"/open-browser":           true,
-	"/obs-script-status":      true,
-	"/remote-webview":         true,
-	"/chat-webview":           true,
-	"/watchdog-timeout":       true,
-	"/port-status":            true,
-	"/startup-popup-status":   true,
-	"/shutdown-notify-status": true,
-	"/remote-tester-status":   true,
-	"/gpu-status":             true,
-	"/external-browser-status": true,
-	"/save-external-browser":   true,
-	"/check-update":            true,
-	"/update-status":           true,
-	"/broadcast-presets":       true,
-	"/api/disk-total":          true,
-	"/api/open-folder":         true,
-}
 
 func sendBytes(w http.ResponseWriter, body []byte, status int, contentType string) {
 	w.Header().Set("Content-Type", contentType)
@@ -251,6 +226,38 @@ func isPublicEndpoint(path, customURL string) bool {
 		target = customURL
 	}
 	return strings.Contains(target, "/auto-complete/") || strings.Contains(target, "/service/") || strings.Contains(target, "/polling/")
+}
+
+// fetchSessionUserStatus: 특정 세션 토큰으로 치지직 사용자 상태 조회
+func fetchSessionUserStatus(aut, ses string) (channelID, channelName, profileImage string, ok bool) {
+	if aut == "" && ses == "" {
+		return "", "", "", false
+	}
+	req, err := http.NewRequest("GET", naverGameApiBaseURL+"/nng_main/v1/user/getUserStatus", nil)
+	if err != nil {
+		return "", "", "", false
+	}
+	req.Header.Set("User-Agent", USER_AGENT)
+	req.Header.Set("Cookie", fmt.Sprintf("NID_AUT=%s; NID_SES=%s", aut, ses))
+	req.Header.Set("Origin", "https://chzzk.naver.com")
+	client := &http.Client{Timeout: 4 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil || resp.StatusCode != http.StatusOK {
+		return "", "", "", false
+	}
+	defer resp.Body.Close()
+	var res struct {
+		Content struct {
+			LoggedIn        bool   `json:"loggedIn"`
+			UserIdHash      string `json:"userIdHash"`
+			Nickname        string `json:"nickname"`
+			ProfileImageUrl string `json:"profileImageUrl"`
+		} `json:"content"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil || !res.Content.LoggedIn {
+		return "", "", "", false
+	}
+	return res.Content.UserIdHash, res.Content.Nickname, res.Content.ProfileImageUrl, true
 }
 
 // proxyUnofficialRequest: 치지직 비공식 API 프록시 (Rate Limiter 및 세션 헤더 포함)
@@ -425,1104 +432,7 @@ func proxyDispatch(w http.ResponseWriter, r *http.Request, method string) bool {
 	return false
 }
 
-// HttpDockHandler: 메인 HTTP 라우터 핸들러
-func HttpDockHandler(w http.ResponseWriter, r *http.Request) {
-	if !core.CheckSecurity(w, r) {
-		return
-	}
-	setCORSHeaders(w, r)
 
-	// OPTIONS 프리플라이트 요청 처리
-	if r.Method == http.MethodOptions {
-		w.WriteHeader(http.StatusOK)
-		return
-	}
-
-	path := r.URL.Path
-
-	switch r.Method {
-	case http.MethodGet:
-		// API 엔드포인트 라우팅
-		if apiGetPaths[path] || strings.HasPrefix(path, "/unofficial/") {
-			if !core.CheckApiAuth(w, r) {
-				return
-			}
-
-			if path == "/obs-script-status" {
-				scriptsDir, detected := core.DetectObsScriptsDir()
-				installed, needsUpdate := core.CheckScriptStatus(scriptsDir, getLauncherScriptData())
-				sendJSON(w, map[string]interface{}{
-					"code":         200,
-					"detected":     detected,
-					"path":         scriptsDir,
-					"installed":    installed,
-					"needs_update": needsUpdate,
-				}, http.StatusOK)
-				return
-			}
-
-			if path == "/config" {
-				core.InvalidateConfigCache()
-				cfg := core.LoadConfig()
-				autMask := ""
-				sesMask := ""
-				if cfg.NidAut != "" {
-					autMask = "••••••••••••••••••••••••••••••••"
-				}
-				if cfg.NidSes != "" {
-					sesMask = "••••••••••••••••••••••••••••••••"
-				}
-				sendJSON(w, map[string]interface{}{
-					"nid_aut":                autMask,
-					"nid_ses":                sesMask,
-					"remote_tester_unlocked": core.GetRemoteTesterUnlocked(),
-				}, http.StatusOK)
-				return
-			}
-
-			if path == "/login-webview" {
-				core.LogInfo("[HTTP] /login-webview 요청 수신")
-				webviewLock.Lock()
-				if webviewProcess != nil && webviewProcess.ProcessState == nil {
-					webviewLock.Unlock()
-					core.LogWarn("[HTTP] /login-webview: 이미 네이버 로그인 창이 열려 있습니다.")
-					sendJSON(w, map[string]interface{}{
-						"status":  "already_open",
-						"message": "이미 네이버 로그인 창이 열려 있습니다.",
-					}, http.StatusOK)
-					return
-				}
-
-				exePath, err := os.Executable()
-				if err != nil {
-					webviewLock.Unlock()
-					core.LogError("[HTTP] /login-webview: 실행 파일 경로 확인 실패: %v", err)
-					sendJSON(w, map[string]interface{}{
-						"status":  "error",
-						"message": "실행 파일 경로를 찾을 수 없습니다.",
-					}, http.StatusInternalServerError)
-					return
-				}
-
-				cmd := exec.Command(exePath, "--login")
-				if err := cmd.Start(); err != nil {
-					webviewLock.Unlock()
-					core.LogError("[HTTP] /login-webview: 로그인 서브프로세스 시작 실패: %v", err)
-					sendJSON(w, map[string]interface{}{
-						"status":  "error",
-						"message": "로그인 웹뷰를 시작할 수 없습니다.",
-					}, http.StatusInternalServerError)
-					return
-				}
-				procAllowSetForegroundWindow.Call(uintptr(cmd.Process.Pid))
-				webviewProcess = cmd
-				trackSubProcess(cmd)
-				waitCh := make(chan struct{})
-				webviewWaitCh = waitCh
-				go func(c *exec.Cmd, ch chan struct{}) {
-					_ = c.Wait()
-					close(ch)
-				}(cmd, waitCh)
-				webviewLock.Unlock()
-				core.LogInfo("[HTTP] /login-webview: 로그인 서브프로세스 시작 완료 (PID: %d)", cmd.Process.Pid)
-
-				sendJSON(w, map[string]interface{}{
-					"status":  "started",
-					"message": "네이버 로그인 웹뷰 창이 열렸습니다.",
-				}, http.StatusOK)
-				return
-			}
-
-			if path == "/login-wait" {
-				webviewLock.Lock()
-				waitCh := webviewWaitCh
-				webviewWaitCh = nil // 단 1회만 소비하여 중복 대기 및 성공 로그 중복 출력 원천 차단
-				webviewLock.Unlock()
-
-				if waitCh == nil {
-					// 이미 종료되어 소비되었거나 대기 중인 세션이 없음: 조용히 현재 캐시/설정 상태만 반환
-					core.InvalidateConfigCache()
-					cfg := core.LoadConfig()
-					if cfg.NidAut != "" && cfg.NidSes != "" {
-						sendJSON(w, map[string]interface{}{
-							"status": "completed",
-							"config": map[string]string{
-								"nid_aut": "••••••••••••••••••••••••••••••••",
-								"nid_ses": "••••••••••••••••••••••••••••••••",
-							},
-						}, http.StatusOK)
-					} else {
-						sendJSON(w, map[string]interface{}{
-							"status":  "closed",
-							"message": "로그인 창이 열려있지 않습니다.",
-						}, http.StatusOK)
-					}
-					return
-				}
-
-				core.LogInfo("[HTTP] /login-wait 대기 시작")
-				select {
-				case <-waitCh:
-					core.LogInfo("[HTTP] /login-wait: 로그인 프로세스 종료 감지")
-				case <-time.After(180 * time.Second):
-					core.LogWarn("[HTTP] /login-wait: 180초 대기 타임아웃")
-				}
-
-				core.InvalidateConfigCache()
-				cfg := core.LoadConfig()
-				if cfg.NidAut != "" && cfg.NidSes != "" {
-					core.LogInfo("[HTTP] /login-wait: 네이버 로그인 세션 쿠키 연동 성공")
-					sendJSON(w, map[string]interface{}{
-						"status": "completed",
-						"config": map[string]string{
-							"nid_aut": "••••••••••••••••••••••••••••••••",
-							"nid_ses": "••••••••••••••••••••••••••••••••",
-						},
-					}, http.StatusOK)
-				} else {
-					core.LogWarn("[HTTP] /login-wait: 쿠키 미취득 상태로 창 닫힘")
-					sendJSON(w, map[string]interface{}{
-						"status":  "closed",
-						"message": "로그인 창이 닫혔습니다.",
-					}, http.StatusOK)
-				}
-				return
-			}
-
-			if path == "/unofficial-user" {
-				proxyUnofficialRequest(w, r, "GET", "", nil, naverGameApiBaseURL+"/nng_main/v1/user/getUserStatus")
-				return
-			}
-
-			if path == "/open-browser" {
-				rawURL := r.URL.Query().Get("url")
-				if rawURL == "" || (!strings.HasPrefix(rawURL, "https://") && !strings.HasPrefix(rawURL, "http://")) {
-					sendJSON(w, map[string]interface{}{"status": "error", "message": "잘못된 URL입니다."}, http.StatusBadRequest)
-					return
-				}
-				core.OpenBrowser(rawURL)
-				sendJSON(w, map[string]interface{}{"status": "ok"}, http.StatusOK)
-				return
-			}
-
-			if path == "/remote-webview" {
-				channelId := r.URL.Query().Get("channelId")
-				exePath, err := os.Executable()
-				if err != nil {
-					core.LogError("[HTTP] /remote-webview [%s] executable lookup failed: %v", core.ErrSysFileIoFailed, err)
-					sendJSON(w, map[string]interface{}{
-						"status":     "error",
-						"error_code": core.ErrSysFileIoFailed,
-						"message":    "실행 파일 경로를 찾을 수 없습니다.",
-					}, http.StatusInternalServerError)
-					return
-				}
-				args := []string{"--remote"}
-				if channelId != "" {
-					args = append(args, channelId)
-				}
-				cmd := exec.Command(exePath, args...)
-				if err := cmd.Start(); err != nil {
-					core.LogError("[HTTP] /remote-webview [%s] start failed: %v", core.ErrSysWebviewRuntime, err)
-					sendJSON(w, map[string]interface{}{
-						"status":     "error",
-						"error_code": core.ErrSysWebviewRuntime,
-						"message":    "리모컨 창을 시작할 수 없습니다.",
-					}, http.StatusInternalServerError)
-					return
-				}
-				procAllowSetForegroundWindow.Call(uintptr(cmd.Process.Pid))
-				trackSubProcess(cmd)
-				sendJSON(w, map[string]interface{}{
-					"status":  "started",
-					"message": "치지직 리모컨 창이 열렸습니다.",
-				}, http.StatusOK)
-				return
-			}
-
-			if path == "/chat-webview" {
-				channelId := r.URL.Query().Get("channelId")
-				exePath, err := os.Executable()
-				if err != nil {
-					core.LogError("[HTTP] /chat-webview [%s] executable lookup failed: %v", core.ErrSysFileIoFailed, err)
-					sendJSON(w, map[string]interface{}{
-						"status":     "error",
-						"error_code": core.ErrSysFileIoFailed,
-						"message":    "실행 파일 경로를 찾을 수 없습니다.",
-					}, http.StatusInternalServerError)
-					return
-				}
-				args := []string{"--chat"}
-				if channelId != "" {
-					args = append(args, channelId)
-				}
-				cmd := exec.Command(exePath, args...)
-				if err := cmd.Start(); err != nil {
-					core.LogError("[HTTP] /chat-webview [%s] start failed: %v", core.ErrSysWebviewRuntime, err)
-					sendJSON(w, map[string]interface{}{
-						"status":     "error",
-						"error_code": core.ErrSysWebviewRuntime,
-						"message":    "채팅 창을 시작할 수 없습니다.",
-					}, http.StatusInternalServerError)
-					return
-				}
-				procAllowSetForegroundWindow.Call(uintptr(cmd.Process.Pid))
-				trackSubProcess(cmd)
-				sendJSON(w, map[string]interface{}{
-					"status":  "started",
-					"message": "치지직 채팅 창이 열렸습니다.",
-				}, http.StatusOK)
-				return
-			}
-
-			if path == "/watchdog-timeout" {
-				timeoutSec := core.GetWatchdogTimeoutSec()
-				sendJSON(w, map[string]interface{}{
-					"code":        200,
-					"timeout_sec": timeoutSec,
-				}, http.StatusOK)
-				return
-			}
-
-			if path == "/port-status" {
-				sendJSON(w, map[string]interface{}{
-					"code":            200,
-					"active_port":     activeHttpPort,
-					"configured_port": core.GetConfiguredPort(),
-					"is_fallback":     isFallbackPort,
-					"fallback_reason": portFallbackReason,
-					"default_port":    DEFAULT_HTTP_PORT,
-				}, http.StatusOK)
-				return
-			}
-
-			if path == "/startup-popup-status" {
-				sendJSON(w, map[string]interface{}{
-					"code":           200,
-					"popup_on_start": core.GetPopupOnStart(),
-				}, http.StatusOK)
-				return
-			}
-
-			if path == "/shutdown-notify-status" {
-				sendJSON(w, map[string]interface{}{
-					"code":               200,
-					"notify_on_shutdown": core.GetNotifyOnShutdown(),
-				}, http.StatusOK)
-				return
-			}
-
-			if path == "/remote-tester-status" {
-				sendJSON(w, map[string]interface{}{
-					"code":     200,
-					"unlocked": core.GetRemoteTesterUnlocked(),
-				}, http.StatusOK)
-				return
-			}
-
-			if path == "/gpu-status" {
-				sendJSON(w, map[string]interface{}{
-					"code":       200,
-					"enable_gpu": core.GetEnableGPU(),
-				}, http.StatusOK)
-				return
-			}
-
-			if path == "/external-browser-status" {
-				sendJSON(w, map[string]interface{}{
-					"code":                   200,
-					"external_browser_guard": core.GetExternalBrowserGuard(),
-					"browser_name":           core.GetDefaultBrowserName(),
-				}, http.StatusOK)
-				return
-			}
-
-			if path == "/check-update" {
-				force := r.URL.Query().Get("force") == "true"
-				info, err := core.CheckForUpdate(APP_VERSION, force)
-				if err != nil {
-					log.Printf("[Updater] Update check failed (force=%v): %v", force, err)
-					sendJSON(w, map[string]interface{}{
-						"code":    500,
-						"message": err.Error(),
-					}, http.StatusOK)
-					return
-				}
-				sendJSON(w, map[string]interface{}{
-					"code": 200,
-					"info": info,
-				}, http.StatusOK)
-				return
-			}
-
-			if path == "/update-status" {
-				progress := core.GetUpdateProgress()
-				sendJSON(w, map[string]interface{}{
-					"code":     200,
-					"progress": progress,
-				}, http.StatusOK)
-				return
-			}
-
-			if path == "/broadcast-presets" {
-				presets := core.GetBroadcastPresets()
-				sendJSON(w, map[string]interface{}{
-					"code":    200,
-					"presets": presets,
-				}, http.StatusOK)
-				return
-			}
-
-			if path == "/api/disk-total" {
-				handleDiskTotal(w, r)
-				return
-			}
-
-			if path == "/api/open-folder" {
-				handleOpenFolder(w, r)
-				return
-			}
-
-			if proxyDispatch(w, r, "GET") {
-				return
-			}
-		}
-
-		// 쿠키 확인 가이드 이미지 서빙 (새창 열기 및 독 내 임베드 지원)
-		if path == "/guide-image/1" {
-			if localImg, err := os.ReadFile("docs/cookie_guide_1.png"); err == nil {
-				sendBytes(w, localImg, http.StatusOK, "image/png")
-				return
-			}
-			sendBytes(w, embeddedGuide1, http.StatusOK, "image/png")
-			return
-		}
-		if path == "/guide-image/2" {
-			if localImg, err := os.ReadFile("docs/cookie_guide_2.png"); err == nil {
-				sendBytes(w, localImg, http.StatusOK, "image/png")
-				return
-			}
-			sendBytes(w, embeddedGuide2, http.StatusOK, "image/png")
-			return
-		}
-
-		// OBS 자동 실행 Lua 스크립트 서빙
-		if path == "/obs-script" || path == "/obs-launcher.lua" || path == "/chzzk_dock_launcher.lua" {
-			sendBytes(w, getLauncherScriptData(), http.StatusOK, "text/plain; charset=utf-8")
-			return
-		}
-
-		// 기존 인스턴스 독 화면 전면 활성화 엔드포인트 (중복 실행 방지 연동)
-		if path == "/show-ui" || path == "/api/show-ui" {
-			core.ShowDockWindow()
-			sendJSON(w, map[string]interface{}{"code": 200, "message": "UI 표시 완료"}, http.StatusOK)
-			return
-		}
-
-		// OBS 실시간 통계 독 정적 HTML 페이지 서빙
-		if path == "/stats" || path == "/stats.html" || path == "/obs-stats.html" {
-			w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
-			w.Header().Set("Pragma", "no-cache")
-			w.Header().Set("Expires", "0")
-			sendBytes(w, getRenderedStatsHTML(), http.StatusOK, "text/html; charset=utf-8")
-			return
-		}
-
-		// OBS 독 정적 HTML 페이지 서빙 (SSR 버전 동적 주입)
-		if path == "/" || path == "/index.html" || path == "/chzzk-obs-dock.html" {
-			w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
-			w.Header().Set("Pragma", "no-cache")
-			w.Header().Set("Expires", "0")
-			sendBytes(w, getRenderedHTML(), http.StatusOK, "text/html; charset=utf-8")
-			return
-		}
-
-		sendJSON(w, map[string]interface{}{"code": 404, "message": "Not Found"}, http.StatusNotFound)
-
-	case http.MethodPost:
-		if !core.CheckApiAuth(w, r) {
-			return
-		}
-
-		if path == "/browse-obs-folder" {
-			folder, err := core.BrowseForObsFolder("OBS Studio 설치 폴더(obs-studio) 또는 scripts 폴더를 선택하세요")
-			if err != nil {
-				core.LogError("[HTTP] /browse-obs-folder [%s] failed: %v", core.ErrSysObsPathNotFound, err)
-				sendJSON(w, map[string]interface{}{
-					"code":       500,
-					"error_code": core.ErrSysObsPathNotFound,
-					"message":    "폴더 선택 중 오류가 발생했습니다.",
-				}, http.StatusInternalServerError)
-				return
-			}
-			if folder == "" {
-				sendJSON(w, map[string]interface{}{
-					"code":      200,
-					"cancelled": true,
-				}, http.StatusOK)
-				return
-			}
-			resolved := core.ResolveObsScriptsDir(folder)
-			sendJSON(w, map[string]interface{}{
-				"code":          200,
-				"cancelled":     false,
-				"selected_path": folder,
-				"resolved_path": resolved,
-			}, http.StatusOK)
-			return
-		}
-
-		if path == "/install-obs-script" {
-			var reqData struct {
-				CustomDir string `json:"custom_dir"`
-			}
-			if r.Body != nil {
-				_ = json.NewDecoder(r.Body).Decode(&reqData)
-			}
-
-			scriptData := getLauncherScriptData()
-			installedPath, err := core.InstallLauncherScriptToObs(reqData.CustomDir, scriptData)
-			if err != nil {
-				core.LogError("[HTTP] /install-obs-script [%s] failed: %v", core.ErrSysFileIoFailed, err)
-				sendJSON(w, map[string]interface{}{
-					"code":       500,
-					"error_code": core.ErrSysFileIoFailed,
-					"message":    "OBS 스크립트 설치에 실패했습니다.",
-				}, http.StatusInternalServerError)
-				return
-			}
-			sendJSON(w, map[string]interface{}{
-				"code":    200,
-				"message": "OBS 스크립트 폴더에 성공적으로 추가되었습니다.",
-				"path":    installedPath,
-			}, http.StatusOK)
-			return
-		}
-
-		if path == "/export-script" {
-			scriptData := getLauncherScriptData()
-			createdPath, err := core.ExportLauncherScript(scriptData)
-			if err != nil {
-				core.LogError("[HTTP] /export-script [%s] failed: %v", core.ErrSysFileIoFailed, err)
-				sendJSON(w, map[string]interface{}{
-					"code":       500,
-					"error_code": core.ErrSysFileIoFailed,
-					"message":    "스크립트 내보내기에 실패했습니다.",
-				}, http.StatusInternalServerError)
-				return
-			}
-			sendJSON(w, map[string]interface{}{
-				"code":    200,
-				"message": "스크립트 파일이 생성되고 코드가 클립보드에 복사되었습니다.",
-				"path":    createdPath,
-			}, http.StatusOK)
-			return
-		}
-
-		if path == "/save-config" {
-			var bodyMap map[string]interface{}
-			if err := json.NewDecoder(r.Body).Decode(&bodyMap); err != nil {
-				sendJSON(w, map[string]interface{}{"code": 400, "message": "설정 저장에 실패했습니다."}, http.StatusBadRequest)
-				return
-			}
-			aut, _ := bodyMap["nid_aut"].(string)
-			ses, _ := bodyMap["nid_ses"].(string)
-			if strings.Contains(aut, "•") || strings.Contains(aut, "*") || strings.Contains(ses, "•") || strings.Contains(ses, "*") {
-				sendJSON(w, map[string]interface{}{"code": 400, "message": "더미 마스킹 값이 아닌 실제 쿠키 값을 입력하세요."}, http.StatusBadRequest)
-				return
-			}
-			bodyMap["auth_method"] = "manual"
-			saved := core.SaveConfig(bodyMap)
-			_ = saved
-			sendJSON(w, map[string]interface{}{
-				"code":    200,
-				"message": "성공적으로 저장되었습니다.",
-				"config": map[string]string{
-					"nid_aut": "••••••••••••••••••••••••••••••••",
-					"nid_ses": "••••••••••••••••••••••••••••••••",
-				},
-			}, http.StatusOK)
-			return
-		}
-
-		if path == "/logout" {
-			core.ClearConfig()
-			// 자격 증명 금고(Windows Credential Manager) 및 메모리 캐시 즉시 파기.
-			// 브라우저 정적 캐시(JS/CSS)는 보존하고 세션/쿠키만 선별 삭제하여 다음 로그인 시 초고속 로딩 보장
-			appData := os.Getenv("LOCALAPPDATA")
-			if appData == "" {
-				appData = os.Getenv("USERPROFILE")
-			}
-			profileDir := filepath.Join(appData, "ChzzkObsDock", "webview_profile")
-			core.ClearWebViewSession(profileDir)
-
-			sendJSON(w, map[string]interface{}{
-				"code":    200,
-				"message": "성공적으로 로그아웃되었습니다.",
-			}, http.StatusOK)
-			return
-		}
-
-		if path == "/save-startup-popup" {
-			var reqData struct {
-				PopupOnStart bool `json:"popup_on_start"`
-			}
-			if err := json.NewDecoder(r.Body).Decode(&reqData); err != nil {
-				sendJSON(w, map[string]interface{}{
-					"code":    400,
-					"message": "잘못된 요청 형식입니다.",
-				}, http.StatusBadRequest)
-				return
-			}
-			if err := core.SetPopupOnStartSetting(reqData.PopupOnStart); err != nil {
-				sendJSON(w, map[string]interface{}{
-					"code":    500,
-					"message": "설정 저장에 실패했습니다.",
-				}, http.StatusInternalServerError)
-				return
-			}
-			core.LogInfo("[Settings] 시작 시 독 팝업창 자동 열기 설정이 %v(으)로 저장되었습니다.", reqData.PopupOnStart)
-			sendJSON(w, map[string]interface{}{
-				"code":           200,
-				"popup_on_start": reqData.PopupOnStart,
-				"message":        "시작 팝업 설정이 저장되었습니다.",
-			}, http.StatusOK)
-			return
-		}
-
-		if path == "/save-shutdown-notify" {
-			var reqData struct {
-				NotifyOnShutdown bool `json:"notify_on_shutdown"`
-			}
-			if err := json.NewDecoder(r.Body).Decode(&reqData); err != nil {
-				sendJSON(w, map[string]interface{}{
-					"code":    400,
-					"message": "잘못된 요청 형식입니다.",
-				}, http.StatusBadRequest)
-				return
-			}
-			if err := core.SetNotifyOnShutdownSetting(reqData.NotifyOnShutdown); err != nil {
-				sendJSON(w, map[string]interface{}{
-					"code":    500,
-					"message": "설정 저장에 실패했습니다.",
-				}, http.StatusInternalServerError)
-				return
-			}
-			core.LogInfo("[Settings] 자동 종료 시 알림 설정이 %v(으)로 저장되었습니다.", reqData.NotifyOnShutdown)
-			sendJSON(w, map[string]interface{}{
-				"code":               200,
-				"notify_on_shutdown": reqData.NotifyOnShutdown,
-				"message":            "자동 종료 알림 설정이 저장되었습니다.",
-			}, http.StatusOK)
-			return
-		}
-
-		if path == "/save-gpu" {
-			var reqData struct {
-				EnableGPU bool `json:"enable_gpu"`
-			}
-			if err := json.NewDecoder(r.Body).Decode(&reqData); err != nil {
-				sendJSON(w, map[string]interface{}{
-					"code":    400,
-					"message": "잘못된 요청 형식입니다.",
-				}, http.StatusBadRequest)
-				return
-			}
-			if err := core.SetEnableGPUSetting(reqData.EnableGPU); err != nil {
-				sendJSON(w, map[string]interface{}{
-					"code":    500,
-					"message": "설정 저장에 실패했습니다.",
-				}, http.StatusInternalServerError)
-				return
-			}
-			core.LogInfo("[Settings] 웹뷰 GPU 하드웨어 가속 설정이 %v(으)로 저장되었습니다.", reqData.EnableGPU)
-			sendJSON(w, map[string]interface{}{
-				"code":       200,
-				"enable_gpu": reqData.EnableGPU,
-				"message":    "웹뷰 GPU 가속 설정이 저장되었습니다.",
-			}, http.StatusOK)
-			return
-		}
-
-		if path == "/save-external-browser" {
-			var reqData struct {
-				ExternalBrowserGuard bool `json:"external_browser_guard"`
-			}
-			if err := json.NewDecoder(r.Body).Decode(&reqData); err != nil {
-				sendJSON(w, map[string]interface{}{
-					"code":    400,
-					"message": "잘못된 요청 형식입니다.",
-				}, http.StatusBadRequest)
-				return
-			}
-			if err := core.SetExternalBrowserGuardSetting(reqData.ExternalBrowserGuard); err != nil {
-				sendJSON(w, map[string]interface{}{
-					"code":    500,
-					"message": "설정 저장에 실패했습니다.",
-				}, http.StatusInternalServerError)
-				return
-			}
-			core.LogInfo("[Settings] 외부 링크 브라우저 열기 가드 설정이 %v(으)로 저장되었습니다.", reqData.ExternalBrowserGuard)
-			sendJSON(w, map[string]interface{}{
-				"code":                   200,
-				"external_browser_guard": reqData.ExternalBrowserGuard,
-				"message":                "외부 링크 브라우저 열기 설정이 저장되었습니다.",
-			}, http.StatusOK)
-			return
-		}
-
-		if path == "/watchdog-timeout" {
-			var reqData struct {
-				TimeoutSec int `json:"timeout_sec"`
-			}
-			if err := json.NewDecoder(r.Body).Decode(&reqData); err != nil {
-				sendJSON(w, map[string]interface{}{
-					"code":    400,
-					"message": "잘못된 요청 형식입니다.",
-				}, http.StatusBadRequest)
-				return
-			}
-			if reqData.TimeoutSec != -1 && reqData.TimeoutSec != 0 && (reqData.TimeoutSec < 5 || reqData.TimeoutSec > 86400) {
-				sendJSON(w, map[string]interface{}{
-					"code":    400,
-					"message": "대기 시간은 -1(사용 안 함), 0(즉시 종료) 또는 5초에서 86400초(24시간) 사이여야 합니다.",
-				}, http.StatusBadRequest)
-				return
-			}
-			core.SetWatchdogTimeoutSec(reqData.TimeoutSec)
-			st := core.LoadSettings()
-			st.WatchdogTimeoutSec = reqData.TimeoutSec
-			st.WatchdogDisabled = (reqData.TimeoutSec == -1)
-			_ = core.SaveSettings(st)
-			if trayInstance != nil {
-				trayInstance.UpdateTooltip(getTrayTooltip())
-			}
-			msg := "대기 시간이 성공적으로 변경되었습니다."
-			if reqData.TimeoutSec == 0 {
-				msg = "OBS 종료 시 즉시 종료되도록 설정되었습니다."
-			} else if reqData.TimeoutSec == -1 {
-				msg = "OBS 자동 종료가 비활성화되었습니다. (상시 실행 유지)"
-			}
-			sendJSON(w, map[string]interface{}{
-				"code":        200,
-				"message":     msg,
-				"timeout_sec": reqData.TimeoutSec,
-			}, http.StatusOK)
-			return
-		}
-
-		if path == "/save-broadcast-presets" {
-			var reqData struct {
-				Presets []core.BroadcastPreset `json:"presets"`
-			}
-			if err := json.NewDecoder(r.Body).Decode(&reqData); err != nil {
-				sendJSON(w, map[string]interface{}{
-					"code":    400,
-					"message": "잘못된 요청 형식입니다.",
-				}, http.StatusBadRequest)
-				return
-			}
-
-			// Ponytail validation: 최대 10개, 이름 10자 이내, 제목 50자 이내, 태그 최대 5개 (각 15자 이내)
-			if len(reqData.Presets) > 10 {
-				sendJSON(w, map[string]interface{}{
-					"code":    400,
-					"message": "프리셋은 최대 10개까지만 저장할 수 있습니다.",
-				}, http.StatusBadRequest)
-				return
-			}
-			for i, p := range reqData.Presets {
-				name := strings.TrimSpace(p.Name)
-				title := strings.TrimSpace(p.Title)
-				if name == "" || len([]rune(name)) > 10 {
-					sendJSON(w, map[string]interface{}{
-						"code":    400,
-						"message": fmt.Sprintf("프리셋 #%d의 이름은 1~10자 이내여야 합니다.", i+1),
-					}, http.StatusBadRequest)
-					return
-				}
-				if title == "" || len([]rune(title)) > 50 {
-					sendJSON(w, map[string]interface{}{
-						"code":    400,
-						"message": fmt.Sprintf("프리셋 #%d의 제목은 1~50자 이내여야 합니다.", i+1),
-					}, http.StatusBadRequest)
-					return
-				}
-				if len(p.Tags) > 5 {
-					sendJSON(w, map[string]interface{}{
-						"code":    400,
-						"message": fmt.Sprintf("프리셋 #%d의 태그는 최대 5개까지 가능합니다.", i+1),
-					}, http.StatusBadRequest)
-					return
-				}
-				for _, t := range p.Tags {
-					if len([]rune(t)) > 15 {
-						sendJSON(w, map[string]interface{}{
-							"code":    400,
-							"message": fmt.Sprintf("프리셋 #%d의 각 태그는 최대 15자까지 가능합니다.", i+1),
-						}, http.StatusBadRequest)
-						return
-					}
-				}
-			}
-
-			if err := core.SaveBroadcastPresets(reqData.Presets); err != nil {
-				core.LogError("[Settings] [%s] Failed to save broadcast presets: %v", core.ErrSysFileIoFailed, err)
-				sendJSON(w, map[string]interface{}{
-					"code":       500,
-					"error_code": core.ErrSysFileIoFailed,
-					"message":    "프리셋 저장에 실패했습니다.",
-				}, http.StatusInternalServerError)
-				return
-			}
-			core.LogInfo("[Settings] 방송 정보 프리셋 %d개가 settings.json에 저장되었습니다.", len(reqData.Presets))
-			sendJSON(w, map[string]interface{}{
-				"code":    200,
-				"presets": reqData.Presets,
-				"message": "프리셋이 성공적으로 저장되었습니다.",
-			}, http.StatusOK)
-			return
-		}
-
-		if path == "/check-port" {
-			var reqData struct {
-				Port int `json:"port"`
-			}
-			if err := json.NewDecoder(r.Body).Decode(&reqData); err != nil {
-				sendJSON(w, map[string]interface{}{
-					"code":    400,
-					"message": "잘못된 요청 형식입니다.",
-				}, http.StatusBadRequest)
-				return
-			}
-
-			if reqData.Port < 1024 || reqData.Port > 65535 {
-				core.LogWarn("[Port] Invalid port range: %d", reqData.Port)
-				sendJSON(w, map[string]interface{}{
-					"code":       400,
-					"error_code": core.ErrBenInvalidPortRange,
-					"available":  false,
-					"port":       reqData.Port,
-					"message":    fmt.Sprintf("포트 번호는 1024 ~ 65535 사이여야 합니다 (입력값: %d).", reqData.Port),
-				}, http.StatusBadRequest)
-				return
-			}
-
-			// 현재 활성화된 독 서버의 포트와 동일하다면 사용 중인 독 포트로 안내
-			if reqData.Port == activeHttpPort {
-				sendJSON(w, map[string]interface{}{
-					"code":      200,
-					"available": true,
-					"port":      reqData.Port,
-					"message":   fmt.Sprintf("현재 CHZZK OBS Dock에서 정상 작동 중인 포트(%d)입니다.", reqData.Port),
-				}, http.StatusOK)
-				return
-			}
-
-			available, pid, procName, err := core.CheckPortAvailable(reqData.Port)
-			if !available {
-				displayName := procName
-				if displayName == "" {
-					displayName = "알 수 없는 프로그램"
-				}
-				errMsg := fmt.Sprintf("포트 %d번은 이미 다른 프로그램('%s', PID %d)에서 사용 중입니다.", reqData.Port, displayName, pid)
-				if pid == 0 {
-					errMsg = fmt.Sprintf("포트 %d번은 이미 다른 프로그램에서 사용 중입니다.", reqData.Port)
-				}
-				if err != nil {
-					core.LogWarn("[PortCheck] Port %d unavailable: %v (PID: %d, Proc: %s)", reqData.Port, err, pid, procName)
-				}
-				sendJSON(w, map[string]interface{}{
-					"code":        409,
-					"available":   false,
-					"port":        reqData.Port,
-					"occupied_by": displayName,
-					"pid":         pid,
-					"message":     errMsg,
-				}, http.StatusOK)
-				return
-			}
-
-			sendJSON(w, map[string]interface{}{
-				"code":      200,
-				"available": true,
-				"port":      reqData.Port,
-				"message":   fmt.Sprintf("포트 %d번은 사용 가능합니다.", reqData.Port),
-			}, http.StatusOK)
-			return
-		}
-
-		if path == "/save-port" {
-			var reqData struct {
-				Port    int  `json:"port"`
-				Restart bool `json:"restart"`
-			}
-			if err := json.NewDecoder(r.Body).Decode(&reqData); err != nil {
-				sendJSON(w, map[string]interface{}{
-					"code":    400,
-					"message": "잘못된 요청 형식입니다.",
-				}, http.StatusBadRequest)
-				return
-			}
-
-			if reqData.Port < 1024 || reqData.Port > 65535 {
-				sendJSON(w, map[string]interface{}{
-					"code":       400,
-					"error_code": core.ErrBenInvalidPortRange,
-					"message":    fmt.Sprintf("포트 번호는 1024 ~ 65535 사이여야 합니다 (입력값: %d).", reqData.Port),
-				}, http.StatusBadRequest)
-				return
-			}
-
-			if err := core.SaveConfiguredPort(reqData.Port); err != nil {
-				core.LogError("[Settings] [%s] Failed to save port %d to settings.json: %v", core.ErrSysFileIoFailed, reqData.Port, err)
-				sendJSON(w, map[string]interface{}{
-					"code":       500,
-					"error_code": core.ErrSysFileIoFailed,
-					"message":    "포트 설정을 저장하는 중 오류가 발생했습니다.",
-				}, http.StatusInternalServerError)
-				return
-			}
-
-			core.LogInfo("[Settings] 기본 HTTP 서버 포트 설정이 %d번으로 저장되었습니다 (Restart: %v).", reqData.Port, reqData.Restart)
-
-			if reqData.Restart && reqData.Port != activeHttpPort {
-				sendJSON(w, map[string]interface{}{
-					"code":             200,
-					"port":             reqData.Port,
-					"restart_required": true,
-					"restarting":       true,
-					"message":          fmt.Sprintf("기본 포트가 %d번으로 설정되었습니다.\n프로그램을 재시작합니다.", reqData.Port),
-				}, http.StatusOK)
-
-				if restartExecutor != nil {
-					go func() {
-						time.Sleep(300 * time.Millisecond)
-						restartExecutor()
-					}()
-				}
-				return
-			}
-
-			sendJSON(w, map[string]interface{}{
-				"code":             200,
-				"port":             reqData.Port,
-				"restart_required": reqData.Port != activeHttpPort,
-				"message":          fmt.Sprintf("기본 포트가 %d번으로 설정되었습니다.\n프로그램을 재시작하면 새 포트로 작동합니다.", reqData.Port),
-			}, http.StatusOK)
-			return
-		}
-
-		if path == "/remote-tester-auth" {
-			var reqData struct {
-				Code   string `json:"code"`
-				Action string `json:"action"`
-			}
-			if err := json.NewDecoder(r.Body).Decode(&reqData); err != nil {
-				sendJSON(w, map[string]interface{}{
-					"code":    400,
-					"message": "잘못된 요청 형식입니다.",
-				}, http.StatusBadRequest)
-				return
-			}
-
-			if reqData.Action == "revoke" {
-				if err := core.SetRemoteTesterUnlocked(false); err != nil {
-					core.LogError("[Remote] Failed to revoke tester auth: %v", err)
-					sendJSON(w, map[string]interface{}{
-						"code":    500,
-						"message": "테스터 설정 저장에 실패했습니다.",
-					}, http.StatusInternalServerError)
-					return
-				}
-				core.LogInfo("[Remote] 테스터 인증 해제 완료 (settings.json 반영)")
-				sendJSON(w, map[string]interface{}{
-					"code":     200,
-					"unlocked": false,
-					"message":  "테스터 모드가 해제되었습니다.",
-				}, http.StatusOK)
-				return
-			}
-
-			cleanCode := strings.TrimSpace(strings.ToLower(reqData.Code))
-			if cleanCode == "chzzk" || cleanCode == "tester" || cleanCode == "test" || cleanCode == "0600" {
-				if err := core.SetRemoteTesterUnlocked(true); err != nil {
-					core.LogError("[Remote] Failed to save tester auth: %v", err)
-					sendJSON(w, map[string]interface{}{
-						"code":    500,
-						"message": "테스터 설정 저장에 실패했습니다.",
-					}, http.StatusInternalServerError)
-					return
-				}
-				core.LogInfo("[Remote] 테스터 인증 성공 및 settings.json 영구 보존 (%s)", cleanCode)
-				sendJSON(w, map[string]interface{}{
-					"code":     200,
-					"unlocked": true,
-					"message":  "테스터 인증이 완료되었습니다. 설정 파일(settings.json)에 영구 저장됩니다.",
-				}, http.StatusOK)
-				return
-			}
-
-			sendJSON(w, map[string]interface{}{
-				"code":     401,
-				"unlocked": false,
-				"message":  "유효하지 않은 인증 코드입니다.",
-			}, http.StatusUnauthorized)
-			return
-		}
-
-		if path == "/execute-update" {
-			var reqData struct {
-				DownloadURL   string `json:"download_url"`
-				LatestVersion string `json:"latest_version"`
-			}
-			if r.Body != nil {
-				_ = json.NewDecoder(r.Body).Decode(&reqData)
-			}
-			if reqData.DownloadURL == "" || reqData.LatestVersion == "" {
-				info, err := core.CheckForUpdate(APP_VERSION, false)
-				if err == nil && info != nil {
-					if reqData.DownloadURL == "" && info.DownloadURL != "" {
-						reqData.DownloadURL = info.DownloadURL
-					}
-					if reqData.LatestVersion == "" && info.LatestVersion != "" {
-						reqData.LatestVersion = info.LatestVersion
-					}
-				}
-			}
-			if reqData.DownloadURL == "" {
-				sendJSON(w, map[string]interface{}{
-					"code":    400,
-					"message": "다운로드 URL이 제공되지 않았습니다.",
-				}, http.StatusBadRequest)
-				return
-			}
-
-			err := core.StartDownloadAndInstall(reqData.LatestVersion, reqData.DownloadURL, 0, killAllSubProcesses)
-			if err != nil {
-				sendJSON(w, map[string]interface{}{
-					"code":    500,
-					"message": err.Error(),
-				}, http.StatusInternalServerError)
-				return
-			}
-
-			sendJSON(w, map[string]interface{}{
-				"code":    200,
-				"message": "업데이트 다운로드를 시작했습니다.",
-			}, http.StatusOK)
-			return
-		}
-
-		if path == "/upload-thumbnail" {
-			if !core.CheckApiAuth(w, r) {
-				return
-			}
-			if err := r.ParseMultipartForm(6 * 1024 * 1024); err != nil {
-				sendJSON(w, map[string]interface{}{"code": 400, "message": "파일을 읽을 수 없습니다 (최대 5MB)."}, http.StatusBadRequest)
-				return
-			}
-			file, header, err := r.FormFile("file")
-			if err != nil {
-				sendJSON(w, map[string]interface{}{"code": 400, "message": "업로드할 파일이 없습니다."}, http.StatusBadRequest)
-				return
-			}
-			defer file.Close()
-
-			if header.Size > 5*1024*1024 {
-				sendJSON(w, map[string]interface{}{"code": 400, "message": "이미지 파일 크기는 5MB 이하여야 합니다."}, http.StatusBadRequest)
-				return
-			}
-
-			cfg := core.LoadConfig()
-			if cfg.NidAut == "" || cfg.NidSes == "" {
-				sendJSON(w, map[string]interface{}{"code": 401, "message": "로그인 쿠키가 설정되지 않았습니다. 설정에서 로그인하세요."}, http.StatusUnauthorized)
-				return
-			}
-
-			bodyBuf := &bytes.Buffer{}
-			mpWriter := multipart.NewWriter(bodyBuf)
-			part, err := mpWriter.CreateFormFile("file", header.Filename)
-			if err != nil {
-				sendJSON(w, map[string]interface{}{"code": 500, "message": "요청 생성 실패"}, http.StatusInternalServerError)
-				return
-			}
-			if _, err := io.Copy(part, file); err != nil {
-				sendJSON(w, map[string]interface{}{"code": 500, "message": "파일 버퍼 복사 실패"}, http.StatusInternalServerError)
-				return
-			}
-			mpWriter.Close()
-
-			uploadReq, err := http.NewRequest("POST", "https://comm-api.game.naver.com/nng_main/v1/remote/photo/upload", bodyBuf)
-			if err != nil {
-				sendJSON(w, map[string]interface{}{"code": 500, "message": "업로드 요청 생성 실패"}, http.StatusInternalServerError)
-				return
-			}
-			uploadReq.Header.Set("User-Agent", USER_AGENT)
-			uploadReq.Header.Set("Content-Type", mpWriter.FormDataContentType())
-			uploadReq.Header.Set("Cookie", fmt.Sprintf("NID_AUT=%s; NID_SES=%s", cfg.NidAut, cfg.NidSes))
-			uploadReq.Header.Set("Origin", "https://chzzk.naver.com")
-			uploadReq.Header.Set("Referer", "https://chzzk.naver.com/")
-
-			resp, err := httpClient.Do(uploadReq)
-			if err != nil {
-				sendJSON(w, map[string]interface{}{"code": 502, "message": "치지직 업로드 서버 연결 실패"}, http.StatusBadGateway)
-				return
-			}
-			defer resp.Body.Close()
-
-			respBytes, _ := io.ReadAll(resp.Body)
-			var uploadResult struct {
-				Code    int    `json:"code"`
-				Message string `json:"message"`
-				Content []struct {
-					URL        string `json:"url"`
-					ResultCode int    `json:"resultCode"`
-				} `json:"content"`
-			}
-			if err := json.Unmarshal(respBytes, &uploadResult); err == nil && len(uploadResult.Content) > 0 && uploadResult.Content[0].URL != "" {
-				core.LogInfo("[Thumbnail] 치지직 서버에 썸네일 업로드 완료: %s", uploadResult.Content[0].URL)
-				sendJSON(w, map[string]interface{}{
-					"code":     200,
-					"imageUrl": uploadResult.Content[0].URL,
-					"message":  "썸네일이 성공적으로 업로드되었습니다.",
-				}, http.StatusOK)
-				return
-			}
-
-			core.LogError("[Thumbnail] 치지직 서버 업로드 응답 실패: %s", string(respBytes))
-			sendJSON(w, map[string]interface{}{
-				"code":    500,
-				"message": "치지직 서버에서 이미지 URL을 반환하지 않았습니다.",
-				"raw":     string(respBytes),
-			}, http.StatusInternalServerError)
-			return
-		}
-
-		if proxyDispatch(w, r, "POST") {
-			return
-		}
-		sendJSON(w, map[string]interface{}{"code": 404, "message": "Not Found"}, http.StatusNotFound)
-
-	case http.MethodPut:
-		if !core.CheckApiAuth(w, r) || !proxyDispatch(w, r, "PUT") {
-			sendJSON(w, map[string]interface{}{"code": 404, "message": "Not Found"}, http.StatusNotFound)
-		}
-
-	case http.MethodPatch:
-		if !core.CheckApiAuth(w, r) || !proxyDispatch(w, r, "PATCH") {
-			sendJSON(w, map[string]interface{}{"code": 404, "message": "Not Found"}, http.StatusNotFound)
-		}
-
-	case http.MethodDelete:
-		if !core.CheckApiAuth(w, r) || !proxyDispatch(w, r, "DELETE") {
-			sendJSON(w, map[string]interface{}{"code": 404, "message": "Not Found"}, http.StatusNotFound)
-		}
-
-	default:
-		sendJSON(w, map[string]interface{}{"code": 405, "message": "Method Not Allowed"}, http.StatusMethodNotAllowed)
-	}
-}
 
 // ============================================================
 //  시스템 트레이 및 앱 생명주기 관리
@@ -1835,39 +745,33 @@ func activateExistingInstance(user32 *syscall.LazyDLL) {
 }
 
 // ============================================================
-//  Main Entrypoint
+//  E단계: 서버 기동 서브루틴 및 압축된 Main 진입점
 // ============================================================
-func main() {
-	core.SetAppVersion(APP_VERSION)
 
-	// --login 서브커맨드 감지 시 로그인 웹뷰 팝업 창 전담 모드로 실행
-	if len(os.Args) > 1 && (os.Args[1] == "--login" || os.Args[1] == "-l") {
+func handleSubcommands() bool {
+	if len(os.Args) <= 1 {
+		return false
+	}
+	cmd := os.Args[1]
+	switch cmd {
+	case "--login", "-l":
 		core.RunLoginWebview()
 		os.Exit(0)
-	}
-
-	// --remote 서브커맨드 감지 시 치지직 공식 리모컨 미니창 실행
-	if len(os.Args) > 1 && (os.Args[1] == "--remote" || os.Args[1] == "-r") {
+	case "--remote", "-r":
 		channelId := ""
 		if len(os.Args) > 2 {
 			channelId = strings.TrimSpace(os.Args[2])
 		}
 		core.RunRemoteWebview(channelId)
 		os.Exit(0)
-	}
-
-	// --chat 서브커맨드 감지 시 치지직 실시간 채팅창 웹뷰 실행
-	if len(os.Args) > 1 && (os.Args[1] == "--chat" || os.Args[1] == "-c") {
+	case "--chat", "-c":
 		channelId := ""
 		if len(os.Args) > 2 {
 			channelId = strings.TrimSpace(os.Args[2])
 		}
 		core.RunChatWebview(channelId)
 		os.Exit(0)
-	}
-
-	// --install-script 서브커맨드 감지 시 (UAC 관리자 권한 자식 프로세스 모드)
-	if len(os.Args) > 1 && os.Args[1] == "--install-script" {
+	case "--install-script":
 		targetDir := ""
 		if len(os.Args) > 2 {
 			targetDir = strings.Trim(os.Args[2], `"`)
@@ -1888,53 +792,47 @@ func main() {
 		}
 		os.Exit(0)
 	}
+	return false
+}
 
-	// [SILENT / HEADLESS] 백그라운드 무화면 실행 모드 확인 (OBS 연동 스크립트 등)
-	silentMode := false
+func isSilentMode() bool {
 	for _, arg := range os.Args[1:] {
 		if arg == "--silent" || arg == "--background" || arg == "-s" {
-			silentMode = true
-			break
+			return true
 		}
 	}
+	return false
+}
 
-	// [단일 인스턴스 보장] Chzzk OBS Dock 전역 단일 Mutex
+func acquireSingleInstanceMutex(silentMode bool, user32 *syscall.LazyDLL) {
 	kernel32 := syscall.NewLazyDLL("kernel32.dll")
-	user32 := syscall.NewLazyDLL("user32.dll")
 	mutexName := `Local\ChzzkDock`
 	mutexNamePtr, _ := syscall.UTF16PtrFromString(mutexName)
 	mutexHandle, _, errCall := kernel32.NewProc("CreateMutexW").Call(0, 0, uintptr(unsafe.Pointer(mutexNamePtr)))
 	globalMutexHandle = mutexHandle
+
 	errno, isErrno := errCall.(syscall.Errno)
 	if isErrno && errno == 183 { // ERROR_ALREADY_EXISTS
-		// 1. 백그라운드/스크립트 무음 모드(--silent 등)인 경우 조용히 즉시 종료
 		if silentMode {
-			if globalMutexHandle != 0 {
-				kernel32.NewProc("CloseHandle").Call(globalMutexHandle)
-				globalMutexHandle = 0
-			}
+			releaseSingleInstanceMutex()
 			os.Exit(0)
 		}
-
 		core.LogInfo("[Main] 치지직 독 인스턴스가 이미 실행 중입니다. 기존 인스턴스 독 화면을 최상단으로 활성화합니다.")
-
-		// 2. 일반 실행인 경우: 기존 인스턴스의 독 UI 화면을 화면 앞으로 복원/활성화
 		activateExistingInstance(user32)
-
-		if globalMutexHandle != 0 {
-			kernel32.NewProc("CloseHandle").Call(globalMutexHandle)
-			globalMutexHandle = 0
-		}
+		releaseSingleInstanceMutex()
 		os.Exit(0)
 	}
-	defer func() {
-		if globalMutexHandle != 0 {
-			kernel32.NewProc("CloseHandle").Call(globalMutexHandle)
-			globalMutexHandle = 0
-		}
-	}()
+}
 
-	// [WATCHDOG] OBS 프로세스 감시 및 자동 자폭 활성화 (설정 기반, 기본 1분 유예 시간)
+func releaseSingleInstanceMutex() {
+	if globalMutexHandle != 0 {
+		kernel32 := syscall.NewLazyDLL("kernel32.dll")
+		kernel32.NewProc("CloseHandle").Call(globalMutexHandle)
+		globalMutexHandle = 0
+	}
+}
+
+func initWatchdog(silentMode bool) {
 	core.OnShutdownCallback = killAllSubProcesses
 	enableWatchdog := true
 	for _, arg := range os.Args[1:] {
@@ -1943,30 +841,33 @@ func main() {
 			break
 		}
 	}
-
 	if enableWatchdog {
 		core.StartObsWatchdog(silentMode)
 	}
+}
 
-	// [세션 자동 복구] 프로그램 시작 시 저장된 NID_AUT 기반 네이버 세션 유효성 자동 검증 및 무중단 갱신
+func triggerStartupSessionCheck() {
 	go func() {
 		cfg := core.LoadConfig()
 		if cfg.NidAut != "" {
 			core.CheckAndRefreshSessionOnStartup(cfg.NidAut, cfg.NidSes)
 		}
 	}()
+}
 
-	// CLI 포트 지정 지원 (--port <num> 또는 -p <num>)
-	cliPort := 0
+func parseCliPort() int {
 	for i := 1; i < len(os.Args); i++ {
 		if (os.Args[i] == "--port" || os.Args[i] == "-p") && i+1 < len(os.Args) {
 			var p int
 			if _, err := fmt.Sscanf(os.Args[i+1], "%d", &p); err == nil && p >= 1024 && p <= 65535 {
-				cliPort = p
+				return p
 			}
 		}
 	}
+	return 0
+}
 
+func bindServerListener(cliPort int, silentMode bool, user32 *syscall.LazyDLL) net.Listener {
 	targetPort := DEFAULT_HTTP_PORT
 	if cliPort > 0 {
 		targetPort = cliPort
@@ -1987,9 +888,8 @@ func main() {
 			procName = "알 수 없는 프로그램"
 		}
 
-		// [중요] 점유 프로그램이 chzzk-dock.exe인 경우 (기존 인스턴스가 이미 서버를 구동 중인 상태)
 		if strings.EqualFold(procName, "chzzk-dock.exe") || strings.EqualFold(procName, "chzzk-dock") || strings.EqualFold(procName, "chzzk-obs-dock.exe") {
-			core.LogInfo("[Main] 포트(%d)를 점유 중인 프로세스가 이미 chzzk-dock (PID: %d)입니다. 중복 서버를 시작하지 않고 기존 창을 활성화합니다.", targetPort, pid)
+			core.LogInfo("[Main] 포트(%d)를 점유 중인 프로세스가 이미 chzzk-dock (PID: %d)입니다. 기존 창을 활성화합니다.", targetPort, pid)
 			if silentMode {
 				os.Exit(0)
 			}
@@ -2003,7 +903,6 @@ func main() {
 		}
 		core.LogWarn("[Main] [%s] 지정 포트(%d)가 타 프로그램 '%s'(PID: %d)에 의해 사용 중입니다 (%v). 안전한 대체 포트를 자동 할당합니다.", errCode, targetPort, procName, pid, err)
 
-		// 안전한 대체 포트(49152 ~ 65535) 자동 탐색 및 바인딩
 		fallbackPort, fallbackListener, fbErr := core.FindSafeFallbackPort()
 		if fbErr != nil {
 			core.LogError("[Main] [%s] 대체 포트 할당 실패: %v", core.ErrBenPortScanFailed, fbErr)
@@ -2016,13 +915,10 @@ func main() {
 		isFallbackPort = true
 		portFallbackReason = fmt.Sprintf("지정 포트(%d)가 '%s'(PID: %d)에 의해 사용 중이어서 안전한 임시 포트(%d)로 자동 전환되었습니다.", targetPort, procName, pid, fallbackPort)
 
-		core.LogInfo("[Main] 안전한 대체 포트 %d번으로 서버를 시작합니다.", fallbackPort)
-
 		occupantLine := fmt.Sprintf("• 점유 프로그램: %s (PID: %d)\n", procName, pid)
 		if pid == 0 {
 			occupantLine = "• 점유 프로그램: 다른 프로그램에서 사용 중\n"
 		}
-
 		notifyMsg := fmt.Sprintf(
 			"기본 포트(%d)가 다른 프로그램에 의해 사용 중이어서\n"+
 				"안전한 임시 포트(%d)로 서버가 시작되었습니다.\n\n"+
@@ -2035,8 +931,12 @@ func main() {
 		go showMessageBox("CHZZK OBS Dock - 안내", notifyMsg)
 	}
 
+	return listener
+}
+
+func startHttpServer(listener net.Listener) {
 	server := &http.Server{
-		Handler:      http.HandlerFunc(HttpDockHandler),
+		Handler:      buildRouter(),
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 15 * time.Second,
 	}
@@ -2052,8 +952,31 @@ func main() {
 			fmt.Printf("[HTTP Server Error] %v\n", err)
 		}
 	}()
+}
 
-	// 로컬 HTTP 서버 준비를 위한 초단위 이하(150ms) 확실한 지연시간 부여
+// ============================================================
+//  Main Entrypoint (간결한 시퀀스)
+// ============================================================
+func main() {
+	core.SetAppVersion(APP_VERSION)
+
+	if handleSubcommands() {
+		return
+	}
+
+	silentMode := isSilentMode()
+	user32 := syscall.NewLazyDLL("user32.dll")
+
+	acquireSingleInstanceMutex(silentMode, user32)
+	defer releaseSingleInstanceMutex()
+
+	initWatchdog(silentMode)
+	triggerStartupSessionCheck()
+
+	cliPort := parseCliPort()
+	listener := bindServerListener(cliPort, silentMode, user32)
+
+	startHttpServer(listener)
 	time.Sleep(150 * time.Millisecond)
 
 	runTray(silentMode)

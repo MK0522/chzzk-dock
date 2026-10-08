@@ -31,6 +31,7 @@ RELEASE_HISTORY.md
 AGENTS.md
 GEMINI.md
 docs/PROJECT_STRUCTURE_GUIDE.md
+docs/rules/
 
 # Test files (Do not upload to GitHub)
 *_test.go
@@ -40,3 +41,7 @@ docs/*.html
 docs/REFACTORING_BLUEPRINT.md
 docs/TEST_SPECIFICATIONS.md
 docs/ERROR_CODES.md
+docs/CHZZK_API_REFERENCE.md
+docs/FRONTEND_REFACTORING_PLAN.md
+docs/UI_MODULARIZATION_PLAN.md
+docs/MAIN_GO_BLOAT_ANALYSIS.md

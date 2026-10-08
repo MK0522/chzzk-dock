@@ -3,7 +3,6 @@ package core
 import (
 	"encoding/json"
 	"fmt"
-	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -56,6 +55,8 @@ var (
 	procSetWindowTextW         = user32.NewProc("SetWindowTextW")
 	procRegisterWindowMessageW = user32.NewProc("RegisterWindowMessageW")
 	procIsWindowVisible        = user32.NewProc("IsWindowVisible")
+	procMonitorFromRect        = user32.NewProc("MonitorFromRect")
+	procGetMonitorInfoW        = user32.NewProc("GetMonitorInfoW")
 
 	dwmapiDLL                 = syscall.NewLazyDLL("dwmapi.dll")
 	procDwmSetWindowAttribute = dwmapiDLL.NewProc("DwmSetWindowAttribute")
@@ -63,6 +64,73 @@ var (
 	gdi32DLL             = syscall.NewLazyDLL("gdi32.dll")
 	procCreateSolidBrush = gdi32DLL.NewProc("CreateSolidBrush")
 )
+
+type RECT struct {
+	Left   int32
+	Top    int32
+	Right  int32
+	Bottom int32
+}
+
+type MONITORINFO struct {
+	CbSize    uint32
+	RcMonitor RECT
+	RcWork    RECT // 작업표시줄을 제외한 실제 사용 가능 영역
+	DwFlags   uint32
+}
+
+// EnsureWindowVisible: 창 좌표가 실제 활성 모니터 작업 영역 내에 온전히 노출되도록 보정
+// (Ponytail: YAGNI 준수, 음수 좌표 지원 및 허공 갇힘/가려짐 방지)
+func EnsureWindowVisible(x, y, width, height int) (int, int) {
+	// 1. 처음 실행(0, 0)인 경우 -> 주 모니터 중앙 배치
+	if x == 0 && y == 0 {
+		sw, _, _ := procGetSystemMetrics.Call(SM_CXSCREEN)
+		sh, _, _ := procGetSystemMetrics.Call(SM_CYSCREEN)
+		return (int(sw) - width) / 2, (int(sh) - height) / 2
+	}
+
+	// 2. 창 상단 제목 표시줄(마우스로 드래그 가능한 영역)이 활성 모니터에 걸치는지 검사
+	titleRect := RECT{
+		Left:   int32(x + 50),
+		Top:    int32(y),
+		Right:  int32(x + width - 50),
+		Bottom: int32(y + 40),
+	}
+
+	// MONITOR_DEFAULTTONULL (0): 모니터가 아예 없는 빈 허공이면 0 반환
+	hMon, _, _ := procMonitorFromRect.Call(uintptr(unsafe.Pointer(&titleRect)), 0)
+
+	// 3. 모니터가 연결 해제되었거나 완전히 허공에 갇힌 경우 -> 주 모니터 중앙으로 안전 복구
+	if hMon == 0 {
+		sw, _, _ := procGetSystemMetrics.Call(SM_CXSCREEN)
+		sh, _, _ := procGetSystemMetrics.Call(SM_CYSCREEN)
+		if sw > 0 && sh > 0 {
+			return (int(sw) - width) / 2, (int(sh) - height) / 2
+		}
+		return 150, 150
+	}
+
+	// 4. 활성 모니터의 실제 작업 영역(작업표시줄 제외)을 기준으로 화면 이탈/가려짐 클램핑
+	var mi MONITORINFO
+	mi.CbSize = uint32(unsafe.Sizeof(mi))
+	procGetMonitorInfoW.Call(hMon, uintptr(unsafe.Pointer(&mi)))
+
+	work := mi.RcWork
+	if int32(x) < work.Left {
+		x = int(work.Left)
+	}
+	if int32(y) < work.Top {
+		y = int(work.Top)
+	}
+	if int32(x+width) > work.Right && int32(x) > work.Left {
+		x = int(work.Right) - width
+	}
+	if int32(y+height) > work.Bottom && int32(y) > work.Top {
+		y = int(work.Bottom) - height
+	}
+
+	return x, y
+}
 
 // ForceForegroundWindow: 지정된 윈도우 창을 화면 최상단으로 강제 포커스/활성화
 func ForceForegroundWindow(hwnd uintptr, isTopmost bool) {
@@ -75,6 +143,21 @@ func ForceForegroundWindow(hwnd uintptr, isTopmost bool) {
 
 	var insertAfter uintptr = HWND_NOTOPMOST_VAL
 	if isTopmost {
+		insertAfter = HWND_TOPMOST_VAL
+	}
+	user32.NewProc("SetWindowPos").Call(
+		hwnd, insertAfter, 0, 0, 0, 0,
+		uintptr(SWP_NOMOVE_VAL|SWP_NOSIZE_VAL|0x0040 /* SWP_SHOWWINDOW */),
+	)
+}
+
+// SetWindowTopmost: 창의 Always-on-top (최상위 고정) 속성 토글
+func SetWindowTopmost(hwnd uintptr, topmost bool) {
+	if hwnd == 0 {
+		return
+	}
+	var insertAfter uintptr = HWND_NOTOPMOST_VAL
+	if topmost {
 		insertAfter = HWND_TOPMOST_VAL
 	}
 	user32.NewProc("SetWindowPos").Call(
@@ -332,18 +415,8 @@ func InitDockWindow(port int, version string, showInitially bool) uintptr {
 	}
 	procRegisterClassW.Call(uintptr(unsafe.Pointer(&wc)))
 
-	// 화면 이탈 방지 및 중앙 좌표 계산
-	screenW, _, _ := procGetSystemMetrics.Call(SM_CXSCREEN)
-	screenH, _, _ := procGetSystemMetrics.Call(SM_CYSCREEN)
-	if state.X <= 0 || state.Y <= 0 || (screenW > 0 && state.X >= int(screenW)-100) || (screenH > 0 && state.Y >= int(screenH)-100) {
-		if screenW > 0 && screenH > 0 {
-			state.X = (int(screenW) - state.Width) / 2
-			state.Y = (int(screenH) - state.Height) / 2
-		} else {
-			state.X = 150
-			state.Y = 150
-		}
-	}
+	// 화면 이탈 방지 및 다중 모니터 작업 영역 기반 안전 복원 (음수 좌표 지원)
+	state.X, state.Y = EnsureWindowVisible(state.X, state.Y, state.Width, state.Height)
 
 	// 표준 윈도우 스타일 (캡션, 최소화/최대화/닫기 버튼, 테두리 크기조절 가능)
 	dwStyle := uintptr(0x00CF0000 | 0x02000000 | 0x04000000) // WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN | WS_CLIPSIBLINGS
@@ -470,6 +543,28 @@ type ToolWindowState struct {
 	Topmost bool `json:"topmost"`
 }
 
+const IDM_REMOTE_TOPMOST = 0x1001
+
+func updateWindowTitle(hwnd uintptr, baseTitle string, topmost bool) {
+	title := baseTitle
+	if topmost {
+		title = "📌 " + baseTitle
+	}
+	titlePtr, _ := syscall.UTF16PtrFromString(title)
+	procSetWindowTextW.Call(hwnd, uintptr(unsafe.Pointer(titlePtr)))
+}
+
+func updateSystemMenuTopmost(hwnd uintptr, topmost bool) {
+	hSysMenu, _, _ := procGetSystemMenu.Call(hwnd, 0)
+	if hSysMenu != 0 {
+		flag := uintptr(0 /* MF_BYCOMMAND */ | 0 /* MF_UNCHECKED */)
+		if topmost {
+			flag = uintptr(0 /* MF_BYCOMMAND */ | 8 /* MF_CHECKED */)
+		}
+		procCheckMenuItem.Call(hSysMenu, IDM_REMOTE_TOPMOST, flag)
+	}
+}
+
 type ToolWebviewConfig struct {
 	Title          string
 	ClassName      string
@@ -478,8 +573,7 @@ type ToolWebviewConfig struct {
 	StoragePinKey  string
 	DefaultWidth   int
 	DefaultHeight  int
-	InitialTop     string
-	InitialLeft    string
+	AlignRight     bool // true: 기본 위치 우측 상단 (리모컨), false: 기본 위치 좌측 상단 (채팅)
 	TargetURL      string
 	ProfileDir     string
 	CookieInjector func(chromium *edge.Chromium)
@@ -527,14 +621,67 @@ func saveToolWindowState(fileName string, state ToolWindowState) {
 	}
 }
 
-func makeFloatingToolbarScript(storageKey, defaultTop, defaultLeft string) string {
+func makeFloatingToolbarScript(storageKey string, alignRight bool) string {
 	return fmt.Sprintf(`
 (function() {
-  if (window.__chzzkToolbarInjected) return;
-  window.__chzzkToolbarInjected = true;
+  if (window.top !== window.self) return;
 
   function initToolbar() {
     if (document.getElementById('chzzk-floating-toolbar')) return;
+
+    var container = document.body || document.documentElement;
+    if (!container) {
+      setTimeout(initToolbar, 50);
+      return;
+    }
+
+    if (!document.getElementById('chzzk-floating-toolbar-style')) {
+      var style = document.createElement('style');
+      style.id = 'chzzk-floating-toolbar-style';
+      style.textContent = [
+        '#chzzk-floating-toolbar {',
+        '  position: fixed !important;',
+        '  display: flex !important;',
+        '  gap: 5px !important;',
+        '  align-items: center !important;',
+        '  z-index: 9999999 !important;',
+        '  user-select: none !important;',
+        '  -webkit-user-select: none !important;',
+        '  touch-action: none !important;',
+        '}',
+        '#chzzk-floating-toolbar button {',
+        '  width: 28px !important;',
+        '  height: 28px !important;',
+        '  border-radius: 7px !important;',
+        '  background: #161F2E !important;',
+        '  border: 1.5px solid #334155 !important;',
+        '  color: #94A3B8 !important;',
+        '  font-size: 13px !important;',
+        '  cursor: grab !important;',
+        '  display: flex !important;',
+        '  align-items: center !important;',
+        '  justify-content: center !important;',
+        '  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35) !important;',
+        '  transition: background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s !important;',
+        '  outline: none !important;',
+        '  padding: 0 !important;',
+        '  margin: 0 !important;',
+        '  line-height: 1 !important;',
+        '}',
+        '#chzzk-floating-toolbar button:hover {',
+        '  background: #1E293B !important;',
+        '  border-color: #475569 !important;',
+        '  color: #F8FAFC !important;',
+        '}',
+        '#chzzk-floating-toolbar button.is-active {',
+        '  background: #00FFA3 !important;',
+        '  border-color: #00C77F !important;',
+        '  color: #000000 !important;',
+        '  box-shadow: 0 0 14px rgba(0, 255, 163, 0.7), 0 3px 8px rgba(0, 0, 0, 0.3) !important;',
+        '}'
+      ].join('\n');
+      (document.head || container).appendChild(style);
+    }
 
     var bar = document.createElement('div');
     bar.id = 'chzzk-floating-toolbar';
@@ -545,70 +692,46 @@ func makeFloatingToolbarScript(storageKey, defaultTop, defaultLeft string) strin
       if (raw) savedPos = JSON.parse(raw);
     } catch(e) {}
 
-    var initialTop = (savedPos && typeof savedPos.top === 'number') ? savedPos.top + 'px' : '%s';
-    var initialLeft = (savedPos && typeof savedPos.left === 'number') ? savedPos.left + 'px' : '%s';
+    var initialTop = '10px';
+    var initialLeft = '';
+    var initialRight = '';
 
-    bar.style.cssText = [
-      'position: fixed !important',
-      'top: ' + initialTop + ' !important',
-      'left: ' + initialLeft + ' !important',
-      'display: flex !important',
-      'gap: 5px !important',
-      'align-items: center !important',
-      'z-index: 9999999 !important',
-      'user-select: none !important',
-      '-webkit-user-select: none !important',
-      'touch-action: none !important'
-    ].join(';');
-
-    function createBtn(id, text, title) {
-      var btn = document.createElement('button');
-      btn.id = id;
-      btn.title = title;
-      btn.innerHTML = text;
-      btn.style.cssText = [
-        'width: 28px !important',
-        'height: 28px !important',
-        'border-radius: 7px !important',
-        'background: #161F2E !important',
-        'border: 1px solid #334155 !important',
-        'color: #94A3B8 !important',
-        'font-size: 13px !important',
-        'cursor: grab !important',
-        'display: flex !important',
-        'align-items: center !important',
-        'justify-content: center !important',
-        'box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35) !important',
-        'transition: background 0.15s, border-color 0.15s, transform 0.1s, box-shadow 0.15s !important',
-        'outline: none !important',
-        'padding: 0 !important',
-        'line-height: 1 !important'
-      ].join(';');
-      btn.onmouseenter = function() {
-        if (!this.dataset.active) {
-          this.style.background = '#1E293B !important';
-          this.style.borderColor = '#475569 !important';
-          this.style.color = '#F8FAFC !important';
-        }
-      };
-      btn.onmouseleave = function() {
-        if (!this.dataset.active) {
-          this.style.background = '#161F2E !important';
-          this.style.borderColor = '#334155 !important';
-          this.style.color = '#94A3B8 !important';
-        }
-      };
-      return btn;
+    if (savedPos && typeof savedPos.top === 'number' && typeof savedPos.left === 'number') {
+      initialTop = savedPos.top + 'px';
+      initialLeft = savedPos.left + 'px';
+    } else {
+      if (%t) {
+        initialRight = '14px';
+      } else {
+        initialLeft = '14px';
+      }
     }
 
-    var pinBtn = createBtn('chzzk-floating-pin-btn', '&#x1F4CC;', '항상 위에 고정 (드래그하여 위치 이동)');
-    var reloadBtn = createBtn('chzzk-floating-reload-btn', '&#x1F504;', '화면 새로고침 (드래그하여 위치 이동)');
+    bar.style.top = initialTop;
+    if (initialLeft) {
+      bar.style.left = initialLeft;
+      bar.style.right = 'auto';
+    } else {
+      bar.style.right = initialRight;
+      bar.style.left = 'auto';
+    }
+
+    var pinBtn = document.createElement('button');
+    pinBtn.id = 'chzzk-floating-pin-btn';
+    pinBtn.title = '항상 위에 고정 (드래그하여 위치 이동)';
+    pinBtn.innerHTML = '&#x1F4CC;';
+
+    var reloadBtn = document.createElement('button');
+    reloadBtn.id = 'chzzk-floating-reload-btn';
+    reloadBtn.title = '화면 새로고침 (드래그하여 위치 이동)';
+    reloadBtn.innerHTML = '&#x1F504;';
 
     bar.appendChild(pinBtn);
     bar.appendChild(reloadBtn);
 
     var isDragging = false;
-    var startX, startY, origLeft, origTop;
+    var startX = 0, startY = 0;
+    var origLeft = 0, origTop = 0;
     var hasMoved = false;
 
     bar.addEventListener('mousedown', function(e) {
@@ -650,6 +773,7 @@ func makeFloatingToolbarScript(storageKey, defaultTop, defaultLeft string) strin
             var rect = bar.getBoundingClientRect();
             localStorage.setItem('%s', JSON.stringify({ left: rect.left, top: rect.top }));
           } catch(err) {}
+          setTimeout(function() { hasMoved = false; }, 50);
         }
       }
 
@@ -673,24 +797,16 @@ func makeFloatingToolbarScript(storageKey, defaultTop, defaultLeft string) strin
       }
     });
 
-    document.documentElement.appendChild(bar);
+    container.appendChild(bar);
 
     window.__updateTopmostUI = function(isTopmost) {
       var b = document.getElementById('chzzk-floating-pin-btn');
       if (!b) return;
       if (isTopmost) {
-        b.dataset.active = 'true';
-        b.style.background = '#00FFA3 !important';
-        b.style.borderColor = '#00C77F !important';
-        b.style.color = '#000000 !important';
-        b.style.boxShadow = '0 0 14px rgba(0, 255, 163, 0.7), 0 3px 8px rgba(0, 0, 0, 0.3) !important';
+        b.classList.add('is-active');
         b.title = '항상 위 고정 활성화됨 (클릭 시 해제, 드래그 이동 가능)';
       } else {
-        delete b.dataset.active;
-        b.style.background = '#161F2E !important';
-        b.style.borderColor = '#334155 !important';
-        b.style.color = '#94A3B8 !important';
-        b.style.boxShadow = '0 4px 10px rgba(0, 0, 0, 0.35) !important';
+        b.classList.remove('is-active');
         b.title = '항상 위에 고정 (드래그하여 위치 이동)';
       }
     };
@@ -705,8 +821,9 @@ func makeFloatingToolbarScript(storageKey, defaultTop, defaultLeft string) strin
   } else {
     initToolbar();
   }
+  window.addEventListener('load', initToolbar);
 })();
-`, storageKey, defaultTop, defaultLeft, storageKey)
+`, storageKey, alignRight, storageKey)
 }
 
 // RunToolWebview: 치지직 팝업 툴(채팅창, 리모컨 등) 공통 실행 함수
@@ -722,6 +839,7 @@ func RunToolWebview(cfg ToolWebviewConfig) {
 	mutexHandle, _, errCall := kernel32.NewProc("CreateMutexW").Call(0, 0, uintptr(unsafe.Pointer(mutexNamePtr)))
 	errno, isErrno := errCall.(syscall.Errno)
 	if isErrno && errno == 183 { // ERROR_ALREADY_EXISTS
+		LogWarn("[%s] 이미 실행 중인 창이 감지되어 기존 창을 화면 최상단으로 복원합니다.", cfg.Title)
 		classNamePtr, _ := syscall.UTF16PtrFromString(cfg.ClassName)
 		existingHwnd, _, _ := user32.NewProc("FindWindowW").Call(uintptr(unsafe.Pointer(classNamePtr)), 0)
 		if existingHwnd != 0 {
@@ -750,14 +868,27 @@ func RunToolWebview(cfg ToolWebviewConfig) {
 
 	var activeHwnd uintptr
 	var activeChromium *edge.Chromium
+	var toggleTopmost func()
 
 	wndProc := func(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr {
 		switch msg {
+		case WM_MOVE_WV:
+			if activeChromium != nil {
+				_ = activeChromium.NotifyParentWindowPositionChanged()
+			}
+			return 0
 		case WM_SIZE_WV:
 			if activeChromium != nil {
 				activeChromium.Resize()
 			}
 			return 0
+		case 0x0112 /* WM_SYSCOMMAND */:
+			if (wParam & 0xFFF0) == IDM_REMOTE_TOPMOST {
+				if toggleTopmost != nil {
+					toggleTopmost()
+				}
+				return 0
+			}
 		case WM_DESTROY_WV:
 			var rect struct{ Left, Top, Right, Bottom int32 }
 			procGetWindowRect.Call(uintptr(hwnd), uintptr(unsafe.Pointer(&rect)))
@@ -789,17 +920,8 @@ func RunToolWebview(cfg ToolWebviewConfig) {
 	}
 	procRegisterClassW.Call(uintptr(unsafe.Pointer(&wc)))
 
-	screenW, _, _ := procGetSystemMetrics.Call(SM_CXSCREEN)
-	screenH, _, _ := procGetSystemMetrics.Call(SM_CYSCREEN)
-	if state.X <= 0 || state.Y <= 0 || (screenW > 0 && state.X >= int(screenW)-100) || (screenH > 0 && state.Y >= int(screenH)-100) {
-		if screenW > 0 && screenH > 0 {
-			state.X = (int(screenW) - state.Width) / 2
-			state.Y = (int(screenH) - state.Height) / 2
-		} else {
-			state.X = 150
-			state.Y = 150
-		}
-	}
+	// 화면 이탈 방지 및 다중 모니터 작업 영역 기반 안전 복원 (음수 좌표 지원)
+	state.X, state.Y = EnsureWindowVisible(state.X, state.Y, state.Width, state.Height)
 
 	var exStyle uintptr = WS_EX_APPWINDOW_VAL
 	if isTopmost {
@@ -826,6 +948,16 @@ func RunToolWebview(cfg ToolWebviewConfig) {
 		procSendMessageW.Call(hwnd, uintptr(WM_SETICON), uintptr(ICON_BIG), uintptr(hIcon))
 	}
 
+	// 시스템 메뉴(창 우클릭 / 타이틀 메뉴)에 '📌 항상 위에 고정' 등록
+	hSysMenu, _, _ := procGetSystemMenu.Call(hwnd, 0)
+	if hSysMenu != 0 {
+		procAppendMenuW.Call(hSysMenu, uintptr(MF_SEPARATOR), 0, 0)
+		menuText, _ := syscall.UTF16PtrFromString("📌 항상 위에 고정")
+		procAppendMenuW.Call(hSysMenu, 0 /* MF_STRING */, IDM_REMOTE_TOPMOST, uintptr(unsafe.Pointer(menuText)))
+	}
+
+	updateWindowTitle(hwnd, cfg.Title, isTopmost)
+	updateSystemMenuTopmost(hwnd, isTopmost)
 	applyDarkTheme(hwnd)
 
 	chromium := edge.NewChromium()
@@ -843,20 +975,25 @@ func RunToolWebview(cfg ToolWebviewConfig) {
 	chromium.AdditionalBrowserArgs = browserArgs
 	activeChromium = chromium
 
+	toggleTopmost = func() {
+		isTopmost = !isTopmost
+		SetWindowTopmost(activeHwnd, isTopmost)
+		updateWindowTitle(activeHwnd, cfg.Title, isTopmost)
+		updateSystemMenuTopmost(activeHwnd, isTopmost)
+		if activeChromium != nil {
+			activeChromium.Eval(fmt.Sprintf("if (window.__updateTopmostUI) window.__updateTopmostUI(%v);", isTopmost))
+		}
+		state.Topmost = isTopmost
+		saveToolWindowState(cfg.StateFileName, state)
+	}
+
 	// 웹뷰 IPC 메시지 핸들러
 	chromium.MessageCallback = func(message string, sender *edge.ICoreWebView2, args *edge.ICoreWebView2WebMessageReceivedEventArgs) {
 		switch message {
 		case "toggle-topmost":
-			isTopmost = !isTopmost
-			var insertAfter uintptr = HWND_NOTOPMOST_VAL
-			if isTopmost {
-				insertAfter = HWND_TOPMOST_VAL
+			if toggleTopmost != nil {
+				toggleTopmost()
 			}
-			user32.NewProc("SetWindowPos").Call(
-				activeHwnd, insertAfter, 0, 0, 0, 0,
-				uintptr(SWP_NOMOVE_VAL|SWP_NOSIZE_VAL),
-			)
-			chromium.Eval(fmt.Sprintf("if (window.__updateTopmostUI) window.__updateTopmostUI(%v);", isTopmost))
 		case "get-topmost-state":
 			chromium.Eval(fmt.Sprintf("if (window.__updateTopmostUI) window.__updateTopmostUI(%v);", isTopmost))
 		default:
@@ -869,14 +1006,31 @@ func RunToolWebview(cfg ToolWebviewConfig) {
 		}
 	}
 
-	// 공통 링크 가드 및 플로팅 툴바 주입
-	chromium.Init(ExternalLinkGuardScript)
-	chromium.Init(makeFloatingToolbarScript(cfg.StoragePinKey, cfg.InitialTop, cfg.InitialLeft))
-
+	// [중요] 반드시 Embed(hwnd) 성공 후에 Init/Show/Resize/Navigate를 호출해야 함 (Embed 전 Init 호출 시 nil pointer dereference 패닉 발생)
 	if !chromium.Embed(hwnd) {
 		LogError("[%s] [%s] WebView2 임베딩 실패", cfg.Title, ErrSysWebviewRuntime)
 		procDestroyWindow.Call(hwnd)
 		return
+	}
+
+	// 컨트롤러 가시성 및 크기 동기화
+	_ = chromium.Show()
+	chromium.Focus()
+	chromium.Resize()
+
+	// 초기 백색 화면 방지 (배경 다크 테마)
+	chromium.SetBackgroundColour(0x0B, 0x0E, 0x11, 255)
+
+	// 공통 링크 가드 및 플로팅 툴바 주입
+	toolbarScript := makeFloatingToolbarScript(cfg.StoragePinKey, cfg.AlignRight)
+	chromium.Init(ExternalLinkGuardScript)
+	chromium.Init(toolbarScript)
+
+	chromium.NavigationCompletedCallback = func(sender *edge.ICoreWebView2, args *edge.ICoreWebView2NavigationCompletedEventArgs) {
+		src, _ := sender.GetSource()
+		LogInfo("[%s] 웹뷰 페이지 로드 완료: %s", cfg.Title, src)
+		chromium.Eval(toolbarScript)
+		chromium.Eval(fmt.Sprintf("if (window.__updateTopmostUI) window.__updateTopmostUI(%v);", isTopmost))
 	}
 
 	// 창 표시 및 WebView2 바인딩
@@ -887,6 +1041,7 @@ func RunToolWebview(cfg ToolWebviewConfig) {
 	if cfg.CookieInjector != nil {
 		cfg.CookieInjector(chromium)
 	}
+	LogInfo("[%s] 웹뷰 페이지 이동: %s", cfg.Title, cfg.TargetURL)
 	chromium.Navigate(cfg.TargetURL)
 
 	var msg struct {
@@ -913,8 +1068,11 @@ func RunToolWebview(cfg ToolWebviewConfig) {
 
 // RunChatWebview: 치지직 라이브 팝업 채팅창 실행
 func RunChatWebview(channelId string) {
-	directChatUrl := fmt.Sprintf("https://chzzk.naver.com/live/%s/chat", channelId)
-	targetUrl := "https://nid.naver.com/nidlogin.login?url=" + url.QueryEscape(directChatUrl)
+	targetUrl := "https://chzzk.naver.com"
+	if channelId != "" {
+		targetUrl = fmt.Sprintf("https://chzzk.naver.com/live/%s/chat", channelId)
+	}
+	LogInfo("[Chat Webview] 치지직 실시간 채팅창 구동 요청 (Channel ID: %s, URL: %s)", channelId, targetUrl)
 
 	appData := os.Getenv("LOCALAPPDATA")
 	if appData == "" {
@@ -924,15 +1082,14 @@ func RunChatWebview(channelId string) {
 	_ = os.MkdirAll(profileDir, 0755)
 
 	RunToolWebview(ToolWebviewConfig{
-		Title:         "치지직 채팅창",
+		Title:         "치지직 채팅 - CHZZK OBS Dock",
 		ClassName:     "ChzzkChatWindowClass",
 		MutexName:     `Local\ChzzkChatWindowMutex`,
 		StateFileName: "chat_window.json",
 		StoragePinKey: "chzzk_chat_pin_pos",
 		DefaultWidth:  440,
 		DefaultHeight: 720,
-		InitialTop:    "10",
-		InitialLeft:   "14",
+		AlignRight:    false,
 		TargetURL:     targetUrl,
 		ProfileDir:    profileDir,
 		CookieInjector: func(chromium *edge.Chromium) {
@@ -975,7 +1132,11 @@ func saveRemoteWindowState(state RemoteWindowState) {
 
 // RunRemoteWebview: 치지직 공식 리모컨 웹뷰 창 실행
 func RunRemoteWebview(channelId string) {
-	targetUrl := fmt.Sprintf("https://studio.chzzk.naver.com/%s/remotecontrol", channelId)
+	targetUrl := "https://studio.chzzk.naver.com"
+	if channelId != "" {
+		targetUrl = fmt.Sprintf("https://studio.chzzk.naver.com/%s/remotecontrol", channelId)
+	}
+	LogInfo("[Remote Webview] 치지직 리모컨 창 구동 요청 (Channel ID: %s, URL: %s)", channelId, targetUrl)
 
 	appData := os.Getenv("LOCALAPPDATA")
 	if appData == "" {
@@ -985,15 +1146,14 @@ func RunRemoteWebview(channelId string) {
 	_ = os.MkdirAll(profileDir, 0755)
 
 	RunToolWebview(ToolWebviewConfig{
-		Title:         "치지직 리모컨",
+		Title:         "치지직 리모컨 - CHZZK OBS Dock",
 		ClassName:     "ChzzkRemoteWindowClass",
 		MutexName:     `Local\ChzzkRemoteWindowMutex`,
 		StateFileName: "remote_window.json",
 		StoragePinKey: "chzzk_remote_pin_pos",
 		DefaultWidth:  720,
 		DefaultHeight: 880,
-		InitialTop:    "10",
-		InitialLeft:   "14",
+		AlignRight:    true,
 		TargetURL:     targetUrl,
 		ProfileDir:    profileDir,
 		CookieInjector: func(chromium *edge.Chromium) {
@@ -1005,6 +1165,19 @@ func RunRemoteWebview(channelId string) {
 			}
 		},
 	})
+}
+
+// BringRemoteWindowToFront: 이미 켜져 있는 리모컨 창을 최상단으로 복원
+func BringRemoteWindowToFront() bool {
+	user32 := syscall.NewLazyDLL("user32.dll")
+	classNamePtr, _ := syscall.UTF16PtrFromString("ChzzkRemoteWindowClass")
+	hwnd, _, _ := user32.NewProc("FindWindowW").Call(uintptr(unsafe.Pointer(classNamePtr)), 0)
+	if hwnd != 0 {
+		user32.NewProc("ShowWindow").Call(hwnd, 9 /* SW_RESTORE */)
+		ForceForegroundWindow(hwnd, false)
+		return true
+	}
+	return false
 }
 
 // InjectRemoteCookies: 리모컨/채팅 웹뷰에 네이버 인증 쿠키를 주입

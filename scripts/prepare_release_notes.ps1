@@ -1,6 +1,15 @@
 param(
-    [string]$NotesPath = "RELEASE_NOTES.md"
+    [string]$NotesPath = "docs/RELEASE_NOTES.md"
 )
+
+# 폴백 가드: docs/ 또는 루트 중 존재하는 경로 자동 감지
+if (-not (Test-Path $NotesPath)) {
+    if (Test-Path "docs/RELEASE_NOTES.md") {
+        $NotesPath = "docs/RELEASE_NOTES.md"
+    } elseif (Test-Path "RELEASE_NOTES.md") {
+        $NotesPath = "RELEASE_NOTES.md"
+    }
+}
 
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8

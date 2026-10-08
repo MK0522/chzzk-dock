@@ -49,11 +49,17 @@ type CREDENTIALW struct {
 	UserName           *uint16
 }
 
-// Config: 네이버 세션 쿠키 자격 증명 모델
+// SessionToken: 순수 네이버 세션 쿠키 자격 증명 모델 (단일 세션)
+type SessionToken struct {
+	NidAut string `json:"nid_aut"`
+	NidSes string `json:"nid_ses"`
+}
+
+// Config: 네이버 세션 쿠키 자격 증명 모델 (하위 호환 활성 필드 및 세션 목록 포함)
 type Config struct {
-	NidAut     string `json:"nid_aut"`
-	NidSes     string `json:"nid_ses"`
-	AuthMethod string `json:"auth_method,omitempty"`
+	NidAut   string         `json:"nid_aut"`
+	NidSes   string         `json:"nid_ses"`
+	Sessions []SessionToken `json:"sessions,omitempty"`
 }
 
 var (
@@ -69,12 +75,12 @@ func InvalidateConfigCache() {
 	cachedConfigMu.Unlock()
 }
 
-// CredWrite: Windows Credential Manager 시스템 보안 금고에 데이터 JSON 직렬화 저장
-func CredWrite(targetName string, data map[string]interface{}) bool {
+// CredWriteSessions: Windows Credential Manager 시스템 보안 금고에 순수 세션 배열 JSON 직렬화 저장
+func CredWriteSessions(targetName string, sessions []SessionToken) bool {
 	credLock.Lock()
 	defer credLock.Unlock()
 
-	blobBytes, err := json.Marshal(data)
+	blobBytes, err := json.Marshal(sessions)
 	if err != nil {
 		return false
 	}
@@ -111,8 +117,8 @@ func CredWrite(targetName string, data map[string]interface{}) bool {
 	return r1 != 0
 }
 
-// CredRead: Windows Credential Manager 시스템 보안 금고에서 자격 증명 로드 및 역직렬화
-func CredRead(targetName string) map[string]interface{} {
+// CredReadSessions: Windows Credential Manager에서 세션 목록 로드 (레거시 단일 객체 감지 및 자동 마이그레이션 지원)
+func CredReadSessions(targetName string) []SessionToken {
 	credLock.Lock()
 	defer credLock.Unlock()
 
@@ -139,13 +145,45 @@ func CredRead(targetName string) map[string]interface{} {
 	}
 
 	rawBytes := unsafe.Slice(pCred.CredentialBlob, pCred.CredentialBlobSize)
-	result := make(map[string]interface{})
-	if err := json.Unmarshal(rawBytes, &result); err != nil {
+	trimmed := strings.TrimSpace(string(rawBytes))
+	if len(trimmed) == 0 {
 		return nil
 	}
 
-	return result
+	// [과도기 마이그레이션] 시작 기호('{')로 레거시 객체 감지 시 배열로 자동 변환하여 덮어쓰기
+	if trimmed[0] == '{' {
+		var legacy struct {
+			NidAut string `json:"nid_aut"`
+			NidSes string `json:"nid_ses"`
+		}
+		if err := json.Unmarshal([]byte(trimmed), &legacy); err == nil {
+			aut := strings.TrimSpace(legacy.NidAut)
+			ses := strings.TrimSpace(legacy.NidSes)
+			if aut != "" || ses != "" {
+				migrated := []SessionToken{{NidAut: aut, NidSes: ses}}
+				blobBytes, _ := json.Marshal(migrated)
+				var blobPtr *byte
+				if len(blobBytes) > 0 {
+					blobPtr = &blobBytes[0]
+				}
+				pCred.CredentialBlobSize = uint32(len(blobBytes))
+				pCred.CredentialBlob = blobPtr
+				procCredWriteW.Call(uintptr(unsafe.Pointer(pCred)), 0)
+				LogInfo("[Credentials] 레거시 단일 세션 감지 -> 신규 세션 배열 스키마로 자동 마이그레이션 완료")
+				return migrated
+			}
+		}
+		return nil
+	}
+
+	// 신규 배열 규격 파싱 ('[' 로 시작)
+	var sessions []SessionToken
+	if err := json.Unmarshal([]byte(trimmed), &sessions); err != nil {
+		return nil
+	}
+	return sessions
 }
+
 
 // CredDelete: Windows Credential Manager 시스템 보안 금고에서 대상 자격 증명 삭제
 func CredDelete(targetName string) bool {
@@ -166,7 +204,7 @@ func CredDelete(targetName string) bool {
 	return r1 != 0
 }
 
-// GetTargetName: Windows Credential Manager 타깃 이름 반환 (테스트 환경 변수 CHZZK_CRED_TARGET 지원)
+// GetTargetName: Windows Credential Manager 타깃 이름 반환
 func GetTargetName() string {
 	if val := os.Getenv("CHZZK_CRED_TARGET"); val != "" {
 		return val
@@ -174,7 +212,7 @@ func GetTargetName() string {
 	return CRED_TARGET_NAME
 }
 
-// LoadConfig: Windows Credential Manager에서 네이버 세션 쿠키(NID_AUT, NID_SES) 로드 (메모리 캐시 지원)
+// LoadConfig: 세션 목록 로드 및 현재 활성(0번째) 세션 매핑
 func LoadConfig() Config {
 	cachedConfigMu.RLock()
 	if cachedConfig != nil {
@@ -184,18 +222,12 @@ func LoadConfig() Config {
 	}
 	cachedConfigMu.RUnlock()
 
-	cfg := Config{NidAut: "", NidSes: "", AuthMethod: ""}
-	stored := CredRead(GetTargetName())
-	if stored != nil {
-		if aut, ok := stored["nid_aut"].(string); ok {
-			cfg.NidAut = strings.TrimSpace(aut)
-		}
-		if ses, ok := stored["nid_ses"].(string); ok {
-			cfg.NidSes = strings.TrimSpace(ses)
-		}
-		if am, ok := stored["auth_method"].(string); ok {
-			cfg.AuthMethod = strings.TrimSpace(am)
-		}
+	cfg := Config{NidAut: "", NidSes: "", Sessions: nil}
+	sessions := CredReadSessions(GetTargetName())
+	if len(sessions) > 0 {
+		cfg.Sessions = sessions
+		cfg.NidAut = sessions[0].NidAut
+		cfg.NidSes = sessions[0].NidSes
 	}
 
 	cachedConfigMu.Lock()
@@ -205,56 +237,91 @@ func LoadConfig() Config {
 	return cfg
 }
 
-// SaveConfig: 네이버 세션 쿠키를 Windows Credential Manager에 안전하게 저장 (디스크 파일 저장 없음)
+// SaveConfig: 신규 세션 추가 또는 활성화 (동일 토큰이면 활성화, 새 토큰이면 맨 앞 추가)
 func SaveConfig(newData map[string]interface{}) Config {
-	cfg := LoadConfig()
-
+	target := GetTargetName()
+	var newAut, newSes string
 	if newData != nil {
 		if aut, ok := newData["nid_aut"].(string); ok {
-			cfg.NidAut = strings.TrimSpace(aut)
+			newAut = strings.TrimSpace(aut)
 		}
 		if ses, ok := newData["nid_ses"].(string); ok {
-			cfg.NidSes = strings.TrimSpace(ses)
-		}
-		if am, ok := newData["auth_method"].(string); ok {
-			cfg.AuthMethod = strings.TrimSpace(am)
+			newSes = strings.TrimSpace(ses)
 		}
 	}
 
-	cleanCfg := Config{
-		NidAut:     strings.TrimSpace(cfg.NidAut),
-		NidSes:     strings.TrimSpace(cfg.NidSes),
-		AuthMethod: strings.TrimSpace(cfg.AuthMethod),
+	sessions := CredReadSessions(target)
+	if newAut != "" || newSes != "" {
+		newToken := SessionToken{NidAut: newAut, NidSes: newSes}
+		foundIdx := -1
+		for i, s := range sessions {
+			if s.NidAut == newAut && s.NidSes == newSes {
+				foundIdx = i
+				break
+			}
+		}
+
+		if foundIdx == 0 {
+			// 이미 활성 세션임
+		} else if foundIdx > 0 {
+			// 이미 존재하는 세션이면 0번째로 이동 (활성화)
+			sessions = append([]SessionToken{sessions[foundIdx]}, append(sessions[:foundIdx], sessions[foundIdx+1:]...)...)
+		} else {
+			// 새 세션이면 맨 앞(0번)에 삽입
+			sessions = append([]SessionToken{newToken}, sessions...)
+		}
+		CredWriteSessions(target, sessions)
 	}
 
-	target := GetTargetName()
-	if cleanCfg.NidAut != "" || cleanCfg.NidSes != "" {
-		dataMap := map[string]interface{}{
-			"nid_aut": cleanCfg.NidAut,
-			"nid_ses": cleanCfg.NidSes,
-		}
-		if cleanCfg.AuthMethod != "" {
-			dataMap["auth_method"] = cleanCfg.AuthMethod
-		}
-		CredWrite(target, dataMap)
-	} else {
-		CredDelete(target)
-	}
-
-	cachedConfigMu.Lock()
-	cachedConfig = &cleanCfg
-	cachedConfigMu.Unlock()
-
-	return cleanCfg
+	InvalidateConfigCache()
+	return LoadConfig()
 }
 
-// ClearConfig: Windows Credential Manager에서 네이버 세션 쿠키 자격 증명 완전 삭제 (로그아웃용)
-func ClearConfig() bool {
-	cachedConfigMu.Lock()
-	cachedConfig = &Config{NidAut: "", NidSes: ""}
-	cachedConfigMu.Unlock()
+// SwitchSession: index번째 세션을 활성(0번) 세션으로 전환
+func SwitchSession(index int) bool {
+	target := GetTargetName()
+	sessions := CredReadSessions(target)
+	if index < 0 || index >= len(sessions) {
+		return false
+	}
+	if index != 0 {
+		targetSession := sessions[index]
+		sessions = append([]SessionToken{targetSession}, append(sessions[:index], sessions[index+1:]...)...)
+		CredWriteSessions(target, sessions)
+	}
+	InvalidateConfigCache()
+	return true
+}
 
-	return CredDelete(GetTargetName())
+// RemoveSession: index번째 세션 삭제
+func RemoveSession(index int) bool {
+	target := GetTargetName()
+	sessions := CredReadSessions(target)
+	if index < 0 || index >= len(sessions) {
+		return false
+	}
+	sessions = append(sessions[:index], sessions[index+1:]...)
+	if len(sessions) == 0 {
+		CredDelete(target)
+	} else {
+		CredWriteSessions(target, sessions)
+	}
+	InvalidateConfigCache()
+	return true
+}
+
+// ClearConfig: 현재 활성 세션 삭제 (다중 세션일 경우 현재 활성만 제거)
+func ClearConfig() bool {
+	target := GetTargetName()
+	sessions := CredReadSessions(target)
+	if len(sessions) <= 1 {
+		CredDelete(target)
+	} else {
+		sessions = sessions[1:]
+		CredWriteSessions(target, sessions)
+	}
+	InvalidateConfigCache()
+	return true
 }
 
 // cookieCapturingTransport: HTTP 리다이렉트 과정의 모든 홉에서 Set-Cookie 헤더를 누락 없이 캡처하는 커스텀 트랜스포트

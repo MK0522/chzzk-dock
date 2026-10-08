@@ -36,8 +36,19 @@ type AppSettings struct {
 	NotifyOnShutdown     *bool             `json:"notify_on_shutdown,omitempty"`     // OBS 종료/미감지로 자동 종료 시 Windows 알림 표시 (기본값: true)
 	EnableGPU            *bool             `json:"enable_gpu,omitempty"`             // 웹뷰 창 GPU 하드웨어 가속 여부 (기본값: true)
 	ExternalBrowserGuard *bool             `json:"external_browser_guard,omitempty"` // 네이버 외 외부 링크 클릭 시 기본 브라우저로 열기 (기본값: true)
+	EnableBetaUpdates    *bool             `json:"enable_beta_updates,omitempty"`    // 테스트(Beta) 버전 업데이트 수신 여부 (기본값: false)
+	AutoCheckUpdate      *bool             `json:"auto_check_update,omitempty"`      // 앱 시작 시 업데이트 자동 확인 여부 (기본값: true)
 	RemoteTesterUnlocked bool              `json:"remote_tester_unlocked,omitempty"` // 리모컨 테스터 인증 승인 여부
 	BroadcastPresets     []BroadcastPreset `json:"broadcast_presets,omitempty"`     // 방송 정보 프리셋 목록 (최대 10개)
+	CategoryFavorites    []CategoryFavorite `json:"category_favorites,omitempty"`   // 카테고리 즐겨찾기 목록 (최대 8개)
+}
+
+// CategoryFavorite: 카테고리 즐겨찾기 데이터 모델
+type CategoryFavorite struct {
+	CategoryID     string `json:"category_id"`
+	CategoryName   string `json:"category_name"`
+	CategoryType   string `json:"category_type,omitempty"`
+	PosterImageUrl string `json:"poster_image_url,omitempty"`
 }
 
 // BroadcastPreset: 방송 정보(제목, 카테고리, 태그) 프리셋 데이터 모델
@@ -57,6 +68,28 @@ func (s AppSettings) IsRemoteTesterUnlocked() bool {
 
 func (s *AppSettings) SetRemoteTesterUnlocked(val bool) {
 	s.RemoteTesterUnlocked = val
+}
+
+func (s AppSettings) IsEnableBetaUpdates() bool {
+	if s.EnableBetaUpdates == nil {
+		return false
+	}
+	return *s.EnableBetaUpdates
+}
+
+func (s *AppSettings) SetEnableBetaUpdates(val bool) {
+	s.EnableBetaUpdates = &val
+}
+
+func (s AppSettings) IsAutoCheckUpdate() bool {
+	if s.AutoCheckUpdate == nil {
+		return true // 기본값: 자동 확인 켜짐
+	}
+	return *s.AutoCheckUpdate
+}
+
+func (s *AppSettings) SetAutoCheckUpdate(val bool) {
+	s.AutoCheckUpdate = &val
 }
 
 func (s AppSettings) IsPopupOnStart() bool {
@@ -215,12 +248,13 @@ func OpenBrowser(targetURL string) {
 }
 
 var (
-	defaultPopupVal  = false
-	defaultNotifyVal = true
-	defaultGPUVal    = true
-	defaultGuardVal  = true
-	settingsMu       sync.RWMutex
-	cachedSettings   = AppSettings{
+	defaultPopupVal     = false
+	defaultNotifyVal    = true
+	defaultGPUVal       = true
+	defaultGuardVal     = true
+	defaultAutoCheckVal = true
+	settingsMu          sync.RWMutex
+	cachedSettings      = AppSettings{
 		SchemaVersion:        1,
 		WatchdogTimeoutSec:   60,
 		HttpPort:             8081,
@@ -228,6 +262,7 @@ var (
 		NotifyOnShutdown:     &defaultNotifyVal,
 		EnableGPU:            &defaultGPUVal,
 		ExternalBrowserGuard: &defaultGuardVal,
+		AutoCheckUpdate:      &defaultAutoCheckVal,
 	}
 	settingsLoaded = false
 )
@@ -362,6 +397,23 @@ func SetNotifyOnShutdownSetting(val bool) error {
 	return SaveSettings(st)
 }
 
+// IsPreRelease: 태그/버전 문자열에 접미사(-Beta, -RC 등) 또는 알파벳/기호가 붙어있는지 검사 (화이트리스트: 순수 vX.Y.Z만 정식 버전)
+func IsPreRelease(v string) bool {
+	v = strings.TrimSpace(v)
+	v = strings.TrimPrefix(v, "v")
+	v = strings.TrimPrefix(v, "V")
+	if v == "" {
+		return true
+	}
+	// 순수 숫자(0-9)와 구분자 점(.) 이외의 문자(알파벳, 하이픈, 플러스 등)가 1자라도 포함되면 테스트 버전
+	for _, r := range v {
+		if (r < '0' || r > '9') && r != '.' {
+			return true
+		}
+	}
+	return false
+}
+
 // GetRemoteTesterUnlocked: 리모컨 테스터 인증 승인 여부 조회
 func GetRemoteTesterUnlocked() bool {
 	return LoadSettings().IsRemoteTesterUnlocked()
@@ -387,6 +439,25 @@ func GetBroadcastPresets() []BroadcastPreset {
 func SaveBroadcastPresets(presets []BroadcastPreset) error {
 	st := LoadSettings()
 	st.BroadcastPresets = presets
+	return SaveSettings(st)
+}
+
+// GetCategoryFavorites: 카테고리 즐겨찾기 목록 조회 (%LOCALAPPDATA%\ChzzkObsDock\settings.json)
+func GetCategoryFavorites() []CategoryFavorite {
+	st := LoadSettings()
+	if st.CategoryFavorites == nil {
+		return []CategoryFavorite{}
+	}
+	return st.CategoryFavorites
+}
+
+// SaveCategoryFavorites: 카테고리 즐겨찾기 목록 저장 (%LOCALAPPDATA%\ChzzkObsDock\settings.json)
+func SaveCategoryFavorites(favs []CategoryFavorite) error {
+	st := LoadSettings()
+	if len(favs) > 8 {
+		favs = favs[:8]
+	}
+	st.CategoryFavorites = favs
 	return SaveSettings(st)
 }
 
@@ -515,14 +586,41 @@ func CheckForUpdate(currentVersion string, force bool) (*UpdateInfo, error) {
 	updateCacheMu.Lock()
 	defer updateCacheMu.Unlock()
 
+	allowBeta := LoadSettings().IsEnableBetaUpdates()
+
 	if !force && cachedUpdate != nil && time.Since(lastCheckTime) < 10*time.Minute {
 		cachedCopy := *cachedUpdate
+		// 🛡️ 캐시 유효성 재검증: 베타 옵션이 꺼져있는데 캐시된 대상이 테스트 버전이면 강제 차단
+		if !allowBeta && IsPreRelease(cachedCopy.LatestVersion) {
+			cachedCopy.HasUpdate = false
+		}
 		cachedCopy.AlreadyDownloaded = isInstallerReady(cachedCopy.LatestVersion, cachedCopy.AssetSize)
 		return &cachedCopy, nil
 	}
 
 	client := &http.Client{Timeout: 8 * time.Second}
-	req, err := http.NewRequest("GET", GithubReleasesAPI, nil)
+
+	type ghReleaseDTO struct {
+		TagName    string `json:"tag_name"`
+		Name       string `json:"name"`
+		Body       string `json:"body"`
+		HTMLURL    string `json:"html_url"`
+		Prerelease bool   `json:"prerelease"`
+		Draft      bool   `json:"draft"`
+		Assets     []struct {
+			Name               string `json:"name"`
+			Size               int64  `json:"size"`
+			BrowserDownloadURL string `json:"browser_download_url"`
+		} `json:"assets"`
+	}
+
+	var targetRelease ghReleaseDTO
+	apiURL := GithubReleasesAPI
+	if allowBeta {
+		apiURL = "https://api.github.com/repos/MK0522/chzzk-dock/releases?per_page=5"
+	}
+
+	req, err := http.NewRequest("GET", apiURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("GitHub API 요청 생성 실패: %w", err)
 	}
@@ -539,28 +637,33 @@ func CheckForUpdate(currentVersion string, force bool) (*UpdateInfo, error) {
 		return nil, fmt.Errorf("GitHub API 응답 오류 (HTTP %d)", resp.StatusCode)
 	}
 
-	var ghRelease struct {
-		TagName string `json:"tag_name"`
-		Name    string `json:"name"`
-		Body    string `json:"body"`
-		HTMLURL string `json:"html_url"`
-		Assets  []struct {
-			Name               string `json:"name"`
-			Size               int64  `json:"size"`
-			BrowserDownloadURL string `json:"browser_download_url"`
-		} `json:"assets"`
+	if allowBeta {
+		var releases []ghReleaseDTO
+		if err := json.NewDecoder(resp.Body).Decode(&releases); err != nil {
+			return nil, fmt.Errorf("릴리즈 응답 파싱 실패: %w", err)
+		}
+		if len(releases) == 0 {
+			return &UpdateInfo{HasUpdate: false, CurrentVersion: currentVersion}, nil
+		}
+		targetRelease = releases[0]
+	} else {
+		if err := json.NewDecoder(resp.Body).Decode(&targetRelease); err != nil {
+			return nil, fmt.Errorf("릴리즈 응답 파싱 실패: %w", err)
+		}
 	}
 
-	if err := json.NewDecoder(resp.Body).Decode(&ghRelease); err != nil {
-		return nil, fmt.Errorf("릴리즈 응답 파싱 실패: %w", err)
-	}
-
-	latestVer := ghRelease.TagName
+	latestVer := targetRelease.TagName
 	hasUpdate := CompareSemVer(currentVersion, latestVer) < 0
+
+	// 🛡️ 절대 보안 원칙: 베타 업데이트 옵션이 꺼져있는 경우, 대상 버전이 Pre-release이거나
+	// 버전명에 beta/alpha/rc/test 등이 포함되어 있으면 절대 업데이트로 인정하지 않음!
+	if !allowBeta && (targetRelease.Prerelease || IsPreRelease(latestVer)) {
+		hasUpdate = false
+	}
 
 	var downloadURL string
 	var assetSize int64
-	for _, asset := range ghRelease.Assets {
+	for _, asset := range targetRelease.Assets {
 		name := strings.ToLower(asset.Name)
 		if strings.HasSuffix(name, "-installer.exe") || strings.Contains(name, "setup") || strings.HasSuffix(name, ".exe") {
 			downloadURL = asset.BrowserDownloadURL
@@ -575,9 +678,9 @@ func CheckForUpdate(currentVersion string, force bool) (*UpdateInfo, error) {
 		HasUpdate:         hasUpdate,
 		CurrentVersion:    currentVersion,
 		LatestVersion:     latestVer,
-		ReleaseTitle:      ghRelease.Name,
-		ReleaseNotes:      ghRelease.Body,
-		ReleaseURL:        ghRelease.HTMLURL,
+		ReleaseTitle:      targetRelease.Name,
+		ReleaseNotes:      targetRelease.Body,
+		ReleaseURL:        targetRelease.HTMLURL,
 		DownloadURL:       downloadURL,
 		AssetSize:         assetSize,
 		AlreadyDownloaded: isInstallerReady(latestVer, assetSize),
@@ -613,6 +716,9 @@ func GetUpdateProgress() UpdateProgress {
 
 // ExecuteUpdate: 인스톨러 다운로드 및 백그라운드 설치 실행
 func ExecuteUpdate(version, downloadURL string, expectedSize int64, onShutdown func()) error {
+	if !LoadSettings().IsEnableBetaUpdates() && IsPreRelease(version) {
+		return fmt.Errorf("테스트 버전(Beta) 업데이트 옵션이 꺼져 있어 설치할 수 없습니다")
+	}
 	progressMu.Lock()
 	if currentProgress.Active {
 		progressMu.Unlock()

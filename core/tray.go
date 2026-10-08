@@ -324,6 +324,7 @@ func (t *PureWinTrayIcon) showMenu() {
 
 // ShowNotification: 트레이 풍선 알림 표시 (정보)
 func (t *PureWinTrayIcon) ShowNotification(title, msg string) {
+	LogInfo("[Tray Notification] %s: %s", title, msg)
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
