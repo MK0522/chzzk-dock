@@ -1508,6 +1508,10 @@
           <span class="text-sm">⚙️</span>
           <span>일반</span>
         </button>
+        <button type="button" onclick="switchSettingsTab('ui')" id="tab-btn-ui" class="settings-nav-btn">
+          <span class="text-sm">🎨</span>
+          <span>UI</span>
+        </button>
         <button type="button" onclick="switchSettingsTab('advanced')" id="tab-btn-advanced" class="settings-nav-btn">
           <span class="text-sm">🛠️</span>
           <span>고급</span>
@@ -1643,24 +1647,6 @@
 
         <!-- ===== TAB 2: 일반 (General) ===== -->
         <div id="tab-content-general" class="space-y-2.5 hidden">
-          <!-- 화면 배율 및 폰트 크기 조절 카드 (3단계) -->
-          <div class="section-card space-y-2">
-            <div class="flex items-center justify-between">
-              <span class="text-xs font-bold text-slate-100">🔤 독 화면 및 폰트 크기</span>
-            </div>
-            <div class="grid grid-cols-3 gap-1 p-0.5 bg-[#0B0F15] rounded-lg border border-[#1E2738]">
-              <button id="btn-scale-100" onclick="setFontScale(1.0)" class="py-1 text-[11px] font-medium rounded text-slate-400 hover:text-slate-200 transition-all text-center cursor-pointer">
-                보통 (100%)
-              </button>
-              <button id="btn-scale-120" onclick="setFontScale(1.2)" class="py-1 text-[11px] font-bold rounded text-[#00FFA3] bg-[#161F2E] border border-[#00FFA3]/40 transition-all text-center cursor-pointer">
-                크게 (120%)
-              </button>
-              <button id="btn-scale-135" onclick="setFontScale(1.35)" class="py-1 text-[11px] font-medium rounded text-slate-400 hover:text-slate-200 transition-all text-center cursor-pointer">
-                아주 크게 (135%)
-              </button>
-            </div>
-          </div>
-
           <!-- 앱 자동 시작 (스크립트 설치 관리 카드) -->
           <div class="section-card py-2.5 px-3 border border-[#1E2738] bg-[#0B1017]">
             <div class="flex items-center justify-between">
@@ -1739,7 +1725,43 @@
           </div>
         </div>
 
-        <!-- ===== TAB 3: 고급 (Advanced) ===== -->
+        <!-- ===== TAB 3: UI (인터페이스 설정) ===== -->
+        <div id="tab-content-ui" class="space-y-2.5 hidden">
+          <!-- 화면 배율 및 UI 표시 설정 카드 -->
+          <div class="section-card p-2.5 bg-chzzk-card/70 border border-chzzk-border space-y-2.5">
+            <div class="space-y-1.5">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-slate-100">🔤 독 화면 크기</span>
+                <span id="font-scale-current-label" class="text-[10px] text-chzzk-muted font-medium">120% (크게)</span>
+              </div>
+              <div class="grid grid-cols-3 gap-1 p-0.5 bg-[#0B0F15] rounded-lg border border-[#1E2738]">
+                <button id="btn-scale-100" onclick="setFontScale(1.0, true)" class="py-1 text-[11px] font-medium rounded text-slate-400 hover:text-slate-200 transition-all text-center cursor-pointer">
+                  보통 (100%)
+                </button>
+                <button id="btn-scale-120" onclick="setFontScale(1.2, true)" class="py-1 text-[11px] font-bold rounded text-[#00FFA3] bg-[#161F2E] border border-[#00FFA3]/40 transition-all text-center cursor-pointer">
+                  크게 (120%)
+                </button>
+                <button id="btn-scale-135" onclick="setFontScale(1.35, true)" class="py-1 text-[11px] font-medium rounded text-slate-400 hover:text-slate-200 transition-all text-center cursor-pointer">
+                  아주 크게 (135%)
+                </button>
+              </div>
+            </div>
+
+            <!-- 시청자 수 표시 토글 -->
+            <div class="pt-2 border-t border-[#1E2738]/80 flex items-center justify-between">
+              <div class="pr-2">
+                <div class="text-xs font-bold text-slate-100">👀 시청자 수 표시</div>
+                <div class="text-[9px] text-chzzk-muted leading-tight mt-0.5">상단 헤더에 실시간 시청자 수 뱃지를 표시합니다.</div>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="toggle-show-viewer-count" onchange="saveShowViewerCountSetting(this.checked)">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== TAB 4: 고급 (Advanced) ===== -->
         <div id="tab-content-advanced" class="space-y-2.5 hidden">
           <!-- 서버 포트 설정 & 충돌 방지 검사 -->
           <div class="section-card p-2.5 bg-chzzk-card/70 border border-chzzk-border space-y-2">
@@ -1864,12 +1886,6 @@
                 <span class="toggle-slider"></span>
               </label>
             </div>
-          </div>
-
-          <!-- [LEG-01] 비공식 API 면책 조항 및 Rate Limiting 안내 -->
-          <div class="p-2.5 rounded bg-chzzk-card/60 border border-chzzk-border text-[10px] text-chzzk-muted leading-relaxed">
-            <p class="font-medium text-amber-400/90 mb-0.5">⚠️ 비공식 API 연동 안내</p>
-            본 도구는 네이버 치지직 비공식 스튜디오 엔드포인트를 사용하며, 네이버 공식 서비스와 무관합니다. 트래픽 과부하 방지를 위해 3초 Rate Limiting이 적용되어 있습니다.
           </div>
 
           <!-- 오픈소스 라이선스 고지 (Open Source Licenses) -->
@@ -2027,6 +2043,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.</div>
               </details>
             </div>
+          </div>
+
+          <!-- [LEG-01] 비공식 API 면책 조항 및 Rate Limiting 안내 -->
+          <div class="p-2.5 rounded bg-chzzk-card/60 border border-chzzk-border text-[10px] text-chzzk-muted leading-relaxed">
+            <p class="font-medium text-amber-400/90 mb-0.5">⚠️ 비공식 API 연동 안내</p>
+            본 도구는 네이버 치지직 비공식 스튜디오 엔드포인트를 사용하며, 네이버 공식 서비스와 무관합니다. 트래픽 과부하 방지를 위해 3초 Rate Limiting이 적용되어 있습니다.
           </div>
 
           <!-- 버전 정보 -->
@@ -2755,7 +2777,9 @@ SOFTWARE.</div>
 
     // ===== Font Scale & Screen Zoom (화면 및 글꼴 배율: 1.0, 1.2, 1.35) =====
     function setFontScale(scale, save = true) {
-      document.body.style.zoom = String(scale);
+      if (document.body) {
+        document.body.style.zoom = String(scale);
+      }
 
       const scales = [1.0, 1.2, 1.35];
       scales.forEach(s => {
@@ -2763,9 +2787,9 @@ SOFTWARE.</div>
         const btn = document.getElementById(`btn-scale-${idKey}`);
         if (btn) {
           if (Math.abs(s - scale) < 0.01) {
-            btn.className = 'py-1 text-[11px] font-bold rounded text-[#00FFA3] bg-[#161F2E] border border-[#00FFA3]/40 transition-all text-center';
+            btn.className = 'py-1 text-[11px] font-bold rounded text-[#00FFA3] bg-[#161F2E] border border-[#00FFA3]/40 transition-all text-center cursor-pointer';
           } else {
-            btn.className = 'py-1 text-[11px] font-medium rounded text-slate-400 hover:text-slate-200 transition-all text-center';
+            btn.className = 'py-1 text-[11px] font-medium rounded text-slate-400 hover:text-slate-200 transition-all text-center cursor-pointer';
           }
         }
       });
@@ -2778,24 +2802,32 @@ SOFTWARE.</div>
       }
 
       if (save) {
-        try {
-          localStorage.setItem('chzzk_dock_font_scale', String(scale));
-          showToast(`글꼴 크기 ${Math.round(scale * 100)}% 적용 완료`, 'success');
-        } catch (e) {}
+        apiFetch('/save-font-scale', {
+          method: 'POST',
+          body: JSON.stringify({ font_scale: scale })
+        }).then(res => {
+          if (res.ok) {
+            showToast(`독 화면 크기 ${Math.round(scale * 100)}% 적용 완료`, 'success');
+          } else {
+            showToast('독 화면 크기 저장 실패', 'error');
+          }
+        }).catch(err => {
+          showToast('독 화면 크기 저장 오류', 'error', err ? err.message : '');
+        });
       }
     }
 
-    function initFontScale() {
+    async function initFontScale() {
       let saved = 1.2;
       try {
-        const val = localStorage.getItem('chzzk_dock_font_scale');
-        if (val) saved = parseFloat(val);
+        const res = await apiFetch('/font-scale-status');
+        if (res.ok) {
+          const data = await res.json();
+          if (data && typeof data.font_scale === 'number') saved = data.font_scale;
+        }
       } catch (e) {}
       setFontScale(saved || 1.2, false);
     }
-
-    // 즉시 기본 1.2배(크게) 초기 적용
-    initFontScale();
 
     // ===== Broadcast Settings Dirty State (설정 변경 감지 및 테두리 하이라이트) =====
     let savedBroadcastBaseline = null;
@@ -3352,6 +3384,7 @@ SOFTWARE.</div>
     let liveCheckTimeout = null;
     let isCurrentlyLive = false;
     let currentViewerCount = 0;
+    let showViewerCountState = true;
 
     async function checkLiveStatus() {
       clearTimeout(liveCheckTimeout);
@@ -3418,9 +3451,14 @@ SOFTWARE.</div>
         if (elViewerBadge && elViewerVal) {
           const formattedCount = Number(viewerCount || 0).toLocaleString('ko-KR');
           elViewerVal.textContent = formattedCount;
-          elViewerBadge.classList.remove('hidden');
-          elViewerBadge.classList.add('flex');
-          elViewerBadge.title = `실시간 동시 시청자: ${formattedCount}명 (10초 주기 실시간 반영)`;
+          if (showViewerCountState) {
+            elViewerBadge.classList.remove('hidden');
+            elViewerBadge.classList.add('flex');
+            elViewerBadge.title = `실시간 동시 시청자: ${formattedCount}명 (10초 주기 실시간 반영)`;
+          } else {
+            elViewerBadge.classList.add('hidden');
+            elViewerBadge.classList.remove('flex');
+          }
         }
       } else {
         // 방송 꺼짐 (OFF): 테두리 없음
@@ -3857,6 +3895,8 @@ SOFTWARE.</div>
         if (panel.classList.contains('open')) {
           checkObsScriptStatus();
           loadPortStatus();
+          initFontScale();
+          loadShowViewerCountSetting();
           loadPopupOnStartSetting();
           loadShutdownNotifySetting();
           loadGPUSetting();
@@ -3868,9 +3908,9 @@ SOFTWARE.</div>
       updatePanelScrollLock();
     }
 
-    // ===== 설정창 내비게이션 탭 전환 (로그인 / 일반 / 고급 / 앱 정보) =====
+    // ===== 설정창 내비게이션 탭 전환 (로그인 / 일반 / UI / 고급 / 앱 정보) =====
     function switchSettingsTab(tabName) {
-      const tabs = ['login', 'general', 'advanced', 'info'];
+      const tabs = ['login', 'general', 'ui', 'advanced', 'info'];
       tabs.forEach(t => {
         const btn = document.getElementById(`tab-btn-${t}`);
         const content = document.getElementById(`tab-content-${t}`);
@@ -6764,6 +6804,8 @@ SOFTWARE.</div>
 
       // ── 2. 백그라운드에서 연결 시도 (UI 차단 없음) ──
       initConnection();
+      initFontScale();
+      loadShowViewerCountSetting();
       checkObsScriptStatus();
       loadWatchdogTimeout();
       loadPortStatus();
@@ -7335,6 +7377,46 @@ SOFTWARE.</div>
         showToast('통신 오류', 'error', e.message);
       }
     }
+
+    // ===== 메인 UI 실시간 시청자 수 표시 설정 제어 (settings.json 연동) =====
+    async function loadShowViewerCountSetting() {
+      try {
+        const res = await apiFetch('/show-viewer-count-status');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data && typeof data.show_viewer_count === 'boolean') {
+          showViewerCountState = data.show_viewer_count;
+        }
+      } catch (e) {
+        console.warn('Failed to load show viewer count setting:', e);
+      }
+      const toggleEl = document.getElementById('toggle-show-viewer-count');
+      if (toggleEl) {
+        toggleEl.checked = showViewerCountState;
+      }
+      updateLiveStatusUI(isCurrentlyLive, currentViewerCount);
+    }
+
+    async function saveShowViewerCountSetting(checked) {
+      showViewerCountState = checked;
+      updateLiveStatusUI(isCurrentlyLive, currentViewerCount);
+      try {
+        const res = await apiFetch('/save-show-viewer-count', {
+          method: 'POST',
+          body: JSON.stringify({ show_viewer_count: checked })
+        });
+        const data = await res.json();
+        if (res.ok && data.code === 200) {
+          showToast('설정 저장 완료', 'success', checked ? '메인 UI에 시청자 수가 표시됩니다.' : '메인 UI에서 시청자 수가 숨겨집니다.');
+        } else {
+          showToast('설정 저장 실패', 'error', data.message || '설정 저장에 실패했습니다.');
+        }
+      } catch (e) {
+        showToast('통신 오류', 'error', e.message);
+      }
+    }
+
+
 
     // ===== 시작 시 독 팝업창 자동 열기 설정 제어 =====
     async function loadPopupOnStartSetting() {
@@ -8639,10 +8721,7 @@ SOFTWARE.</div>
               if (labelRun) labelRun.textContent = `${data.info.latest_version} 지금 업데이트`;
             }
 
-            const skippedVer = localStorage.getItem('chzzk_skip_update_version');
-            if (manual) {
-              openUpdateModal();
-            } else if (skippedVer !== data.info.latest_version) {
+            if (data.info.should_prompt) {
               openUpdateModal();
             }
           } else {
@@ -8722,7 +8801,10 @@ SOFTWARE.</div>
 
     function skipCurrentUpdateVersion() {
       if (cachedUpdateInfo?.latest_version) {
-        localStorage.setItem('chzzk_skip_update_version', cachedUpdateInfo.latest_version);
+        apiFetch('/save-skip-update', {
+          method: 'POST',
+          body: JSON.stringify({ skip_update_version: cachedUpdateInfo.latest_version })
+        }).catch(() => {});
       }
       closeUpdateModal();
       showToast('업데이트 건너뛰기', 'info', `${cachedUpdateInfo?.latest_version || ''} 버전 알림을 건너뜁니다.`);
@@ -9924,26 +10006,6 @@ SOFTWARE.</div>
       } catch (err) {
         console.warn('카테고리 즐겨찾기 로드 실패:', err);
       }
-
-      // 기존 localStorage 데이터 마이그레이션 호환 처리
-      try {
-        const oldRaw = localStorage.getItem('chzzk_favorite_categories');
-        if (oldRaw) {
-          if (!categoryFavoritesList || categoryFavoritesList.length === 0) {
-            const oldList = JSON.parse(oldRaw);
-            if (Array.isArray(oldList) && oldList.length > 0) {
-              categoryFavoritesList = oldList.map(f => ({
-                category_id: f.categoryId || f.id || '',
-                category_name: f.categoryValue || f.category_name || f.categoryId || '',
-                category_type: f.categoryType || f.category_type || 'GAME',
-                poster_image_url: f.posterImageUrl || f.poster_image_url || ''
-              }));
-              await saveCategoryFavorites(categoryFavoritesList);
-            }
-          }
-          localStorage.removeItem('chzzk_favorite_categories');
-        }
-      } catch (e) {}
 
       updateCategoryFavoriteToggleUI();
     }

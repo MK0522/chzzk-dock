@@ -39,6 +39,9 @@ type AppSettings struct {
 	EnableBetaUpdates    *bool             `json:"enable_beta_updates,omitempty"`    // 테스트(Beta) 버전 업데이트 수신 여부 (기본값: false)
 	AutoCheckUpdate      *bool             `json:"auto_check_update,omitempty"`      // 앱 시작 시 업데이트 자동 확인 여부 (기본값: true)
 	RemoteTesterUnlocked bool              `json:"remote_tester_unlocked,omitempty"` // 리모컨 테스터 인증 승인 여부
+	FontScale            float64            `json:"font_scale"`                       // 독 화면/폰트 배율 (기본값: 1.2)
+	ShowViewerCount      *bool              `json:"show_viewer_count,omitempty"`      // 상단 실시간 시청자 수 표시 여부 (기본값: true)
+	SkipUpdateVersion    string             `json:"skip_update_version,omitempty"`    // 건너뛴 업데이트 버전 태그
 	BroadcastPresets     []BroadcastPreset `json:"broadcast_presets,omitempty"`     // 방송 정보 프리셋 목록 (최대 10개)
 	CategoryFavorites    []CategoryFavorite `json:"category_favorites,omitempty"`   // 카테고리 즐겨찾기 목록 (최대 8개)
 }
@@ -134,6 +137,39 @@ func (s AppSettings) IsExternalBrowserGuard() bool {
 
 func (s *AppSettings) SetExternalBrowserGuard(val bool) {
 	s.ExternalBrowserGuard = &val
+}
+
+func (s AppSettings) GetFontScale() float64 {
+	if s.FontScale <= 0 {
+		return 1.2
+	}
+	return s.FontScale
+}
+
+func (s *AppSettings) SetFontScale(val float64) {
+	if val <= 0 {
+		val = 1.2
+	}
+	s.FontScale = val
+}
+
+func (s AppSettings) IsShowViewerCount() bool {
+	if s.ShowViewerCount == nil {
+		return true
+	}
+	return *s.ShowViewerCount
+}
+
+func (s *AppSettings) SetShowViewerCount(val bool) {
+	s.ShowViewerCount = &val
+}
+
+func (s AppSettings) GetSkipUpdateVersion() string {
+	return s.SkipUpdateVersion
+}
+
+func (s *AppSettings) SetSkipUpdateVersion(val string) {
+	s.SkipUpdateVersion = val
 }
 
 func GetEnableGPU() bool {
@@ -316,6 +352,13 @@ func LoadSettings() AppSettings {
 			defPop := false
 			s.PopupOnStart = &defPop
 		}
+		if s.FontScale <= 0 {
+			s.FontScale = 1.2
+		}
+		if s.ShowViewerCount == nil {
+			defViewer := true
+			s.ShowViewerCount = &defViewer
+		}
 		cachedSettings = s
 	}
 	settingsLoaded = true
@@ -484,6 +527,7 @@ const (
 // UpdateInfo: 최신 릴리즈 정보 DTO
 type UpdateInfo struct {
 	HasUpdate         bool   `json:"has_update"`
+	ShouldPrompt      bool   `json:"should_prompt"`
 	CurrentVersion    string `json:"current_version"`
 	LatestVersion     string `json:"latest_version"`
 	ReleaseTitle      string `json:"release_title"`
@@ -674,8 +718,11 @@ func CheckForUpdate(currentVersion string, force bool) (*UpdateInfo, error) {
 
 	CleanOldInstallers(latestVer)
 
+	shouldPrompt := hasUpdate && (LoadSettings().GetSkipUpdateVersion() != latestVer)
+
 	info := &UpdateInfo{
 		HasUpdate:         hasUpdate,
+		ShouldPrompt:      shouldPrompt,
 		CurrentVersion:    currentVersion,
 		LatestVersion:     latestVer,
 		ReleaseTitle:      targetRelease.Name,

@@ -113,6 +113,11 @@ func buildRouter() http.Handler {
 	wrap("POST /save-beta-updates", handleSaveBetaUpdates, true)
 	wrap("GET /auto-check-update-status", handleGetAutoCheckUpdateStatus, true)
 	wrap("POST /save-auto-check-update", handleSaveAutoCheckUpdate, true)
+	wrap("GET /font-scale-status", handleGetFontScaleStatus, true)
+	wrap("POST /save-font-scale", handleSaveFontScale, true)
+	wrap("GET /show-viewer-count-status", handleGetShowViewerCountStatus, true)
+	wrap("POST /save-show-viewer-count", handleSaveShowViewerCount, true)
+	wrap("POST /save-skip-update", handleSaveSkipUpdate, true)
 	wrap("GET /remote-tester-status", handleGetRemoteTesterStatus, true)
 	wrap("POST /remote-tester-auth", handleRemoteTesterAuth, true)
 
@@ -936,6 +941,62 @@ func handleSaveAutoCheckUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	respondOK(w, map[string]any{"code": 200, "auto_check_update": req.AutoCheckUpdate, "message": "업데이트 자동 확인 설정이 저장되었습니다."})
+}
+
+func handleGetFontScaleStatus(w http.ResponseWriter, r *http.Request) {
+	respondOK(w, map[string]any{"code": 200, "font_scale": core.LoadSettings().GetFontScale()})
+}
+
+func handleSaveFontScale(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		FontScale float64 `json:"font_scale"`
+	}
+	if !bindJSON(w, r, &req) {
+		return
+	}
+	st := core.LoadSettings()
+	st.SetFontScale(req.FontScale)
+	if err := core.SaveSettings(st); err != nil {
+		respondErr(w, http.StatusInternalServerError, "설정 저장에 실패했습니다.")
+		return
+	}
+	respondOK(w, map[string]any{"code": 200, "font_scale": st.GetFontScale(), "message": "화면 및 폰트 크기 설정이 저장되었습니다."})
+}
+
+func handleGetShowViewerCountStatus(w http.ResponseWriter, r *http.Request) {
+	respondOK(w, map[string]any{"code": 200, "show_viewer_count": core.LoadSettings().IsShowViewerCount()})
+}
+
+func handleSaveShowViewerCount(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		ShowViewerCount bool `json:"show_viewer_count"`
+	}
+	if !bindJSON(w, r, &req) {
+		return
+	}
+	st := core.LoadSettings()
+	st.SetShowViewerCount(req.ShowViewerCount)
+	if err := core.SaveSettings(st); err != nil {
+		respondErr(w, http.StatusInternalServerError, "설정 저장에 실패했습니다.")
+		return
+	}
+	respondOK(w, map[string]any{"code": 200, "show_viewer_count": st.IsShowViewerCount(), "message": "시청자 수 표시 설정이 저장되었습니다."})
+}
+
+func handleSaveSkipUpdate(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		SkipUpdateVersion string `json:"skip_update_version"`
+	}
+	if !bindJSON(w, r, &req) {
+		return
+	}
+	st := core.LoadSettings()
+	st.SetSkipUpdateVersion(req.SkipUpdateVersion)
+	if err := core.SaveSettings(st); err != nil {
+		respondErr(w, http.StatusInternalServerError, "설정 저장에 실패했습니다.")
+		return
+	}
+	respondOK(w, map[string]any{"code": 200, "skip_update_version": st.GetSkipUpdateVersion(), "message": "건너뛸 업데이트 버전 설정이 저장되었습니다."})
 }
 
 func handleGetRemoteTesterStatus(w http.ResponseWriter, r *http.Request) {

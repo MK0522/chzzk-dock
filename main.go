@@ -41,10 +41,10 @@ var embeddedGuide2 []byte
 var embeddedLauncherScript []byte
 
 // ============================================================
-//  CHZZK OBS Dock Server v0.6.1-Beta (Modular Architecture)
+//  CHZZK OBS Dock Server v0.6.2-Beta (Modular Architecture)
 // ============================================================
 const (
-	APP_VERSION       = "v0.6.1-Beta"
+	APP_VERSION       = "v0.6.2-Beta"
 	DEFAULT_HTTP_PORT = 8081
 	USER_AGENT        = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 )
