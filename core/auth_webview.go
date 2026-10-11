@@ -179,8 +179,8 @@ func init() {
 	)
 }
 
-func _iCoreWebView2GetCookiesCompletedHandlerInvoke(this uintptr, errorCode int32, result uintptr) uintptr {
-	res := combridge.Resolve[iCoreWebView2GetCookiesCompletedHandler](this).Invoke(errorCode, result)
+func _iCoreWebView2GetCookiesCompletedHandlerInvoke(this uintptr, errorCode uintptr, result uintptr) uintptr {
+	res := combridge.Resolve[iCoreWebView2GetCookiesCompletedHandler](this).Invoke(int32(errorCode), result)
 	return uintptr(res)
 }
 
@@ -211,20 +211,40 @@ func callGetCookies(cm *edge.ICoreWebView2CookieManager, uri string, onDone func
 	return nil
 }
 
-// inspectCookies parses the ICoreWebView2CookieList and searches for NID_AUT and NID_SES
-func inspectCookies(listPtr uintptr) (aut, ses string, found bool) {
+// purgeSessionCookies deletes NID_AUT and NID_SES across all naver domains including top-level .naver.com
+func purgeSessionCookies(cm *edge.ICoreWebView2CookieManager) {
+	if cm == nil {
+		return
+	}
+	targets := []string{
+		"https://naver.com",
+		"https://nid.naver.com",
+		"https://chzzk.naver.com",
+	}
+	for _, target := range targets {
+		_ = cm.DeleteCookies("NID_AUT", target)
+		_ = cm.DeleteCookies("NID_SES", target)
+	}
+}
+
+func inspectCookies(cm *edge.ICoreWebView2CookieManager, listPtr uintptr) (aut, ses string, found bool) {
 	if listPtr == 0 {
 		return "", "", false
 	}
 	vtablePtr := *(*uintptr)(unsafe.Pointer(listPtr))
-	vtable := (*[5]uintptr)(unsafe.Pointer(vtablePtr))
-	defer syscall.SyscallN(vtable[2], listPtr) // IUnknown::Release: free ICoreWebView2CookieList
+	vtable := (*[10]uintptr)(unsafe.Pointer(vtablePtr))
 
 	var count uint32
 	hr, _, _ := syscall.SyscallN(vtable[3], listPtr, uintptr(unsafe.Pointer(&count)))
 	if hr != 0 || count == 0 {
 		return "", "", false
 	}
+
+	type matchCookie struct {
+		ptr  uintptr
+		vtbl *[15]uintptr
+	}
+	var matched []matchCookie
 
 	for i := uint32(0); i < count; i++ {
 		var cookiePtr uintptr
@@ -254,17 +274,32 @@ func inspectCookies(listPtr uintptr) (aut, ses string, found bool) {
 		switch cName {
 		case "NID_AUT":
 			aut = cVal
+			matched = append(matched, matchCookie{cookiePtr, cookieVtable})
 		case "NID_SES":
 			ses = cVal
+			matched = append(matched, matchCookie{cookiePtr, cookieVtable})
+		default:
+			// Release individual cookie object that we don't care about
+			syscall.SyscallN(cookieVtable[2], cookiePtr)
 		}
-
-		// Release individual cookie object
-		syscall.SyscallN(cookieVtable[2], cookiePtr)
 	}
 
 	if aut != "" && ses != "" {
+		// [시점 A] 백엔드로 추출한 세션 쿠키 객체를 웹뷰 브라우저에서 즉시 파기 (도메인/경로 무관 객체 직접 삭제)
+		if cm != nil {
+			for _, m := range matched {
+				_ = cm.DeleteCookie((*edge.ICoreWebView2Cookie)(unsafe.Pointer(m.ptr)))
+				syscall.SyscallN(m.vtbl[2], m.ptr)
+			}
+		}
 		return aut, ses, true
 	}
+
+	// 미완성 상태이면 매칭된 객체들도 Release
+	for _, m := range matched {
+		syscall.SyscallN(m.vtbl[2], m.ptr)
+	}
+
 	return aut, ses, false
 }
 
@@ -284,7 +319,6 @@ func loginWndProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintp
 
 	case WM_TIMER_WV:
 		if wParam == TIMER_ID_WV && activeChromium != nil && !cookieCaptured {
-			// '로그인 상태 유지' 체크박스(#loginStay) 자동 활성화 보장
 			activeChromium.Eval(`(function() {
 				try {
 					var stay = document.getElementById("loginStay") || 
@@ -308,7 +342,7 @@ func loginWndProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintp
 					if err != nil || listPtr == 0 || cookieCaptured {
 						return
 					}
-					aut, ses, found := inspectCookies(listPtr)
+					aut, ses, found := inspectCookies(cm, listPtr)
 					if found && !cookieCaptured {
 						cookieCaptured = true
 						SaveConfig(map[string]interface{}{
@@ -317,6 +351,10 @@ func loginWndProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintp
 							"auth_method": "webview",
 						})
 						LogInfo("[Webview Login] 세션 쿠키 추출 완료 (NID_AUT, NID_SES) -> 자격 증명 관리자에 저장됨.")
+
+						// [시점 A] 백엔드 저장 완료 후 웹뷰 프로필에서 세션 쿠키를 제거하여 다음 로그인 시 즉시 닫힘 방지
+						purgeSessionCookies(cm)
+
 						procKillTimer.Call(uintptr(hwnd), TIMER_ID_WV)
 						// 안전하게 창 닫기: 메인 스레드에 WM_CLOSE 포스팅
 						procPostMessageW.Call(uintptr(hwnd), WM_CLOSE_WV, 0, 0)
@@ -382,12 +420,6 @@ func RunLoginWebview() {
 	// 치지직 로그인 및 공식 리모컨 창이 공유하는 일원화된 브라우저 프로필
 	profileDir := filepath.Join(appData, "ChzzkObsDock", "webview_profile")
 
-	cfg := LoadConfig()
-	if cfg.NidAut == "" {
-		// 로그아웃 상태이거나 신규 로그인 시, 이전 계정 캐시로 인한 원치 않는 자동 로그인을 차단하되,
-		// 정적 리소스(JS/CSS/이미지/V8 캐시)는 보존하여 첫 실행 콜드 스타트 지연을 원천 방지합니다.
-		ClearWebViewSession(profileDir)
-	}
 	_ = os.MkdirAll(profileDir, 0755)
 
 	windowTitle, _ := syscall.UTF16PtrFromString("네이버 로그인 - CHZZK OBS Dock")
@@ -487,6 +519,11 @@ func RunLoginWebview() {
 		LogError("[Webview Error] [%s] WebView2 임베딩 실패 (Microsoft Edge WebView2 Runtime이 설치되어 있는지 확인하세요)", ErrSysWebviewRuntime)
 		procDestroyWindow.Call(hwnd)
 		return
+	}
+
+	// [시점 B (임시 테스트용)] 창 오픈 시 혹시 남아있는 이전 세션 쿠키 정리
+	if cm, err := chromium.GetCookieManager(); err == nil && cm != nil {
+		purgeSessionCookies(cm)
 	}
 
 	chromium.MessageCallback = func(message string, sender *edge.ICoreWebView2, args *edge.ICoreWebView2WebMessageReceivedEventArgs) {

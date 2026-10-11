@@ -124,3 +124,11 @@ func SetCachedApiResponse(method, url string, respBytes []byte, status int, cont
 		apiCacheMu.Unlock()
 	}
 }
+
+// ClearApiCache: 계정 전환 또는 세션 변경 시 기존 API 응답 캐시 전면 무효화
+func ClearApiCache() {
+	apiCacheMu.Lock()
+	clear(apiCache)
+	apiCacheMu.Unlock()
+}
+

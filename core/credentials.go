@@ -285,11 +285,17 @@ func SwitchSession(index int) bool {
 		return false
 	}
 	if index != 0 {
-		targetSession := sessions[index]
-		sessions = append([]SessionToken{targetSession}, append(sessions[:index], sessions[index+1:]...)...)
-		CredWriteSessions(target, sessions)
+		newSessions := make([]SessionToken, 0, len(sessions))
+		newSessions = append(newSessions, sessions[index])
+		for i, s := range sessions {
+			if i != index {
+				newSessions = append(newSessions, s)
+			}
+		}
+		CredWriteSessions(target, newSessions)
 	}
 	InvalidateConfigCache()
+	ClearApiCache()
 	return true
 }
 
@@ -300,13 +306,19 @@ func RemoveSession(index int) bool {
 	if index < 0 || index >= len(sessions) {
 		return false
 	}
-	sessions = append(sessions[:index], sessions[index+1:]...)
-	if len(sessions) == 0 {
+	newSessions := make([]SessionToken, 0, len(sessions)-1)
+	for i, s := range sessions {
+		if i != index {
+			newSessions = append(newSessions, s)
+		}
+	}
+	if len(newSessions) == 0 {
 		CredDelete(target)
 	} else {
-		CredWriteSessions(target, sessions)
+		CredWriteSessions(target, newSessions)
 	}
 	InvalidateConfigCache()
+	ClearApiCache()
 	return true
 }
 

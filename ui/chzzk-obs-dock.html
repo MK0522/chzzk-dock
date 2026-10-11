@@ -3602,6 +3602,9 @@ SOFTWARE.</div>
         });
         if (res.ok) {
           cachedSessions = null; // 세션 변경 시 캐시 무효화
+          userChannelId = "";
+          currentChannelName = "";
+          currentChannelAvatarUrl = "";
           showToast('계정 전환 완료', 'success', '선택한 계정으로 전환되었습니다.');
           toggleChannelMenu();
           await updateConnectionStatus();
@@ -6065,23 +6068,8 @@ SOFTWARE.</div>
       activeToastCooldowns.add(toastKey);
       setTimeout(() => activeToastCooldowns.delete(toastKey), cooldown);
 
-      // 브라우저 개발자 콘솔 및 백엔드 인메모리 로거 동기화
+      // 브라우저 개발자 콘솔 로깅
       console.log(`[Toast] [${type.toUpperCase()}] ${message}${detail ? ' - ' + detail : ''}`);
-      try {
-        fetch('/client-log', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Requested-With': 'ChzzkDock'
-          },
-          body: JSON.stringify({
-            level: type,
-            source: 'Toast',
-            message: message,
-            detail: detail
-          })
-        }).catch(() => {});
-      } catch (_) {}
 
       const toast = document.createElement('div');
       toast.className = `toast ${type}`;

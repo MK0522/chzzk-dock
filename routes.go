@@ -240,6 +240,13 @@ func handleSwitchSession(w http.ResponseWriter, r *http.Request) {
 		respondErr(w, http.StatusNotFound, "해당 세션을 찾을 수 없습니다.")
 		return
 	}
+	cfg := core.LoadConfig()
+	cid, cname, _, ok := fetchSessionUserStatus(cfg.NidAut, cfg.NidSes)
+	if ok && cname != "" {
+		core.LogInfo("[HTTP] 계정 전환 완료 -> 스트리머 '%s' (채널 ID: %s)", cname, cid)
+	} else {
+		core.LogInfo("[HTTP] 계정 전환 완료 (인덱스: %d)", req.Index)
+	}
 	respondOK(w, map[string]any{"code": 200, "message": "계정 전환 완료"})
 }
 
@@ -373,7 +380,12 @@ func handleLoginWait(w http.ResponseWriter, r *http.Request) {
 	core.InvalidateConfigCache()
 	cfg := core.LoadConfig()
 	if cfg.NidAut != "" && cfg.NidSes != "" {
-		core.LogInfo("[HTTP] /login-wait: 네이버 로그인 세션 쿠키 연동 성공")
+		cid, cname, _, ok := fetchSessionUserStatus(cfg.NidAut, cfg.NidSes)
+		if ok && cname != "" {
+			core.LogInfo("[HTTP] /login-wait: 네이버 로그인 연동 성공 -> 스트리머 '%s' (채널 ID: %s)", cname, cid)
+		} else {
+			core.LogInfo("[HTTP] /login-wait: 네이버 로그인 세션 쿠키 연동 성공")
+		}
 		respondOK(w, map[string]any{
 			"status": "completed",
 			"config": map[string]string{
@@ -1126,6 +1138,11 @@ func handleClientLog(w http.ResponseWriter, r *http.Request) {
 		Detail  string `json:"detail"`
 	}
 	if bindJSON(w, r, &req) {
+		// 단순 UI Toast 알림은 백엔드 중복 로깅 방지를 위해 무시
+		if strings.EqualFold(req.Source, "toast") {
+			respondOK(w, map[string]string{"status": "ok"})
+			return
+		}
 		msg := req.Message
 		if req.Detail != "" {
 			msg += " - " + req.Detail
