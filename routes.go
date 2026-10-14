@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime"
 	"mime/multipart"
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -78,7 +80,6 @@ func buildRouter() http.Handler {
 	wrap("GET /sessions", handleSessions, true)
 	wrap("GET /login-webview", handleLoginWebview, true)
 	wrap("GET /login-wait", handleLoginWait, true)
-	wrap("GET /unofficial-user", handleUnofficialUser, true)
 	wrap("POST /save-config", handleSaveConfig, true)
 	wrap("POST /logout", handleLogout, true)
 	wrap("POST /switch-session", handleSwitchSession, true)
@@ -89,7 +90,6 @@ func buildRouter() http.Handler {
 	wrap("POST /save-broadcast-presets", handleSaveBroadcastPresets, true)
 	wrap("GET /category-favorites", handleGetCategoryFavorites, true)
 	wrap("POST /save-category-favorites", handleSaveCategoryFavorites, true)
-	wrap("GET /categories-recommended", handleGetRecommendedCategories, true)
 	wrap("POST /upload-thumbnail", handleUploadThumbnail, true)
 
 	// 4. 시스템 설정 & 윈도우 웹뷰 제어 라우트
@@ -120,6 +120,8 @@ func buildRouter() http.Handler {
 	wrap("POST /save-skip-update", handleSaveSkipUpdate, true)
 	wrap("GET /remote-tester-status", handleGetRemoteTesterStatus, true)
 	wrap("POST /remote-tester-auth", handleRemoteTesterAuth, true)
+	wrap("GET /app-settings", handleAppSettingsGet, true)
+	wrap("PUT /app-settings", handleAppSettingsPut, true)
 
 	// 5. OBS 연동 & 업데이트 & 텔레메트리 라우트
 	wrap("GET /obs-script-status", handleObsScriptStatus, true)
@@ -133,6 +135,45 @@ func buildRouter() http.Handler {
 	wrap("GET /api/open-folder", handleOpenFolder, true)
 	wrap("POST /client-log", handleClientLog, true)
 
+	// 5.5. ChzzkDock BFF (Backend-For-Frontend) 신설 라우트
+	wrap("GET /chzzkdock/chat-mode", handleChzzkChatModeGet, true)
+	wrap("PUT /chzzkdock/chat-mode/emoji", handleChzzkChatEmojiPut, true)
+	wrap("PUT /chzzkdock/chat-mode/slow", handleChzzkChatSlowPut, true)
+
+	wrap("GET /chzzkdock/donations", handleChzzkDonationsGet, true)
+	wrap("PUT /chzzkdock/donations/chat", handleChzzkDonationToggle("chat"), true)
+	wrap("PUT /chzzkdock/donations/video", handleChzzkDonationToggle("video"), true)
+	wrap("PUT /chzzkdock/donations/mission", handleChzzkDonationToggle("mission"), true)
+	wrap("PUT /chzzkdock/donations/subscription", handleChzzkDonationToggle("subscription"), true)
+	wrap("GET /chzzkdock/donations/details", handleChzzkDonationDetailsGet, true)
+	wrap("PUT /chzzkdock/donations/details/chat", handleChzzkDonationDetailChatPut, true)
+	wrap("PUT /chzzkdock/donations/details/video", handleChzzkDonationDetailVideoPut, true)
+	wrap("PUT /chzzkdock/donations/details/mission", handleChzzkDonationDetailMissionPut, true)
+	wrap("PATCH /chzzkdock/donations/details/subscription", handleChzzkDonationDetailSubscriptionPatch, true)
+
+	wrap("GET /chzzkdock/streaming-urls", handleChzzkStreamingUrlsGet, true)
+	wrap("GET /chzzkdock/streamkey", handleChzzkStreamKeyGet, true)
+	wrap("PUT /chzzkdock/streamkey", handleChzzkStreamKeyPut, true)
+	wrap("GET /chzzkdock/revenue/summary", handleChzzkRevenueSummaryGet, true)
+	wrap("GET /chzzkdock/profile", handleChzzkProfileGet, true)                // 치지직 쿠키 불필요 (공개 프로필)
+	wrap("GET /chzzkdock/live-status", handleChzzkLiveStatusGet, true)          // 치지직 쿠키 불필요 (공개 라이브 상태)
+	wrap("GET /chzzkdock/user-status", handleChzzkUserStatusGet, true)
+	wrap("GET /unofficial-user", handleChzzkUserStatusGet, true)
+	wrap("GET /chzzkdock/session/bootstrap", handleChzzkSessionBootstrap, true)
+	wrap("GET /chzzkdock/chat-rule", handleChzzkChatRuleGet, true)
+	wrap("PUT /chzzkdock/chat-rule", handleChzzkChatRulePut, true)
+	wrap("GET /chzzkdock/broadcast", handleChzzkBroadcastGet, true)
+	wrap("PUT /chzzkdock/broadcast", handleChzzkBroadcastPut, true)
+	wrap("GET /chzzkdock/categories/search", handleChzzkCategoriesSearchGet, true)        // 치지직 쿠키 불필요 (공개 검색)
+	wrap("GET /chzzkdock/categories/recommended", handleChzzkCategoriesRecommendedGet, true)  // 치지직 쿠키 불필요 (공개 추천)
+	wrap("GET /categories-recommended", handleChzzkCategoriesRecommendedGet, true)            // 레거시/단축 호환 별칭
+	wrap("GET /chzzkdock/drops/campaigns", handleChzzkDropsCampaignsGet, true)
+	wrap("GET /chzzkdock/drops/match", handleChzzkDropsMatchGet, true)                    // 치지직 쿠키 불필요 (공개 드롭스)
+	wrap("GET /chzzkdock/watch-parties", handleChzzkWatchPartiesGet, true)
+	wrap("GET /chzzkdock/snapshot", handleChzzkWatchPartySnapshotGet, true)
+	wrap("POST /chzzkdock/snapshot", handleChzzkWatchPartySnapshotPost, true)
+	wrap("DELETE /chzzkdock/snapshot", handleChzzkWatchPartySnapshotDelete, true)
+
 	// 6. 정적 자산 & 공개 문서 (API Auth 불필요)
 	wrap("GET /guide-image/1", handleGuideImage1, false)
 	wrap("GET /guide-image/2", handleGuideImage2, false)
@@ -142,11 +183,11 @@ func buildRouter() http.Handler {
 	wrap("GET /show-ui", handleShowUI, false)
 	wrap("GET /api/show-ui", handleShowUI, false)
 	wrap("GET /stats", handleStatsHtml, false)
-	wrap("GET /stats.html", handleStatsHtml, false)
-	wrap("GET /obs-stats.html", handleStatsHtml, false)
+	wrap("GET /stat", handleStatsHtml, false)
+	wrap("GET /mini", handleMiniHtml, false)
 	wrap("GET /{$}", handleIndexHtml, false)
 	wrap("GET /index.html", handleIndexHtml, false)
-	wrap("GET /chzzk-obs-dock.html", handleIndexHtml, false)
+	wrap("GET /ui/", handleStaticUI, false)
 
 	// 7. 치지직 비공식 API 프록시 라우트 (C. 영역 - 기존 프록시 핸들러와 100% 호환 보존)
 	proxyHandler := func(w http.ResponseWriter, r *http.Request) {
@@ -193,19 +234,16 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func handleSessions(w http.ResponseWriter, r *http.Request) {
-	core.InvalidateConfigCache()
-	cfg := core.LoadConfig()
+type SessionView struct {
+	Index           int    `json:"index"`
+	Active          bool   `json:"active"`
+	ChannelID       string `json:"channel_id"`
+	ChannelName     string `json:"channel_name"`
+	ProfileImageURL string `json:"profile_image_url"`
+	Expired         bool   `json:"expired"`
+}
 
-	type SessionView struct {
-		Index           int    `json:"index"`
-		Active          bool   `json:"active"`
-		ChannelID       string `json:"channel_id"`
-		ChannelName     string `json:"channel_name"`
-		ProfileImageURL string `json:"profile_image_url"`
-		Expired         bool   `json:"expired"`
-	}
-
+func buildSessionViews(cfg core.Config) []SessionView {
 	views := make([]SessionView, len(cfg.Sessions))
 	var wg sync.WaitGroup
 	for i, sess := range cfg.Sessions {
@@ -226,6 +264,13 @@ func handleSessions(w http.ResponseWriter, r *http.Request) {
 		}(i, sess)
 	}
 	wg.Wait()
+	return views
+}
+
+func handleSessions(w http.ResponseWriter, r *http.Request) {
+	core.InvalidateConfigCache()
+	cfg := core.LoadConfig()
+	views := buildSessionViews(cfg)
 	respondOK(w, map[string]any{"sessions": views})
 }
 
@@ -402,10 +447,6 @@ func handleLoginWait(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func handleUnofficialUser(w http.ResponseWriter, r *http.Request) {
-	proxyUnofficialRequest(w, r, "GET", "", nil, naverGameApiBaseURL+"/nng_main/v1/user/getUserStatus")
-}
-
 // --- [방송 설정 & 프리셋 핸들러] ---
 
 func handleGetBroadcastPresets(w http.ResponseWriter, r *http.Request) {
@@ -476,81 +517,6 @@ func handleSaveCategoryFavorites(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	respondOK(w, map[string]any{"code": 200, "favorites": req.Favorites, "message": "카테고리 즐겨찾기가 저장되었습니다."})
-}
-
-// handleGetRecommendedCategories: 치지직 상위 5개 카테고리 실시간 조회 (백엔드 캐싱 & 프론트엔드 전송 필드 최소화)
-func handleGetRecommendedCategories(w http.ResponseWriter, r *http.Request) {
-	targetURL := "https://api.chzzk.naver.com/service/v1/categories/live?size=5"
-	if cached, found := core.GetCachedApiResponse("GET", targetURL); found {
-		sendBytes(w, cached.Body, cached.Status, cached.ContentType)
-		return
-	}
-
-	req, err := http.NewRequest("GET", targetURL, nil)
-	if err != nil {
-		respondErr(w, http.StatusInternalServerError, "요청 생성 실패")
-		return
-	}
-	req.Header.Set("User-Agent", USER_AGENT)
-
-	client := &http.Client{Timeout: 4 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil || resp.StatusCode != http.StatusOK {
-		respondErr(w, http.StatusBadGateway, "치지직 API 응답 실패")
-		return
-	}
-	defer resp.Body.Close()
-
-	var apiRes struct {
-		Content struct {
-			Data []struct {
-				CategoryType     string `json:"categoryType"`
-				CategoryID       string `json:"categoryId"`
-				CategoryValue    string `json:"categoryValue"`
-				PosterImageURL   string `json:"posterImageUrl"`
-				DropsCampaignNos []int  `json:"dropsCampaignNos"`
-			} `json:"data"`
-		} `json:"content"`
-	}
-
-	if err := json.NewDecoder(resp.Body).Decode(&apiRes); err != nil {
-		respondErr(w, http.StatusInternalServerError, "응답 파싱 실패")
-		return
-	}
-
-	type CleanCategory struct {
-		CategoryType    string `json:"categoryType"`
-		CategoryID      string `json:"categoryId"`
-		CategoryValue   string `json:"categoryValue"`
-		PosterImageURL  string `json:"posterImageUrl"`
-		DropsCampaignNo *int   `json:"dropsCampaignNo"`
-	}
-
-	cleaned := make([]CleanCategory, 0, len(apiRes.Content.Data))
-	for _, item := range apiRes.Content.Data {
-		var drops *int
-		if len(item.DropsCampaignNos) > 0 {
-			drops = &item.DropsCampaignNos[0]
-		}
-		catVal := item.CategoryValue
-		if catVal == "" {
-			catVal = item.CategoryID
-		}
-		cleaned = append(cleaned, CleanCategory{
-			CategoryType:    item.CategoryType,
-			CategoryID:      item.CategoryID,
-			CategoryValue:   catVal,
-			PosterImageURL:  item.PosterImageURL,
-			DropsCampaignNo: drops,
-		})
-	}
-
-	respData := map[string]any{"code": 200, "categories": cleaned}
-	if b, err := json.Marshal(respData); err == nil {
-		core.SetCachedApiResponse("GET", targetURL, b, http.StatusOK, "application/json")
-	}
-
-	respondOK(w, respData)
 }
 
 func handleUploadThumbnail(w http.ResponseWriter, r *http.Request) {
@@ -678,7 +644,15 @@ func handleRemoteWebview(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleChatWebview(w http.ResponseWriter, r *http.Request) {
-	channelId := r.URL.Query().Get("channelId")
+	channelId := strings.TrimSpace(r.URL.Query().Get("channelId"))
+	if channelId == "" {
+		cfg := core.LoadConfig()
+		if cfg.NidAut != "" && cfg.NidSes != "" {
+			if cid, _, _, ok := fetchSessionUserStatus(cfg.NidAut, cfg.NidSes); ok && cid != "" {
+				channelId = cid
+			}
+		}
+	}
 	core.LogInfo("[HTTP] /chat-webview 요청 수신 (channelId: %s)", channelId)
 	if core.BringChatWindowToFront() {
 		respondOK(w, map[string]any{
@@ -915,6 +889,78 @@ func handleSaveExternalBrowser(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// handleAppSettingsGet: GET /app-settings
+// settings.json의 모든 일반 설정 및 런타임 상태(포트, 기본 브라우저)를 단일 JSON 객체로 반환
+func handleAppSettingsGet(w http.ResponseWriter, r *http.Request) {
+	st := core.LoadSettings()
+	respondOK(w, map[string]any{
+		"code":                   200,
+		"settings":               st,
+		"http_port":              st.HttpPort,
+		"active_port":            activeHttpPort,
+		"configured_port":        core.GetConfiguredPort(),
+		"is_fallback":            isFallbackPort,
+		"fallback_reason":        portFallbackReason,
+		"default_browser":        core.GetDefaultBrowserName(),
+		"font_scale":             st.FontScale,
+		"show_viewer_count":      st.IsShowViewerCount(),
+		"popup_on_start":         st.IsPopupOnStart(),
+		"notify_on_shutdown":     st.IsNotifyOnShutdown(),
+		"enable_gpu":             st.IsEnableGPU(),
+		"external_browser_guard": st.IsExternalBrowserGuard(),
+		"enable_beta_updates":    st.IsEnableBetaUpdates(),
+		"auto_check_update":      st.IsAutoCheckUpdate(),
+		"watchdog_timeout_sec":   st.WatchdogTimeoutSec,
+	})
+}
+
+// handleAppSettingsPut: PUT /app-settings
+// 부분 설정(JSON map)을 기존 설정에 안전하게 머지하고 %LOCALAPPDATA%\ChzzkObsDock\settings.json에 즉시 디스크 영속화
+func handleAppSettingsPut(w http.ResponseWriter, r *http.Request) {
+	var patch map[string]any
+	if !bindJSON(w, r, &patch) {
+		return
+	}
+	st := core.LoadSettings()
+
+	if v, ok := patch["font_scale"].(float64); ok && v > 0 {
+		st.SetFontScale(v)
+	}
+	if v, ok := patch["show_viewer_count"].(bool); ok {
+		st.SetShowViewerCount(v)
+	}
+	if v, ok := patch["auto_check_update"].(bool); ok {
+		st.SetAutoCheckUpdate(v)
+	}
+	if v, ok := patch["enable_beta_updates"].(bool); ok {
+		st.SetEnableBetaUpdates(v)
+	}
+	if v, ok := patch["enable_gpu"].(bool); ok {
+		st.SetEnableGPU(v)
+	}
+	if v, ok := patch["external_browser_guard"].(bool); ok {
+		st.SetExternalBrowserGuard(v)
+	}
+	if v, ok := patch["popup_on_start"].(bool); ok {
+		st.SetPopupOnStart(v)
+	}
+	if v, ok := patch["notify_on_shutdown"].(bool); ok {
+		st.SetNotifyOnShutdown(v)
+	}
+	if v, ok := patch["watchdog_timeout_sec"].(float64); ok {
+		st.WatchdogTimeoutSec = int(v)
+	}
+	if v, ok := patch["skip_update_version"].(string); ok {
+		st.SetSkipUpdateVersion(v)
+	}
+
+	if err := core.SaveSettings(st); err != nil {
+		respondErr(w, http.StatusInternalServerError, "설정 저장에 실패했습니다: "+err.Error())
+		return
+	}
+	respondOK(w, map[string]any{"code": 200, "message": "설정이 성공적으로 저장되었습니다.", "settings": st})
+}
+
 func handleGetBetaUpdatesStatus(w http.ResponseWriter, r *http.Request) {
 	respondOK(w, map[string]any{"code": 200, "enable_beta_updates": core.LoadSettings().IsEnableBetaUpdates()})
 }
@@ -1089,6 +1135,18 @@ func handleExportScript(w http.ResponseWriter, r *http.Request) {
 
 func handleCheckUpdate(w http.ResponseWriter, r *http.Request) {
 	force := r.URL.Query().Get("force") == "true"
+	if !force && !core.LoadSettings().IsAutoCheckUpdate() {
+		respondOK(w, map[string]any{
+			"code": 200,
+			"info": &core.UpdateInfo{
+				CurrentVersion: APP_VERSION,
+				LatestVersion:  APP_VERSION,
+				HasUpdate:      false,
+				ShouldPrompt:   false,
+			},
+		})
+		return
+	}
 	info, err := core.CheckForUpdate(APP_VERSION, force)
 	if err != nil {
 		respondOK(w, map[string]any{"code": 500, "message": err.Error()})
@@ -1179,6 +1237,13 @@ func handleStatsHtml(w http.ResponseWriter, r *http.Request) {
 	sendBytes(w, getRenderedStatsHTML(), http.StatusOK, "text/html; charset=utf-8")
 }
 
+func handleMiniHtml(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Expires", "0")
+	sendBytes(w, getRenderedMiniHTML(), http.StatusOK, "text/html; charset=utf-8")
+}
+
 func handleGuideImage1(w http.ResponseWriter, r *http.Request) {
 	sendBytes(w, embeddedGuide1, http.StatusOK, "image/png")
 }
@@ -1194,4 +1259,73 @@ func handleObsScriptFile(w http.ResponseWriter, r *http.Request) {
 func handleShowUI(w http.ResponseWriter, r *http.Request) {
 	core.ShowDockWindow()
 	respondOK(w, map[string]any{"code": 200, "message": "UI 표시 완료"})
+}
+
+// handleStaticUI: GET /ui/* 정적 자산(CSS, JS, 이미지 등) 스트리밍 서빙
+// 1. 로컬 개발 환경 ui/ 폴더 우선 (핫 리로드)
+// 2. 실행 바이너리 디렉토리 ui/ 폴더
+// 3. 내장 embed.FS (단일 실행 바이너리 배포)
+func handleStaticUI(w http.ResponseWriter, r *http.Request) {
+	relPath := strings.TrimPrefix(r.URL.Path, "/ui/")
+	if strings.Contains(relPath, "..") {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	cleanRel := filepath.Clean(relPath)
+	if cleanRel == "." || cleanRel == "/" {
+		http.NotFound(w, r)
+		return
+	}
+
+	// 1. 로컬 개발 환경 ui/ 디렉토리
+	localPath := filepath.Join("ui", cleanRel)
+	if data, err := os.ReadFile(localPath); err == nil {
+		sendStaticAsset(w, cleanRel, data)
+		return
+	}
+
+	// 2. 바이너리 디렉토리 내 ui/ 디렉토리
+	if exePath, err := os.Executable(); err == nil {
+		exeDirFile := filepath.Join(filepath.Dir(exePath), "ui", cleanRel)
+		if data, err := os.ReadFile(exeDirFile); err == nil {
+			sendStaticAsset(w, cleanRel, data)
+			return
+		}
+	}
+
+	// 3. embed.FS 내장 파일
+	slashPath := "ui/" + filepath.ToSlash(cleanRel)
+	if data, err := embeddedUI.ReadFile(slashPath); err == nil {
+		sendStaticAsset(w, cleanRel, data)
+		return
+	}
+
+	http.NotFound(w, r)
+}
+
+func sendStaticAsset(w http.ResponseWriter, path string, data []byte) {
+	ctype := mime.TypeByExtension(filepath.Ext(path))
+	if ctype == "" {
+		switch strings.ToLower(filepath.Ext(path)) {
+		case ".css":
+			ctype = "text/css; charset=utf-8"
+		case ".js":
+			ctype = "application/javascript; charset=utf-8"
+		case ".html":
+			ctype = "text/html; charset=utf-8"
+		case ".json":
+			ctype = "application/json; charset=utf-8"
+		case ".png":
+			ctype = "image/png"
+		case ".svg":
+			ctype = "image/svg+xml"
+		default:
+			ctype = "application/octet-stream"
+		}
+	}
+	w.Header().Set("Content-Type", ctype)
+	w.Header().Set("Cache-Control", "no-cache, must-revalidate")
+	w.WriteHeader(http.StatusOK)
+	w.Write(data)
 }

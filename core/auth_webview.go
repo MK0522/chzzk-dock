@@ -240,12 +240,6 @@ func inspectCookies(cm *edge.ICoreWebView2CookieManager, listPtr uintptr) (aut, 
 		return "", "", false
 	}
 
-	type matchCookie struct {
-		ptr  uintptr
-		vtbl *[15]uintptr
-	}
-	var matched []matchCookie
-
 	for i := uint32(0); i < count; i++ {
 		var cookiePtr uintptr
 		hr, _, _ := syscall.SyscallN(vtable[4], listPtr, uintptr(i), uintptr(unsafe.Pointer(&cookiePtr)))
@@ -274,30 +268,16 @@ func inspectCookies(cm *edge.ICoreWebView2CookieManager, listPtr uintptr) (aut, 
 		switch cName {
 		case "NID_AUT":
 			aut = cVal
-			matched = append(matched, matchCookie{cookiePtr, cookieVtable})
 		case "NID_SES":
 			ses = cVal
-			matched = append(matched, matchCookie{cookiePtr, cookieVtable})
-		default:
-			// Release individual cookie object that we don't care about
-			syscall.SyscallN(cookieVtable[2], cookiePtr)
 		}
+
+		// Release individual cookie object
+		syscall.SyscallN(cookieVtable[2], cookiePtr)
 	}
 
 	if aut != "" && ses != "" {
-		// [시점 A] 백엔드로 추출한 세션 쿠키 객체를 웹뷰 브라우저에서 즉시 파기 (도메인/경로 무관 객체 직접 삭제)
-		if cm != nil {
-			for _, m := range matched {
-				_ = cm.DeleteCookie((*edge.ICoreWebView2Cookie)(unsafe.Pointer(m.ptr)))
-				syscall.SyscallN(m.vtbl[2], m.ptr)
-			}
-		}
 		return aut, ses, true
-	}
-
-	// 미완성 상태이면 매칭된 객체들도 Release
-	for _, m := range matched {
-		syscall.SyscallN(m.vtbl[2], m.ptr)
 	}
 
 	return aut, ses, false
@@ -521,7 +501,7 @@ func RunLoginWebview() {
 		return
 	}
 
-	// [시점 B (임시 테스트용)] 창 오픈 시 혹시 남아있는 이전 세션 쿠키 정리
+	// [시점 B] 웹뷰 임베딩 직후 이전 세션 쿠키 선별 삭제 (기기 기억 토큰 NID_JST 등은 보존)
 	if cm, err := chromium.GetCookieManager(); err == nil && cm != nil {
 		purgeSessionCookies(cm)
 	}

@@ -1,7 +1,7 @@
 package main
 
 import (
-	_ "embed"
+	"embed"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -22,11 +22,17 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-//go:embed ui/chzzk-obs-dock.html
+//go:embed ui/*
+var embeddedUI embed.FS
+
+//go:embed ui/main-dock/index.html
 var embeddedHTML []byte
 
-//go:embed ui/obs-stats-dock.html
+//go:embed ui/stats-dock/index.html
 var embeddedStatsHTML []byte
+
+//go:embed ui/mini-dock/index.html
+var embeddedMiniHTML []byte
 
 //go:embed icon.ico
 var embeddedIcon []byte
@@ -41,10 +47,10 @@ var embeddedGuide2 []byte
 var embeddedLauncherScript []byte
 
 // ============================================================
-//  CHZZK OBS Dock Server v0.6.2-Beta2 (Modular Architecture)
+//  CHZZK OBS Dock Server v0.6.3-alpha1 (Modular Architecture)
 // ============================================================
 const (
-	APP_VERSION       = "v0.6.2-Beta2"
+	APP_VERSION       = "v0.6.3-alpha1"
 	DEFAULT_HTTP_PORT = 8081
 	USER_AGENT        = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 )
@@ -120,12 +126,12 @@ var (
 )
 
 func getRenderedHTML() []byte {
-	// 로컬 개발 환경에서 ui/chzzk-obs-dock.html 변경 시 즉각 반영 (핫 리로드)
-	if data, err := os.ReadFile(filepath.Join("ui", "chzzk-obs-dock.html")); err == nil && len(data) > 0 {
+	// 로컬 개발 환경에서 ui/main-dock/index.html 변경 시 즉각 반영 (핫 리로드)
+	if data, err := os.ReadFile(filepath.Join("ui", "main-dock", "index.html")); err == nil && len(data) > 0 {
 		return bytes.ReplaceAll(data, []byte("{{APP_VERSION}}"), []byte(APP_VERSION))
 	}
 	if exePath, err := os.Executable(); err == nil {
-		localHtml := filepath.Join(filepath.Dir(exePath), "ui", "chzzk-obs-dock.html")
+		localHtml := filepath.Join(filepath.Dir(exePath), "ui", "main-dock", "index.html")
 		if data, err := os.ReadFile(localHtml); err == nil && len(data) > 0 {
 			return bytes.ReplaceAll(data, []byte("{{APP_VERSION}}"), []byte(APP_VERSION))
 		}
@@ -137,17 +143,31 @@ func getRenderedHTML() []byte {
 }
 
 func getRenderedStatsHTML() []byte {
-	// 로컬 개발 환경에서 ui/obs-stats-dock.html 변경 시 즉각 반영 (핫 리로드)
-	if data, err := os.ReadFile(filepath.Join("ui", "obs-stats-dock.html")); err == nil && len(data) > 0 {
+	// 로컬 개발 환경에서 ui/stats-dock/index.html 변경 시 즉각 반영 (핫 리로드)
+	if data, err := os.ReadFile(filepath.Join("ui", "stats-dock", "index.html")); err == nil && len(data) > 0 {
 		return data
 	}
 	if exePath, err := os.Executable(); err == nil {
-		localHtml := filepath.Join(filepath.Dir(exePath), "ui", "obs-stats-dock.html")
+		localHtml := filepath.Join(filepath.Dir(exePath), "ui", "stats-dock", "index.html")
 		if data, err := os.ReadFile(localHtml); err == nil && len(data) > 0 {
 			return data
 		}
 	}
 	return embeddedStatsHTML
+}
+
+func getRenderedMiniHTML() []byte {
+	// 로컬 개발 환경에서 ui/mini-dock/index.html 변경 시 즉각 반영 (핫 리로드)
+	if data, err := os.ReadFile(filepath.Join("ui", "mini-dock", "index.html")); err == nil && len(data) > 0 {
+		return data
+	}
+	if exePath, err := os.Executable(); err == nil {
+		localHtml := filepath.Join(filepath.Dir(exePath), "ui", "mini-dock", "index.html")
+		if data, err := os.ReadFile(localHtml); err == nil && len(data) > 0 {
+			return data
+		}
+	}
+	return embeddedMiniHTML
 }
 
 // handleDiskTotal: GET /api/disk-total?drive=C (또는 D)

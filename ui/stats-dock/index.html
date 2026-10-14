@@ -9,6 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="/ui/shared/api.js"></script>
   <script>
     tailwind.config = {
       theme: {
@@ -423,9 +424,7 @@
       if (drive && drive === lastFetchedDrive) return; // 동일 드라이브면 스킵
       lastFetchedDrive = drive;
 
-      fetch(`/api/disk-total?drive=${encodeURIComponent(drive)}`, {
-        headers: { 'X-Requested-With': 'ChzzkDock' }
-      })
+      chzzkApi.getDiskTotal(drive)
         .then(res => res.json())
         .then(data => {
           if (data && data.totalBytes) {
@@ -454,9 +453,7 @@
     // 파일 탐색기로 해당 폴더 열기 (Go 백엔드 연동)
     function openRecordDirectory() {
       if (!currentRecordDir) return;
-      fetch(`/api/open-folder?path=${encodeURIComponent(currentRecordDir)}`, {
-        headers: { 'X-Requested-With': 'ChzzkDock' }
-      }).catch(err => {
+      chzzkApi.openFolder(currentRecordDir).catch(err => {
         console.log('[Stats] 파일 탐색기 열기 요청:', currentRecordDir);
       });
     }

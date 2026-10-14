@@ -42,8 +42,21 @@ type AppSettings struct {
 	FontScale            float64            `json:"font_scale"`                       // 독 화면/폰트 배율 (기본값: 1.2)
 	ShowViewerCount      *bool              `json:"show_viewer_count,omitempty"`      // 상단 실시간 시청자 수 표시 여부 (기본값: true)
 	SkipUpdateVersion    string             `json:"skip_update_version,omitempty"`    // 건너뛴 업데이트 버전 태그
-	BroadcastPresets     []BroadcastPreset `json:"broadcast_presets,omitempty"`     // 방송 정보 프리셋 목록 (최대 10개)
-	CategoryFavorites    []CategoryFavorite `json:"category_favorites,omitempty"`   // 카테고리 즐겨찾기 목록 (최대 8개)
+	BroadcastPresets        []BroadcastPreset       `json:"broadcast_presets,omitempty"`          // 방송 정보 프리셋 목록 (최대 10개)
+	CategoryFavorites       []CategoryFavorite      `json:"category_favorites,omitempty"`        // 카테고리 즐겨찾기 목록 (최대 8개)
+	PreWatchPartySnapshot   *WatchPartySnapshot     `json:"pre_watch_party_snapshot,omitempty"`  // 같이보기 전환 직전 방송 옵션 원본 스냅샷
+}
+
+// WatchPartySnapshot: 같이보기 전환 직전의 방송 원본 옵션 데이터 모델
+type WatchPartySnapshot struct {
+	CategoryID     string `json:"categoryId"`
+	CategoryType   string `json:"categoryType"`
+	CategorySearch string `json:"categorySearch"`
+	Adult          bool   `json:"adult"`
+	Clip           bool   `json:"clip"`
+	Overseas       bool   `json:"overseas"`
+	Replay         string `json:"replay"`
+	ChatDonation   bool   `json:"chatDonation"`
 }
 
 // CategoryFavorite: 카테고리 즐겨찾기 데이터 모델
@@ -501,6 +514,19 @@ func SaveCategoryFavorites(favs []CategoryFavorite) error {
 		favs = favs[:8]
 	}
 	st.CategoryFavorites = favs
+	return SaveSettings(st)
+}
+
+// GetWatchPartySnapshot: 같이보기 전환 직전 방송 옵션 원본 스냅샷 조회 (%LOCALAPPDATA%\ChzzkObsDock\settings.json)
+func GetWatchPartySnapshot() *WatchPartySnapshot {
+	st := LoadSettings()
+	return st.PreWatchPartySnapshot
+}
+
+// SaveWatchPartySnapshot: 같이보기 전환 직전 방송 옵션 원본 스냅샷 저장/초기화 (%LOCALAPPDATA%\ChzzkObsDock\settings.json)
+func SaveWatchPartySnapshot(snap *WatchPartySnapshot) error {
+	st := LoadSettings()
+	st.PreWatchPartySnapshot = snap
 	return SaveSettings(st)
 }
 

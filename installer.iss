@@ -3,7 +3,7 @@
 ; ==============================================================================
 
 #define MyAppName "CHZZK OBS Dock"
-#define MyAppVersion "0.6.2-Beta2"
+#define MyAppVersion "0.6.3-alpha1"
 #define MyAppPublisher "CHZZK OBS Dock"
 #define MyAppURL "https://github.com/Dingteus/chzzk-dock"
 #define MyAppExeName "chzzk-dock.exe"
@@ -55,6 +55,16 @@ Type: files; Name: "{app}\*.log"
 ; 구버전 WebView2 디스크 웹 캐시 강제 청소
 Type: filesandordirs; Name: "{localappdata}\ChzzkObsDock\dock_profile\EBWebView\Default\Cache"
 Type: filesandordirs; Name: "{localappdata}\ChzzkObsDock\dock_profile\EBWebView\Default\Code Cache"
+; 과거 레거시 경로 잔여 파일 및 구버전 바로가기 자동 청소 (윈도우 검색 인덱서 충돌 방지)
+; [임시 조치: 베타 마이그레이션용 - 정식 릴리즈 시 제거 예정]
+Type: files; Name: "{localappdata}\chzzk-dock.exe"
+Type: files; Name: "{localappdata}\{#MyAppName}\chzzk-dock.exe"
+Type: files; Name: "{autoprograms}\chzzk-dock.lnk"
+Type: files; Name: "{commonprograms}\{#MyAppName}.lnk"
+Type: files; Name: "{commonprograms}\chzzk-dock.lnk"
+Type: files; Name: "{commonprograms}\{#MyAppName}\*.lnk"
+Type: dirifempty; Name: "{commonprograms}\{#MyAppName}"
+
 
 [Files]
 Source: "chzzk-dock.exe"; DestDir: "{app}"; Flags: ignoreversion

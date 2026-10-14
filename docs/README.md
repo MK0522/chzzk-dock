@@ -67,9 +67,6 @@ OBS Studio 안에서 사용자 브라우저 독(`http://localhost:8081`)을 추�
 ---
 
 ## 📁 프로젝트 구조
-```
-구조 리펙토링 진행중
-```
 
 ```text
 chzzk-dock/
@@ -80,9 +77,11 @@ chzzk-dock/
 │   ├── errors.go                 # 도메인별 표준 에러 코드 규격 정의
 │   ├── logger.go                 # 순환 링 버퍼 기반 초경량 시스템 이벤트 로깅
 │   ├── process.go                # OBS 프로세스 감지, 생명주기 감시(Watchdog) 및 Lua 스크립트 설치
+│   ├── security.go               # HTTP 보안 헤더, Referer/Host 검증 및 API 인증 가드
 │   ├── sysinfo.go                # WMI 없는 초고속 Win32 하드웨어 사양 수집 및 진단 리포트 생성기
 │   ├── tray.go                   # Win32 네이티브 시스템 트레이 아이콘 구현 (Zero-CGO)
-│   └── user_webview.go           # 메인 독 팝업, 플로팅 채팅창, 공식 리모컨 통합 윈도우 엔진
+│   ├── user_webview.go           # 메인 독 팝업, 플로팅 채팅창, 공식 리모컨 통합 윈도우 엔진
+│   └── watchdog.go               # OBS 프로세스 종료 감시 및 자동 서버 종료 타이머
 ├── docs/                         # 프로젝트 안내 문서 및 에셋
 │   ├── cookie_guide_1.png, 2.png # 로그인 및 쿠키 수동 연동 가이드 이미지
 │   ├── icon.png, preview.png     # 독 UI 프리뷰 및 공식 로고 에셋
@@ -90,19 +89,24 @@ chzzk-dock/
 │   ├── README.md                 # 프로젝트 안내 및 사용자 가이드
 │   ├── RELEASE_NOTES.md          # 버전별 릴리즈 노트
 │   └── twitch.jpg                # 트위치 독 비교 이미지
-├── scripts/                      # OBS Studio 연동 스크립트
-│   └── chzzk_dock_launcher.lua   # OBS 기동 시 chzzk-dock 자동 실행/종료 초경량 Lua 스크립트
+├── scripts/                      # 자동화 및 OBS 연동 스크립트
+│   ├── bump_version.ps1          # 전역 버전 동기화 헬퍼 스크립트
+│   ├── chzzk_dock_launcher.lua   # OBS 기동 시 chzzk-dock 자동 실행/종료 초경량 Lua 스크립트
+│   └── prepare_release_notes.ps1 # GitHub Actions 자동 릴리즈 노트 생성 스크립트
 ├── ui/                           # OBS 브라우저 독 웹 프론트엔드 리소스
-│   ├── chzzk-obs-dock.html       # 메인 방송 제어 및 설정 일체형 통합 독 UI (바이너리 임베딩)
-│   └── obs-stats-dock.html       # OBS 실시간 방송/녹화 텔레메트리 통계 독 UI
+│   ├── main-dock/                # 메인 방송 제어 및 설정 통합 독 UI (index.html, style.css, js/)
+│   ├── mini-dock/                # 미니 퀵 컨트롤러 독 UI (index.html)
+│   ├── stats-dock/               # OBS 실시간 방송/녹화 텔레메트리 통계 독 UI (index.html)
+│   └── shared/                   # 공통 테마 및 유틸리티 스크립트 (api.js, core.js, theme.css)
 ├── app.manifest                  # Windows 고해상도 PerMonitorV2 DPI 애플리케이션 매니페스트
 ├── build.bat                     # 단일 바이너리 자동 빌드 스크립트 (PE 리소스 자동 생성)
+├── chzzkdock_handlers.go         # 치지직 방송/채팅/후원/드롭스 BFF 전용 고속 핸들러
 ├── go.mod, go.sum                # Go 모듈 및 의존성 라이브러리 정의
 ├── icon.ico                      # Windows 실행 파일용 아이콘 리소스
 ├── installer.iss                 # Inno Setup 기반 Windows 설치 파일 패키징 스크립트
 ├── LICENSE                       # 오픈소스 라이선스 (MPL-2.0)
 ├── main.go                       # 서버 부트스트랩, 정적 에셋 번들링 및 단일 인스턴스 Mutex 제어
-├── routes.go                     # HTTP 엔드포인트 핸들러 라우팅 및 3초 쿨다운 인메모리 캐시
+├── routes.go                     # HTTP 엔드포인트 핸들러 라우팅 및 단축 URL 디스패처
 └── versioninfo.json              # PE 리소스 메타데이터 정의 (한국어 UTF-16)
 ```
 

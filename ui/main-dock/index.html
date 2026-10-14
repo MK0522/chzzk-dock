@@ -1,0 +1,2321 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CHZZK 방송 관리 독</title>
+  <link rel="icon" href="data:," />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Pretendard', 'system-ui', 'sans-serif'] },
+          colors: {
+            chzzk: {
+              green: '#00FFA3', dark: '#0B0E11', card: '#141921',
+              border: '#1E2636', input: '#0F131A', hover: '#1A2233',
+              text: '#A8B3C7', muted: '#5A6577', accent: '#00E59B',
+              danger: '#FF4D6A', warn: '#FFB84D',
+            }
+          },
+          animation: {
+            'fade-in': 'fadeIn 0.25s ease-out',
+            'slide-up': 'slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
+            'toast-in': 'toastIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+            'toast-out': 'toastOut 0.25s ease-in forwards',
+          },
+          keyframes: {
+            fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
+            slideUp: { '0%': { opacity: '0', transform: 'translateY(6px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+            toastIn: { '0%': { opacity: '0', transform: 'translateY(12px) scale(0.96)' }, '100%': { opacity: '1', transform: 'translateY(0) scale(1)' } },
+            toastOut: { '0%': { opacity: '1', transform: 'translateY(0) scale(1)' }, '100%': { opacity: '0', transform: 'translateY(0) scale(0.96)' } },
+          }
+        }
+      }
+    };
+  </script>
+  <link rel="stylesheet" href="/ui/shared/theme.css" />
+  <link rel="stylesheet" href="/ui/main-dock/style.css" />
+</head>
+<body class="dark font-sans text-white antialiased overflow-x-hidden">
+  <div id="dock-wrapper">
+
+  <!-- 서버 오프라인 경고 배너 (서버 미실행 시 표시) -->
+  <div id="dock-server-offline-banner" class="hidden bg-rose-950/90 border-b border-rose-500/50 px-2.5 py-1.5 text-rose-200 text-xs flex items-center justify-between shadow-md">
+    <div class="flex items-center gap-1.5 truncate">
+      <span class="text-sm">⚠️</span>
+      <span class="text-[9.5px] leading-tight"><b>치지직 독 서버 미실행</b>: OBS [도구] ➡️ [스크립트] 등록 상태를 확인하세요.</span>
+    </div>
+    <button onclick="window.location.reload()" class="px-1.5 py-0.5 bg-rose-500/20 hover:bg-rose-500/40 text-rose-200 text-[9px] rounded border border-rose-500/40 cursor-pointer whitespace-nowrap">
+      재시도
+    </button>
+  </div>
+
+  <!-- ===== MAIN VIEW ===== -->
+  <div id="main-view" class="flex flex-col gap-1.5 px-2 pt-1.5 pb-1 animate-fade-in">
+
+    <!-- Header -->
+    <div class="flex items-center justify-between pb-1 border-b border-chzzk-border/40">
+      <div class="flex items-center gap-1.5 min-w-0">
+        <!-- 방송 상태 확인 버튼을 프로필 아바타로 대체 (라이브 시 2px 레드 테두리, 글로우 없음 / 오프라인 시 테두리 없음, 50% 확대: 36px) -->
+        <button id="header-live-icon" onclick="manualCheckLiveStatus()" class="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0 cursor-pointer transition-all p-0 border-0 bg-[#161F2E]" title="방송 상태(ON/OFF) 즉시 확인 (3초 쿨타임)">
+          <img id="header-avatar-img" src="" class="w-full h-full object-cover hidden" alt="프로필" onerror="this.classList.add('hidden'); document.getElementById('header-live-svg').classList.remove('hidden');" />
+          <svg id="header-live-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6EE7B7" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="opacity-70"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+        </button>
+        <!-- 채널 전환 드롭다운 칩 (기존 11px -> 16px로 50% 확대, max-w 195px) -->
+        <div class="relative">
+          <button id="header-channel-name" onclick="toggleChannelMenu()" class="h-9 text-[16px] font-bold text-[#A7F3D0]/90 bg-[#6EE7B7]/5 hover:bg-[#6EE7B7]/15 border border-[#6EE7B7]/25 hover:border-[#6EE7B7]/50 px-3 rounded-lg transition-all truncate max-w-[195px] cursor-pointer select-none items-center gap-1.5" style="display:none;" title="클릭하여 채널 전환 및 관리">
+            <span id="header-channel-text" class="truncate"></span>
+            <span class="text-[12px] text-[#00FFA3] flex-shrink-0">▼</span>
+          </button>
+          <!-- 채널 팝오버 메뉴 -->
+          <div id="channel-popover-menu" class="absolute left-0 top-full mt-1.5 w-64 bg-[#121721] border border-[#2E3F58] rounded-xl shadow-[0_16px_36px_rgba(0,0,0,0.95)] z-50 p-2 space-y-1.5 hidden">
+            <div class="flex items-center justify-between px-1 pb-1 border-b border-[#1E2738]">
+              <span class="text-[10px] font-bold text-slate-400">채널 선택</span>
+            </div>
+            <div id="channel-list-items" class="space-y-1 max-h-52 overflow-y-auto pr-0.5">
+              <!-- 채널 항목 렌더링 -->
+            </div>
+            <div class="pt-1 border-t border-[#1E2738]">
+              <button onclick="startWebviewLogin(); toggleChannelMenu();" class="w-full py-1.5 px-2 rounded-lg bg-[#161F2E] hover:bg-[#202C3F] border border-[#26374D] hover:border-[#00FFA3]/50 text-[11px] font-bold text-slate-200 hover:text-[#00FFA3] transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm">
+                <span>➕</span>
+                <span>새 계정 연동</span>
+              </button>
+            </div>
+          </div>
+        </div>
+        <!-- 실시간 시청자 수 -->
+        <span id="header-viewer-count" class="hidden text-[10.5px] text-[#00FFA3] font-bold items-center gap-1 bg-[#00FFA3]/10 border border-[#00FFA3]/25 px-1.5 py-0.5 rounded-md flex-shrink-0 cursor-default" title="실시간 시청자 수 (10초 주기 실시간 반영)">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          <span id="viewer-count-val">0</span>
+        </span>
+      </div>
+      <div class="flex items-center gap-1.5 flex-shrink-0">
+        <button id="header-btn-urls" onclick="toggleUrlsPanel()" class="h-9 flex items-center gap-1.5 px-2.5 rounded-lg bg-[#121721] border border-[#1E2738] hover:border-[#00FFA3]/50 text-[12px] font-bold text-slate-300 hover:text-[#00FFA3] transition-all flex-shrink-0 cursor-pointer shadow-sm" title="알림 URL & 방송 정보 열기">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+          <span>방송 URL</span>
+        </button>
+        <!-- 순수 독 환경 설정 버튼 (h-9 36px 통일) -->
+        <button id="btn-settings" onclick="toggleSettings()" class="h-9 flex items-center gap-1.5 px-2.5 rounded-lg bg-[#121721] border border-[#1E2738] hover:border-[#00FFA3]/50 text-[12px] font-bold text-slate-300 hover:text-[#00FFA3] transition-all flex-shrink-0 cursor-pointer shadow-sm" title="독 환경 설정">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1 2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83-2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          <span>설정</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ===== 빠른 액션 패널 버튼 4종 & 팝오버 컨테이너 ===== -->
+    <div class="relative">
+      <div class="grid grid-cols-4 gap-1 animate-slide-up" style="animation-delay: 0.04s">
+        <!-- 1. 채팅창 -->
+        <button id="btn-quick-chat" onclick="openChatWebview()" class="flex items-center justify-center gap-1 py-1.5 px-0.5 rounded-lg bg-[#121721] border border-[#1E2738] hover:border-[#00FFA3]/60 hover:bg-[#00FFA3]/5 text-[11px] font-bold text-slate-200 hover:text-[#00FFA3] transition-all cursor-pointer shadow-sm group" title="치지직 실시간 채팅창 독립 웹뷰 열기">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400 group-hover:text-[#00FFA3] transition-colors"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+          <span>채팅창</span>
+        </button>
+
+        <!-- 2. 채팅모드 (팝오버) -->
+        <button id="btn-quick-chatmode" onclick="toggleChatModePopover()" class="relative flex items-center justify-center gap-1 py-1.5 px-0.5 rounded-lg bg-[#121721] border border-[#1E2738] hover:border-[#00FFA3]/60 hover:bg-[#00FFA3]/5 text-[11px] font-bold text-slate-200 hover:text-[#00FFA3] transition-all cursor-pointer shadow-sm group" title="실시간 채팅 제어 (이모티콘 전용 / 저속 모드 / 참여 권한)">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400 group-hover:text-[#00FFA3] transition-colors"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <span>채팅모드</span>
+        </button>
+
+        <!-- 3. 후원 (팝오버) -->
+        <button id="btn-quick-donations" onclick="toggleDonationsPopover()" class="flex items-center justify-center gap-1 py-1.5 px-0.5 rounded-lg bg-[#121721] border border-[#1E2738] hover:border-[#00FFA3]/60 hover:bg-[#00FFA3]/5 text-[11px] font-bold text-slate-200 hover:text-[#00FFA3] transition-all cursor-pointer shadow-sm group" title="후원 제어 및 후원 수익 요약">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400 group-hover:text-[#00FFA3] transition-colors"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/></svg>
+          <span>후원</span>
+        </button>
+
+        <!-- 4. 리모컨 -->
+        <button id="btn-quick-remote" onclick="toggleRemotePanel()" class="flex items-center justify-center gap-1 py-1.5 px-0.5 rounded-lg bg-[#121721] border border-[#1E2738] hover:border-[#00FFA3]/60 hover:bg-[#00FFA3]/5 text-[11px] font-bold text-slate-200 hover:text-[#00FFA3] transition-all cursor-pointer shadow-sm group" title="치지직 공식 리모컨 및 미디어 제어">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400 group-hover:text-[#00FFA3] transition-colors"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+          <span>리모컨</span>
+        </button>
+      </div>
+
+      <!-- [팝오버 1] 실시간 채팅 모드 팝오버 -->
+      <div id="popover-chatmode" class="absolute left-0 right-0 top-full mt-1.5 bg-[#0F1726] border border-[#2B3E5E] rounded-xl shadow-[0_20px_45px_rgba(0,0,0,0.95)] z-40 p-2.5 space-y-2 hidden ring-1 ring-[#00FFA3]/20">
+        <!-- 팝오버 헤더: 틸/에메랄드 톤 포인트 -->
+        <div class="flex items-center justify-between pb-1.5 border-b border-[#1E2B40]">
+          <div class="flex items-center gap-1.5">
+            <span class="p-1 rounded-md bg-[#00FFA3]/15 text-[#00FFA3] text-[11px] leading-none">🛡️</span>
+            <span class="text-xs font-bold text-slate-100">채팅모드</span>
+            <span class="text-[9.5px] text-[#00FFA3] font-medium bg-[#00FFA3]/10 px-1 py-0.2 rounded border border-[#00FFA3]/20 leading-none">실시간 반영</span>
+          </div>
+          <button type="button" onclick="fetchChatSettingsOnly()" class="p-1 rounded-md bg-[#162134] hover:bg-[#1E2D47] text-slate-400 hover:text-[#00FFA3] transition-colors cursor-pointer border border-[#273852]" title="채팅 설정 새로고침">
+            <svg id="chatmode-refresh-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+          </button>
+        </div>
+
+        <div class="space-y-1.5">
+          <!-- 1. 채팅 이용 권한 (전체 / 팔로워 / 운영자) -->
+          <div class="p-2 rounded-lg bg-[#141E2E] border border-[#24354D] space-y-1.5">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-bold text-slate-200 flex items-center gap-1">
+                <span>👥</span> <span>채팅 참여 권한</span>
+              </span>
+            </div>
+            <div class="grid grid-cols-3 gap-1">
+              <label class="cursor-pointer select-none flex items-center justify-between px-1.5 py-1 rounded-md bg-[#0A101A] border border-[#1E2E44] hover:border-[#00FFA3]/50 transition-all text-[10.5px] text-slate-200 font-medium">
+                <span class="flex items-center gap-1"><span>🤗</span> <span>모두</span></span>
+                <input type="radio" name="chatAvailableGroup" value="ALL" class="chzzk-radio" checked onchange="onChatGroupChange('ALL')" />
+              </label>
+              <label class="cursor-pointer select-none flex items-center justify-between px-1.5 py-1 rounded-md bg-[#0A101A] border border-[#1E2E44] hover:border-[#00FFA3]/50 transition-all text-[10.5px] text-slate-200 font-medium">
+                <span class="flex items-center gap-1"><span>🤩</span> <span>팔로워</span></span>
+                <input type="radio" name="chatAvailableGroup" value="FOLLOWER" class="chzzk-radio" onchange="onChatGroupChange('FOLLOWER')" />
+              </label>
+              <label class="cursor-pointer select-none flex items-center justify-between px-1.5 py-1 rounded-md bg-[#0A101A] border border-[#1E2E44] hover:border-[#00FFA3]/50 transition-all text-[10.5px] text-slate-200 font-medium">
+                <span class="flex items-center gap-1"><span>👮</span> <span>운영자</span></span>
+                <input type="radio" name="chatAvailableGroup" value="MANAGER" class="chzzk-radio" onchange="onChatGroupChange('MANAGER')" />
+              </label>
+            </div>
+
+            <!-- 팔로우 세부 설정 (팔로워 선택 시 노출) -->
+            <div id="follower-options" class="pt-1.5 border-t border-[#1E2E44] flex items-center justify-between gap-2" style="display:none;">
+              <div class="flex items-center gap-1.5 flex-1 min-w-0">
+                <label class="text-[10px] text-slate-300 font-medium whitespace-nowrap flex items-center gap-1">
+                  <span>🔒</span> 최소 팔로우
+                </label>
+                <select id="min-follower-minute" onchange="applyChatRuleInstant()" class="chzzk-select text-[10px] py-0.5 px-1.5 flex-1 bg-[#0A101A] border-[#1E2E44]">
+                  <option value="0">제한 없음</option>
+                  <option value="5">5분 이상</option>
+                  <option value="10">10분 이상</option>
+                  <option value="30">30분 이상</option>
+                  <option value="60">1시간 이상</option>
+                </select>
+              </div>
+              <label for="toggle-sub-exception" class="flex items-center gap-1.5 cursor-pointer select-none pl-2 border-l border-[#1E2E44] flex-shrink-0" title="구독자는 팔로우 시간 제한 무관하게 채팅 가능">
+                <span class="text-[10px] text-slate-200 font-medium whitespace-nowrap">구독자 예외</span>
+                <input type="checkbox" id="toggle-sub-exception" onchange="applyChatRuleInstant()" class="chzzk-checkbox-input" checked />
+              </label>
+            </div>
+          </div>
+
+          <!-- 2. 이모티콘 전용 모드 -->
+          <div class="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-[#141E2E] border border-[#24354D]">
+            <div class="flex flex-col">
+              <span class="flex items-center gap-1.5 text-xs font-medium text-slate-200">
+                <span>😀</span> <span>이모티콘 전용 모드</span>
+              </span>
+              <span class="text-[9.5px] text-slate-400 ml-5">이모티콘만 전송 허용 (채팅 도배 방지)</span>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="toggle-emoji-mode" onchange="updateChatEmojiMode(this.checked)">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <!-- 3. 저속 모드 -->
+          <div class="px-2.5 py-1.5 rounded-lg bg-[#141E2E] border border-[#24354D] space-y-1.5">
+            <div class="flex items-center justify-between">
+              <div class="flex flex-col">
+                <span class="flex items-center gap-1.5 text-xs font-medium text-slate-200">
+                  <span>⏱️</span> <span>저속 모드</span>
+                </span>
+                <span class="text-[9.5px] text-slate-400 ml-5">메시지 재전송 딜레이 지정</span>
+              </div>
+              <span id="slow-mode-status" class="px-1.5 py-0.5 rounded text-[10px] bg-[#0A101A] border border-[#1E2E44] text-slate-300 font-mono font-bold">OFF</span>
+            </div>
+            <select id="select-slow-mode" class="chzzk-select text-xs py-1 px-2 bg-[#0A101A] border-[#1E2E44] w-full" onchange="updateChatSlowMode(Number(this.value))">
+              <option value="0">끄기 (일반 속도)</option>
+              <option value="3">3초 간격</option>
+              <option value="5">5초 간격</option>
+              <option value="10">10초 간격</option>
+              <option value="30">30초 간격</option>
+              <option value="60">1분 간격</option>
+              <option value="120">2분 간격</option>
+              <option value="300">5분 간격</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- [팝오버 2] 후원 & 수익 요약 팝오버 -->
+      <div id="popover-donations" class="absolute left-0 right-0 top-full mt-1.5 bg-[#181524] border border-[#3E2E55] rounded-xl shadow-[0_20px_45px_rgba(0,0,0,0.95)] z-40 p-2.5 space-y-2 hidden max-h-[420px] overflow-y-auto ring-1 ring-amber-400/20">
+        <!-- 팝오버 헤더 및 탭 전환: 2-Way 세그먼트 알약 탭 (골드/퍼플 톤) -->
+        <div class="flex items-center justify-between gap-1.5 pb-1.5 border-b border-[#2C213D]">
+          <div class="flex-1 flex items-center bg-[#0F0D17] p-0.5 rounded-lg border border-[#2C213D]">
+            <button type="button" id="donations-popover-tab-settings" onclick="switchDonationsPopoverTab('settings')"
+              class="flex-1 py-1 px-1 rounded-md text-[10.5px] font-bold transition-all flex items-center justify-center gap-1 bg-[#251B38] text-amber-300 border border-amber-400/40 shadow-sm cursor-pointer select-none">
+              <span>⭐</span> <span>후원 제어</span>
+            </button>
+            <button type="button" id="donations-popover-tab-revenue" onclick="switchDonationsPopoverTab('revenue')"
+              class="flex-1 py-1 px-1 rounded-md text-[10.5px] font-medium transition-all flex items-center justify-center gap-1 text-slate-400 hover:text-slate-200 border border-transparent cursor-pointer select-none">
+              <span>🪙</span> <span>수익 요약</span>
+            </button>
+          </div>
+          <button type="button" onclick="refreshDonationsAndRevenue()" class="p-1.5 rounded-lg bg-[#0F0D17] border border-[#2C213D] hover:border-amber-400/50 text-slate-400 hover:text-amber-300 transition-colors cursor-pointer flex-shrink-0" title="후원 & 수익 새로고침">
+            <svg id="donations-popover-refresh-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+          </button>
+        </div>
+
+        <!-- 탭 1: 후원 제어 (채팅/영상/미션/구독) -->
+        <div id="donations-popover-content-settings" class="space-y-1.5 tab-pane-animate">
+          <!-- 채팅 후원 -->
+          <div class="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-[#161F2E] border border-[#1E2738]">
+            <span class="flex items-center gap-2 text-xs font-medium text-slate-200">
+              <span>💬</span> <span>채팅 후원</span>
+            </span>
+            <div class="flex items-center gap-1.5">
+              <button type="button" id="btn-dsetting-chat" onclick="openDonationModal('chat')" class="px-2 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1 transition-all bg-[#0B0F15] border border-[#00FFA3]/40 text-[#00FFA3] hover:bg-[#161F2E] cursor-pointer" title="채팅 후원 세부 설정">
+                <span>⚙️</span><span>설정</span>
+              </button>
+              <label class="toggle-switch">
+                <input type="checkbox" id="toggle-chat-donation" onchange="updateDonationSetting('CHAT')">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <!-- 영상 후원 -->
+          <div class="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-[#161F2E] border border-[#1E2738]">
+            <span class="flex items-center gap-2 text-xs font-medium text-slate-200">
+              <span>🎬</span> <span>영상(영도) 후원</span>
+            </span>
+            <div class="flex items-center gap-1.5">
+              <button type="button" id="btn-dsetting-video" onclick="openDonationModal('video')" class="px-2 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1 transition-all bg-[#0B0F15] border border-[#00FFA3]/40 text-[#00FFA3] hover:bg-[#161F2E] cursor-pointer" title="영상 후원 세부 설정">
+                <span>⚙️</span><span>설정</span>
+              </button>
+              <label class="toggle-switch">
+                <input type="checkbox" id="toggle-video-donation" onchange="updateDonationSetting('VIDEO')">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <!-- 미션 후원 -->
+          <div class="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-[#161F2E] border border-[#1E2738]">
+            <span class="flex items-center gap-2 text-xs font-medium text-slate-200">
+              <span>🎯</span> <span>미션 후원</span>
+            </span>
+            <div class="flex items-center gap-1.5">
+              <button type="button" id="btn-dsetting-mission" onclick="openDonationModal('mission')" class="px-2 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1 transition-all bg-[#0B0F15] border border-[#00FFA3]/40 text-[#00FFA3] hover:bg-[#161F2E] cursor-pointer" title="미션 후원 세부 설정">
+                <span>⚙️</span><span>설정</span>
+              </button>
+              <label class="toggle-switch">
+                <input type="checkbox" id="toggle-mission-donation" onchange="updateDonationSetting('MISSION')">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <!-- 구독 알림 -->
+          <div class="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-[#161F2E] border border-[#1E2738]">
+            <span class="flex items-center gap-2 text-xs font-medium text-slate-200">
+              <span>⭐</span> <span>구독 알림</span>
+            </span>
+            <div class="flex items-center gap-1.5">
+              <button type="button" id="btn-dsetting-sub" onclick="openDonationModal('sub')" class="px-2 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1 transition-all bg-[#0B0F15] border border-[#00FFA3]/40 text-[#00FFA3] hover:bg-[#161F2E] cursor-pointer" title="구독 알림 세부 설정">
+                <span>⚙️</span><span>설정</span>
+              </button>
+              <label class="toggle-switch">
+                <input type="checkbox" id="toggle-sub-alert" onchange="toggleSubAlertFromMain(this.checked)">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- 탭 2: 후원 수익 요약 -->
+        <div id="donations-popover-content-revenue" class="space-y-2 hidden">
+          <!-- 월 선택기 & 조회 -->
+          <div class="flex items-center justify-between bg-[#101620] p-1.5 rounded-lg border border-[#1E2738]">
+            <button onclick="changeRevenueMonth(-1)" class="px-2 py-1 rounded bg-[#161F2E] hover:bg-[#1E2738] text-[10.5px] font-bold text-slate-300 cursor-pointer">◀ 이전 달</button>
+            <div class="text-[10.5px] font-bold text-white flex items-center gap-1.5">
+              <span id="revenue-month-display">2026년 9월</span>
+              <span id="revenue-loading-spinner" class="animate-spin inline-block text-[#00FFA3]" style="display:none;">⏳</span>
+            </div>
+            <button onclick="changeRevenueMonth(1)" class="px-2 py-1 rounded bg-[#161F2E] hover:bg-[#1E2738] text-[10.5px] font-bold text-slate-300 cursor-pointer">다음 달 ▶</button>
+          </div>
+
+          <!-- 프라이버시 보호 안내 -->
+          <div class="flex items-center justify-between px-2 py-1 bg-[#0B0F15] rounded border border-[#1E2738] text-[9.5px] text-slate-400">
+            <span>방송 노출 방지: <span class="text-amber-400">프라이버시 모드</span></span>
+            <button onclick="toggleRevenuePrivacy()" id="btn-toggle-privacy" class="px-1.5 py-0.5 rounded bg-[#161F2E] text-slate-300 hover:text-white font-medium cursor-pointer">👁️ 금액 표시</button>
+          </div>
+
+          <!-- 2열 레이아웃: 좌측(총 후원액 + 정산 예정액) / 우측(후원 건수, 정산 상태, 정산 입금일) -->
+          <div class="grid grid-cols-2 gap-1.5 items-stretch">
+            <div class="flex flex-col gap-1 justify-between">
+              <!-- 총 후원액 -->
+              <div class="section-card !p-1.5 space-y-0.5 flex-1 flex flex-col justify-center">
+                <div class="text-[9.5px] text-slate-400 font-medium flex items-center gap-1">
+                  <span>🧀</span> 총 후원액
+                </div>
+                <div id="revenue-total-amount" class="text-xs font-bold text-amber-300 font-mono filter blur-[5px] select-none transition-all">
+                  ₩ ••••••
+                </div>
+              </div>
+              <!-- 정산 예정액 -->
+              <div class="section-card !p-1.5 space-y-0.5 flex-1 flex flex-col justify-center">
+                <div class="text-[9.5px] text-slate-400 font-medium flex items-center gap-1">
+                  <span>💵</span> 정산 예정액
+                </div>
+                <div id="revenue-settlement-amount" class="text-xs font-bold text-[#00FFA3] font-mono filter blur-[5px] select-none transition-all">
+                  ₩ ••••••
+                </div>
+              </div>
+            </div>
+
+            <!-- 우측 열: 후원 건수 및 정산 상태 카드 -->
+            <div class="section-card !p-2 flex flex-col justify-between space-y-1">
+              <div class="flex items-center justify-between text-[10px]">
+                <span class="text-slate-400">후원 건수</span>
+                <span id="revenue-donation-count" class="font-bold text-slate-200 font-mono">0건</span>
+              </div>
+              <div class="flex items-center justify-between text-[10px] pt-1 border-t border-[#1E2738]">
+                <span class="text-slate-400">정산 상태</span>
+                <span id="revenue-settlement-status" class="px-1.5 py-0.2 rounded text-[8.5px] font-bold bg-[#161F2E] text-slate-300">미정산</span>
+              </div>
+              <div class="flex items-center justify-between text-[10px] pt-1 border-t border-[#1E2738]">
+                <span class="text-slate-400">정산 입금일</span>
+                <span id="revenue-paid-date" class="font-mono text-slate-300 text-[9.5px]">-</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== 통합 방송 설정 카드 (단일 블록) ===== -->
+    <div id="card-broadcast" class="section-card !p-2 space-y-1.5 shadow-lg border border-[#1E2738] animate-slide-up" style="animation-delay: 0.08s">
+      
+      <!-- [FEAT-06-03] 방송 정보 프리셋 바 (초슬림 1열) -->
+      <!-- [FEAT-06-03 & FEAT-06-06] 썸네일 & 방송 정보 프리셋 바 (초슬림 1열) -->
+      <div id="preset-toolbar-wrapper" class="flex items-center justify-between pb-1.5 border-b border-[#1E2738]/70 text-xs">
+        <!-- 좌측: 썸네일 관리 버튼 -->
+        <button type="button" id="btn-thumbnail" onclick="openThumbnailModal()" class="flex items-center gap-1.5 px-2 py-0.5 rounded bg-[#121721] hover:bg-[#161F2E] border border-[#243044] hover:border-[#00FFA3]/50 text-slate-200 hover:text-white transition-all cursor-pointer leading-none group" title="방송 미리보기 썸네일 관리 (등록, 변경, 크롭, 삭제)">
+          <span class="text-[11px] font-bold flex items-center gap-1 leading-none transition-colors">
+            <span>🖼️</span> 썸네일
+            <span id="dot-dirty-thumbnail" class="dot-dirty" style="display:none;" title="썸네일 변경됨"></span>
+          </span>
+          <span id="thumbnail-status-label" class="text-[9.5px] px-1.5 py-0.2 rounded bg-[#161F2E] text-slate-400 font-mono border border-[#243044] leading-none">
+            미등록
+          </span>
+        </button>
+
+        <!-- 우측: 프리셋 관리 버튼 -->
+        <button type="button" onclick="openPresetLoadModal()" class="flex items-center gap-1.5 px-2 py-0.5 rounded bg-[#121721] hover:bg-[#161F2E] border border-[#243044] hover:border-[#00FFA3]/50 text-slate-200 hover:text-white transition-all cursor-pointer leading-none group" title="방송 프리셋 관리 (불러오기, 새로 저장, 덮어쓰기)">
+          <span class="text-[11px] font-bold text-slate-100 group-hover:text-[#00FFA3] flex items-center gap-1 leading-none transition-colors">
+            <span>📋</span> 프리셋
+          </span>
+          <span id="preset-slot-count-badge" class="text-[9.5px] px-1.5 py-0.2 rounded bg-[#161F2E] text-slate-400 group-hover:text-slate-300 font-mono border border-[#243044] leading-none">
+            0/10
+          </span>
+        </button>
+      </div>
+
+      <!-- 방송 제목 -->
+      <div class="space-y-0.5">
+        <div class="flex justify-between items-center h-5">
+          <label class="text-[11px] font-bold text-slate-100 uppercase tracking-wider leading-none flex items-center gap-1">
+            <span>방송 제목</span>
+            <span id="dot-dirty-title" class="dot-dirty" style="display:none;" title="방송 제목 변경됨"></span>
+          </label>
+          <span id="title-count" class="text-[10.5px] text-slate-400 font-medium leading-none">0/50</span>
+        </div>
+        <div class="relative">
+          <input id="live-title" type="text" class="chzzk-input text-xs pr-7" placeholder="방송 제목을 입력하세요" maxlength="50" />
+          <button id="title-clear" onclick="clearTitle()" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-chzzk-danger text-xs font-bold cursor-pointer" style="display:none;" title="제목 지우기">✕</button>
+        </div>
+      </div>
+
+      <!-- 2열 그리드: 카테고리 (좌) & 같이보기 방송 (우) -->
+      <div class="grid grid-cols-2 gap-1.5 items-start">
+        <!-- 열 1: 카테고리 -->
+        <div class="space-y-0.5 relative" id="category-wrapper">
+          <div class="flex items-center justify-between h-5">
+            <label class="text-[11px] font-bold text-slate-100 uppercase tracking-wider leading-none flex items-center gap-1">
+              <span>🎮</span> 카테고리
+              <span id="dot-dirty-category" class="dot-dirty" style="display:none;" title="카테고리 변경됨"></span>
+            </label>
+            <div class="flex items-center gap-1 leading-none">
+              <!-- 드롭스 지원 카테고리일 때 표시되는 원클릭 토글 뱃지 및 보상 툴팁 -->
+              <div class="relative group inline-flex items-center">
+                <button type="button" id="badge-drops-toggle" onclick="toggleDropsCampaign()"
+                        class="hidden px-1.5 py-0.5 rounded text-[9.5px] font-bold transition-all flex items-center gap-1 leading-none cursor-pointer border"
+                        title="클릭하여 이번 방송의 드롭스 ON/OFF 전환">
+                  <span>🎁</span> <span id="drops-toggle-text">드롭스 ON</span>
+                </button>
+                <!-- 마우스 호버 시 노출되는 드롭스 보상 툴팁 카드 (좌측 정렬로 잘림 방지 + 마우스 이동 & 스크롤 지원) -->
+                <div id="drops-reward-tooltip"
+                     class="absolute top-full left-0 mt-1 hidden group-hover:flex flex-col p-2 bg-[#121721] border border-[#2E3F58] rounded-xl shadow-[0_16px_40px_rgba(0,0,0,0.95)] z-[9999] min-w-[220px] max-w-[260px] pointer-events-auto transition-all before:absolute before:-top-2 before:left-0 before:w-full before:h-2 before:content-['']">
+                  <div class="flex items-center justify-between gap-1.5 border-b border-[#243044] pb-1 mb-1.5">
+                    <div class="flex items-center gap-1.5 min-w-0">
+                      <span class="text-xs shrink-0">🎁</span>
+                      <span id="drops-tooltip-title" class="text-[10.5px] font-bold text-white truncate">드롭스 보상</span>
+                    </div>
+                  </div>
+                  <div id="drops-tooltip-rewards" class="space-y-1.5 max-h-[190px] overflow-y-auto pr-0.5 no-scrollbar">
+                    <!-- 보상 아이템 목록이 동적으로 주입됨 -->
+                  </div>
+                  <div class="border-t border-[#1E2738] pt-1 mt-1 text-[9px] text-slate-400 text-center leading-tight">
+                    획득한 리워드는 치지직 보관함에서 확인 가능
+                  </div>
+                </div>
+              </div>
+              <span id="lock-category" class="text-[9px] text-amber-400 font-bold leading-none px-1 py-0.5" style="display:none;" title="같이보기 규정으로 고정됨">🔒 고정</span>
+            </div>
+          </div>
+          <div class="relative">
+            <input id="category-search" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="chzzk-input text-xs pr-14 transition-colors" placeholder="카테고리 검색..." />
+            <input id="category-id" type="hidden" />
+            <input id="category-type" type="hidden" />
+            <button id="category-favorite-toggle" type="button" onclick="toggleCurrentCategoryFavorite(event)" class="absolute right-7 top-1/2 -translate-y-1/2 text-slate-500 hover:text-amber-400 text-xs font-bold leading-none cursor-pointer p-0.5 transition-colors" style="display:none;" title="즐겨찾기 등록/해제">★</button>
+            <button id="category-clear" onclick="clearCategory()" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-chzzk-danger text-xs font-bold leading-none cursor-pointer" style="display:none;" title="카테고리 지우기">✕</button>
+          </div>
+          <!-- 카테고리 미지정 / 불일치 에러 안내 메시지 -->
+          <div id="category-error-msg" class="text-[10px] text-rose-400 font-medium hidden items-center gap-1 pt-0.5">
+            <span>⚠️</span> <span>카테고리 지정 필요</span>
+          </div>
+          <div id="category-dropdown" class="category-dropdown" style="display:none;" onmousedown="event.preventDefault()"></div>
+        </div>
+
+        <!-- 열 2: 같이보기 방송 -->
+        <div class="space-y-0.5 relative" id="watch-party-wrapper">
+          <div class="flex items-center justify-between h-5">
+            <div class="flex items-center gap-1 leading-none">
+              <label class="text-[11px] font-bold text-slate-100 uppercase tracking-wider leading-none flex items-center gap-1">
+                <span>🎬</span> 같이보기
+                <span id="dot-dirty-watch-party" class="dot-dirty" style="display:none;" title="같이보기 변경됨"></span>
+              </label>
+              <button onclick="reloadWatchPartiesOnly()" class="text-slate-400 hover:text-[#00FFA3] transition-colors p-0.5 rounded hover:bg-white/5 cursor-pointer flex items-center leading-none" title="치지직 같이보기 목록 즉시 새로고침">
+                <svg id="wp-reload-icon" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+              </button>
+            </div>
+            <span id="watch-party-badge" class="text-[9.5px] px-1.5 py-0.5 rounded font-medium text-slate-400 bg-slate-800/80 border border-slate-700/50 leading-none">일반 방송</span>
+          </div>
+          <div class="relative">
+            <select id="select-watch-party" class="chzzk-select text-xs">
+              <option value="">사용 안 함 (일반 방송)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- 같이보기 방송 고정 안내 알림 (활성화 시 노출) -->
+      <div id="watch-party-notice" class="text-[10px] text-amber-300/90 bg-amber-500/10 border border-amber-500/20 rounded px-1.5 py-1 flex items-start justify-between gap-1.5" style="display:none;">
+        <div class="flex items-start gap-1.5 min-w-0 flex-1">
+          <span class="shrink-0 leading-tight">🔒</span>
+          <span id="watch-party-notice-text" class="break-keep leading-tight flex-1">같이보기 규정에 따라 설정이 고정/적용됩니다.</span>
+        </div>
+        <button type="button" id="btn-open-donation-board" onclick="openDonationBoardModal()" class="shrink-0 px-1.5 py-0.5 rounded text-[9.5px] font-bold bg-[#5C3BFF]/20 text-[#A594FF] border border-[#5C3BFF]/40 hover:bg-[#5C3BFF]/30 transition-all flex items-center gap-1 cursor-pointer" style="display:none;" title="응원 전광판 문구 설정">
+          <span>📣</span> 전광판 설정
+        </button>
+      </div>
+
+      <!-- 태그 영역 (+ 버튼 상호작용 방식) -->
+      <div class="space-y-0.5">
+        <div class="flex items-center justify-between h-5">
+          <label class="text-[11px] font-bold text-slate-100 uppercase tracking-wider leading-none flex items-center gap-1">
+            <span>태그</span>
+            <span id="dot-dirty-tags" class="dot-dirty" style="display:none;" title="태그 변경됨"></span>
+          </label>
+          <span id="tag-count-label" class="text-[9.5px] text-slate-400 font-medium leading-none">0/5</span>
+        </div>
+        <div id="tag-container" class="flex flex-wrap items-center gap-1 min-h-[22px]">
+          <!-- 태그 칩 목록 (동적 렌더링) -->
+          <div id="tag-chips-wrapper" class="flex flex-wrap items-center gap-1"></div>
+
+          <!-- 인라인 태그 입력 상자 (정적 DOM 유지: 한글 IME 좌표 이탈 방지) -->
+          <div id="tag-inline-box" class="relative inline-flex items-center gap-1 bg-[#0B0F15] border border-[#00FFA3] rounded px-1.5 py-0.5 shadow-[0_0_8px_rgba(0,255,163,0.25)]" style="display:none;">
+            <!-- 플로팅 글자수 카운터 배지 (n/15) -->
+            <span id="tag-char-counter" class="absolute -top-3 right-0 text-[8.5px] font-bold px-1 py-0 rounded bg-[#0B0F15] border border-[#00FFA3]/50 text-[#00FFA3] shadow-md select-none pointer-events-none transition-colors duration-150">0/15</span>
+            <span class="text-[#00FFA3] text-xs font-bold select-none leading-none">#</span>
+            <input id="tag-inline-input" type="text" oninput="updateTagCharCounter()" class="bg-transparent text-white text-xs outline-none w-20 sm:w-24 leading-normal" placeholder="태그 입력" maxlength="15" autocomplete="off" spellcheck="false" />
+            <button type="button" onclick="confirmTagInput()" class="text-[#00FFA3] hover:text-white text-xs font-bold px-0.5 leading-none cursor-pointer" title="태그 추가 (Enter)">↵</button>
+            <button type="button" onclick="closeTagInput()" class="text-slate-400 hover:text-rose-400 text-xs font-bold px-0.5 leading-none cursor-pointer" title="입력 닫기 (Esc)">✕</button>
+          </div>
+
+          <!-- 태그 추가 열기 버튼 -->
+          <button id="btn-open-tag" type="button" onclick="openTagInput()" class="inline-flex items-center gap-1 text-[10.5px] font-medium text-slate-300 hover:text-[#00FFA3] bg-[#121721] hover:bg-[#161F2E] border border-dashed border-[#1E2738] hover:border-[#00FFA3]/50 px-1.5 py-0.2 rounded transition-all cursor-pointer select-none" title="새 태그 추가">
+            <span class="text-xs font-bold leading-none">+</span>
+            <span class="leading-none">태그 추가</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 구분선 및 방송 옵션 2-Way 세그먼트 알약 탭 -->
+      <div class="border-t border-[#1E2738] pt-1.5 space-y-1.5">
+        <!-- 2-Way Segmented Pill Tab Header -->
+        <div class="flex items-center bg-[#0B0F15] p-0.5 rounded-lg border border-[#1E2738]">
+          <button type="button" id="tab-btn-replay" onclick="switchStreamOptionTab('replay')"
+            class="flex-1 py-1 px-1 rounded-md text-[10.5px] font-bold transition-all flex items-center justify-center gap-1 bg-[#1A2436] text-[#00FFA3] border border-[#00FFA3]/40 shadow-sm cursor-pointer select-none">
+            <span>📺</span> <span>다시보기</span>
+            <span id="dot-dirty-tab-replay" class="dot-dirty" style="display:none;" title="다시보기 설정 변경됨"></span>
+          </button>
+          <button type="button" id="tab-btn-stream" onclick="switchStreamOptionTab('stream')"
+            class="flex-1 py-1 px-1 rounded-md text-[10.5px] font-medium transition-all flex items-center justify-center gap-1 text-slate-400 hover:text-slate-200 border border-transparent cursor-pointer select-none">
+            <span>⚙️</span> <span>방송 옵션</span>
+            <span id="dot-dirty-tab-stream" class="dot-dirty" style="display:none;" title="방송 세부 옵션 변경됨"></span>
+          </button>
+        </div>
+
+        <!-- 탭 1: 다시보기 설정 패널 -->
+        <div id="tab-pane-replay" class="bg-[#121721] p-1.5 rounded-lg border border-[#1E2738] tab-pane-animate">
+          <div id="container-replay-radios" class="grid grid-cols-3 gap-1">
+            <label class="cursor-pointer select-none flex items-center justify-between px-1.5 py-1 rounded bg-[#0B0F15] border border-[#1E2738] hover:border-[#2A374E] transition-all text-[10.5px] text-slate-200 font-medium" title="확인 후 수동 게시">
+              <span class="flex items-center gap-1">
+                <span>👀</span> <span>확인 후</span>
+                <span id="lock-replay-manual" class="lock-replay-disabled text-[9px] text-amber-400 font-bold" style="display:none;" title="같이보기 방송 규정으로 선택 불가">🔒</span>
+              </span>
+              <input type="radio" name="replayPublishType" value="MANUAL" class="chzzk-radio" checked />
+            </label>
+            <label class="cursor-pointer select-none flex items-center justify-between px-1.5 py-1 rounded bg-[#0B0F15] border border-[#1E2738] hover:border-[#2A374E] transition-all text-[10.5px] text-slate-200 font-medium" title="방송 종료 시 자동 게시">
+              <span class="flex items-center gap-1">
+                <span>🤖</span> <span>자동게시</span>
+                <span id="lock-replay-auto" class="lock-replay-disabled text-[9px] text-amber-400 font-bold" style="display:none;" title="같이보기 방송 규정으로 선택 불가">🔒</span>
+              </span>
+              <input type="radio" name="replayPublishType" value="AUTO" class="chzzk-radio" />
+            </label>
+            <label class="cursor-pointer select-none flex items-center justify-between px-1.5 py-1 rounded bg-[#0B0F15] border border-[#1E2738] hover:border-[#2A374E] transition-all text-[10.5px] text-slate-200 font-medium" title="다시보기 생성 안 함">
+              <span class="flex items-center gap-1">
+                <span>🚫</span> <span>생성안함</span>
+              </span>
+              <input type="radio" name="replayPublishType" value="NONE" class="chzzk-radio" />
+            </label>
+          </div>
+        </div>
+
+        <!-- 탭 2: 방송 세부 옵션 패널 (2x2 그리드: 연령제한, 클립허용, 해외시청, 유료프로모션) -->
+        <div id="tab-pane-stream" class="bg-[#121721] p-1.5 rounded-lg border border-[#1E2738] hidden">
+          <div class="grid grid-cols-2 gap-1">
+            <!-- 연령 제한 -->
+            <label id="label-adult" for="toggle-adult" class="cursor-pointer select-none flex items-center justify-between px-1.5 py-1 rounded bg-[#0B0F15] border border-[#1E2738]/80 hover:border-[#2A374E] transition-all text-[10.5px] text-slate-200 font-medium" title="연령 제한 (성인 방송)">
+              <span class="flex items-center gap-1.5">
+                <span>🔞</span> <span>연령제한</span>
+                <span id="lock-adult" class="text-[9px] text-amber-400 font-bold ml-0.5" style="display:none;" title="같이보기 콘텐츠 규정으로 연령 제한 고정됨">🔒</span>
+              </span>
+              <input type="checkbox" id="toggle-adult" class="chzzk-checkbox-input" />
+            </label>
+
+            <!-- 클립 허용 -->
+            <label id="label-clip" for="toggle-clip" class="cursor-pointer select-none flex items-center justify-between px-1.5 py-1 rounded bg-[#0B0F15] border border-[#1E2738]/80 hover:border-[#2A374E] transition-all text-[10.5px] text-slate-200 font-medium" title="시청자 클립 생성 허용">
+              <span class="flex items-center gap-1.5">
+                <span>✂️</span> <span>클립허용</span>
+                <span id="lock-clip" class="text-[9px] text-amber-400 font-bold ml-0.5" style="display:none;" title="같이보기 규정으로 고정됨">🔒</span>
+              </span>
+              <input type="checkbox" id="toggle-clip" class="chzzk-checkbox-input" checked />
+            </label>
+
+            <!-- 해외 시청 -->
+            <label id="label-overseas" for="toggle-overseas" class="cursor-pointer select-none flex items-center justify-between px-1.5 py-1 rounded bg-[#0B0F15] border border-[#1E2738]/80 hover:border-[#2A374E] transition-all text-[10.5px] text-slate-200 font-medium" title="해외 시청 허용 (체크 시 해외 시청 가능, 해제 시 한국 시청자만 시청 가능 - krOnlyViewing)">
+              <span class="flex items-center gap-1.5">
+                <span>🌐</span> <span>해외시청</span>
+                <span id="lock-overseas" class="text-[9px] text-amber-400 font-bold ml-0.5" style="display:none;" title="같이보기 규정으로 고정됨">🔒</span>
+              </span>
+              <input type="checkbox" id="toggle-overseas" class="chzzk-checkbox-input" checked />
+            </label>
+
+            <!-- 유료 프로모션 표기 -->
+            <label for="toggle-paid-promotion" class="cursor-pointer select-none flex items-center justify-between px-1.5 py-1 rounded bg-[#0B0F15] border border-[#1E2738]/80 hover:border-[#2A374E] transition-all text-[10.5px] text-slate-200 font-medium" title="유료 프로모션 포함 (광고/협찬 방송 시 법적 표기)">
+              <span class="flex items-center gap-1.5">
+                <span>💵</span> <span>유료프로모션</span>
+              </span>
+              <input type="checkbox" id="toggle-paid-promotion" class="chzzk-checkbox-input" />
+            </label>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ===== Load & Save Action (UI 하단 종료점) ===== -->
+    <div class="flex items-center gap-1.5 animate-slide-up pt-0.5 pb-0" style="animation-delay: 0.1s">
+      <button id="btn-load-settings" onclick="if (checkLoginGuard('방송 설정 불러오기')) loadCurrentSettings()" class="px-2.5 py-1.5 rounded-lg bg-[#161F2E] border border-[#1E2738] hover:border-[#00FFA3]/50 text-slate-300 hover:text-[#00FFA3] transition-all text-[11.5px] font-medium flex items-center justify-center gap-1.5 cursor-pointer flex-shrink-0" title="치지직 현재 방송 설정 다시 불러오기 (수정 취소/동기화)">
+        <svg id="load-spinner" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+        <span>불러오기</span>
+      </button>
+      <button id="btn-save" class="save-btn flex-1 !w-auto !py-1.5 text-xs font-bold" onclick="saveAll()">
+        <span id="save-text">적용</span>
+        <svg id="save-spinner" class="animate-spin ml-1.5 inline-block" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="display:none;"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- ===== URLS & STREAM KEY & REVENUE PANEL ===== -->
+  <div id="urls-panel" class="settings-panel px-2.5 py-3">
+    <!-- Panel Header -->
+    <div class="flex items-center justify-between mb-2 border-b border-chzzk-border pb-2">
+      <div class="flex items-center gap-1.5">
+        <span class="text-base">🔗</span>
+        <span class="text-xs font-bold text-white">방송 URL & 스트림키</span>
+      </div>
+      <div class="flex items-center gap-1">
+        <button onclick="fetchStreamingInfo(false)" class="w-6 h-6 rounded-md bg-chzzk-card border border-chzzk-border flex items-center justify-center text-slate-300 hover:text-[#00FFA3] transition-colors cursor-pointer" title="새로고침">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+        </button>
+        <button onclick="toggleUrlsPanel()" class="w-6 h-6 rounded-md bg-chzzk-card border border-chzzk-border flex items-center justify-center hover:border-chzzk-muted transition-colors cursor-pointer">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5A6577" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- 방송 URL 및 스트림키 목록 -->
+    <div id="tab-content-urls" class="space-y-2">
+      <!-- 안내 문구 -->
+      <div class="px-2 py-1 rounded bg-[#101620] border border-[#1E2738] text-[10px] text-slate-400 leading-snug">
+        OBS 소스에 추가할 URL입니다. 방송 노출 방지를 위해 <span class="text-[#00FFA3]">기본 마스킹</span>되어 있습니다.
+      </div>
+
+      <!-- [그룹 1] 🔑 방송 송출 스트림키 -->
+      <div class="section-card space-y-1 p-2">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold text-amber-300 flex items-center gap-1">
+            <span>🔑</span> 방송 송출 스트림키
+          </span>
+          <span class="text-[10px] text-slate-400">OBS 설정 ➡️ 방송</span>
+        </div>
+        <div class="flex items-center gap-1">
+          <input type="password" id="field-stream-key" readonly class="chzzk-input text-[10px] py-1 px-2 font-mono flex-1 bg-[#090D13] select-all" placeholder="불러오는 중..." />
+          <button onclick="toggleFieldMask('field-stream-key', this)" class="px-1.5 py-0.5 bg-[#161F2E] border border-[#1E2738] hover:border-[#2A374E] rounded text-slate-300 text-xs cursor-pointer" title="보기/숨기기">👁️</button>
+          <button onclick="reissueStreamKey()" class="px-2 py-0.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 hover:text-amber-200 border border-amber-500/30 rounded text-[10px] font-bold cursor-pointer transition-all whitespace-nowrap" title="스트림 키 재발급">재발급</button>
+          <button onclick="copyFieldValue('field-stream-key', '스트림키')" class="px-2 py-0.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-black font-bold text-[10px] rounded whitespace-nowrap cursor-pointer" title="복사">복사</button>
+        </div>
+      </div>
+
+      <!-- [그룹 2] 📋 OBS 독 전용 URL (Docks) -->
+      <div class="section-card space-y-2 p-2">
+        <div class="text-xs font-bold text-[#00FFA3] flex items-center justify-between border-b border-[#1E2738] pb-1">
+          <span class="flex items-center gap-1">
+            <span>📋</span> OBS 독
+          </span>
+          <span class="text-[10px] text-slate-400 font-normal">커스텀 독</span>
+        </div>
+
+        <!-- 1) 메인 통합 제어 독 -->
+        <div class="space-y-0.5">
+          <div class="text-[10px] text-slate-300 font-medium">🎛️ 메인 방송 제어 독 URL</div>
+          <div class="flex items-center gap-1">
+            <input type="password" id="field-main-dock-url" readonly class="chzzk-input text-[10px] py-0.5 px-2 font-mono flex-1 bg-[#090D13] select-all" />
+            <button onclick="toggleFieldMask('field-main-dock-url', this)" class="px-1.5 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-300 text-[10px]" title="보기/숨기기">👁️</button>
+            <button onclick="copyFieldValue('field-main-dock-url', '메인 방송 제어 독 URL')" class="px-2 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-200 text-[10px]">복사</button>
+          </div>
+        </div>
+
+        <!-- 2) 초경량 미니 퀵 컨트롤러 독 -->
+        <div class="space-y-0.5">
+          <div class="text-[10px] text-slate-300 font-medium">🕹️ 미니 퀵 컨트롤러 독 URL (36px 상시 거치)</div>
+          <div class="flex items-center gap-1">
+            <input type="password" id="field-mini-dock-url" readonly class="chzzk-input text-[10px] py-0.5 px-2 font-mono flex-1 bg-[#090D13] select-all" />
+            <button onclick="toggleFieldMask('field-mini-dock-url', this)" class="px-1.5 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-300 text-[10px]" title="보기/숨기기">👁️</button>
+            <button onclick="copyFieldValue('field-mini-dock-url', '미니 퀵 컨트롤러 독 URL')" class="px-2 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-200 text-[10px]">복사</button>
+          </div>
+        </div>
+
+        <!-- 3) 실시간 방송 통계 독 -->
+        <div class="space-y-0.5">
+          <div class="text-[10px] text-slate-300 font-medium">📊 방송 통계 독 URL</div>
+          <div class="flex items-center gap-1">
+            <input type="password" id="field-stats-dock-url" readonly class="chzzk-input text-[10px] py-0.5 px-2 font-mono flex-1 bg-[#090D13] select-all" />
+            <button onclick="toggleFieldMask('field-stats-dock-url', this)" class="px-1.5 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-300 text-[10px]" title="보기/숨기기">👁️</button>
+            <button onclick="copyFieldValue('field-stats-dock-url', '방송 통계 독 URL')" class="px-2 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-200 text-[10px]">복사</button>
+          </div>
+        </div>
+
+        <!-- 4) 치지직 공식 채팅창 독 -->
+        <div class="space-y-0.5">
+          <div class="text-[10px] text-slate-300 font-medium">💬 공식 채팅창 독 URL</div>
+          <div class="flex items-center gap-1">
+            <input type="password" id="field-chat-url" readonly class="chzzk-input text-[10px] py-0.5 px-2 font-mono flex-1 bg-[#090D13] select-all" placeholder="불러오는 중..." />
+            <button onclick="toggleFieldMask('field-chat-url', this)" class="px-1.5 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-300 text-[10px]" title="보기/숨기기">👁️</button>
+            <button onclick="copyFieldValue('field-chat-url', '채팅창 URL')" class="px-2 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-200 text-[10px]">복사</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- [그룹 3] 🔔 후원 & 참여 알림 URL (브라우저 소스) -->
+      <div class="section-card space-y-1.5 p-2">
+        <div class="text-xs font-bold text-slate-200 flex items-center justify-between border-b border-[#1E2738] pb-1">
+          <span class="flex items-center gap-1">
+            <span>🔔</span> 후원 & 참여 알림 URL
+          </span>
+          <span class="text-[10px] text-slate-400 font-normal">브라우저 소스</span>
+        </div>
+
+        <!-- 1) 채팅 후원/구독 알림 -->
+        <div class="space-y-0.5">
+          <div class="text-[10px] text-slate-300 font-medium">💬 채팅 후원 / 구독 알림</div>
+          <div class="flex items-center gap-1">
+            <input type="password" id="field-alert-donation" readonly class="chzzk-input text-[10px] py-0.5 px-2 font-mono flex-1 bg-[#090D13] select-all" />
+            <button onclick="toggleFieldMask('field-alert-donation', this)" class="px-1.5 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-300 text-[10px]">👁️</button>
+            <button onclick="copyFieldValue('field-alert-donation', '채팅 후원 알림 URL')" class="px-2 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-200 text-[10px]">복사</button>
+          </div>
+        </div>
+
+        <!-- 2) 영상 후원 알림 -->
+        <div class="space-y-0.5">
+          <div class="text-[10px] text-slate-300 font-medium">🎬 영상 후원 알림</div>
+          <div class="flex items-center gap-1">
+            <input type="password" id="field-alert-video" readonly class="chzzk-input text-[10px] py-0.5 px-2 font-mono flex-1 bg-[#090D13] select-all" />
+            <button onclick="toggleFieldMask('field-alert-video', this)" class="px-1.5 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-300 text-[10px]">👁️</button>
+            <button onclick="copyFieldValue('field-alert-video', '영상 후원 알림 URL')" class="px-2 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-200 text-[10px]">복사</button>
+          </div>
+        </div>
+
+        <!-- 3) 미션 후원 알림 -->
+        <div class="space-y-0.5">
+          <div class="text-[10px] text-slate-300 font-medium">🎯 미션 후원 알림</div>
+          <div class="flex items-center gap-1">
+            <input type="password" id="field-alert-mission" readonly class="chzzk-input text-[10px] py-0.5 px-2 font-mono flex-1 bg-[#090D13] select-all" />
+            <button onclick="toggleFieldMask('field-alert-mission', this)" class="px-1.5 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-300 text-[10px]">👁️</button>
+            <button onclick="copyFieldValue('field-alert-mission', '미션 후원 알림 URL')" class="px-2 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-200 text-[10px]">복사</button>
+          </div>
+        </div>
+
+        <!-- 4) 파티 누적 후원금 안내 -->
+        <div class="space-y-0.5">
+          <div class="text-[10px] text-slate-300 font-medium">🏆 파티 누적 후원금 안내</div>
+          <div class="flex items-center gap-1">
+            <input type="password" id="field-alert-party-amount" readonly class="chzzk-input text-[10px] py-0.5 px-2 font-mono flex-1 bg-[#090D13] select-all" />
+            <button onclick="toggleFieldMask('field-alert-party-amount', this)" class="px-1.5 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-300 text-[10px]">👁️</button>
+            <button onclick="copyFieldValue('field-alert-party-amount', '파티 누적 후원금 URL')" class="px-2 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-200 text-[10px]">복사</button>
+          </div>
+        </div>
+
+        <!-- 5) 파티 후원 실시간 티커 -->
+        <div class="space-y-0.5">
+          <div class="text-[10px] text-slate-300 font-medium">📊 파티 후원 실시간 티커</div>
+          <div class="flex items-center gap-1">
+            <input type="password" id="field-alert-party-ticker" readonly class="chzzk-input text-[10px] py-0.5 px-2 font-mono flex-1 bg-[#090D13] select-all" />
+            <button onclick="toggleFieldMask('field-alert-party-ticker', this)" class="px-1.5 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-300 text-[10px]">👁️</button>
+            <button onclick="copyFieldValue('field-alert-party-ticker', '파티 후원 티커 URL')" class="px-2 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-200 text-[10px]">복사</button>
+          </div>
+        </div>
+
+        <!-- 6) 구독 선물 효과 -->
+        <div class="space-y-0.5">
+          <div class="text-[10px] text-slate-300 font-medium">🎁 구독 선물 효과</div>
+          <div class="flex items-center gap-1">
+            <input type="password" id="field-alert-gift" readonly class="chzzk-input text-[10px] py-0.5 px-2 font-mono flex-1 bg-[#090D13] select-all" />
+            <button onclick="toggleFieldMask('field-alert-gift', this)" class="px-1.5 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-300 text-[10px]">👁️</button>
+            <button onclick="copyFieldValue('field-alert-gift', '구독 선물 효과 URL')" class="px-2 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-200 text-[10px]">복사</button>
+          </div>
+        </div>
+
+        <!-- 7) 상품 구매 알림 -->
+        <div class="space-y-0.5">
+          <div class="text-[10px] text-slate-300 font-medium">🛍️ 상품 구매 알림</div>
+          <div class="flex items-center gap-1">
+            <input type="password" id="field-alert-shop" readonly class="chzzk-input text-[10px] py-0.5 px-2 font-mono flex-1 bg-[#090D13] select-all" />
+            <button onclick="toggleFieldMask('field-alert-shop', this)" class="px-1.5 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-300 text-[10px]">👁️</button>
+            <button onclick="copyFieldValue('field-alert-shop', '상품 구매 알림 URL')" class="px-2 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-200 text-[10px]">복사</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ===== CHZZK REMOTE CONTROL PANEL ===== -->
+  <div id="remote-panel" class="settings-panel px-2.5 py-3">
+    <!-- Panel Header -->
+    <div class="flex items-center justify-between mb-2.5 border-b border-chzzk-border pb-2">
+      <div class="flex items-center gap-1.5 min-w-0">
+        <span class="text-base">🎮</span>
+        <span class="text-xs font-bold text-white truncate">치지직 방송 리모컨</span>
+      </div>
+      <div class="flex items-center gap-1.5 flex-shrink-0">
+        <!-- 공식 리모컨 독립 창 원클릭 열기 -->
+        <button type="button" onclick="openRemoteWebview()" class="px-2 py-1 text-[10px] font-bold rounded-md text-slate-300 hover:text-white bg-[#161F2E] hover:bg-[#202B3D] border border-[#233147] transition-all cursor-pointer inline-flex items-center gap-1 shadow-sm" title="치지직 스튜디오 공식 리모컨을 WebView2 독립 창으로 엽니다 (항상 위/크기조절 지원)">
+          <span>공식 리모컨</span>
+          <span class="text-[9px] text-[#00FFA3]">↗</span>
+        </button>
+        <button onclick="toggleRemotePanel()" class="w-6 h-6 rounded-md bg-chzzk-card border border-chzzk-border flex items-center justify-center hover:border-chzzk-muted transition-colors" title="리모컨 닫기">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5A6577" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs: [전체] vs [영상 후원] vs [미션 후원] vs [파티] (치지직 공식 리모컨 1:1 규격) -->
+    <div class="flex items-center justify-between border-b border-[#1E2738] mb-2 px-1">
+      <div class="flex items-center gap-3 text-xs">
+        <button id="remote-tab-btn-all" onclick="switchRemoteTab('all')" class="pb-2 font-bold text-[#00FFA3] border-b-2 border-[#00FFA3] transition-all cursor-pointer">
+          전체
+        </button>
+        <button id="remote-tab-btn-video" onclick="switchRemoteTab('video')" class="pb-2 font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent transition-all cursor-pointer">
+          영상 후원
+        </button>
+        <button id="remote-tab-btn-mission" onclick="switchRemoteTab('mission')" class="pb-2 font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent transition-all cursor-pointer">
+          미션 후원
+        </button>
+        <button id="remote-tab-btn-party" onclick="switchRemoteTab('party')" class="pb-2 font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent transition-all cursor-pointer">
+          파티
+        </button>
+      </div>
+      <button type="button" onclick="fetchNewsFeed()" class="text-slate-400 hover:text-[#00FFA3] p-1 pb-2 transition-colors cursor-pointer" title="피드 새로고침">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+      </button>
+    </div>
+
+    <!-- ===== TAB 1: 실시간 피드 (전체 / 영상 후원) ===== -->
+    <div id="remote-tab-content-feed" class="space-y-2">
+      <!-- 실시간 알림 피드 리스트 (치지직 스튜디오 공식 피드 규격) -->
+      <div id="remote-feed-list" class="space-y-1.5 max-h-[260px] overflow-y-auto pr-0.5">
+        <div class="text-center py-8 text-[11px] text-slate-400 bg-[#090D13] rounded-lg border border-[#1A2333]/60">
+          최근 방송 후원 알림 내역이 없습니다
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== TAB 2: 미션 후원 ===== -->
+    <div id="remote-tab-content-mission" class="space-y-2.5" style="display:none;">
+      <!-- 정렬 옵션 및 헤더 -->
+      <div class="flex items-center justify-between pb-1 border-b border-[#1E2738]/50">
+        <span class="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+          <span>🎯</span> 미션 목록
+        </span>
+        <div class="flex items-center gap-1 bg-[#090D13] p-0.5 rounded-md border border-[#1E2738]">
+          <button type="button" id="mission-sort-latest" onclick="setMissionSort('LATEST')" class="px-2 py-0.5 rounded text-[10px] font-bold bg-[#161F2E] text-[#00FFA3] border border-[#00FFA3]/40 transition-all cursor-pointer">
+            최신순
+          </button>
+          <button type="button" id="mission-sort-amount" onclick="setMissionSort('AMOUNT')" class="px-2 py-0.5 rounded text-[10px] font-medium text-slate-400 hover:text-slate-200 transition-all cursor-pointer">
+            금액순
+          </button>
+        </div>
+      </div>
+
+      <!-- 진행 중인 미션 -->
+      <div class="space-y-1.5">
+        <div class="flex items-center justify-between">
+          <span class="text-[11px] font-bold text-[#00FFA3] flex items-center gap-1">
+            <span>⚡</span> 진행 중인 미션
+          </span>
+          <span id="remote-mission-active-count" class="text-[9.5px] px-1.5 py-0.2 rounded font-bold bg-emerald-950/80 text-[#00FFA3] border border-emerald-800/50">
+            0건
+          </span>
+        </div>
+        <div id="remote-mission-active-list" class="space-y-2 max-h-[120px] overflow-y-auto pr-0.5">
+          <div class="text-center py-4 text-[10.5px] text-slate-400 bg-[#090D13] rounded-lg border border-[#1A2333]/60">
+            현재 진행 중인 미션이 없습니다
+          </div>
+        </div>
+      </div>
+
+      <!-- 완료된 미션 -->
+      <div class="space-y-1.5 pt-1 border-t border-[#1E2738]/60">
+        <div class="flex items-center justify-between">
+          <span class="text-[11px] font-bold text-slate-300 flex items-center gap-1">
+            <span>🏁</span> 완료된 미션
+          </span>
+          <span id="remote-mission-completed-count" class="text-[9.5px] px-1.5 py-0.2 rounded font-bold bg-[#161F2E] text-slate-400 border border-[#1E2738]">
+            0건
+          </span>
+        </div>
+        <div id="remote-mission-completed-list" class="space-y-2 max-h-[100px] overflow-y-auto pr-0.5">
+          <div class="text-center py-4 text-[10.5px] text-slate-500 bg-[#090D13] rounded-lg border border-[#1A2333]/60">
+            완료된 미션 내역이 없습니다
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== TAB 3: 파티 후원 ===== -->
+    <div id="remote-tab-content-party" class="space-y-2.5" style="display:none;">
+      <!-- 파티 미생성 상태 -->
+      <div id="party-view-create" class="section-card space-y-2 p-2.5 border border-[#1E2738]">
+        <div class="flex items-center justify-between border-b border-[#1E2738] pb-1.5">
+          <span class="text-xs font-bold text-slate-100 flex items-center gap-1.5">
+            <span>🎉</span> 파티 설정
+          </span>
+          <span class="text-[10px] px-2 py-0.5 rounded font-bold bg-[#161F2E] text-slate-400 border border-[#1E2738]">
+            파티 없음
+          </span>
+        </div>
+
+        <div class="space-y-1">
+          <div class="flex items-center justify-between">
+            <label class="text-[11px] text-slate-300 font-medium">파티명</label>
+            <span id="party-create-len" class="text-[10px] text-slate-400 font-mono">0/60</span>
+          </div>
+          <input type="text" id="input-party-create-name" maxlength="60" placeholder="파티명 입력" oninput="document.getElementById('party-create-len').textContent=this.value.length+'/60'" class="w-full bg-[#090D13] border border-[#1E2738] rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:border-[#5C3BFF] outline-none" autocomplete="off" />
+        </div>
+
+        <button type="button" onclick="createPartySubmit()" class="w-full py-2 rounded-lg bg-[#5C3BFF] hover:bg-[#6E50FF] text-white font-bold text-xs shadow-md transition-colors cursor-pointer flex items-center justify-center gap-1.5">
+          <span>🎉</span> <span>파티 만들기</span>
+        </button>
+
+        <div class="relative flex py-1 items-center">
+          <div class="flex-grow border-t border-[#1E2738]"></div>
+          <span class="flex-shrink mx-2 text-[9.5px] text-slate-500 font-medium">또는 초대 링크 합류</span>
+          <div class="flex-grow border-t border-[#1E2738]"></div>
+        </div>
+
+        <div class="flex items-center gap-1.5">
+          <input type="text" id="input-party-join-link" placeholder="초대 링크 붙여넣기" class="flex-1 bg-[#090D13] border border-[#1E2738] rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:border-emerald-500 outline-none placeholder:text-slate-500 font-mono text-[10.5px]" autocomplete="off" />
+          <button type="button" onclick="joinPartyByInviteLink('input-party-join-link')" class="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-colors cursor-pointer flex-shrink-0">
+            합류
+          </button>
+        </div>
+      </div>
+
+      <!-- 파티 활성화 상태 -->
+      <div id="party-view-manage" class="section-card space-y-2 p-2.5 border border-[#1E2738]" style="display:none;">
+        <div class="flex items-center justify-between border-b border-[#1E2738] pb-1.5">
+          <div class="flex items-center gap-1.5">
+            <span class="text-xs font-bold text-slate-100">🎉 파티</span>
+            <span id="party-role-badge" class="text-[9px] px-1.5 py-0.2 rounded font-bold bg-[#161F2E] text-[#9E8BFF] border border-[#5C3BFF]/30">👑 방장</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span id="party-active-cheese" class="font-mono text-[#00FFA3] font-bold text-xs">0 치즈</span>
+            <span id="party-status-badge" class="text-[10px] px-2 py-0.5 rounded font-bold bg-emerald-950/80 text-[#00FFA3] border border-emerald-800/60">진행 중</span>
+          </div>
+        </div>
+
+        <div class="space-y-1">
+          <div class="flex items-center gap-1.5">
+            <input type="text" id="input-party-edit-name" maxlength="60" class="flex-1 bg-[#090D13] border border-[#1E2738] rounded-lg px-2 py-1 text-xs text-slate-200 focus:border-[#5C3BFF] outline-none" autocomplete="off" />
+            <button type="button" id="btn-party-rename" onclick="renamePartySubmit()" class="px-2.5 py-1 rounded-lg bg-[#5C3BFF]/20 hover:bg-[#5C3BFF] hover:text-white border border-[#5C3BFF]/40 text-[#9E8BFF] text-xs font-bold transition-all cursor-pointer">저장</button>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-1">
+          <input type="password" id="field-party-invite-url" readonly class="flex-1 bg-[#090D13] border border-[#1E2738] rounded-lg px-2 py-1 text-[10px] font-mono text-slate-300 select-all" placeholder="초대 링크" />
+          <button type="button" onclick="togglePartyLinkMask()" class="px-2 py-1 bg-[#161F2E] border border-[#1E2738] rounded-lg text-slate-300 text-xs">👁️</button>
+          <button type="button" onclick="copyPartyInviteUrl()" class="px-2 py-1 bg-[#5C3BFF]/20 border border-[#5C3BFF]/30 rounded-lg text-[#9E8BFF] text-xs font-bold">복사</button>
+        </div>
+
+        <div class="space-y-1">
+          <div class="flex items-center justify-between text-[11px] text-slate-300">
+            <span>참여자 (<span id="party-member-count" class="font-bold text-[#5C3BFF]">1</span>명)</span>
+            <button type="button" onclick="refreshPartyStatus(true)" class="text-slate-400 hover:text-white p-0.5 cursor-pointer">🔄</button>
+          </div>
+          <div id="party-member-list" class="space-y-1 max-h-[100px] overflow-y-auto"></div>
+        </div>
+
+        <div id="party-host-actions" class="grid grid-cols-2 gap-2 pt-1 border-t border-[#1E2738]">
+          <button type="button" onclick="renewPartySubmit()" class="py-1.5 rounded-lg bg-[#5C3BFF]/20 border border-[#5C3BFF]/50 text-[#9E8BFF] text-xs font-bold">새로 만들기</button>
+          <button type="button" onclick="finishPartySubmit()" class="py-1.5 rounded-lg bg-rose-950/40 border border-rose-800/50 text-rose-300 text-xs font-bold">파티 종료</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== 공식 리모컨 규격 볼륨 및 제어 영역 (후원 볼륨 & 알림음 볼륨 & 하단 2버튼) ===== -->
+    <div class="mt-3 pt-2.5 border-t border-[#1E2738] space-y-2.5">
+      <!-- 후원 볼륨 그룹 (공식 규격) -->
+      <div class="p-2.5 rounded-lg bg-[#0A0E15] border border-[#1A2333] space-y-2">
+        <div class="flex items-center justify-between text-xs font-bold text-slate-200">
+          <span class="flex items-center gap-1.5">
+            <span>🔊</span> 후원 볼륨
+          </span>
+        </div>
+        <!-- 채팅 후원 TTS -->
+        <div class="space-y-1">
+          <div class="flex items-center justify-between text-[11px]">
+            <span class="text-slate-300">채팅 후원 TTS</span>
+            <span id="remote-tts-vol-label" class="font-mono text-[#5C3BFF] font-bold text-[10.5px]">70%</span>
+          </div>
+          <input type="range" id="remote-tts-volume" min="0" max="100" value="70" oninput="onTTSVolumeChange(this.value)" class="w-full accent-[#5C3BFF] cursor-pointer h-1.5 bg-[#1E2738] rounded-lg" />
+        </div>
+        <!-- 영상 후원 볼륨 -->
+        <div class="space-y-1">
+          <div class="flex items-center justify-between text-[11px]">
+            <span class="text-slate-300">영상 후원 볼륨</span>
+            <span id="remote-video-vol-label" class="font-mono text-[#5C3BFF] font-bold text-[10.5px]">70%</span>
+          </div>
+          <input type="range" id="remote-video-volume" min="0" max="100" value="70" oninput="onVideoVolumeChange(this.value)" class="w-full accent-[#5C3BFF] cursor-pointer h-1.5 bg-[#1E2738] rounded-lg" />
+        </div>
+      </div>
+
+      <!-- 알림음 볼륨 설정 그룹 (공식 규격) -->
+      <div class="p-2.5 rounded-lg bg-[#0A0E15] border border-[#1A2333] space-y-2">
+        <div class="flex items-center justify-between text-xs font-bold text-slate-200">
+          <span class="flex items-center gap-1.5">
+            <span>🔔</span> 알림음 볼륨 설정
+          </span>
+        </div>
+        <!-- 채팅후원 알림음 -->
+        <div class="space-y-1">
+          <div class="flex items-center justify-between text-[11px]">
+            <span class="text-slate-300">채팅후원</span>
+            <span id="remote-alert-chat-label" class="font-mono text-[#5C3BFF] font-bold text-[10.5px]">70%</span>
+          </div>
+          <input type="range" id="remote-alert-chat-vol" min="0" max="100" value="70" oninput="onAlertVolumeChange('chat', this.value)" class="w-full accent-[#5C3BFF] cursor-pointer h-1.5 bg-[#1E2738] rounded-lg" />
+        </div>
+        <!-- 영상후원 알림음 -->
+        <div class="space-y-1">
+          <div class="flex items-center justify-between text-[11px]">
+            <span class="text-slate-300">영상후원</span>
+            <span id="remote-alert-video-label" class="font-mono text-[#5C3BFF] font-bold text-[10.5px]">70%</span>
+          </div>
+          <input type="range" id="remote-alert-video-vol" min="0" max="100" value="70" oninput="onAlertVolumeChange('video', this.value)" class="w-full accent-[#5C3BFF] cursor-pointer h-1.5 bg-[#1E2738] rounded-lg" />
+        </div>
+        <!-- 미션후원 알림음 -->
+        <div class="space-y-1">
+          <div class="flex items-center justify-between text-[11px]">
+            <span class="text-slate-300">미션후원</span>
+            <span id="remote-alert-mission-label" class="font-mono text-[#5C3BFF] font-bold text-[10.5px]">70%</span>
+          </div>
+          <input type="range" id="remote-alert-mission-vol" min="0" max="100" value="70" oninput="onAlertVolumeChange('mission', this.value)" class="w-full accent-[#5C3BFF] cursor-pointer h-1.5 bg-[#1E2738] rounded-lg" />
+        </div>
+      </div>
+
+      <!-- 공식 리모컨 하단 2버튼 ([⏭️ TTS 넘기기], [⏸️ 알림 정지]) -->
+      <div class="grid grid-cols-2 gap-2 pt-1">
+        <button type="button" onclick="skipTTS()" class="py-2.5 px-2 rounded-xl bg-[#5C3BFF] hover:bg-[#6E50FF] text-white font-bold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-md">
+          <span>⏭️</span> <span>TTS 넘기기</span>
+        </button>
+        <button type="button" onclick="togglePauseAlert()" id="btn-remote-pause-alert" class="py-2.5 px-2 rounded-xl bg-[#1E1936] hover:bg-[#28214A] border border-[#5C3BFF]/40 text-[#C4B5FD] font-bold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5">
+          <span id="icon-remote-pause">⏸️</span> <span id="text-remote-pause">알림 정지</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SETTINGS & COOKIE LOGIN PANEL (사이드 내비게이션 바 개편) ===== -->
+  <div id="settings-panel" class="settings-panel px-2.5 py-3 flex flex-col">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-2.5 border-b border-chzzk-border pb-2 flex-shrink-0">
+      <div class="flex items-center gap-1.5">
+        <span class="text-base">⚙️</span>
+        <span class="text-xs font-bold text-white">독 환경 설정</span>
+      </div>
+      <button onclick="toggleSettings()" class="w-6 h-6 rounded-md bg-chzzk-card border border-chzzk-border flex items-center justify-center hover:border-chzzk-muted transition-colors cursor-pointer" title="설정 닫기">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5A6577" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <!-- Navigation Bar & Tab Content Layout -->
+    <div class="settings-layout-box flex gap-2.5 flex-1 min-h-0">
+      <!-- Left Sidebar Navigation -->
+      <nav class="settings-nav-container w-28 flex-shrink-0 flex flex-col gap-1 border-r border-[#1E2738]/80 pr-2 select-none">
+        <button type="button" onclick="switchSettingsTab('login')" id="tab-btn-login" class="settings-nav-btn active">
+          <span class="text-sm">🔐</span>
+          <span>로그인</span>
+        </button>
+        <button type="button" onclick="switchSettingsTab('general')" id="tab-btn-general" class="settings-nav-btn">
+          <span class="text-sm">⚙️</span>
+          <span>일반</span>
+        </button>
+        <button type="button" onclick="switchSettingsTab('ui')" id="tab-btn-ui" class="settings-nav-btn">
+          <span class="text-sm">🎨</span>
+          <span>UI</span>
+        </button>
+        <button type="button" onclick="switchSettingsTab('advanced')" id="tab-btn-advanced" class="settings-nav-btn">
+          <span class="text-sm">🛠️</span>
+          <span>고급</span>
+        </button>
+        <button type="button" onclick="switchSettingsTab('info')" id="tab-btn-info" class="settings-nav-btn">
+          <span class="text-sm">ℹ️</span>
+          <span>앱 정보</span>
+        </button>
+      </nav>
+
+      <!-- Right Tab Content Area -->
+      <div class="flex-1 min-w-0 overflow-y-auto pr-0.5 space-y-2.5">
+
+        <!-- ===== TAB 1: 로그인 (Login) ===== -->
+        <div id="tab-content-login" class="space-y-2.5">
+          <!-- 치지직 연동 카드 (방법 A, B 묶음 박스) -->
+          <div class="section-card p-3 bg-chzzk-card/70 border border-chzzk-border space-y-2.5">
+            <div class="flex items-center justify-between pb-1 border-b border-[#1E2738]/80">
+              <div class="flex items-center gap-1.5 min-w-0">
+                <span class="text-xs">🔐</span>
+                <span class="text-xs font-bold text-slate-100">치지직 연동</span>
+              </div>
+            </div>
+
+            <!-- 방법 A: 팝업 로그인 카드 -->
+            <div class="p-2.5 rounded-lg bg-[#0B0F15] border border-[#1E2738] space-y-2">
+              <div class="flex items-center justify-between">
+                <div class="text-[11px] font-semibold text-[#00FFA3]">방법 A. 팝업 로그인</div>
+                <span id="badge-method-a" class="text-[9px] px-1.5 py-0.5 rounded font-bold bg-gray-800 text-gray-400">대기 중</span>
+              </div>
+              <button id="btn-webview-login" onclick="startWebviewLogin()" class="save-btn text-xs py-2.5 bg-gradient-to-r from-emerald-400 to-teal-400 !text-[#080A0D] font-extrabold shadow-md cursor-pointer">
+                🌐 네이버 로그인 팝업 열기
+              </button>
+            </div>
+
+            <!-- 방법 B: 버튼 ➔ 아코디언 창 모핑 영역 -->
+            <div class="space-y-1">
+              <!-- 평상시 슬림 버튼 -->
+              <button type="button" id="btn-cookie-accordion-toggle" onclick="toggleCookieAccordion()" class="w-full py-2 px-2.5 rounded-lg bg-[#0B0F15] hover:bg-[#131A24] border border-[#1E2738] hover:border-amber-400/50 text-slate-400 hover:text-amber-300 text-[11px] font-medium transition-all flex items-center justify-between cursor-pointer group">
+                <div class="flex items-center gap-1.5">
+                  <span class="text-xs text-amber-400/80 group-hover:text-amber-300">🔑</span>
+                  <span>쿠키 직접 입력하기 (고급)</span>
+                </div>
+                <span id="cookie-accordion-chevron" class="text-[9px] text-slate-500 group-hover:text-amber-300 transition-transform">▼</span>
+              </button>
+
+              <!-- 클릭 시 아코디언 창으로 모핑되는 입력 폼 패널 -->
+              <div id="cookie-accordion-panel" class="hidden p-2.5 rounded-lg bg-[#0B0F15] border border-amber-400/35 space-y-2">
+                <div class="flex items-center justify-between pb-1 border-b border-[#1E2738]/80">
+                  <div class="flex items-center gap-1.5">
+                    <span class="text-xs">🔑</span>
+                    <span class="text-[11px] font-bold text-amber-300">방법 B. 쿠키 수동 입력</span>
+                    <button type="button" onclick="toggleCookieHelp()" class="text-[10px] px-1.5 py-0.5 rounded bg-amber-400/15 hover:bg-amber-400/25 text-amber-300 font-medium transition-colors inline-flex items-center gap-1 border border-amber-400/30 cursor-pointer" title="쿠키 값 확인 및 복사 방법 안내">
+                      <span>❓ 도움말</span>
+                    </button>
+                  </div>
+                  <button type="button" onclick="toggleCookieAccordion()" class="text-[10px] text-slate-400 hover:text-white px-1.5 py-0.5 rounded hover:bg-slate-800 transition-all cursor-pointer">
+                    ▲ 접기
+                  </button>
+                </div>
+
+                <!-- 쿠키 확인 가이드 (도움말 아코디언) -->
+                <div id="cookie-help-box" class="hidden p-2.5 rounded-lg bg-[#0a0d13] border border-amber-400/30 text-[10px] space-y-2 text-gray-300 leading-relaxed shadow-inner">
+                  <div class="font-bold text-amber-300 flex items-center justify-between text-[11px] border-b border-gray-800 pb-1.5">
+                    <span class="flex items-center gap-1"><span>📖</span> 네이버 쿠키(NID_AUT, NID_SES) 복사 방법</span>
+                    <button type="button" onclick="toggleCookieHelp()" class="text-gray-400 hover:text-gray-200 text-xs px-1 font-mono cursor-pointer">✕</button>
+                  </div>
+                  <ol class="list-decimal list-inside space-y-1.5 text-gray-300 text-[10px]">
+                    <li>
+                      브라우저(Chrome, Edge, Whale 등)에서
+                      <button type="button" onclick="openExternalUrl('https://chzzk.naver.com', '치지직')" class="text-emerald-400 font-semibold underline hover:text-emerald-300 inline-flex items-center gap-0.5 cursor-pointer">
+                        <span>치지직(chzzk.naver.com)</span><span class="text-[8px]">↗</span>
+                      </button>
+                      에 접속하여 로그인합니다.
+                    </li>
+                    <li>
+                      키보드 <kbd class="px-1.5 py-0.5 bg-gray-800 border border-gray-700 rounded text-amber-300 font-mono text-[9px] font-bold">F12</kbd> (또는 웹페이지 우클릭 ➔ <strong>[검사]</strong>)를 눌러 <strong>개발자 도구</strong>를 엽니다.
+                    </li>
+                    <li>
+                      상단 탭 메뉴에서 <strong class="text-white bg-gray-800 px-1 py-0.5 rounded">[애플리케이션]</strong>(Application) 또는 <strong class="text-white bg-gray-800 px-1 py-0.5 rounded">[저장공간]</strong>(Storage) 탭을 클릭합니다.
+                      <span class="text-gray-400 block pl-3 text-[9px]">* 창 폭이 좁아 탭이 안 보이면 상단 우측 <strong>»</strong> 화살표 아이콘을 클릭하세요.</span>
+                    </li>
+                    <li>
+                      좌측 트리 메뉴에서 <strong class="text-white">[저장용량]</strong> ➔ <strong class="text-white">[쿠키]</strong> ➔ <strong class="text-emerald-400">https://chzzk.naver.com</strong>(또는 naver.com)을 선택합니다.
+                    </li>
+                    <li>
+                      우측 표 목록에서 이름이 <code class="text-amber-300 bg-gray-900 border border-gray-700 px-1 py-0.5 rounded font-mono font-bold">NID_AUT</code>와 <code class="text-amber-300 bg-gray-900 border border-gray-700 px-1 py-0.5 rounded font-mono font-bold">NID_SES</code>인 항목을 찾습니다.
+                      <!-- 참고 이미지 1 -->
+                      <div class="my-2 bg-[#06090e] rounded-lg border border-gray-800 p-2 shadow-sm">
+                        <div class="text-[9.5px] text-amber-300 font-bold mb-1.5 flex items-center justify-between">
+                          <span class="flex items-center gap-1"><span>📸</span> [참고 1] 개발자 도구 쿠키 확인 화면</span>
+                          <button type="button" onclick="openExternalUrl('http://localhost:8081/guide-image/1', '가이드 1 원본')" class="text-[9px] text-emerald-400 hover:text-emerald-300 font-medium cursor-pointer">🔍 새창 확대</button>
+                        </div>
+                        <img src="/guide-image/1" alt="쿠키 확인 개발자도구" class="w-full rounded border border-gray-800 cursor-pointer hover:border-amber-400 transition-colors" onclick="openExternalUrl(this.src, '가이드 1 원본')" title="클릭하여 원본 크기로 보기" />
+                      </div>
+                    </li>
+                    <li>
+                      각 항목의 <strong>[값(Value)]</strong> 필드를 더블클릭하여 복사(<kbd class="px-1 py-0.5 bg-gray-800 border border-gray-700 rounded text-amber-300 font-mono text-[9px]">Ctrl+C</kbd>)한 뒤, 아래 입력칸에 붙여넣습니다.
+                      <!-- 참고 이미지 2 -->
+                      <div class="my-2 bg-[#06090e] rounded-lg border border-gray-800 p-2 shadow-sm">
+                        <div class="text-[9.5px] text-amber-300 font-bold mb-1.5 flex items-center justify-between">
+                          <span class="flex items-center gap-1"><span>📸</span> [참고 2] 쿠키 값 더블클릭 복사 화면</span>
+                          <button type="button" onclick="openExternalUrl('http://localhost:8081/guide-image/2', '가이드 2 원본')" class="text-[9px] text-emerald-400 hover:text-emerald-300 font-medium cursor-pointer">🔍 새창 확대</button>
+                        </div>
+                        <img src="/guide-image/2" alt="쿠키 복사 화면" class="w-full rounded border border-gray-800 cursor-pointer hover:border-amber-400 transition-colors" onclick="openExternalUrl(this.src, '가이드 2 원본')" title="클릭하여 원본 크기로 보기" />
+                      </div>
+                    </li>
+                    <li>
+                      아래 <strong>[쿠키 직접 저장]</strong> 버튼을 누르면 연동이 완료됩니다!
+                    </li>
+                  </ol>
+                  <div class="text-[9px] text-amber-200/80 bg-amber-950/40 p-1.5 rounded border border-amber-800/40 flex items-start gap-1">
+                    <span>🛡️</span>
+                    <span>입력된 쿠키는 외부 서버로 일절 전송되지 않으며, 오직 내 컴퓨터의 <strong>Windows 자격 증명 관리자(보안 금고)</strong>에만 안전하게 암호화 보관됩니다.</span>
+                  </div>
+                </div>
+
+                <div class="space-y-1">
+                  <label class="text-[9px] text-chzzk-muted font-medium">NID_AUT</label>
+                  <input id="cookie-nid-aut" type="password" class="chzzk-input text-[11px]" placeholder="NID_AUT 쿠키 값" />
+                </div>
+                <div class="space-y-1">
+                  <label class="text-[9px] text-chzzk-muted font-medium">NID_SES</label>
+                  <input id="cookie-nid-ses" type="password" class="chzzk-input text-[11px]" placeholder="NID_SES 쿠키 값" />
+                </div>
+                <button onclick="saveManualCookies()" class="sub-btn !bg-chzzk-card hover:!border-amber-400 text-amber-400 font-semibold py-1.5 cursor-pointer">
+                  💾 쿠키 직접 저장
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== TAB 2: 일반 (General) ===== -->
+        <div id="tab-content-general" class="space-y-2.5 hidden">
+          <!-- 앱 자동 시작 (스크립트 설치 관리 카드) -->
+          <div class="section-card py-2.5 px-3 border border-[#1E2738] bg-[#0B1017]">
+            <div class="flex items-center justify-between">
+              <div class="min-w-0 pr-2">
+                <span class="text-xs font-bold text-slate-100">🚀 앱 자동 시작</span>
+              </div>
+              <div class="flex items-center gap-2 flex-shrink-0">
+                <button type="button" onclick="browseAndInstallObsFolder()" class="text-slate-500 hover:text-[#00FFA3] text-[9px] transition-colors cursor-pointer" title="OBS 설치 폴더를 직접 변경하려면 클릭하세요">
+                  폴더 변경
+                </button>
+                <button type="button" id="btn-obs-script-action" onclick="handleObsScriptAction()" class="px-3 py-1.5 text-[11px] font-bold rounded transition-all cursor-pointer bg-[#161F2E] border border-[#243044] text-slate-300 hover:text-white">
+                  확인 중...
+                </button>
+              </div>
+            </div>
+
+            <!-- OBS 스크립트 1회 등록 가이드 박스 -->
+            <div id="obs-script-guide-box" class="mt-2 pt-2 border-t border-[#1E2738]/80 text-[10px] text-slate-400 leading-relaxed">
+              <div class="font-semibold text-slate-200 flex items-center gap-1 mb-1">
+                <span class="text-emerald-400">💡</span> <span>OBS 스크립트 등록 순서 (최초 1회)</span>
+              </div>
+              <ol class="list-decimal list-inside space-y-1 text-slate-300">
+                <li>OBS 상단 메뉴 <span class="text-[#00FFA3] font-semibold">[도구]</span> ➔ <span class="text-[#00FFA3] font-semibold">[스크립트]</span> 클릭</li>
+                <li><span class="text-white font-bold">[+]</span> 버튼 클릭 후 <code class="text-slate-300 bg-slate-800 px-1 py-0.5 rounded">chzzk_dock_launcher.lua</code> 추가</li>
+                <li>스크립트 선택 후 옵션 설정 완료</li>
+              </ol>
+            </div>
+          </div>
+
+          <!-- OBS 자동 종료 대기 시간 설정 & 알림 토글 -->
+          <div class="section-card p-2.5 bg-chzzk-card/70 border border-chzzk-border space-y-2">
+            <div>
+              <div class="text-xs font-bold text-slate-100">⏱️ OBS와 함께 종료</div>
+            </div>
+            <div class="flex items-center gap-2">
+              <select id="select-watchdog-timeout" onchange="onWatchdogTimeoutChange(this.value)" class="chzzk-input text-[11px] py-1 flex-1">
+                <option value="0">즉시 종료 (OBS 종료 시 즉시)</option>
+                <option value="10">10초 뒤 종료</option>
+                <option value="30">30초 뒤 종료</option>
+                <option value="60" selected>1분 뒤 종료 (기본값)</option>
+                <option value="300">5분 뒤 종료</option>
+                <option value="600">10분 뒤 종료</option>
+                <option value="-1">사용 안 함 (자동 종료 비활성화)</option>
+                <option value="custom">직접 입력</option>
+              </select>
+              <div id="custom-watchdog-container" class="hidden flex items-center gap-1.5 flex-1">
+                <input id="input-custom-watchdog" type="number" min="1" max="86400" class="chzzk-input text-[11px] py-1 w-20 text-center" placeholder="초(sec)" />
+                <span class="text-[11px] text-chzzk-muted">초</span>
+                <button onclick="saveCustomWatchdogTimeout()" class="sub-btn !bg-chzzk-card hover:!border-chzzk-accent text-chzzk-accent text-[10px] py-1 px-2 font-medium cursor-pointer">저장</button>
+              </div>
+            </div>
+
+            <!-- 자동 종료 시 Windows 알림 토글 -->
+            <div class="pt-2 border-t border-[#1E2738]/80 flex items-center justify-between">
+              <div class="pr-2">
+                <div class="text-xs font-bold text-slate-100">🔔 자동 종료 시 Windows 알림 받기</div>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="toggle-shutdown-notify" onchange="saveShutdownNotifySetting(this.checked)" checked>
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <!-- 프로그램 시작 시 독 팝업창 자동 열기 설정 -->
+          <div class="section-card p-2.5 bg-chzzk-card/70 border border-chzzk-border space-y-2">
+            <div class="flex items-center justify-between">
+              <div class="pr-2">
+                <div class="text-xs font-bold text-slate-100">🖥️ 프로그램 시작 시 독 팝업창 열기</div>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="toggle-popup-on-start" onchange="savePopupOnStartSetting(this.checked)">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== TAB 3: UI (인터페이스 설정) ===== -->
+        <div id="tab-content-ui" class="space-y-2.5 hidden">
+          <!-- 화면 배율 및 UI 표시 설정 카드 -->
+          <div class="section-card p-2.5 bg-chzzk-card/70 border border-chzzk-border space-y-2.5">
+            <div class="space-y-1.5">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-slate-100">🔤 독 화면 크기</span>
+                <span id="font-scale-current-label" class="text-[10px] text-chzzk-muted font-medium">120% (크게)</span>
+              </div>
+              <div class="grid grid-cols-3 gap-1 p-0.5 bg-[#0B0F15] rounded-lg border border-[#1E2738]">
+                <button id="btn-scale-100" onclick="setFontScale(1.0, true)" class="py-1 text-[11px] font-medium rounded text-slate-400 hover:text-slate-200 transition-all text-center cursor-pointer">
+                  보통 (100%)
+                </button>
+                <button id="btn-scale-120" onclick="setFontScale(1.2, true)" class="py-1 text-[11px] font-bold rounded text-[#00FFA3] bg-[#161F2E] border border-[#00FFA3]/40 transition-all text-center cursor-pointer">
+                  크게 (120%)
+                </button>
+                <button id="btn-scale-135" onclick="setFontScale(1.35, true)" class="py-1 text-[11px] font-medium rounded text-slate-400 hover:text-slate-200 transition-all text-center cursor-pointer">
+                  아주 크게 (135%)
+                </button>
+              </div>
+            </div>
+
+            <!-- 시청자 수 표시 토글 -->
+            <div class="pt-2 border-t border-[#1E2738]/80 flex items-center justify-between">
+              <div class="pr-2">
+                <div class="text-xs font-bold text-slate-100">👀 시청자 수 표시</div>
+                <div class="text-[9px] text-chzzk-muted leading-tight mt-0.5">상단 헤더에 실시간 시청자 수 뱃지를 표시합니다.</div>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="toggle-show-viewer-count" onchange="saveShowViewerCountSetting(this.checked)">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== TAB 4: 고급 (Advanced) ===== -->
+        <div id="tab-content-advanced" class="space-y-2.5 hidden">
+          <!-- 서버 포트 설정 & 충돌 방지 검사 -->
+          <div class="section-card p-2.5 bg-chzzk-card/70 border border-chzzk-border space-y-2">
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="text-xs font-bold text-slate-100">🌐 서버 포트 설정</div>
+                <div class="text-[9px] text-chzzk-muted">기본 포트: 8081 (충돌 시 안전한 랜덤 포트 자동 전환)</div>
+              </div>
+              <span id="badge-port-status" class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950/80 text-emerald-400 border border-emerald-500/30 font-mono">
+                현재 포트: 8081
+              </span>
+            </div>
+
+            <div id="port-fallback-banner" class="hidden p-2 rounded bg-amber-950/40 border border-amber-500/30 text-[10px] text-amber-300 leading-relaxed">
+              <div class="font-bold flex items-center gap-1 text-amber-300">
+                <span>⚠️</span> <span>임시 대체 포트 사용 중</span>
+              </div>
+              <p id="port-fallback-reason" class="text-[9.5px] text-amber-200/80 mt-1"></p>
+            </div>
+
+            <div class="space-y-1.5 pt-0.5">
+              <div class="flex items-center gap-1.5">
+                <div class="relative flex-1 min-w-[90px]">
+                  <input id="input-custom-port" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="5" class="chzzk-input text-[11px] py-1.5 pr-6 w-full text-center font-mono placeholder:text-slate-500" placeholder="포트 (1024~65535)" />
+                  <button id="port-clear" type="button" onclick="clearCustomPort()" class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-chzzk-danger text-xs font-bold leading-none cursor-pointer" style="display:none;" title="포트 지우기">✕</button>
+                </div>
+                <button type="button" onclick="checkCustomPort()" class="!w-auto px-3 py-1.5 rounded bg-[#161F2E] border border-[#243044] hover:border-chzzk-accent text-chzzk-accent text-[11px] font-semibold whitespace-nowrap cursor-pointer transition-colors">
+                  🔍 점검
+                </button>
+                <button type="button" onclick="saveCustomPort()" class="!w-auto px-3 py-1.5 rounded bg-[#161F2E] border border-[#243044] hover:border-emerald-400 text-emerald-400 text-[11px] font-semibold whitespace-nowrap cursor-pointer transition-colors">
+                  💾 저장
+                </button>
+              </div>
+              <div id="port-check-result" class="text-[10px] leading-tight min-h-[14px] text-chzzk-muted px-0.5 font-medium"></div>
+            </div>
+          </div>
+
+          <!-- 웹뷰 GPU 하드웨어 가속 설정 -->
+          <div class="section-card p-2.5 bg-chzzk-card/70 border border-chzzk-border space-y-2">
+            <div class="flex items-center justify-between">
+              <div class="pr-2">
+                <div class="text-xs font-bold text-slate-100">⚡ 웹뷰 GPU 하드웨어 가속</div>
+                <div class="text-[9px] text-chzzk-muted leading-tight mt-0.5">화면 깨짐 및 WebView 동작 이상시 해제(재실행 권장)</div>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="toggle-enable-gpu" onchange="saveGPUSetting(this.checked)">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <!-- 외부 링크 기본 브라우저 열기 설정 -->
+          <div class="section-card p-2.5 bg-chzzk-card/70 border border-chzzk-border space-y-2">
+            <div class="flex items-center justify-between">
+              <div class="pr-2 flex items-center gap-1.5 flex-wrap">
+                <span class="text-xs font-bold text-slate-100">🔗 외부 링크 기본 브라우저 열기</span>
+                <span id="label-default-browser" class="hidden px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-sky-950/80 text-sky-400 border border-sky-800/60"></span>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="toggle-external-browser" onchange="saveExternalBrowserSetting(this.checked)">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== TAB 4: 앱 정보 (App Info) ===== -->
+        <div id="tab-content-info" class="space-y-2.5 hidden">
+          <!-- 소프트웨어 업데이트 -->
+          <div class="section-card p-2.5 bg-chzzk-card/70 border border-chzzk-border space-y-2">
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="text-[11px] font-semibold text-white/90 flex items-center gap-1.5">
+                  <span>🚀</span> <span>소프트웨어 업데이트</span>
+                </div>
+                <div class="text-[9.5px] text-chzzk-muted mt-0.5" id="label-update-status">
+                  현재 버전: <b class="text-slate-300 font-mono">{{APP_VERSION}}</b>
+                </div>
+              </div>
+              <span id="badge-update-status" class="px-2 py-0.5 rounded text-[9.5px] font-bold bg-emerald-950/80 text-emerald-400 border border-emerald-500/30">
+                최신 상태
+              </span>
+            </div>
+
+            <div id="update-action-row" class="flex items-center gap-1.5 pt-0.5">
+              <button type="button" id="btn-check-update" onclick="manualCheckForUpdate()" class="flex-1 py-1.5 px-2 rounded bg-[#161F2E] border border-[#243044] hover:border-chzzk-accent text-chzzk-accent text-[11px] font-semibold transition-colors cursor-pointer flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none">
+                <span>🔍</span> <span>업데이트 확인</span>
+              </button>
+              <button type="button" id="btn-run-update" onclick="openUpdateModal()" class="hidden flex-1 py-1.5 px-2 rounded bg-[#00FFA3] hover:bg-[#00E591] text-black text-[11px] font-bold transition-all cursor-pointer flex items-center justify-center gap-1 shadow-sm">
+                <span>⚡</span> <span id="label-run-update">지금 업데이트</span>
+              </button>
+            </div>
+
+            <!-- 업데이트 자동 확인 토글 -->
+            <div class="pt-2 border-t border-chzzk-border/40 flex items-center justify-between">
+              <div>
+                <div class="text-[11px] font-semibold text-white/90 flex items-center gap-1.5">
+                  <span>🔄</span> <span>시작 시 업데이트 자동 확인</span>
+                </div>
+                <div class="text-[9.5px] text-chzzk-muted mt-0.5">
+                  앱 실행 시 새 버전을 자동으로 확인합니다. 끄면 수동으로만 확인합니다.
+                </div>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="toggle-auto-check-update" onchange="saveAutoCheckUpdateSetting(this.checked)">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+
+            <!-- 테스트 버전 업데이트 허용 토글 -->
+            <div class="pt-2 border-t border-chzzk-border/40 flex items-center justify-between">
+              <div>
+                <div class="text-[11px] font-semibold text-white/90 flex items-center gap-1.5">
+                  <span>🧪</span> <span>테스트 버전 업데이트 허용</span>
+                </div>
+                <div class="text-[9.5px] text-chzzk-muted mt-0.5">
+                  Beta, RC 등 개발/사전 릴리즈 버전 업데이트 알림을 받습니다.
+                </div>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="toggle-beta-updates" onchange="saveBetaUpdatesSetting(this.checked)">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <!-- 오픈소스 라이선스 고지 (Open Source Licenses) -->
+          <div class="section-card p-2.5 bg-chzzk-card/70 border border-chzzk-border space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-slate-100 flex items-center gap-1.5">
+                <span>📜</span> <span>오픈소스 라이선스</span>
+              </span>
+              <span class="text-[9px] text-slate-500">클릭하여 전문 확인</span>
+            </div>
+
+            <div class="space-y-1.5">
+              <!-- wailsapp/go-webview2 -->
+              <details class="group bg-[#0B0F15] rounded border border-[#1E2738] overflow-hidden">
+                <summary class="p-2 cursor-pointer flex items-center justify-between select-none hover:bg-[#161F2E] transition-colors text-[10.5px]">
+                  <span class="font-mono font-medium text-slate-200">wailsapp/go-webview2</span>
+                  <span class="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-sky-950/80 text-sky-400 border border-sky-800/50">MIT</span>
+                </summary>
+                <div class="p-2.5 pt-1.5 border-t border-[#1E2738] bg-[#070A0F] text-[9.5px] font-mono text-slate-400 whitespace-pre-wrap leading-relaxed select-text max-h-36 overflow-y-auto">MIT License
+
+Copyright (c) 2021 Lea Anthony
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.</div>
+              </details>
+
+              <!-- golang.org/x/sys -->
+              <details class="group bg-[#0B0F15] rounded border border-[#1E2738] overflow-hidden">
+                <summary class="p-2 cursor-pointer flex items-center justify-between select-none hover:bg-[#161F2E] transition-colors text-[10.5px]">
+                  <span class="font-mono font-medium text-slate-200">golang.org/x/sys</span>
+                  <span class="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-emerald-950/80 text-emerald-400 border border-emerald-800/50">BSD-3-Clause</span>
+                </summary>
+                <div class="p-2.5 pt-1.5 border-t border-[#1E2738] bg-[#070A0F] text-[9.5px] font-mono text-slate-400 whitespace-pre-wrap leading-relaxed select-text max-h-36 overflow-y-auto">Copyright (c) 2009 The Go Authors. All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are
+met:
+
+   * Redistributions of source code must retain the above copyright
+notice, this list of conditions and the following disclaimer.
+   * Redistributions in binary form must reproduce the above
+copyright notice, this list of conditions and the following disclaimer
+in the documentation and/or other materials provided with the
+distribution.
+   * Neither the name of Google Inc. nor the names of its
+contributors may be used to endorse or promote products derived from
+this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</div>
+              </details>
+
+              <!-- Tailwind CSS -->
+              <details class="group bg-[#0B0F15] rounded border border-[#1E2738] overflow-hidden">
+                <summary class="p-2 cursor-pointer flex items-center justify-between select-none hover:bg-[#161F2E] transition-colors text-[10.5px]">
+                  <span class="font-mono font-medium text-slate-200">Tailwind CSS</span>
+                  <span class="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-sky-950/80 text-sky-400 border border-sky-800/50">MIT</span>
+                </summary>
+                <div class="p-2.5 pt-1.5 border-t border-[#1E2738] bg-[#070A0F] text-[9.5px] font-mono text-slate-400 whitespace-pre-wrap leading-relaxed select-text max-h-36 overflow-y-auto">MIT License
+
+Copyright (c) Tailwind Labs, Inc.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.</div>
+              </details>
+
+              <!-- Lucide Icons -->
+              <details class="group bg-[#0B0F15] rounded border border-[#1E2738] overflow-hidden">
+                <summary class="p-2 cursor-pointer flex items-center justify-between select-none hover:bg-[#161F2E] transition-colors text-[10.5px]">
+                  <span class="font-mono font-medium text-slate-200">Lucide Icons</span>
+                  <span class="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-purple-950/80 text-purple-400 border border-purple-800/50">ISC</span>
+                </summary>
+                <div class="p-2.5 pt-1.5 border-t border-[#1E2738] bg-[#070A0F] text-[9.5px] font-mono text-slate-400 whitespace-pre-wrap leading-relaxed select-text max-h-36 overflow-y-auto">ISC License
+
+Copyright (c) for portions of Lucide are held by Cole Bemis 2013-2022 as part of Feather (MIT). All other copyright (c) for Lucide are held by Lucide Contributors 2022.
+
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted, provided that the above
+copyright notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.</div>
+              </details>
+
+              <!-- jchv/go-winloader -->
+              <details class="group bg-[#0B0F15] rounded border border-[#1E2738] overflow-hidden">
+                <summary class="p-2 cursor-pointer flex items-center justify-between select-none hover:bg-[#161F2E] transition-colors text-[10.5px]">
+                  <span class="font-mono font-medium text-slate-200">jchv/go-winloader</span>
+                  <span class="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-sky-950/80 text-sky-400 border border-sky-800/50">MIT</span>
+                </summary>
+                <div class="p-2.5 pt-1.5 border-t border-[#1E2738] bg-[#070A0F] text-[9.5px] font-mono text-slate-400 whitespace-pre-wrap leading-relaxed select-text max-h-36 overflow-y-auto">MIT License
+
+Copyright (c) 2021 John Chadwick
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.</div>
+              </details>
+            </div>
+          </div>
+
+          <!-- [LEG-01] 비공식 API 면책 조항 및 Rate Limiting 안내 -->
+          <div class="p-2.5 rounded bg-chzzk-card/60 border border-chzzk-border text-[10px] text-chzzk-muted leading-relaxed">
+            <p class="font-medium text-amber-400/90 mb-0.5">⚠️ 비공식 API 연동 안내</p>
+            본 도구는 네이버 치지직 비공식 스튜디오 엔드포인트를 사용하며, 네이버 공식 서비스와 무관합니다. 트래픽 과부하 방지를 위해 3초 Rate Limiting이 적용되어 있습니다.
+          </div>
+
+          <!-- 버전 정보 -->
+          <div class="text-[10px] text-chzzk-muted text-center pt-2">
+            <p class="font-medium text-white/70">CHZZK OBS Dock {{APP_VERSION}}</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 자동 업데이트 다운로드 및 설치 모달 (modal-updater) ===== -->
+  <div id="modal-updater" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-3 hidden" onclick="if(event.target===this) closeUpdateModal()">
+    <div class="bg-[#111116] border border-[#262635] rounded-xl max-w-md w-full p-4 shadow-2xl space-y-3.5" onclick="event.stopPropagation()">
+      <div class="flex items-center justify-between border-b border-[#1E1E2A] pb-2.5">
+        <div class="flex items-center gap-2">
+          <span class="text-base" id="update-modal-icon">🚀</span>
+          <span class="text-xs font-bold text-white" id="update-modal-title">소프트웨어 업데이트</span>
+        </div>
+        <button type="button" onclick="closeUpdateModal()" id="btn-close-updater" class="w-6 h-6 rounded-md hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center text-sm font-bold cursor-pointer">
+          ✕
+        </button>
+      </div>
+
+      <!-- 1단계: 업데이트 알림 및 선택 뷰 (Sparkle 스타일) -->
+      <div id="update-prompt-view" class="space-y-3">
+        <div>
+          <h4 class="text-sm font-bold text-white flex items-center gap-1.5">
+            <span>🎉</span> <span id="update-prompt-title">CHZZK OBS Dock 새 버전이 있습니다!</span>
+          </h4>
+          <p class="text-[11.5px] text-slate-300 mt-1 leading-relaxed" id="update-prompt-desc">
+            CHZZK OBS Dock <b class="text-[#00FFA3] font-mono" id="update-latest-ver">v0.0.0</b>을(를) 사용할 수 있습니다 (<span class="text-slate-400 font-mono" id="update-current-ver">v0.0.0</span> 사용 중). 지금 다운로드하시겠습니까?
+          </p>
+        </div>
+
+        <!-- 릴리즈 노트 링크 박스 -->
+        <div class="p-3 rounded-lg bg-[#161B24] border border-[#232D3F] flex items-center justify-between gap-3">
+          <div class="text-[11px] text-slate-300 leading-tight">
+            <div class="font-semibold text-slate-200 flex items-center gap-1.5">
+              <span>📋</span> <span>릴리즈 노트</span>
+            </div>
+            <div class="text-[10px] text-slate-400 mt-0.5">상세 패치 내역 및 변경 사항</div>
+          </div>
+          <button type="button" onclick="openReleaseNotesLink()" class="px-2.5 py-1.5 rounded bg-[#1F2937] hover:bg-[#2D3748] text-[#00FFA3] hover:text-emerald-300 text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer border border-[#374151]">
+            <span>🔗 GitHub에서 보기</span>
+          </button>
+        </div>
+
+        <!-- 하단 3버튼 액션 (건너뛰기 / 나중에 / 설치) -->
+        <div class="flex items-center justify-between pt-2 border-t border-[#1E1E2A]">
+          <button type="button" onclick="skipCurrentUpdateVersion()" class="px-2.5 py-1.5 rounded-lg bg-transparent hover:bg-slate-800 text-slate-400 hover:text-slate-200 text-[11px] font-medium transition-colors cursor-pointer">
+            이 버전 건너뛰기
+          </button>
+          <div class="flex items-center gap-2">
+            <button type="button" onclick="closeUpdateModal()" class="px-3 py-1.5 rounded-lg bg-[#1C1C26] hover:bg-[#282837] text-zinc-300 text-[11px] font-medium transition-colors cursor-pointer">
+              나중에 알림
+            </button>
+            <button type="button" onclick="startUpdateDownload()" class="px-3.5 py-1.5 rounded-lg bg-[#00FFA3] hover:bg-[#00E591] text-black text-[11px] font-bold transition-all cursor-pointer shadow-sm">
+              <span id="btn-start-update-label">업데이트 설치</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2단계: 다운로드 진행 상태 뷰 (기본 숨김) -->
+      <div id="update-progress-view" class="space-y-2.5 hidden">
+        <div class="flex justify-between items-center text-xs">
+          <span id="update-status-text" class="text-slate-300 font-medium flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#00FFA3] animate-pulse"></span>
+            인스톨러 파일 수신 중...
+          </span>
+          <span id="update-percent-text" class="font-bold text-[#00FFA3]">0%</span>
+        </div>
+
+        <div class="w-full bg-[#181D26] h-2.5 rounded-full overflow-hidden border border-[#232D3F] p-0.5">
+          <div id="update-progress-bar" class="h-full bg-[#00FFA3] rounded-full transition-all duration-200" style="width: 0%;"></div>
+        </div>
+
+        <div class="flex justify-between items-center text-[10.5px] text-slate-400 pt-0.5">
+          <span id="update-size-detail">0.0 MB / 0.0 MB</span>
+          <span id="update-speed-detail">대기 중...</span>
+        </div>
+
+        <div id="update-notice-box" class="p-2.5 rounded-lg bg-[#161B22] border border-[#232D3F] text-[11px] text-slate-300 leading-relaxed hidden">
+          <p id="update-notice-msg"></p>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-2 border-t border-[#1E1E2A]">
+          <button type="button" id="btn-update-cancel" onclick="closeUpdateModal()" class="px-3 py-1.5 rounded-lg bg-[#1C1C26] hover:bg-[#282837] text-zinc-300 text-xs font-medium transition-colors cursor-pointer">
+            백그라운드에서 진행
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== [FEAT-06-06] 썸네일 이미지 관리 모달 (고대비 다크 테마) ===== -->
+  <div id="modal-thumbnail" class="fixed inset-0 bg-black/40 z-[9990] flex items-center justify-center p-3 hidden" onclick="if(event.target===this) closeThumbnailModal()">
+    <div class="bg-[#151D28] border-2 border-[#2E3F58] rounded-xl max-w-sm w-full p-3.5 shadow-[0_16px_50px_rgba(0,0,0,0.85)] space-y-3" onclick="event.stopPropagation()">
+      <!-- 모달 헤더 -->
+      <div class="flex items-center justify-between border-b border-[#243044] pb-2">
+        <div class="flex items-center gap-1.5">
+          <span class="text-sm">🖼️</span>
+          <span class="text-xs font-bold text-white">방송 썸네일 관리</span>
+        </div>
+        <button type="button" onclick="closeThumbnailModal()" class="w-6 h-6 rounded hover:bg-white/5 text-slate-400 hover:text-white flex items-center justify-center text-xs font-bold cursor-pointer">
+          ✕
+        </button>
+      </div>
+
+      <!-- 숨김 파일 인풋 (10종 확장자 지원) -->
+      <input type="file" id="thumbnail-file-input" class="hidden"
+             accept=".png,.pjp,.jfif,.jpe,.pjpeg,.jpeg,.jpg,.gif,.bmp,.webp,image/*"
+             onchange="handleThumbnailFileSelect(event)" />
+
+      <!-- 상단 컨트롤 라인: 비율 선택 (좌) + 이미지 변경 & 삭제 (우) -->
+      <div class="flex items-center justify-between gap-1">
+        <!-- 비율 선택 세그먼트 -->
+        <div class="flex items-center gap-1 bg-[#090D13] p-0.5 rounded-lg border border-[#243044]">
+          <button type="button" id="btn-crop-ratio-16-9" onclick="setCropAspectRatio('16:9')" class="px-2 py-0.5 rounded text-[10.5px] font-bold bg-[#1A2436] text-[#00FFA3] border border-[#00FFA3]/40 cursor-pointer transition-all">
+            16:9
+          </button>
+          <button type="button" id="btn-crop-ratio-1-1" onclick="setCropAspectRatio('1:1')" class="px-2 py-0.5 rounded text-[10.5px] font-medium text-slate-400 hover:text-white cursor-pointer transition-all border border-transparent">
+            1:1
+          </button>
+          <button type="button" id="btn-crop-ratio-free" onclick="setCropAspectRatio('free')" class="px-2 py-0.5 rounded text-[10.5px] font-medium text-slate-400 hover:text-white cursor-pointer transition-all border border-transparent">
+            자유
+          </button>
+        </div>
+
+        <!-- 우측 액션: 이미지 변경 / 삭제 -->
+        <div class="flex items-center gap-1">
+          <button type="button" onclick="triggerThumbnailFileInput()" class="px-2 py-0.5 rounded bg-[#161F2E] hover:bg-[#1E2738] border border-[#243044] hover:border-[#00FFA3]/50 text-slate-200 hover:text-white text-[10.5px] font-medium cursor-pointer transition-colors flex items-center gap-1" title="새 이미지 파일 선택">
+            <span>📁</span> <span>이미지 변경</span>
+          </button>
+          <button type="button" id="btn-thumbnail-delete" onclick="deleteCurrentThumbnail()" class="px-1.5 py-0.5 rounded bg-[#1F1418] hover:bg-rose-950/60 border border-rose-900/40 hover:border-rose-500/60 text-rose-300 text-[10.5px] font-medium cursor-pointer transition-colors hidden" title="썸네일 제거 (방송 화면으로 복원)">
+            <span>🗑️</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 크롭 스테이지: 단일 원본 이미지 + 박스 섀도우 마스크 오버레이 -->
+      <div class="w-full flex flex-col items-center justify-center bg-[#080A0D] rounded-lg p-2 border border-[#243044] gap-1.5">
+        <div id="thumb-stage-container" class="relative w-full h-[220px] rounded overflow-hidden bg-[#0A0D14] select-none block">
+          <!-- 등록된 이미지가 없을 때의 빈 상태 플레이스홀더 -->
+          <div id="thumb-empty-placeholder" onclick="triggerThumbnailFileInput()" class="flex flex-col items-center justify-center gap-1.5 p-4 text-center cursor-pointer hover:bg-[#161F2E]/40 transition-colors w-full h-full">
+            <span class="text-2xl text-slate-500">➕</span>
+            <div class="text-xs font-semibold text-slate-200">썸네일 이미지 등록</div>
+            <div class="text-[10px] text-slate-400">1280x720 권장 (클릭하여 파일 선택)</div>
+          </div>
+
+          <!-- 단 하나의 원본 이미지 (Fill 맞춤 및 상하/좌우 이동) -->
+          <img id="thumb-crop-img" src="" alt="크롭 대상" class="absolute left-0 top-0 pointer-events-none select-none max-w-none max-h-none origin-top-left hidden will-change-transform z-0" style="left:0px; top:0px;" />
+
+          <!-- 투명 크롭 뷰포트 오버레이 -->
+          <div id="thumb-crop-box" class="absolute left-0 top-0 border-2 border-[#00FFA3] rounded cursor-grab active:cursor-grabbing select-none shadow-[0_0_0_9999px_rgba(0,0,0,0.65)] flex-shrink-0 z-10 pointer-events-auto" style="display:none; left:0px; top:0px;">
+            <!-- 점선 가이드 격자 (잘리는 영역 및 3분할 가이드) -->
+            <div class="absolute inset-0 pointer-events-none border border-dashed border-[#00FFA3]/40">
+              <div class="absolute inset-x-0 top-1/3 border-b border-dashed border-[#00FFA3]/20"></div>
+              <div class="absolute inset-x-0 top-2/3 border-b border-dashed border-[#00FFA3]/20"></div>
+              <div class="absolute inset-y-0 left-1/3 border-r border-dashed border-[#00FFA3]/20"></div>
+              <div class="absolute inset-y-0 left-2/3 border-r border-dashed border-[#00FFA3]/20"></div>
+            </div>
+            <!-- 8방향 리사이즈 핸들 (자유 비율 모드 전용) -->
+            <div class="crop-handle crop-handle-nw" data-handle="nw"></div>
+            <div class="crop-handle crop-handle-ne" data-handle="ne"></div>
+            <div class="crop-handle crop-handle-sw" data-handle="sw"></div>
+            <div class="crop-handle crop-handle-se" data-handle="se"></div>
+            <div class="crop-handle crop-handle-n" data-handle="n"></div>
+            <div class="crop-handle crop-handle-s" data-handle="s"></div>
+            <div class="crop-handle crop-handle-w" data-handle="w"></div>
+            <div class="crop-handle crop-handle-e" data-handle="e"></div>
+          </div>
+        </div>
+
+        <!-- 하단 줌 및 위치 초기화 컨트롤 바 -->
+        <div id="thumb-crop-controls" class="flex items-center justify-between w-full px-1 text-[10.5px] text-slate-300">
+          <div class="flex items-center gap-1.5">
+            <span class="text-xs">🔍</span>
+            <span class="text-[10px] text-slate-400">줌:</span>
+            <input id="thumb-crop-zoom" type="range" min="1" max="3" step="0.05" value="1" oninput="onCropZoomSliderChange(this.value)" class="w-24 sm:w-32 accent-[#00FFA3] cursor-pointer" />
+            <span id="thumb-crop-zoom-label" class="font-mono text-[9.5px] text-[#00FFA3] w-8">1.0x</span>
+          </div>
+          <button type="button" onclick="resetCropFillPosition()" class="px-2 py-0.5 rounded bg-[#161F2E] hover:bg-[#1E2738] border border-[#243044] hover:border-[#00FFA3]/50 text-slate-300 hover:text-white text-[10px] cursor-pointer transition-colors" title="가운데 정렬 및 기본 배율로 복원">
+            중앙 정렬
+          </button>
+        </div>
+      </div>
+
+      <!-- 하단 액션 버튼 바 -->
+      <div class="flex items-center justify-end gap-1.5 pt-2 border-t border-[#243044]">
+        <button type="button" onclick="closeThumbnailModal()" class="px-3 py-1.5 rounded bg-[#1B2535] hover:bg-[#253247] text-slate-300 text-xs font-medium cursor-pointer transition-colors">
+          취소
+        </button>
+        <button type="button" id="btn-apply-crop" onclick="confirmThumbnailCrop()" class="px-3 py-1.5 rounded bg-emerald-500 hover:bg-emerald-400 text-[#080A0D] text-xs font-bold cursor-pointer transition-colors flex items-center gap-1">
+          <svg id="thumb-upload-spinner" class="animate-spin -ml-0.5 mr-1 h-3.5 w-3.5 text-black hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+          <span id="thumb-apply-text">적용</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ===== [FEAT-06-03] 방송 정보 프리셋 불러오기 & 관리 모달 (블러/불투명 없는 투명 배경) ===== -->
+  <div id="modal-preset-load" class="fixed inset-0 bg-black/25 z-[9990] flex items-center justify-center p-3 hidden" onclick="if(event.target===this) closePresetLoadModal()">
+    <div class="bg-[#151D28] border-2 border-[#2E3F58] rounded-xl max-w-sm w-full p-3.5 shadow-[0_16px_50px_rgba(0,0,0,0.85)] space-y-3" onclick="event.stopPropagation()">
+      <div class="flex items-center justify-between border-b border-[#243044] pb-2">
+        <div class="flex items-center gap-1.5">
+          <span class="text-sm">📥</span>
+          <span class="text-xs font-bold text-white">방송 프리셋 불러오기</span>
+          <span id="load-modal-slot-count" class="text-[9.5px] px-1.5 py-0.2 rounded bg-[#0D131B] text-slate-400 font-mono border border-[#243044]">
+            0 / 10
+          </span>
+        </div>
+        <button type="button" onclick="closePresetLoadModal()" class="w-6 h-6 rounded hover:bg-white/5 text-slate-400 hover:text-white flex items-center justify-center text-xs font-bold cursor-pointer">
+          ✕
+        </button>
+      </div>
+
+      <!-- 프리셋 목록 컨테이너 -->
+      <div id="preset-load-list" class="space-y-1.5 max-h-[300px] overflow-y-auto pr-0.5 no-scrollbar">
+        <!-- 동적 렌더링 -->
+      </div>
+
+      <!-- 하단 액션 버튼 바 -->
+      <div class="flex items-center justify-between pt-2 border-t border-[#243044]">
+        <button type="button" onclick="openPresetSaveModalFromLoad()" class="text-[10.5px] text-[#00FFA3] hover:underline flex items-center gap-1 cursor-pointer">
+          <span>➕</span> <span>현재 설정 새로 저장</span>
+        </button>
+        <button type="button" onclick="closePresetLoadModal()" class="px-3 py-1 rounded bg-[#1B2535] hover:bg-[#253247] text-slate-300 text-xs font-medium cursor-pointer transition-colors">
+          닫기
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== [FEAT-06-03] 방송 정보 프리셋 저장/덮어쓰기 모달 (블러/불투명 없는 투명 배경) ===== -->
+  <div id="modal-preset-save" class="fixed inset-0 bg-black/25 z-[9990] flex items-center justify-center p-3 hidden" onclick="if(event.target===this) closePresetSaveModal()">
+    <div class="bg-[#151D28] border-2 border-[#2E3F58] rounded-xl max-w-sm w-full p-3.5 shadow-[0_16px_50px_rgba(0,0,0,0.85)] space-y-3" onclick="event.stopPropagation()">
+      <div class="flex items-center justify-between border-b border-[#243044] pb-2">
+        <div class="flex items-center gap-1.5">
+          <span class="text-sm">💾</span>
+          <span class="text-xs font-bold text-white">방송 정보 프리셋 저장</span>
+          <span id="save-modal-slot-count" class="text-[9.5px] px-1.5 py-0.2 rounded bg-[#0D131B] text-slate-400 font-mono border border-[#243044]">
+            0 / 10
+          </span>
+        </div>
+        <button type="button" onclick="closePresetSaveModal()" class="w-6 h-6 rounded hover:bg-white/5 text-slate-400 hover:text-white flex items-center justify-center text-xs font-bold cursor-pointer">
+          ✕
+        </button>
+      </div>
+
+      <!-- 모드 전환 탭 (새로 저장 vs 기존 덮어쓰기) -->
+      <div class="grid grid-cols-2 gap-1 p-0.5 bg-[#0C1118] rounded-lg border border-[#243044]">
+        <button type="button" id="tab-btn-save-new" onclick="switchPresetSaveTab('new')" class="py-1 text-[11px] font-semibold rounded transition-all text-center bg-[#1B2535] text-[#00FFA3] shadow-sm cursor-pointer">
+          ➕ 새 프리셋 등록
+        </button>
+        <button type="button" id="tab-btn-save-overwrite" onclick="switchPresetSaveTab('overwrite')" class="py-1 text-[11px] font-semibold rounded transition-all text-center text-slate-400 hover:text-white cursor-pointer">
+          🔄 기존 덮어쓰기
+        </button>
+      </div>
+
+      <!-- 탭 1: 새 프리셋 등록 -->
+      <div id="tab-content-save-new" class="space-y-2">
+        <div class="space-y-0.5">
+          <div class="flex justify-between items-center text-[10.5px]">
+            <label class="font-semibold text-slate-200">프리셋 이름 <span class="text-[#00FFA3]">*</span></label>
+            <span id="save-new-name-counter" class="text-slate-400 font-mono text-[10px]">0 / 10자</span>
+          </div>
+          <input id="input-save-new-name" type="text" maxlength="10" placeholder="예: ☕ 저챗, ⚔️ 롤 솔랭, 🎮 종겜" 
+            oninput="validatePresetSaveNew()"
+            class="chzzk-input text-xs !py-1 !bg-[#0D131B] border-[#2E3F58] focus:border-[#00FFA3]" autocomplete="off" />
+        </div>
+
+        <!-- 현재 방송 설정 스냅샷 (왼쪽 박스 형태) -->
+        <div class="flex items-start gap-2 p-2 rounded-lg bg-[#00FFA3]/5 border border-[#00FFA3]/30 text-[10.5px]">
+          <div class="shrink-0 px-2 py-1 rounded bg-[#00FFA3]/20 border border-[#00FFA3]/40 text-[10px] font-bold text-[#00FFA3] text-center min-w-[58px]">
+            현재 설정
+          </div>
+          <div class="min-w-0 flex-1 space-y-0.5">
+            <div class="truncate text-white font-medium" id="save-preview-title">-</div>
+            <div class="text-[10px] text-slate-400 truncate flex items-center gap-1">
+              <span class="text-slate-500">카테고리:</span>
+              <span id="save-preview-cat" class="text-[#00FFA3] font-medium">-</span>
+            </div>
+            <div class="flex items-center gap-1 flex-wrap text-[10px] text-slate-400">
+              <span class="text-slate-500 shrink-0">태그:</span>
+              <div id="save-preview-tags" class="flex items-center gap-1 flex-wrap"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 탭 2: 기존 프리셋 덮어쓰기 -->
+      <div id="tab-content-save-overwrite" class="space-y-2 hidden">
+        <div class="space-y-0.5">
+          <label class="font-semibold text-slate-200 text-[10.5px]">덮어쓸 대상 프리셋 선택 <span class="text-[#00FFA3]">*</span></label>
+          <select id="select-preset-overwrite" class="chzzk-select text-xs !bg-[#0D131B] border-[#2E3F58]" onchange="onSelectOverwritePreset(this.value)">
+            <!-- 동적 옵션 렌더링 -->
+          </select>
+        </div>
+
+        <!-- 비교 영역: 기존 설정 vs 현재 설정 -->
+        <div id="overwrite-comparison-section" class="space-y-1.5 pt-0.5">
+          <!-- 1. 기존 설정 -->
+          <div class="flex items-start gap-2 p-2 rounded-lg bg-[#0D131B] border border-[#243044] text-[10.5px]">
+            <div class="shrink-0 px-2 py-1 rounded bg-[#1B2535] border border-[#2E3F58] text-[10px] font-bold text-slate-300 text-center min-w-[58px]">
+              기존 설정
+            </div>
+            <div class="min-w-0 flex-1 space-y-0.5">
+              <div class="truncate text-slate-200 font-medium" id="ow-prev-title">-</div>
+              <div class="text-[10px] text-slate-400 truncate flex items-center gap-1">
+                <span class="text-slate-500">카테고리:</span>
+                <span id="ow-prev-cat" class="text-slate-300">-</span>
+              </div>
+              <div class="text-[10px] text-slate-400 truncate flex items-center gap-1">
+                <span class="text-slate-500">태그:</span>
+                <span id="ow-prev-tags" class="text-slate-400">-</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 연결 인디케이터 -->
+          <div class="flex items-center justify-center gap-1 text-[10px] text-slate-400 font-medium py-0.5">
+            <span class="text-[#00FFA3]">▼</span>
+            <span>현재 설정으로 덮어씁니다</span>
+            <span class="text-[#00FFA3]">▼</span>
+          </div>
+
+          <!-- 2. 현재 설정 -->
+          <div class="flex items-start gap-2 p-2 rounded-lg bg-[#00FFA3]/5 border border-[#00FFA3]/30 text-[10.5px]">
+            <div class="shrink-0 px-2 py-1 rounded bg-[#00FFA3]/20 border border-[#00FFA3]/40 text-[10px] font-bold text-[#00FFA3] text-center min-w-[58px]">
+              현재 설정
+            </div>
+            <div class="min-w-0 flex-1 space-y-0.5">
+              <div class="truncate text-white font-medium" id="ow-curr-title">-</div>
+              <div class="text-[10px] text-slate-400 truncate flex items-center gap-1">
+                <span class="text-slate-500">카테고리:</span>
+                <span id="ow-curr-cat" class="text-[#00FFA3] font-medium">-</span>
+              </div>
+              <div class="text-[10px] text-slate-400 truncate flex items-center gap-1">
+                <span class="text-slate-500">태그:</span>
+                <span id="ow-curr-tags" class="text-slate-300">-</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 경고 / 유효성 메시지 -->
+      <div id="save-preset-validation-msg" class="hidden text-[10px] text-amber-300 bg-amber-950/40 border border-amber-500/30 rounded px-2 py-1 flex items-center gap-1">
+        <span>⚠️</span> <span id="save-preset-validation-text">프리셋 이름을 입력해 주세요.</span>
+      </div>
+
+      <!-- 하단 액션 버튼 -->
+      <div class="flex items-center justify-end gap-1.5 pt-1 border-t border-[#243044]">
+        <button type="button" onclick="closePresetSaveModal()" class="px-2.5 py-1 rounded bg-[#1B2535] hover:bg-[#253247] text-slate-300 text-xs font-medium cursor-pointer transition-colors">
+          취소
+        </button>
+        <button type="button" id="btn-confirm-save-action" onclick="executePresetSaveAction()" class="px-3.5 py-1 rounded bg-[#00FFA3] hover:bg-[#00E591] text-black text-xs font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer">
+          저장하기
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 공통 비동기 팝업/확인 모달 (Unified Modal System) ===== -->
+  <div id="modal-custom-confirm" class="fixed inset-0 bg-black/25 z-[9999] flex items-center justify-center p-3 hidden" onclick="if(event.target===this) window.__resolveConfirmModal(false)">
+    <div class="bg-[#151D28] border-2 border-[#2E3F58] rounded-xl max-w-sm w-full p-4 shadow-[0_16px_50px_rgba(0,0,0,0.85)] space-y-3.5" onclick="event.stopPropagation()">
+      <div class="flex items-center justify-between border-b border-[#1E1E2A] pb-2.5">
+        <div class="flex items-center gap-2">
+          <span id="confirm-modal-icon" class="text-base">⚠️</span>
+          <span id="confirm-modal-title" class="text-xs font-bold text-white">확인</span>
+        </div>
+        <button type="button" onclick="window.__resolveConfirmModal(false)" class="w-6 h-6 rounded-md hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center text-sm font-bold cursor-pointer">
+          ✕
+        </button>
+      </div>
+
+      <div class="text-xs text-slate-300 leading-relaxed space-y-1">
+        <p id="confirm-modal-message" class="text-[11.5px] text-slate-200 whitespace-pre-line"></p>
+        <p id="confirm-modal-submessage" class="text-[10.5px] text-slate-400 whitespace-pre-line hidden"></p>
+        <div id="confirm-modal-custom-content" class="hidden"></div>
+      </div>
+
+      <div id="confirm-modal-buttons" class="flex items-center justify-end gap-2 pt-2 border-t border-[#1E1E2A]">
+        <button type="button" id="confirm-modal-cancel" onclick="window.__resolveConfirmModal(false)" class="px-3 py-1.5 rounded-lg bg-[#1C1C26] hover:bg-[#282837] text-zinc-300 text-xs font-medium transition-colors cursor-pointer">
+          취소
+        </button>
+        <button type="button" id="confirm-modal-ok" onclick="window.__resolveConfirmModal(true)" class="px-3.5 py-1.5 rounded-lg bg-[#00FFA3] hover:bg-[#00E591] text-black text-xs font-bold transition-all cursor-pointer">
+          확인
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== [같이보기 모달 3] 📣 응원 전광판 설정 모달 ===== -->
+  <div id="modal-donation-board" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-3 hidden" onclick="if(event.target===this) closeDonationBoardModal()">
+    <div class="bg-[#0B0F15] border border-[#1E2738] rounded-xl max-w-sm w-full p-4 shadow-2xl space-y-3" onclick="event.stopPropagation()">
+      <div class="flex items-center justify-between border-b border-[#1E2738] pb-2">
+        <div class="flex items-center gap-1.5">
+          <span class="text-sm">📣</span>
+          <span class="text-xs font-bold text-slate-100">응원 전광판 설정</span>
+        </div>
+        <button type="button" onclick="closeDonationBoardModal()" class="w-6 h-6 rounded-md hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center text-sm font-bold cursor-pointer">✕</button>
+      </div>
+      <p class="text-[11px] text-slate-400 leading-normal">
+        우리 채널만의 응원 메시지를 설정하고 시청자들의 후원으로 응원 화력을 키워보세요!
+      </p>
+      <!-- 전광판 미리보기 배너 -->
+      <div class="rounded-lg bg-[#141517] border border-[#2b2d35] p-2.5 text-center shadow-inner">
+        <div class="text-[9.5px] text-slate-500 font-mono mb-1">전광판 미리보기</div>
+        <div id="preview-board-banner" class="text-xs font-bold text-slate-300 tracking-wide break-all min-h-[18px]">원하는 대로 전광판 메시지를 입력해보세요!</div>
+      </div>
+      <!-- 입력창 -->
+      <div class="space-y-1">
+        <input id="input-board-message" type="text" maxlength="25" oninput="onBoardMessageInput(this.value)" class="w-full bg-[#0E1522] border border-[#1E2738] focus:border-[#5C3BFF] rounded-lg px-2.5 py-1.5 text-xs text-white outline-none" placeholder="전광판 노출 메시지 입력 (최대 25자)" />
+        <div class="flex justify-between items-center text-[10px] text-slate-500">
+          <span>공백·특수문자 포함 최대 25자</span>
+          <span id="count-board-message" class="font-mono text-slate-400">0/25</span>
+        </div>
+      </div>
+      <!-- 프리셋 버튼들 -->
+      <div class="space-y-1">
+        <div class="text-[10px] font-semibold text-slate-400">추천 프리셋 문구:</div>
+        <div id="board-preset-chips" class="flex flex-wrap gap-1 max-h-24 overflow-y-auto"></div>
+      </div>
+      <p class="text-[10px] text-slate-500 pt-0.5">• 전광판 문구는 방송 설정(카테고리/옵션 등)과 함께 치지직 서버에 저장됩니다.</p>
+      <div class="flex items-center gap-2 pt-1">
+        <button type="button" onclick="closeDonationBoardModal()" class="flex-1 py-1.5 rounded-lg bg-[#161F2E] hover:bg-[#1E2738] text-slate-300 hover:text-white text-xs font-bold cursor-pointer transition-colors border border-[#1E2738]">
+          확인 (폼 반영)
+        </button>
+        <button type="button" onclick="saveDonationBoardNow()" class="flex-1 py-1.5 rounded-lg bg-[#5C3BFF] hover:bg-[#7B5FFF] text-white text-xs font-bold cursor-pointer transition-colors shadow-md flex items-center justify-center gap-1">
+          <span>💾</span> 즉시 저장
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== [개별 모달 1] 💬 채팅 후원 세부 설정 ===== -->
+  <div id="modal-dsetting-chat" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-[9999] flex items-center justify-center p-2.5 hidden" onclick="if(event.target===this) closeDonationModal('chat')">
+    <div class="bg-[#0B0F15] border border-[#1E2738] rounded-xl max-w-md w-full shadow-2xl overflow-hidden" onclick="event.stopPropagation()">
+      <div class="px-3.5 py-2.5 border-b border-[#1E2738] flex items-center justify-between bg-[#0D1219]">
+        <div class="flex items-center gap-2">
+          <span class="text-sm">💬</span>
+          <span class="text-xs font-bold text-slate-100">채팅 후원 세부 설정</span>
+        </div>
+        <button type="button" onclick="closeDonationModal('chat')" class="w-6 h-6 rounded-md hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center text-sm font-bold">✕</button>
+      </div>
+      <div class="p-3.5 space-y-3.5 text-xs text-slate-300">
+        <!-- 후원 조건 설정 (최소 후원 가능 금액) -->
+        <div class="p-2.5 rounded-lg bg-[#090D13] border border-[#1A2333] space-y-2">
+          <div class="font-bold text-slate-200">후원 조건 설정</div>
+          <div class="flex items-center gap-2">
+            <span class="text-[11px] text-slate-400">최소 후원 가능 금액</span>
+            <input type="text" inputmode="numeric" id="dsetting-chat-min-amount" oninput="formatAmountInput(this)" class="w-28 bg-[#161F2E] border border-[#1E2738] rounded px-2 py-1 text-right font-mono font-bold text-white focus:border-[#00FFA3] outline-none" placeholder="1,000" />
+            <span class="text-[11px] text-slate-300">이상</span>
+            <button type="button" onclick="saveChatDonationCondition()" class="ml-auto px-3 py-1 rounded bg-[#5C3BFF] hover:bg-[#6E50FF] text-white font-bold text-[11px] transition-colors cursor-pointer">저장</button>
+          </div>
+          <div class="text-[10px] text-slate-400">• 설정한 금액부터 채팅 후원이 가능합니다. (최소 1,000 치즈)</div>
+        </div>
+        <!-- 기본 설정 -->
+        <div class="p-2.5 rounded-lg bg-[#090D13] border border-[#1A2333] space-y-3">
+          <div class="font-bold text-slate-200">기본 설정</div>
+          <div class="flex items-center justify-between pt-1 border-t border-[#1A2333]">
+            <div>
+              <div class="text-slate-200 font-medium">후원 노출 금액 설정</div>
+              <div class="text-[10px] text-slate-400">설정한 금액 이상 후원 시 채팅창에 후원 금액을 노출합니다.</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="dsetting-chat-exposure" onchange="toggleChatExposure(this.checked)">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="flex items-center justify-between pt-2 border-t border-[#1A2333]">
+            <div>
+              <div class="text-slate-200 font-medium">고액 후원 봉투 허용</div>
+              <div class="text-[10px] text-slate-400">고액 후원 시 방송 화면에 특별한 봉투 애니메이션을 노출합니다.</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="dsetting-chat-envelope" onchange="toggleEnvelope(this.checked)">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== [개별 모달 2] 🎬 영상 후원 세부 설정 ===== -->
+  <div id="modal-dsetting-video" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-[9999] flex items-center justify-center p-2.5 hidden" onclick="if(event.target===this) closeDonationModal('video')">
+    <div class="bg-[#0B0F15] border border-[#1E2738] rounded-xl max-w-md w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden" onclick="event.stopPropagation()">
+      <div class="px-3.5 py-2.5 border-b border-[#1E2738] flex items-center justify-between bg-[#0D1219]">
+        <div class="flex items-center gap-2">
+          <span class="text-sm">🎬</span>
+          <span class="text-xs font-bold text-slate-100">영상(영도) 후원 세부 설정</span>
+        </div>
+        <button type="button" onclick="closeDonationModal('video')" class="w-6 h-6 rounded-md hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center text-sm font-bold">✕</button>
+      </div>
+      <div class="p-3.5 space-y-3 overflow-y-auto text-xs text-slate-300">
+        <!-- 재생 조건 설정 -->
+        <div class="p-2.5 rounded-lg bg-[#090D13] border border-[#1A2333] space-y-2.5">
+          <div class="font-bold text-slate-200">재생 조건 설정</div>
+          <div class="grid grid-cols-2 gap-2 text-[11px]">
+            <div>
+              <label class="text-slate-400 block mb-1">최소 후원 치즈</label>
+              <div class="flex items-center gap-1">
+                <input type="text" inputmode="numeric" id="dsetting-video-min-cheese" oninput="formatAmountInput(this)" class="w-full bg-[#161F2E] border border-[#1E2738] rounded px-2 py-1 text-right font-mono font-bold text-white focus:border-[#00FFA3] outline-none" placeholder="1,000" />
+                <span class="text-slate-400">치즈</span>
+              </div>
+            </div>
+            <div>
+              <label class="text-slate-400 block mb-1">1초당 결제 치즈</label>
+              <div class="flex items-center gap-1">
+                <input type="number" id="dsetting-video-sec-cheese" min="1" class="w-full bg-[#161F2E] border border-[#1E2738] rounded px-2 py-1 text-right font-mono font-bold text-white focus:border-[#00FFA3] outline-none" placeholder="30" />
+                <span class="text-slate-400">치즈</span>
+              </div>
+            </div>
+          </div>
+          <div class="pt-1">
+            <label class="text-[11px] text-slate-400 block mb-1">최대 재생 가능 시간</label>
+            <div class="flex items-center gap-2">
+              <input type="number" id="dsetting-video-max-duration" min="1" max="600" class="w-24 bg-[#161F2E] border border-[#1E2738] rounded px-2 py-1 text-right font-mono font-bold text-white focus:border-[#00FFA3] outline-none" placeholder="60" />
+              <span class="text-[11px] text-slate-300">초 (최대 600초)</span>
+            </div>
+          </div>
+        </div>
+        <!-- 기본 설정 -->
+        <div class="p-2.5 rounded-lg bg-[#090D13] border border-[#1A2333] space-y-2">
+          <div class="font-bold text-slate-200">기본 설정</div>
+          <div class="flex items-center justify-between text-[11px]">
+            <span class="text-slate-300">영상 자동 재생</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="dsetting-video-autoplay">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="flex items-center justify-between text-[11px] pt-1 border-t border-[#1A2333]">
+            <span class="text-slate-300">영상 제목 노출</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="dsetting-video-title">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+        <!-- 스팸 영상 필터 -->
+        <div class="p-2.5 rounded-lg bg-[#090D13] border border-[#1A2333] space-y-2">
+          <div class="flex items-center justify-between">
+            <div class="font-bold text-slate-200">스팸 영상 필터</div>
+            <span id="dsetting-spam-level-label" class="font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-[#161F2E] text-[#00FFA3] border border-[#00FFA3]/30">0레벨</span>
+          </div>
+          <input type="range" id="dsetting-video-spam" min="0" max="3" value="0" oninput="updateSpamFilterUI(this.value)" class="w-full accent-[#00FFA3] cursor-pointer h-1.5 bg-[#1E2738] rounded-lg" />
+          <div class="flex justify-between text-[9px] text-slate-500 px-0.5 font-mono">
+            <span>0(해제)</span><span>1(낮음)</span><span>2(중간)</span><span>3(높음)</span>
+          </div>
+          <div class="p-1.5 rounded bg-[#161F2E]/60 border border-[#1E2738] text-[10px] text-slate-300">
+            <span id="dsetting-spam-desc-text" class="font-medium text-emerald-400">제한없음 (모든 유튜브 영상 가능)</span>
+          </div>
+        </div>
+        <div class="pt-1 flex justify-end">
+          <button type="button" onclick="saveVideoDonationSetting()" class="px-4 py-1.5 rounded bg-[#5C3BFF] hover:bg-[#6E50FF] text-white font-bold text-xs transition-colors cursor-pointer">영상 후원 설정 저장</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== [개별 모달 3] 🎯 미션 후원 세부 설정 ===== -->
+  <div id="modal-dsetting-mission" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-[9999] flex items-center justify-center p-2.5 hidden" onclick="if(event.target===this) closeDonationModal('mission')">
+    <div class="bg-[#0B0F15] border border-[#1E2738] rounded-xl max-w-md w-full shadow-2xl overflow-hidden" onclick="event.stopPropagation()">
+      <div class="px-3.5 py-2.5 border-b border-[#1E2738] flex items-center justify-between bg-[#0D1219]">
+        <div class="flex items-center gap-2">
+          <span class="text-sm">🎯</span>
+          <span class="text-xs font-bold text-slate-100">미션 후원 세부 설정</span>
+        </div>
+        <button type="button" onclick="closeDonationModal('mission')" class="w-6 h-6 rounded-md hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center text-sm font-bold">✕</button>
+      </div>
+      <div class="p-3.5 space-y-3.5 text-xs text-slate-300">
+        <!-- 사용 여부 설정 -->
+        <div class="p-2.5 rounded-lg bg-[#090D13] border border-[#1A2333] space-y-1.5">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-slate-200">사용 여부 설정</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="dsetting-mission-active">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <p class="text-[10.5px] text-slate-400">• 설정을 끄면 미션 후원을 받을 수 없습니다.</p>
+        </div>
+
+        <!-- 후원 조건 설정 -->
+        <div class="p-2.5 rounded-lg bg-[#090D13] border border-[#1A2333] space-y-2">
+          <div class="font-bold text-slate-200">후원 조건 설정</div>
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] text-slate-400">최소 후원 가능 금액</span>
+            <div class="flex items-center gap-1">
+              <input type="text" inputmode="numeric" id="dsetting-mission-min-amount" oninput="formatAmountInput(this)" class="w-24 bg-[#161F2E] border border-[#1E2738] rounded px-2 py-0.5 text-right font-mono font-bold text-white focus:border-[#00FFA3] outline-none" placeholder="1,000" />
+              <span class="text-[11px] text-slate-300">이상</span>
+            </div>
+          </div>
+          <div class="flex items-center justify-between pt-2 border-t border-[#1A2333]">
+            <span class="text-[11px] text-slate-400">미션 실패 시 응원 전환 비율</span>
+            <div class="flex items-center gap-1">
+              <input type="number" id="dsetting-mission-fail-rate" min="10" max="90" step="5" class="w-20 bg-[#161F2E] border border-[#1E2738] rounded px-2 py-0.5 text-right font-mono font-bold text-white focus:border-[#00FFA3] outline-none" placeholder="10" />
+              <span class="text-[11px] text-slate-300">%</span>
+            </div>
+          </div>
+          <div class="pt-1.5 border-t border-[#1A2333]/60 space-y-0.5 text-[10.5px] text-slate-400">
+            <p>• 미션에 실패할 경우 받을 수 있는 응원금입니다 (10%~90%).</p>
+            <p>• 응원금이 1,000치즈 미만일 경우 최소 금액인 1,000치즈를 받습니다.</p>
+          </div>
+        </div>
+
+        <!-- 기본 설정 -->
+        <div class="p-2.5 rounded-lg bg-[#090D13] border border-[#1A2333] space-y-1.5">
+          <div class="flex items-center justify-between text-[11px]">
+            <span class="font-bold text-slate-200">후원 금액 표시 여부 설정</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="dsetting-mission-exposure">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="space-y-0.5 text-[10.5px] text-slate-400">
+            <p>• OFF 설정 시 채팅창 내에 표시되는 미션 후원내역에 금액이 표시되지 않습니다.</p>
+            <p>• 후원 알림 오버레이 및 스튜디오 내에서는 금액을 확인하실 수 있습니다.</p>
+          </div>
+        </div>
+        <div class="pt-1 flex justify-end">
+          <button type="button" onclick="saveMissionDonationSetting()" class="px-4 py-1.5 rounded bg-[#5C3BFF] hover:bg-[#6E50FF] text-white font-bold text-xs transition-colors cursor-pointer">미션 후원 설정 저장</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== [개별 모달 4] ⭐ 구독 알림 세부 설정 ===== -->
+  <div id="modal-dsetting-sub" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-[9999] flex items-center justify-center p-2.5 hidden" onclick="if(event.target===this) closeDonationModal('sub')">
+    <div class="bg-[#0B0F15] border border-[#1E2738] rounded-xl max-w-md w-full shadow-2xl overflow-hidden" onclick="event.stopPropagation()">
+      <div class="px-3.5 py-2.5 border-b border-[#1E2738] flex items-center justify-between bg-[#0D1219]">
+        <div class="flex items-center gap-2">
+          <span class="text-sm">⭐</span>
+          <span class="text-xs font-bold text-slate-100">구독 알림 세부 설정</span>
+        </div>
+        <button type="button" onclick="closeDonationModal('sub')" class="w-6 h-6 rounded-md hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center text-sm font-bold">✕</button>
+      </div>
+      <div class="p-3.5 space-y-3.5 text-xs text-slate-300">
+        <!-- 알림 사운드 볼륨 -->
+        <div class="p-2.5 rounded-lg bg-[#090D13] border border-[#1A2333] space-y-2">
+          <div class="flex items-center justify-between">
+            <div class="font-bold text-slate-200">알림 효과음 볼륨</div>
+            <span id="dsetting-sub-alert-vol-label" class="font-mono text-[11px] font-bold text-[#5C3BFF]">70%</span>
+          </div>
+          <input type="range" id="dsetting-sub-alert-vol" min="0" max="100" value="70" oninput="document.getElementById('dsetting-sub-alert-vol-label').textContent=this.value+'%'" class="w-full accent-[#5C3BFF] cursor-pointer h-1.5 bg-[#1E2738] rounded-lg" />
+        </div>
+        <!-- TTS 설정 -->
+        <div class="p-2.5 rounded-lg bg-[#090D13] border border-[#1A2333] space-y-2.5">
+          <div class="flex items-center justify-between">
+            <div class="font-bold text-slate-200">TTS 음성 읽기</div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="dsetting-sub-tts-active">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-[11px] text-slate-400">TTS 음량</span>
+              <span id="dsetting-sub-tts-vol-label" class="font-mono text-[11px] font-bold text-[#5C3BFF]">70%</span>
+            </div>
+            <input type="range" id="dsetting-sub-tts-vol" min="0" max="100" value="70" oninput="document.getElementById('dsetting-sub-tts-vol-label').textContent=this.value+'%'" class="w-full accent-[#5C3BFF] cursor-pointer h-1.5 bg-[#1E2738] rounded-lg" />
+          </div>
+        </div>
+        <div class="pt-1 flex justify-end">
+          <button type="button" onclick="saveSubscriptionSetting()" class="px-4 py-1.5 rounded bg-[#5C3BFF] hover:bg-[#6E50FF] text-white font-bold text-xs transition-colors cursor-pointer">구독 알림 설정 저장</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Floating Toast Container -->
+  <div id="toast-container"></div>
+
+  <!-- Scripts: Clean Zero-Bundler Native Load -->
+  <script src="/ui/shared/api.js"></script>
+  <script src="/ui/shared/core.js"></script>
+  <script src="/ui/main-dock/js/settings.js"></script>
+  <script src="/ui/main-dock/js/moderation.js"></script>
+  <script src="/ui/main-dock/js/broadcast.js"></script>
+</div>
+</body>
+</html>

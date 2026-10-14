@@ -1,0 +1,362 @@
+/* ============================================================
+   CHZZK OBS Dock - Shared Design Tokens & Base Theme
+   ui/shared/theme.css
+   ============================================================ */
+
+/* 전역 스크롤바 */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #1E2636 transparent;
+}
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #243044;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #00FFA3;
+}
+
+/* 기본 HTML / Body 뷰포트 레이아웃 */
+html {
+  background: #080A0D;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden !important; /* 브라우저/OBS 루트 뷰포트의 중복 스크롤바 원천 차단 */
+}
+body {
+  background: #080A0D;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  overflow-y: auto; /* 본문 단일 스크롤 */
+}
+body.panel-open {
+  overflow-y: hidden !important; /* 설정/후원/URL 패널 활성화 시 body 배경 스크롤 차단 -> 패널 단일 스크롤 */
+}
+#dock-wrapper {
+  position: relative;
+  width: 100%;
+  min-height: 100%;
+  background: #080A0D;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+/* ===== Bulletproof Standard Toggle Switch ===== */
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 38px;
+  height: 20px;
+  flex-shrink: 0;
+  cursor: pointer;
+  vertical-align: middle;
+  user-select: none;
+  margin: 0;
+}
+.toggle-switch input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  margin: 0;
+  padding: 0;
+  pointer-events: none;
+}
+.toggle-slider {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background-color: #1E2738;
+  border: 1.5px solid #2D3A4F;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-sizing: border-box;
+}
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  top: 1.5px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background-color: #94A3B8;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+.toggle-switch:hover .toggle-slider {
+  border-color: #3E4F6B;
+}
+.toggle-switch input:checked + .toggle-slider {
+  background-color: #00FFA3;
+  border-color: #00FFA3;
+  box-shadow: 0 0 10px rgba(0, 255, 163, 0.45);
+}
+.toggle-switch input:checked + .toggle-slider::before {
+  transform: translateX(17px);
+  background-color: #080A0D;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+.toggle-switch input:disabled + .toggle-slider {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* Custom Checkbox (+2px scale: 17x17) */
+.chzzk-checkbox-input {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 17px;
+  height: 17px;
+  border-radius: 4px;
+  background: #0B0F15;
+  border: 1.5px solid #243044;
+  outline: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  position: relative;
+  flex-shrink: 0;
+  display: inline-grid;
+  place-content: center;
+  margin: 0;
+  vertical-align: middle;
+}
+.chzzk-checkbox-input:hover {
+  border-color: #00FFA3;
+  background: #101620;
+}
+.chzzk-checkbox-input:checked {
+  background: #00FFA3;
+  border-color: #00FFA3;
+  box-shadow: 0 0 8px rgba(0, 255, 163, 0.4);
+}
+.chzzk-checkbox-input:checked::before {
+  content: "";
+  width: 4.5px;
+  height: 8.5px;
+  border: solid #080A0D;
+  border-width: 0 2.2px 2.2px 0;
+  transform: rotate(45deg) translate(-0.5px, -1px);
+}
+
+/* 잠긴 체크박스 시각적 On/Off 명확화 */
+.chzzk-checkbox-input:disabled {
+  cursor: not-allowed !important;
+}
+.chzzk-checkbox-input:disabled:not(:checked) {
+  background: #080C12 !important;
+  border-color: #1F2837 !important;
+  opacity: 0.35 !important;
+  box-shadow: none !important;
+}
+.chzzk-checkbox-input:disabled:checked {
+  background: #D97706 !important;
+  border-color: #F59E0B !important;
+  box-shadow: 0 0 6px rgba(245, 158, 11, 0.35) !important;
+  opacity: 0.9 !important;
+}
+.chzzk-checkbox-input:disabled:checked::before {
+  border-color: #FFFFFF !important;
+}
+
+/* Custom Radio (+2px scale: 16x16) */
+.chzzk-radio {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #0B0F15;
+  border: 1.5px solid #243044;
+  outline: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  position: relative;
+  flex-shrink: 0;
+  display: inline-grid;
+  place-content: center;
+  margin: 0;
+  vertical-align: middle;
+}
+.chzzk-radio:hover {
+  border-color: #00FFA3;
+  background: #101620;
+}
+.chzzk-radio:checked {
+  border-color: #00FFA3;
+  background: #0B0F15;
+  box-shadow: 0 0 8px rgba(0, 255, 163, 0.35);
+}
+.chzzk-radio:checked::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #00FFA3;
+}
+.chzzk-radio:disabled:not(:checked) {
+  opacity: 0.25 !important;
+  border-color: #1E2738 !important;
+  cursor: not-allowed !important;
+}
+.chzzk-radio:disabled:checked {
+  opacity: 0.95 !important;
+  border-color: #00FFA3 !important;
+  cursor: not-allowed !important;
+}
+
+/* 기본 입력 & 셀렉트 폼 컨트롤 */
+.chzzk-input {
+  background: #0B0F15;
+  border: 1px solid #1E2738;
+  border-radius: 6px;
+  color: #F1F5F9;
+  font-size: 12px;
+  height: 28px;
+  line-height: 26px;
+  padding: 0 8px;
+  width: 100%;
+  box-sizing: border-box;
+  transition: all 0.2s;
+  outline: none;
+}
+.chzzk-input:focus {
+  border-color: #00FFA3;
+  box-shadow: 0 0 0 2px rgba(0, 255, 163, 0.15);
+  background: #0E131A;
+}
+.chzzk-input::placeholder {
+  color: #5A6577;
+}
+
+.chzzk-select {
+  background: #0B0F15;
+  border: 1px solid #1E2738;
+  border-radius: 6px;
+  color: #F1F5F9;
+  font-size: 12px;
+  height: 28px;
+  line-height: 26px;
+  padding: 0 24px 0 8px;
+  width: 100%;
+  box-sizing: border-box;
+  transition: all 0.2s;
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' fill='%235A6577' viewBox='0 0 16 16'%3E%3Cpath d='M8 11.5l-5-5h10l-5 5z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+}
+.chzzk-select:focus {
+  border-color: #00FFA3;
+}
+
+/* 숫자 입력창 스핀 버튼 제거 */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type=number] {
+  -moz-appearance: textfield;
+}
+
+/* 크롬/엣지 브라우저 저장된 정보(autofill) 선택 시 흰색 배경 변색 방지 */
+input:-webkit-autofill,
+input:-webkit-autofill:hover, 
+input:-webkit-autofill:focus, 
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #121721 inset !important;
+  -webkit-text-fill-color: #E2E8F0 !important;
+  caret-color: #00FFA3 !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+/* 플로팅 토스트 알림 컨테이너 (하단 고정 및 모달보다 최상단에 뜨도록 z-index 99999 부여) */
+#toast-container {
+  position: fixed;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 99999;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 6px;
+  align-items: center;
+  pointer-events: none;
+  width: 92%;
+  max-width: 320px;
+}
+.toast {
+  pointer-events: auto;
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 11.5px;
+  font-weight: 500;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  animation: toastIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.35;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7);
+  cursor: pointer;
+}
+.toast.success { background: rgba(14, 25, 22, 0.96); color: #00FFA3; border: 1px solid rgba(0, 255, 163, 0.35); }
+.toast.error   { background: rgba(28, 16, 20, 0.96); color: #FF4D6A; border: 1px solid rgba(255, 77, 106, 0.35); }
+.toast.warn    { background: rgba(28, 24, 16, 0.96); color: #FFB84D; border: 1px solid rgba(255, 184, 77, 0.35); }
+.toast.info    { background: rgba(16, 22, 30, 0.96); color: #60A5FA; border: 1px solid rgba(96, 165, 250, 0.35); }
+.toast.removing { animation: toastOut 0.25s ease-in forwards; pointer-events: none; }
+
+@keyframes toastIn {
+  0% { opacity: 0; transform: translateY(10px) scale(0.96); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes toastOut {
+  0% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(10px) scale(0.96); }
+}
+
+/* 공통 애니메이션 및 피드백 */
+@keyframes pulsePop {
+  0% { transform: scale(0.98); background-color: rgba(0, 255, 163, 0.18); }
+  100% { transform: scale(1); background-color: transparent; }
+}
+.pulse-feedback { animation: pulsePop 0.35s ease-out; }
+
+@keyframes tabPaneFade {
+  0% { opacity: 0; transform: translateY(4px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+.tab-pane-animate {
+  animation: tabPaneFade 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes liveSoftGlow {
+  0%, 100% {
+    box-shadow: 0 0 4px rgba(0, 255, 163, 0.15);
+    border-color: rgba(0, 255, 163, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 8px rgba(0, 255, 163, 0.3);
+    border-color: rgba(0, 255, 163, 0.55);
+  }
+}
+.live-soft-glow {
+  animation: liveSoftGlow 2.5s infinite ease-in-out !important;
+}

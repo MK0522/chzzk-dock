@@ -190,10 +190,11 @@ func applyDarkTheme(hwnd uintptr) {
 // -----------------------------------------------------------------------------
 
 type DockWindowState struct {
-	X      int `json:"x"`
-	Y      int `json:"y"`
-	Width  int `json:"width"`
-	Height int `json:"height"`
+	X       int  `json:"x"`
+	Y       int  `json:"y"`
+	Width   int  `json:"width"`
+	Height  int  `json:"height"`
+	Topmost bool `json:"topmost"`
 }
 
 type MINMAXINFO struct {
@@ -204,10 +205,13 @@ type MINMAXINFO struct {
 	PtMaxTrackSize POINT
 }
 
+const IDM_DOCK_TOPMOST = 0x1002
+
 var (
 	activeDockChromium *edge.Chromium
 	dockHwnd           uintptr
 	dockRegisteredMsg  uint32
+	toggleDockTopmost  func()
 )
 
 // GetShowDockMessageId: 전역 고유 등록 윈도우 메시지 ID 조회 (RegisterWindowMessageW)
@@ -272,11 +276,18 @@ func captureDockWindowState(hwnd uintptr) DockWindowState {
 		h = 850
 	}
 
+	curTopmost := false
+	if dockHwnd != 0 {
+		st := loadDockWindowState()
+		curTopmost = st.Topmost
+	}
+
 	return DockWindowState{
-		X:      x,
-		Y:      y,
-		Width:  w,
-		Height: h,
+		X:       x,
+		Y:       y,
+		Width:   w,
+		Height:  h,
+		Topmost: curTopmost,
 	}
 }
 
@@ -290,7 +301,8 @@ func dockWndProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintpt
 			activeDockChromium.Resize()
 			activeDockChromium.Focus()
 		}
-		ForceForegroundWindow(uintptr(hwnd), false)
+		st := loadDockWindowState()
+		ForceForegroundWindow(uintptr(hwnd), st.Topmost)
 		return 0
 	}
 
@@ -306,6 +318,14 @@ func dockWndProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintpt
 			activeDockChromium.Resize()
 		}
 		return 0
+
+	case 0x0112 /* WM_SYSCOMMAND */:
+		if (wParam & 0xFFFF) == IDM_DOCK_TOPMOST || wParam == IDM_DOCK_TOPMOST {
+			if toggleDockTopmost != nil {
+				toggleDockTopmost()
+			}
+			return 0
+		}
 
 	case 0x0024: // WM_GETMINMAXINFO: 최소 창 크기 제한
 		if lParam != 0 {
@@ -341,7 +361,8 @@ func ShowDockWindow() {
 	}
 	procShowWindow.Call(dockHwnd, 9 /* SW_RESTORE */)
 	procUpdateWindow.Call(dockHwnd)
-	ForceForegroundWindow(dockHwnd, false)
+	st := loadDockWindowState()
+	ForceForegroundWindow(dockHwnd, st.Topmost)
 }
 
 // HideDockWindow: 독 윈도우를 숨깁니다 (트레이 유지).
@@ -437,12 +458,25 @@ func InitDockWindow(port int, version string, showInitially bool) uintptr {
 	}
 
 	dockHwnd = hwnd
+	isDockTopmost := state.Topmost
 
 	// 타이틀바 및 작업표시줄 아이콘 설정
 	if hIcon != 0 {
 		procSendMessageW.Call(hwnd, uintptr(WM_SETICON), uintptr(ICON_SMALL), uintptr(hIcon))
 		procSendMessageW.Call(hwnd, uintptr(WM_SETICON), uintptr(ICON_BIG), uintptr(hIcon))
 	}
+
+	// 시스템 메뉴(창 우클릭 / 타이틀 메뉴)에 '📌 항상 위에 고정' 등록
+	hSysMenu, _, _ := procGetSystemMenu.Call(hwnd, 0)
+	if hSysMenu != 0 {
+		procAppendMenuW.Call(hSysMenu, uintptr(MF_SEPARATOR), 0, 0)
+		menuText, _ := syscall.UTF16PtrFromString("📌 항상 위에 고정")
+		procAppendMenuW.Call(hSysMenu, 0 /* MF_STRING */, IDM_DOCK_TOPMOST, uintptr(unsafe.Pointer(menuText)))
+	}
+
+	baseDockTitle := fmt.Sprintf("CHZZK OBS Dock (%s)", displayVer)
+	updateWindowTitle(hwnd, baseDockTitle, isDockTopmost)
+	updateSystemMenuTopmost(hwnd, isDockTopmost, IDM_DOCK_TOPMOST)
 
 	// DWM 다크 테마 적용
 	applyDarkTheme(hwnd)
@@ -462,10 +496,24 @@ func InitDockWindow(port int, version string, showInitially bool) uintptr {
 	chromium.AdditionalBrowserArgs = dockBrowserArgs
 	activeDockChromium = chromium
 
+	toggleDockTopmost = func() {
+		isDockTopmost = !isDockTopmost
+		SetWindowTopmost(dockHwnd, isDockTopmost)
+		updateWindowTitle(dockHwnd, baseDockTitle, isDockTopmost)
+		updateSystemMenuTopmost(dockHwnd, isDockTopmost, IDM_DOCK_TOPMOST)
+		if activeDockChromium != nil {
+			activeDockChromium.Eval(fmt.Sprintf("if (window.__updateTopmostUI) window.__updateTopmostUI(%v);", isDockTopmost))
+		}
+		curState := loadDockWindowState()
+		curState.Topmost = isDockTopmost
+		saveDockWindowState(curState)
+	}
+
 	chromium.ProcessFailedCallback = func(sender *edge.ICoreWebView2, args *edge.ICoreWebView2ProcessFailedEventArgs) {
 		LogError("[Dock Window] [%s] WebView2 렌더러 프로세스 장애 발생", ErrSysWebviewRuntime)
 	}
 
+	dockToolbarScript := makeFloatingToolbarScript("dock_pin_pos", true, false)
 	dockUrl := fmt.Sprintf("http://127.0.0.1:%d", port)
 	chromium.NavigationCompletedCallback = func(sender *edge.ICoreWebView2, args *edge.ICoreWebView2NavigationCompletedEventArgs) {
 		src, _ := sender.GetSource()
@@ -473,6 +521,8 @@ func InitDockWindow(port int, version string, showInitially bool) uintptr {
 		if activeDockChromium != nil {
 			_ = activeDockChromium.Show()
 			activeDockChromium.Resize()
+			activeDockChromium.Eval(dockToolbarScript)
+			activeDockChromium.Eval(fmt.Sprintf("if (window.__updateTopmostUI) window.__updateTopmostUI(%v);", isDockTopmost))
 		}
 	}
 
@@ -492,16 +542,26 @@ func InitDockWindow(port int, version string, showInitially bool) uintptr {
 	chromium.Focus()
 
 	chromium.MessageCallback = func(message string, sender *edge.ICoreWebView2, args *edge.ICoreWebView2WebMessageReceivedEventArgs) {
-		if strings.HasPrefix(message, "open-external:") {
-			targetURL := strings.TrimPrefix(message, "open-external:")
-			if GetExternalBrowserGuard() {
-				OpenBrowser(targetURL)
+		switch message {
+		case "toggle-topmost":
+			if toggleDockTopmost != nil {
+				toggleDockTopmost()
+			}
+		case "get-topmost-state":
+			chromium.Eval(fmt.Sprintf("if (window.__updateTopmostUI) window.__updateTopmostUI(%v);", isDockTopmost))
+		default:
+			if strings.HasPrefix(message, "open-external:") {
+				targetURL := strings.TrimPrefix(message, "open-external:")
+				if GetExternalBrowserGuard() {
+					OpenBrowser(targetURL)
+				}
 			}
 		}
 	}
 
-	// 외부 링크 가드 스크립트 적용
+	// 외부 링크 가드 및 플로팅 핀 툴바 스크립트 적용
 	chromium.Init(ExternalLinkGuardScript)
+	chromium.Init(dockToolbarScript)
 
 	// 초기 백색 화면 방지 (배경 다크 테마)
 	chromium.SetBackgroundColour(0x0B, 0x0E, 0x11, 255)
@@ -510,13 +570,17 @@ func InitDockWindow(port int, version string, showInitially bool) uintptr {
 	time.Sleep(150 * time.Millisecond)
 	chromium.Navigate(dockUrl)
 
+	if isDockTopmost {
+		SetWindowTopmost(hwnd, true)
+	}
+
 	if showInitially {
 		procShowWindow.Call(hwnd, 5 /* SW_SHOW */)
 		procUpdateWindow.Call(hwnd)
 		_ = chromium.Show()
 		chromium.Resize()
 		chromium.Focus()
-		ForceForegroundWindow(hwnd, false)
+		ForceForegroundWindow(hwnd, isDockTopmost)
 	}
 
 	return hwnd
@@ -554,14 +618,14 @@ func updateWindowTitle(hwnd uintptr, baseTitle string, topmost bool) {
 	procSetWindowTextW.Call(hwnd, uintptr(unsafe.Pointer(titlePtr)))
 }
 
-func updateSystemMenuTopmost(hwnd uintptr, topmost bool) {
+func updateSystemMenuTopmost(hwnd uintptr, topmost bool, cmdId uintptr) {
 	hSysMenu, _, _ := procGetSystemMenu.Call(hwnd, 0)
 	if hSysMenu != 0 {
 		flag := uintptr(0 /* MF_BYCOMMAND */ | 0 /* MF_UNCHECKED */)
 		if topmost {
 			flag = uintptr(0 /* MF_BYCOMMAND */ | 8 /* MF_CHECKED */)
 		}
-		procCheckMenuItem.Call(hSysMenu, IDM_REMOTE_TOPMOST, flag)
+		procCheckMenuItem.Call(hSysMenu, cmdId, flag)
 	}
 }
 
@@ -621,7 +685,7 @@ func saveToolWindowState(fileName string, state ToolWindowState) {
 	}
 }
 
-func makeFloatingToolbarScript(storageKey string, alignRight bool) string {
+func makeFloatingToolbarScript(storageKey string, alignRight bool, enableReload bool) string {
 	return fmt.Sprintf(`
 (function() {
   if (window.top !== window.self) return;
@@ -629,7 +693,7 @@ func makeFloatingToolbarScript(storageKey string, alignRight bool) string {
   function initToolbar() {
     if (document.getElementById('chzzk-floating-toolbar')) return;
 
-    var container = document.body || document.documentElement;
+    var container = document.documentElement || document.body;
     if (!container) {
       setTimeout(initToolbar, 50);
       return;
@@ -720,14 +784,17 @@ func makeFloatingToolbarScript(storageKey string, alignRight bool) string {
     pinBtn.id = 'chzzk-floating-pin-btn';
     pinBtn.title = '항상 위에 고정 (드래그하여 위치 이동)';
     pinBtn.innerHTML = '&#x1F4CC;';
-
-    var reloadBtn = document.createElement('button');
-    reloadBtn.id = 'chzzk-floating-reload-btn';
-    reloadBtn.title = '화면 새로고침 (드래그하여 위치 이동)';
-    reloadBtn.innerHTML = '&#x1F504;';
-
     bar.appendChild(pinBtn);
-    bar.appendChild(reloadBtn);
+
+    var enableReload = %t;
+    var reloadBtn = null;
+    if (enableReload) {
+      reloadBtn = document.createElement('button');
+      reloadBtn.id = 'chzzk-floating-reload-btn';
+      reloadBtn.title = '화면 새로고침 (드래그하여 위치 이동)';
+      reloadBtn.innerHTML = '&#x1F504;';
+      bar.appendChild(reloadBtn);
+    }
 
     var isDragging = false;
     var startX = 0, startY = 0;
@@ -741,21 +808,27 @@ func makeFloatingToolbarScript(storageKey string, alignRight bool) string {
       startX = e.clientX;
       startY = e.clientY;
       var rect = bar.getBoundingClientRect();
-      origLeft = rect.left;
-      origTop = rect.top;
-      reloadBtn.style.cursor = 'grabbing';
+      var zoom = parseFloat(document.body && document.body.style.zoom) || 1.0;
+      var offsetX = (e.clientX / zoom) - (rect.left / zoom);
+      var offsetY = (e.clientY / zoom) - (rect.top / zoom);
+      if (reloadBtn) reloadBtn.style.cursor = 'grabbing';
       pinBtn.style.cursor = 'grabbing';
       e.preventDefault();
 
       function onMouseMove(moveEvent) {
         if (!isDragging) return;
-        var dx = moveEvent.clientX - startX;
-        var dy = moveEvent.clientY - startY;
+        var curZoom = parseFloat(document.body && document.body.style.zoom) || 1.0;
+        var clientX = moveEvent.clientX / curZoom;
+        var clientY = moveEvent.clientY / curZoom;
+        var dx = clientX - (startX / curZoom);
+        var dy = clientY - (startY / curZoom);
         if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
           hasMoved = true;
         }
-        var newLeft = Math.max(0, Math.min(window.innerWidth - bar.offsetWidth, origLeft + dx));
-        var newTop = Math.max(0, Math.min(window.innerHeight - bar.offsetHeight, origTop + dy));
+        var maxW = window.innerWidth / curZoom;
+        var maxH = window.innerHeight / curZoom;
+        var newLeft = Math.max(0, Math.min(maxW - bar.offsetWidth, clientX - offsetX));
+        var newTop = Math.max(0, Math.min(maxH - bar.offsetHeight, clientY - offsetY));
         bar.style.left = newLeft + 'px';
         bar.style.top = newTop + 'px';
         bar.style.right = 'auto';
@@ -764,14 +837,15 @@ func makeFloatingToolbarScript(storageKey string, alignRight bool) string {
       function onMouseUp() {
         if (!isDragging) return;
         isDragging = false;
-        reloadBtn.style.cursor = 'grab';
+        if (reloadBtn) reloadBtn.style.cursor = 'grab';
         pinBtn.style.cursor = 'grab';
         document.removeEventListener('mousemove', onMouseMove);
         document.removeEventListener('mouseup', onMouseUp);
         if (hasMoved) {
           try {
+            var curZoom = parseFloat(document.body && document.body.style.zoom) || 1.0;
             var rect = bar.getBoundingClientRect();
-            localStorage.setItem('%s', JSON.stringify({ left: rect.left, top: rect.top }));
+            localStorage.setItem('%s', JSON.stringify({ left: rect.left / curZoom, top: rect.top / curZoom }));
           } catch(err) {}
           setTimeout(function() { hasMoved = false; }, 50);
         }
@@ -781,12 +855,14 @@ func makeFloatingToolbarScript(storageKey string, alignRight bool) string {
       document.addEventListener('mouseup', onMouseUp);
     });
 
-    reloadBtn.addEventListener('click', function(e) {
-      e.stopPropagation();
-      e.preventDefault();
-      if (hasMoved) { hasMoved = false; return; }
-      location.reload();
-    });
+    if (reloadBtn) {
+      reloadBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        e.preventDefault();
+        if (hasMoved) { hasMoved = false; return; }
+        location.reload();
+      });
+    }
 
     pinBtn.addEventListener('click', function(e) {
       e.stopPropagation();
@@ -822,8 +898,10 @@ func makeFloatingToolbarScript(storageKey string, alignRight bool) string {
     initToolbar();
   }
   window.addEventListener('load', initToolbar);
+  setTimeout(initToolbar, 300);
+  setTimeout(initToolbar, 1000);
 })();
-`, storageKey, alignRight, storageKey)
+`, storageKey, alignRight, enableReload, storageKey)
 }
 
 // RunToolWebview: 치지직 팝업 툴(채팅창, 리모컨 등) 공통 실행 함수
@@ -883,7 +961,7 @@ func RunToolWebview(cfg ToolWebviewConfig) {
 			}
 			return 0
 		case 0x0112 /* WM_SYSCOMMAND */:
-			if (wParam & 0xFFF0) == IDM_REMOTE_TOPMOST {
+			if (wParam & 0xFFFF) == IDM_REMOTE_TOPMOST || wParam == IDM_REMOTE_TOPMOST {
 				if toggleTopmost != nil {
 					toggleTopmost()
 				}
@@ -957,7 +1035,7 @@ func RunToolWebview(cfg ToolWebviewConfig) {
 	}
 
 	updateWindowTitle(hwnd, cfg.Title, isTopmost)
-	updateSystemMenuTopmost(hwnd, isTopmost)
+	updateSystemMenuTopmost(hwnd, isTopmost, IDM_REMOTE_TOPMOST)
 	applyDarkTheme(hwnd)
 
 	chromium := edge.NewChromium()
@@ -979,7 +1057,7 @@ func RunToolWebview(cfg ToolWebviewConfig) {
 		isTopmost = !isTopmost
 		SetWindowTopmost(activeHwnd, isTopmost)
 		updateWindowTitle(activeHwnd, cfg.Title, isTopmost)
-		updateSystemMenuTopmost(activeHwnd, isTopmost)
+		updateSystemMenuTopmost(activeHwnd, isTopmost, IDM_REMOTE_TOPMOST)
 		if activeChromium != nil {
 			activeChromium.Eval(fmt.Sprintf("if (window.__updateTopmostUI) window.__updateTopmostUI(%v);", isTopmost))
 		}
@@ -1022,7 +1100,7 @@ func RunToolWebview(cfg ToolWebviewConfig) {
 	chromium.SetBackgroundColour(0x0B, 0x0E, 0x11, 255)
 
 	// 공통 링크 가드 및 플로팅 툴바 주입
-	toolbarScript := makeFloatingToolbarScript(cfg.StoragePinKey, cfg.AlignRight)
+	toolbarScript := makeFloatingToolbarScript(cfg.StoragePinKey, cfg.AlignRight, true)
 	chromium.Init(ExternalLinkGuardScript)
 	chromium.Init(toolbarScript)
 
