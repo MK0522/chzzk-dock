@@ -21,7 +21,7 @@
         "LegalCopyright": "Copyright (C) 2026 Dingteus (띵판). Licensed under the MPL-2.0.",
         "OriginalFilename": "chzzk-dock.exe",
         "ProductName": "CHZZK OBS Dock",
-        "ProductVersion": "0.6.3-alpha1",
+        "ProductVersion": "0.6.3-Beta1",
         "Comments": "OBS Studio Dock Server for Chzzk"
     },
     "VarFileInfo": {

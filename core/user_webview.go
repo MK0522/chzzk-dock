@@ -798,7 +798,7 @@ func makeFloatingToolbarScript(storageKey string, alignRight bool, enableReload 
 
     var isDragging = false;
     var startX = 0, startY = 0;
-    var origLeft = 0, origTop = 0;
+    var offsetX = 0, offsetY = 0;
     var hasMoved = false;
 
     bar.addEventListener('mousedown', function(e) {
@@ -808,27 +808,34 @@ func makeFloatingToolbarScript(storageKey string, alignRight bool, enableReload 
       startX = e.clientX;
       startY = e.clientY;
       var rect = bar.getBoundingClientRect();
-      var zoom = parseFloat(document.body && document.body.style.zoom) || 1.0;
-      var offsetX = (e.clientX / zoom) - (rect.left / zoom);
-      var offsetY = (e.clientY / zoom) - (rect.top / zoom);
+
+      // [UI 배율(zoom) 좌표 독립성 보장 - 0.6.3-alpha2 긴급패치]
+      // 플로팅 툴바(#chzzk-floating-toolbar)는 document.documentElement(<html>) 직속으로 마운트됩니다.
+      // 설정에서 독 화면 크기(document.body.style.zoom: 1.0, 1.2, 1.35)를 변경하더라도,
+      // <body> 바깥의 <html> 직속 fixed 요소이므로 body zoom의 CSS 상속을 받지 않고
+      // 항상 순수 뷰포트 절대 좌표계(1.0x)에서 렌더링됩니다.
+      // 과거(0.6.3-alpha1)에 body zoom을 고려한다는 의도로 clientX, rect.left, window.innerWidth를
+      // zoom으로 나누면서 마우스 포인터와 툴바 좌표 사이에 역보정 오차가 발생하여
+      // 드래그 시작 즉시 버튼이 좌측으로 튕기거나 밀려나는(offset jump) 결함이 있었습니다.
+      // 따라서 뷰포트 기준 좌표(e.clientX, rect.left, window.innerWidth)를 1:1 그대로 사용하여
+      // 어떤 UI 배율 설정에서도 마우스 커서와 버튼 위치가 완벽히 밀착되도록 유지합니다.
+      offsetX = e.clientX - rect.left;
+      offsetY = e.clientY - rect.top;
       if (reloadBtn) reloadBtn.style.cursor = 'grabbing';
       pinBtn.style.cursor = 'grabbing';
       e.preventDefault();
 
       function onMouseMove(moveEvent) {
         if (!isDragging) return;
-        var curZoom = parseFloat(document.body && document.body.style.zoom) || 1.0;
-        var clientX = moveEvent.clientX / curZoom;
-        var clientY = moveEvent.clientY / curZoom;
-        var dx = clientX - (startX / curZoom);
-        var dy = clientY - (startY / curZoom);
+        var dx = moveEvent.clientX - startX;
+        var dy = moveEvent.clientY - startY;
         if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
           hasMoved = true;
         }
-        var maxW = window.innerWidth / curZoom;
-        var maxH = window.innerHeight / curZoom;
-        var newLeft = Math.max(0, Math.min(maxW - bar.offsetWidth, clientX - offsetX));
-        var newTop = Math.max(0, Math.min(maxH - bar.offsetHeight, clientY - offsetY));
+        var maxW = window.innerWidth - bar.offsetWidth;
+        var maxH = window.innerHeight - bar.offsetHeight;
+        var newLeft = Math.max(0, Math.min(maxW, moveEvent.clientX - offsetX));
+        var newTop = Math.max(0, Math.min(maxH, moveEvent.clientY - offsetY));
         bar.style.left = newLeft + 'px';
         bar.style.top = newTop + 'px';
         bar.style.right = 'auto';
@@ -843,9 +850,8 @@ func makeFloatingToolbarScript(storageKey string, alignRight bool, enableReload 
         document.removeEventListener('mouseup', onMouseUp);
         if (hasMoved) {
           try {
-            var curZoom = parseFloat(document.body && document.body.style.zoom) || 1.0;
             var rect = bar.getBoundingClientRect();
-            localStorage.setItem('%s', JSON.stringify({ left: rect.left / curZoom, top: rect.top / curZoom }));
+            localStorage.setItem('%s', JSON.stringify({ left: rect.left, top: rect.top }));
           } catch(err) {}
           setTimeout(function() { hasMoved = false; }, 50);
         }

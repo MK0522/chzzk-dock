@@ -1218,7 +1218,7 @@ func handleChzzkCategoriesRecommendedGet(w http.ResponseWriter, r *http.Request)
 	if b, err := json.Marshal(respData); err == nil {
 		core.SetCachedApiResponse("GET", targetURL, b, http.StatusOK, "application/json")
 	}
-
+	respondOK(w, respData)
 }
 
 // handleChzzkWatchPartiesGet: GET /chzzkdock/watch-parties (현재 채널의 같이보기 목록 조회)
