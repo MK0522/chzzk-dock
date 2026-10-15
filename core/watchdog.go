@@ -99,10 +99,6 @@ func StartObsWatchdog(silentMode bool) {
 							if OnShutdownCallback != nil {
 								OnShutdownCallback()
 							}
-							DestroyDockWindow()
-							if GlobalTray != nil {
-								GlobalTray.Stop()
-							}
 							os.Exit(0)
 						}
 					}

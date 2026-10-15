@@ -1181,7 +1181,7 @@ func handleExecuteUpdate(w http.ResponseWriter, r *http.Request) {
 		respondErr(w, http.StatusBadRequest, "다운로드 URL이 제공되지 않았습니다.")
 		return
 	}
-	if err := core.StartDownloadAndInstall(req.LatestVersion, req.DownloadURL, 0, killAllSubProcesses); err != nil {
+	if err := core.StartDownloadAndInstall(req.LatestVersion, req.DownloadURL, 0, exitApp); err != nil {
 		respondErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
