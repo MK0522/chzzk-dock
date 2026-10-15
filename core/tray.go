@@ -322,9 +322,7 @@ func (t *PureWinTrayIcon) showMenu() {
 	}
 }
 
-// ShowNotification: 트레이 풍선 알림 표시 (정보)
-func (t *PureWinTrayIcon) ShowNotification(title, msg string) {
-	LogInfo("[Tray Notification] %s: %s", title, msg)
+func (t *PureWinTrayIcon) sendNotification(title, msg string, dwInfoFlags uint32) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
@@ -332,37 +330,30 @@ func (t *PureWinTrayIcon) ShowNotification(title, msg string) {
 		return
 	}
 
-	t.Nid.UFlags |= NIF_INFO
+	var nid NOTIFYICONDATAW
+	nid.CbSize = uint32(unsafe.Sizeof(nid))
+	nid.HWnd = t.Hwnd
+	nid.UID = 1
+	nid.UFlags = NIF_INFO
+	nid.DwInfoFlags = dwInfoFlags
 
 	titleUTF16, _ := syscall.UTF16FromString(title)
 	msgUTF16, _ := syscall.UTF16FromString(msg)
+	copy(nid.SzInfoTitle[:], titleUTF16)
+	copy(nid.SzInfo[:], msgUTF16)
 
-	copy(t.Nid.SzInfoTitle[:], titleUTF16)
-	copy(t.Nid.SzInfo[:], msgUTF16)
-	t.Nid.DwInfoFlags = NIIF_INFO
+	procShell_NotifyIconW.Call(uintptr(NIM_MODIFY), uintptr(unsafe.Pointer(&nid)))
+}
 
-	procShell_NotifyIconW.Call(uintptr(NIM_MODIFY), uintptr(unsafe.Pointer(t.Nid)))
+// ShowNotification: 트레이 풍선 알림 표시 (정보)
+func (t *PureWinTrayIcon) ShowNotification(title, msg string) {
+	LogInfo("[Tray Notification] %s: %s", title, msg)
+	t.sendNotification(title, msg, NIIF_INFO)
 }
 
 // ShowErrorNotification: 트레이 풍선 알림 표시 (오류 - 빨간색 X)
 func (t *PureWinTrayIcon) ShowErrorNotification(title, msg string) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
-	if t.Nid == nil {
-		return
-	}
-
-	t.Nid.UFlags |= NIF_INFO
-
-	titleUTF16, _ := syscall.UTF16FromString(title)
-	msgUTF16, _ := syscall.UTF16FromString(msg)
-
-	copy(t.Nid.SzInfoTitle[:], titleUTF16)
-	copy(t.Nid.SzInfo[:], msgUTF16)
-	t.Nid.DwInfoFlags = NIIF_ERROR
-
-	procShell_NotifyIconW.Call(uintptr(NIM_MODIFY), uintptr(unsafe.Pointer(t.Nid)))
+	t.sendNotification(title, msg, NIIF_ERROR)
 }
 
 // UpdateTooltip: 트레이 아이콘의 마우스 호버 툴팁을 동적으로 변경
@@ -378,11 +369,14 @@ func (t *PureWinTrayIcon) UpdateTooltip(tip string) {
 	if err != nil {
 		return
 	}
-	var szTip [128]uint16
-	copy(szTip[:], tipUTF16)
-	t.Nid.SzTip = szTip
-	t.Nid.UFlags |= NIF_TIP
-	procShell_NotifyIconW.Call(uintptr(NIM_MODIFY), uintptr(unsafe.Pointer(t.Nid)))
+	var nid NOTIFYICONDATAW
+	nid.CbSize = uint32(unsafe.Sizeof(nid))
+	nid.HWnd = t.Hwnd
+	nid.UID = 1
+	nid.UFlags = NIF_TIP
+	copy(nid.SzTip[:], tipUTF16)
+
+	procShell_NotifyIconW.Call(uintptr(NIM_MODIFY), uintptr(unsafe.Pointer(&nid)))
 }
 
 // ShowAlert: 오류 발생 시 윈도우 알림 (트레이 풍선 알림 또는 백업 MessageBoxW) 표시

@@ -1,6 +1,7 @@
 package core
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -8,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -583,51 +585,129 @@ var (
 	currentProgress UpdateProgress
 )
 
-// ParseSemVer: "v0.5.12" 또는 "0.5.12" 형태의 문자열을 [major, minor, patch] 숫자로 분리
-func ParseSemVer(v string) (int, int, int) {
+// SemVerInfo: 시맨틱 버전 상세 구조체
+type SemVerInfo struct {
+	Major        int
+	Minor        int
+	Patch        int
+	IsPrerelease bool
+	PreWeight    int
+	PreNum       int
+	PreRaw       string
+}
+
+// ParseSemVerInfo: 버전 문자열을 상세 SemVerInfo로 파싱
+func ParseSemVerInfo(v string) SemVerInfo {
 	v = strings.TrimSpace(v)
 	v = strings.TrimPrefix(v, "v")
 	v = strings.TrimPrefix(v, "V")
-	parts := strings.Split(v, ".")
-	if len(parts) == 0 {
-		return 0, 0, 0
+
+	// 빌드 메타데이터 (+ 이후) 분리
+	if idx := strings.Index(v, "+"); idx != -1 {
+		v = v[:idx]
 	}
+
+	var preStr string
+	// 하이픈(-) 또는 언더스코어(_)로 사전 릴리즈 분리
+	if idx := strings.IndexAny(v, "-_"); idx != -1 {
+		preStr = v[idx+1:]
+		v = v[:idx]
+	}
+
+	// X.Y.Z 메이저/마이너/패치 숫자 파싱 (v 접두사 및 사전릴리즈 접미사가 분리된 순수 버전 번호)
+	parts := strings.Split(v, ".")
 	var nums [3]int
 	for i := 0; i < 3 && i < len(parts); i++ {
-		p := parts[i]
-		if idx := strings.IndexAny(p, "-+"); idx != -1 {
-			p = p[:idx]
-		}
-		if n, err := strconv.Atoi(p); err == nil {
+		if n, err := strconv.Atoi(parts[i]); err == nil {
 			nums[i] = n
 		}
 	}
-	return nums[0], nums[1], nums[2]
+
+	res := SemVerInfo{
+		Major: nums[0],
+		Minor: nums[1],
+		Patch: nums[2],
+	}
+
+	preStr = strings.TrimSpace(preStr)
+	if preStr == "" {
+		// 사전 릴리즈 접미사가 없으면 정식 버전!
+		return res
+	}
+
+	res.IsPrerelease = true
+	res.PreRaw = strings.ToLower(preStr)
+
+	// 사전 릴리즈 단계 판별 (alpha < beta < rc)
+	switch {
+	case strings.Contains(res.PreRaw, "alpha"):
+		res.PreWeight = 10
+	case strings.Contains(res.PreRaw, "beta"):
+		res.PreWeight = 20
+	case strings.Contains(res.PreRaw, "rc"):
+		res.PreWeight = 30
+	default:
+		res.PreWeight = 5
+	}
+
+	// 사전 릴리즈 시퀀스 번호 추출 (예: "alpha1" -> 1, "beta2" -> 2, "rc.1" -> 1, "beta10" -> 10)
+	// 의도: 사전 릴리즈 식별자(alpha/beta/rc 등) 앞쪽의 텍스트와 구분 기호(.)를 잘라내고 남은 순수 번호를 정수형으로 파싱하여
+	// 문자열 정렬 오류("beta10" < "beta2")를 방지하고 정확한 크기 비교를 수행함. 번호가 없는 단독 "beta"는 0으로 처리.
+	numStr := strings.TrimLeftFunc(res.PreRaw, func(r rune) bool {
+		return r < '0' || r > '9'
+	})
+	if n, err := strconv.Atoi(numStr); err == nil {
+		res.PreNum = n
+	}
+
+	return res
+}
+
+// ParseSemVer: "v0.5.12" 또는 "0.5.12" 형태의 문자열을 [major, minor, patch] 숫자로 분리 (하위 호환)
+func ParseSemVer(v string) (int, int, int) {
+	info := ParseSemVerInfo(v)
+	return info.Major, info.Minor, info.Patch
 }
 
 // CompareSemVer: v1 < v2 (-1), v1 == v2 (0), v1 > v2 (1)
+// SemVer 2.0 규칙 적용: Major.Minor.Patch 비교 후, 동일할 경우 정식 버전(접미사 없음)이 사전 릴리즈보다 우선
 func CompareSemVer(v1, v2 string) int {
-	maj1, min1, pat1 := ParseSemVer(v1)
-	maj2, min2, pat2 := ParseSemVer(v2)
+	sv1 := ParseSemVerInfo(v1)
+	sv2 := ParseSemVerInfo(v2)
 
-	if maj1 != maj2 {
-		if maj1 < maj2 {
-			return -1
-		}
-		return 1
+	// Major.Minor.Patch 기본 비교
+	if c := slices.Compare([]int{sv1.Major, sv1.Minor, sv1.Patch}, []int{sv2.Major, sv2.Minor, sv2.Patch}); c != 0 {
+		return c
 	}
-	if min1 != min2 {
-		if min1 < min2 {
-			return -1
-		}
-		return 1
+
+	// Major.Minor.Patch가 완전히 같은 경우:
+	// 1. 사전 릴리즈 여부 비교 (SemVer 2.0: 정식 버전 > 사전 릴리즈 버전)
+	if !sv1.IsPrerelease && sv2.IsPrerelease {
+		return 1 // v1은 정식 버전, v2는 사전 릴리즈 -> v1이 더 최신
 	}
-	if pat1 != pat2 {
-		if pat1 < pat2 {
-			return -1
-		}
-		return 1
+	if sv1.IsPrerelease && !sv2.IsPrerelease {
+		return -1 // v1은 사전 릴리즈, v2는 정식 버전 -> v2가 더 최신
 	}
+	if !sv1.IsPrerelease && !sv2.IsPrerelease {
+		return 0 // 둘 다 정식 버전이고 숫자가 같음
+	}
+
+	// 2. 둘 다 사전 릴리즈인 경우:
+	// 단계 비교 (alpha < beta < rc)
+	if c := cmp.Compare(sv1.PreWeight, sv2.PreWeight); c != 0 {
+		return c
+	}
+
+	// 동일 단계 내에서 번호 비교 (beta1 < beta2 < beta10)
+	if c := cmp.Compare(sv1.PreNum, sv2.PreNum); c != 0 {
+		return c
+	}
+
+	// 단계와 번호까지 같으면 사전 릴리즈 원본 문자열 비교
+	if sv1.PreRaw != sv2.PreRaw {
+		return strings.Compare(sv1.PreRaw, sv2.PreRaw)
+	}
+
 	return 0
 }
 

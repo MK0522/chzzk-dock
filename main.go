@@ -47,10 +47,10 @@ var embeddedGuide2 []byte
 var embeddedLauncherScript []byte
 
 // ============================================================
-//  CHZZK OBS Dock Server v0.6.3-beta1 (Modular Architecture)
+//  CHZZK OBS Dock Server v0.6.3-beta2 (Modular Architecture)
 // ============================================================
 const (
-	APP_VERSION       = "v0.6.3-beta1"
+	APP_VERSION       = "v0.6.3-beta2"
 	DEFAULT_HTTP_PORT = 8081
 	USER_AGENT        = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 )
@@ -552,13 +552,6 @@ func updateWatchdogTimeoutFromTray(sec int) {
 	_ = core.SaveSettings(st)
 	if trayInstance != nil {
 		trayInstance.UpdateTooltip(getTrayTooltip())
-		if sec == -1 {
-			trayInstance.ShowNotification("CHZZK OBS Dock", "OBS 자동 종료가 비활성화되었습니다. (상시 실행 유지)")
-		} else if sec == 0 {
-			trayInstance.ShowNotification("CHZZK OBS Dock", "OBS 종료 시 즉시 종료되도록 설정되었습니다.")
-		} else {
-			trayInstance.ShowNotification("CHZZK OBS Dock", fmt.Sprintf("OBS 종료 시 %s 뒤 함께 종료되도록 설정되었습니다.", getWatchdogLabel(sec)))
-		}
 	}
 }
 
@@ -607,13 +600,6 @@ func runTray(silentMode bool) {
 			Callback: func() {
 				newVal := !core.GetPopupOnStart()
 				_ = core.SetPopupOnStartSetting(newVal)
-				if trayInstance != nil {
-					statusStr := "활성화"
-					if !newVal {
-						statusStr = "비활성화 (트레이 시작)"
-					}
-					trayInstance.ShowNotification("CHZZK OBS Dock", fmt.Sprintf("시작 시 독 팝업창 자동 열기가 %s되었습니다.", statusStr))
-				}
 			},
 		},
 		{
@@ -624,13 +610,6 @@ func runTray(silentMode bool) {
 			Callback: func() {
 				newVal := !core.GetEnableGPU()
 				_ = core.SetEnableGPUSetting(newVal)
-				if trayInstance != nil {
-					statusStr := "활성화"
-					if !newVal {
-						statusStr = "비활성화 (CPU 렌더링)"
-					}
-					trayInstance.ShowNotification("CHZZK OBS Dock", fmt.Sprintf("웹뷰 GPU 가속이 %s되었습니다. (창을 다시 열 때 적용)", statusStr))
-				}
 			},
 		},
 		{IsSeparator: true},

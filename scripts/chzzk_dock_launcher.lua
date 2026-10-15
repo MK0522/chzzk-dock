@@ -182,9 +182,10 @@ local function launch_server_process()
         return
     end
 
-    print("[CHZZK Dock] 치지직 독 서버 시작 요청 (비동기): " .. target)
-    -- Windows 창 숨김 백그라운드 비동기 실행 (start /b)
-    local launch_cmd = 'start "" /b "' .. target .. '"'
+    print("[CHZZK Dock] 치지직 독 서버 시작 요청: " .. target)
+    -- chzzk-dock.exe는 순수 GUI 바이너리(-H windowsgui)이므로 /b 없이 start "" 만으로 콘솔 창 없이 독립 실행됩니다.
+    -- (/b 사용 시 부모 OBS의 표준 I/O 핸들이 상속되어 OBS 종료 시 데드락이 발생하므로 금지)
+    local launch_cmd = 'start "" "' .. target .. '"'
     local ret = os.execute(launch_cmd)
     if ret ~= 0 then
         alert_error("치지직 독 서버를 실행하지 못했습니다.\n\n명령: " .. launch_cmd)
