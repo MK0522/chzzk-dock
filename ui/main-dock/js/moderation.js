@@ -1218,6 +1218,8 @@ function togglePartyLinkMask() {
   input.type = input.type === 'password' ? 'text' : 'password';
 }
 
+// [보류 / v0.6.4 이후 검토]: navigator.clipboard 실패 시 execCommand('copy') 이중 폴백 처리.
+// 차기 버전에서 공통 클립보드 헬퍼로 통합하거나 레거시 execCommand 완전 삭제 검토 필요.
 function copyPartyInviteUrl() {
   const input = document.getElementById('field-party-invite-url');
   if (!input || !input.value) {
@@ -2179,6 +2181,8 @@ function toggleFieldMask(fieldId, btn) {
   }
 }
 
+// [보류 / v0.6.4 이후 검토]: navigator.clipboard 실패 시 execCommand('copy') 이중 폴백 처리.
+// 차기 버전에서 공통 클립보드 헬퍼로 통합하거나 레거시 execCommand 완전 삭제 검토 필요.
 function copyFieldValue(fieldId, label) {
   const input = document.getElementById(fieldId);
   if (!input || !input.value) {

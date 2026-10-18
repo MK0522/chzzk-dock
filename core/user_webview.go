@@ -187,15 +187,15 @@ func applyDarkTheme(hwnd uintptr) {
 
 // -----------------------------------------------------------------------------
 // 2. 메인 독 웹뷰 창 (Standalone Main Dock Window)
-// -----------------------------------------------------------------------------
-
-type DockWindowState struct {
+type ToolWindowState struct {
 	X       int  `json:"x"`
 	Y       int  `json:"y"`
 	Width   int  `json:"width"`
 	Height  int  `json:"height"`
 	Topmost bool `json:"topmost"`
 }
+
+type DockWindowState = ToolWindowState
 
 type MINMAXINFO struct {
 	PtReserved     POINT
@@ -365,40 +365,7 @@ func ShowDockWindow() {
 	ForceForegroundWindow(dockHwnd, st.Topmost)
 }
 
-// HideDockWindow: 독 윈도우를 숨깁니다 (트레이 유지).
-func HideDockWindow() {
-	if dockHwnd == 0 {
-		return
-	}
-	saveDockWindowState(captureDockWindowState(dockHwnd))
-	procShowWindow.Call(dockHwnd, 0 /* SW_HIDE */)
-}
 
-// ToggleDockWindow: 독 윈도우가 표시 중이면 숨기고, 숨겨져 있으면 화면 앞으로 가져옵니다.
-func ToggleDockWindow() {
-	if dockHwnd == 0 {
-		return
-	}
-	if IsDockWindowVisible() {
-		HideDockWindow()
-	} else {
-		ShowDockWindow()
-	}
-}
-
-// IsDockWindowVisible: 독 윈도우가 현재 화면에 표시(가시 상태) 중인지 확인
-func IsDockWindowVisible() bool {
-	if dockHwnd == 0 {
-		return false
-	}
-	r, _, _ := procIsWindowVisible.Call(dockHwnd)
-	return r != 0
-}
-
-// IsDockWindowCreated: 독 윈도우 생성 여부 확인
-func IsDockWindowCreated() bool {
-	return dockHwnd != 0
-}
 
 // InitDockWindow: 독 독립 윈도우 및 WebView2 생성
 func InitDockWindow(port int, version string, showInitially bool) uintptr {
@@ -599,13 +566,7 @@ func DestroyDockWindow() {
 // 3. 플로팅 툴 웹뷰 공통 엔진 (Floating Tool Engine)
 // -----------------------------------------------------------------------------
 
-type ToolWindowState struct {
-	X       int  `json:"x"`
-	Y       int  `json:"y"`
-	Width   int  `json:"width"`
-	Height  int  `json:"height"`
-	Topmost bool `json:"topmost"`
-}
+
 
 const IDM_REMOTE_TOPMOST = 0x1001
 
@@ -1151,12 +1112,22 @@ func RunToolWebview(cfg ToolWebviewConfig) {
 // -----------------------------------------------------------------------------
 
 // RunChatWebview: 치지직 라이브 팝업 채팅창 실행
+func injectUserSessionCookies(chromium *edge.Chromium) {
+	cfg := LoadConfig()
+	if cfg.NidAut != "" && cfg.NidSes != "" {
+		if cm, err := chromium.GetCookieManager(); err == nil && cm != nil {
+			InjectRemoteCookies(cm, cfg.NidAut, cfg.NidSes)
+		}
+	}
+}
+
+// RunChatWebview: 치지직 실시간 채팅 웹뷰 창 실행
 func RunChatWebview(channelId string) {
 	targetUrl := "https://chzzk.naver.com"
 	if channelId != "" {
 		targetUrl = fmt.Sprintf("https://chzzk.naver.com/live/%s/chat", channelId)
 	}
-	LogInfo("[Chat Webview] 치지직 실시간 채팅창 구동 요청 (Channel ID: %s, URL: %s)", channelId, targetUrl)
+	LogInfo("[Chat Webview] 치지직 채팅창 구동 요청 (Channel ID: %s, URL: %s)", channelId, targetUrl)
 
 	appData := os.Getenv("LOCALAPPDATA")
 	if appData == "" {
@@ -1166,24 +1137,17 @@ func RunChatWebview(channelId string) {
 	_ = os.MkdirAll(profileDir, 0755)
 
 	RunToolWebview(ToolWebviewConfig{
-		Title:         "치지직 채팅 - CHZZK OBS Dock",
-		ClassName:     "ChzzkChatWindowClass",
-		MutexName:     `Local\ChzzkChatWindowMutex`,
-		StateFileName: "chat_window.json",
-		StoragePinKey: "chzzk_chat_pin_pos",
-		DefaultWidth:  440,
-		DefaultHeight: 720,
-		AlignRight:    false,
-		TargetURL:     targetUrl,
-		ProfileDir:    profileDir,
-		CookieInjector: func(chromium *edge.Chromium) {
-			cfg := LoadConfig()
-			if cfg.NidAut != "" && cfg.NidSes != "" {
-				if cm, err := chromium.GetCookieManager(); err == nil && cm != nil {
-					InjectRemoteCookies(cm, cfg.NidAut, cfg.NidSes)
-				}
-			}
-		},
+		Title:          "치지직 채팅 - CHZZK OBS Dock",
+		ClassName:      "ChzzkChatWindowClass",
+		MutexName:      `Local\ChzzkChatWindowMutex`,
+		StateFileName:  "chat_window.json",
+		StoragePinKey:  "chzzk_chat_pin_pos",
+		DefaultWidth:   440,
+		DefaultHeight:  720,
+		AlignRight:     false,
+		TargetURL:      targetUrl,
+		ProfileDir:     profileDir,
+		CookieInjector: injectUserSessionCookies,
 	})
 }
 
@@ -1230,24 +1194,17 @@ func RunRemoteWebview(channelId string) {
 	_ = os.MkdirAll(profileDir, 0755)
 
 	RunToolWebview(ToolWebviewConfig{
-		Title:         "치지직 리모컨 - CHZZK OBS Dock",
-		ClassName:     "ChzzkRemoteWindowClass",
-		MutexName:     `Local\ChzzkRemoteWindowMutex`,
-		StateFileName: "remote_window.json",
-		StoragePinKey: "chzzk_remote_pin_pos",
-		DefaultWidth:  720,
-		DefaultHeight: 880,
-		AlignRight:    true,
-		TargetURL:     targetUrl,
-		ProfileDir:    profileDir,
-		CookieInjector: func(chromium *edge.Chromium) {
-			cfg := LoadConfig()
-			if cfg.NidAut != "" && cfg.NidSes != "" {
-				if cm, err := chromium.GetCookieManager(); err == nil && cm != nil {
-					InjectRemoteCookies(cm, cfg.NidAut, cfg.NidSes)
-				}
-			}
-		},
+		Title:          "치지직 리모컨 - CHZZK OBS Dock",
+		ClassName:      "ChzzkRemoteWindowClass",
+		MutexName:      `Local\ChzzkRemoteWindowMutex`,
+		StateFileName:  "remote_window.json",
+		StoragePinKey:  "chzzk_remote_pin_pos",
+		DefaultWidth:   720,
+		DefaultHeight:  880,
+		AlignRight:     true,
+		TargetURL:      targetUrl,
+		ProfileDir:     profileDir,
+		CookieInjector: injectUserSessionCookies,
 	})
 }
 

@@ -122,31 +122,21 @@
 
 
     async function saveWatchdogTimeout(sec) {
-      try {
-        const res = await apiFetch('/watchdog-timeout', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ timeout_sec: sec })
-        });
-        if (res.ok) {
-          if (sec === 0) {
-            showToast('⏱️ 자동 종료 설정', 'info', 'OBS 종료 시 지연 없이 즉시 함께 종료되도록 설정되었습니다.');
-          } else if (sec === -1) {
-            showToast('⏱️ 자동 종료 설정', 'info', 'OBS 자동 종료가 비활성화되었습니다. (상시 실행 유지)');
-          } else {
-            let label = `${sec}초`;
-            if (sec === 60) label = '1분';
-            else if (sec === 300) label = '5분';
-            else if (sec === 600) label = '10분';
-            else if (sec >= 60 && sec % 60 === 0) label = `${sec / 60}분`;
-            showToast('⏱️ 자동 종료 설정', 'info', `OBS 종료 시 ${label} 뒤 함께 종료되도록 설정되었습니다.`);
-          }
-        } else {
-          showToast('설정 저장 실패', 'warn', '서버에 설정을 저장하지 못했습니다.');
-        }
-      } catch (e) {
-        showToast('통신 오류', 'warn', '서버 통신 실패: ' + e.message);
-      }
+      let label = `${sec}초`;
+      if (sec === 0) label = '즉시';
+      else if (sec === -1) label = '사용 안 함';
+      else if (sec === 60) label = '1분';
+      else if (sec === 300) label = '5분';
+      else if (sec === 600) label = '10분';
+      else if (sec >= 60 && sec % 60 === 0) label = `${sec / 60}분`;
+
+      const msg = sec === 0
+        ? 'OBS 종료 시 지연 없이 즉시 함께 종료되도록 설정되었습니다.'
+        : (sec === -1
+          ? 'OBS 자동 종료가 비활성화되었습니다. (상시 실행 유지)'
+          : `OBS 종료 시 ${label} 뒤 함께 종료되도록 설정되었습니다.`);
+
+      await saveAppSettingField('watchdog_timeout_sec', sec, msg);
     }
 
     // ===== 서버 포트 관리 및 충돌 점검 제어 =====
@@ -947,15 +937,7 @@
         };
       });
 
-      // 마우스 휠 줌 (1.0x ~ 3.0x)
-      box.addEventListener('wheel', (e) => {
-        e.preventDefault();
-        const delta = e.deltaY < 0 ? 0.1 : -0.1;
-        const nextZoom = Math.max(1.0, Math.min(3.0, cropZoom + delta));
-        const slider = document.getElementById('thumb-crop-zoom');
-        if (slider) slider.value = nextZoom;
-        onCropZoomSliderChange(nextZoom);
-      }, { passive: false });
+
 
       window.addEventListener('mousemove', (e) => {
         if (!activeCropDrag) return;
@@ -1753,10 +1735,7 @@
 
     function skipCurrentUpdateVersion() {
       if (cachedUpdateInfo?.latest_version) {
-        apiFetch('/save-skip-update', {
-          method: 'POST',
-          body: JSON.stringify({ skip_update_version: cachedUpdateInfo.latest_version })
-        }).catch(() => {});
+        saveAppSettingField('skip_update_version', cachedUpdateInfo.latest_version).catch(() => {});
       }
       closeUpdateModal();
       showToast('업데이트 건너뛰기', 'info', `${cachedUpdateInfo?.latest_version || ''} 버전 알림을 건너뜁니다.`);
@@ -1908,6 +1887,8 @@
     }
 
 
+    let hasPromptedObsScriptUpdate = false;
+
     async function checkObsScriptStatus() {
       try {
         const res = await apiFetch('/obs-script-status');
@@ -1915,9 +1896,63 @@
         const data = await res.json();
         currentObsStatus = data;
         updateObsScriptUI();
+
+        if (data.should_prompt && !hasPromptedObsScriptUpdate) {
+          hasPromptedObsScriptUpdate = true;
+          promptObsScriptUpdate(data);
+        }
       } catch (e) {
         console.warn('OBS script status check error:', e);
       }
+    }
+
+    function promptObsScriptUpdate(data) {
+      const latestVer = data.latest_version || 2;
+      const chkId = 'chk-skip-obs-script-' + latestVer;
+
+      showNoticeModal({
+        title: 'OBS 연동 스크립트 업데이트',
+        message: `OBS 연동 스크립트의 새로운 버전(v${latestVer})이 있습니다. 지금 업데이트하시겠습니까?`,
+        submessage: 'OBS 시작 시 백그라운드 멈춤 방지 및 안정성이 개선되었습니다.',
+        icon: '🔄',
+        html: `
+          <div class="mt-3 pt-2.5 border-t border-zinc-800/80 flex items-center justify-start">
+            <label class="flex items-center gap-2 cursor-pointer select-none text-[12px] text-zinc-400 hover:text-zinc-300">
+              <input type="checkbox" id="${chkId}" class="rounded border-zinc-700 bg-zinc-800 text-[#00FFA3] focus:ring-0 focus:outline-none w-3.5 h-3.5 cursor-pointer">
+              <span>현재 버전(v${latestVer})은 다시 표시하지 않음</span>
+            </label>
+          </div>
+        `,
+        buttons: [
+          {
+            text: '나중에',
+            className: 'px-3.5 py-1.5 rounded-lg bg-[#1C1C26] hover:bg-[#282837] text-zinc-300 text-xs font-medium transition-colors cursor-pointer',
+            onClick: async () => {
+              const chk = document.getElementById(chkId);
+              if (chk && chk.checked) {
+                try {
+                  await apiFetch('/app-settings', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ skip_script_version: latestVer })
+                  });
+                } catch (e) {
+                  console.warn('Failed to save skip_script_version:', e);
+                }
+              }
+              window.__resolveConfirmModal(false);
+            }
+          },
+          {
+            text: '업데이트 진행',
+            className: 'px-3.5 py-1.5 rounded-lg bg-[#00FFA3] hover:bg-[#00E591] text-black text-xs font-bold transition-all cursor-pointer shadow-lg shadow-[#00FFA3]/20',
+            onClick: async () => {
+              window.__resolveConfirmModal(true);
+              await handleObsScriptAction();
+            }
+          }
+        ]
+      });
     }
 
 
@@ -2177,19 +2212,24 @@
 
 
     function renderCategoryRowHtml(catType, catId, catVal, poster, dropsCampaignNo, isFav) {
+      // 드롭스 실제 진행 여부 검증 (활성 캠페인에 매칭될 때만 🎁 표시)
+      const activeDrop = (typeof findActiveDropsCampaign === 'function') ? findActiveDropsCampaign(catId, catVal) : null;
+      const verifiedDropsNo = activeDrop ? (activeDrop.campaignNo || dropsCampaignNo) :
+        (dropsCampaignNo && typeof activeChannelDrops !== 'undefined' && Array.isArray(activeChannelDrops) && activeChannelDrops.some(c => Number(c.campaignNo) === Number(dropsCampaignNo)) ? dropsCampaignNo : null);
+
       return `
         <div class="category-item flex items-center justify-between"
              data-type="${escapeHtml(catType)}"
              data-id="${escapeHtml(catId)}"
              data-value="${escapeHtml(catVal)}"
-             data-drops="${escapeHtml(dropsCampaignNo ? String(dropsCampaignNo) : '')}"
+             data-drops="${escapeHtml(verifiedDropsNo ? String(verifiedDropsNo) : '')}"
              onclick="selectCategoryItem(this)">
           <div class="flex items-center gap-2 min-w-0 flex-1">
             ${poster ? `<img src="${poster}" alt="" class="w-6 h-6 rounded object-cover flex-shrink-0" onerror="this.style.display='none'" />` : '<div class="w-6 h-6 rounded bg-chzzk-border flex items-center justify-center text-[10px] text-chzzk-muted flex-shrink-0">🎮</div>'}
             <div class="min-w-0 flex-1">
               <div class="flex items-center gap-1.5">
                 <span class="text-white text-xs font-medium truncate">${escapeHtml(catVal)}</span>
-                ${dropsCampaignNo ? `<span class="text-xs leading-none flex-shrink-0 cursor-default" title="드롭스 활성 (캠페인 #${escapeHtml(String(dropsCampaignNo))})">🎁</span>` : ''}
+                ${verifiedDropsNo ? `<span class="text-xs leading-none flex-shrink-0 cursor-default" title="드롭스 활성 (캠페인 #${escapeHtml(String(verifiedDropsNo))})">🎁</span>` : ''}
               </div>
               <div class="text-[9px] text-chzzk-muted">${escapeHtml(catType)}</div>
             </div>

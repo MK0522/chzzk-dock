@@ -50,7 +50,7 @@ var embeddedLauncherScript []byte
 //  CHZZK OBS Dock Server v0.6.3-beta3 (Modular Architecture)
 // ============================================================
 const (
-	APP_VERSION       = "v0.6.3-beta3"
+	APP_VERSION       = "v0.6.3-beta4"
 	DEFAULT_HTTP_PORT = 8081
 	USER_AGENT        = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 )
@@ -502,26 +502,7 @@ func restartSelf() {
 	os.Exit(0)
 }
 
-func getWatchdogLabel(sec int) string {
-	switch sec {
-	case -1:
-		return "사용 안 함 (자동 종료 비활성화)"
-	case 0:
-		return "즉시 종료"
-	case 10:
-		return "10초"
-	case 30:
-		return "30초"
-	case 60:
-		return "1분"
-	case 300:
-		return "5분"
-	case 600:
-		return "10분"
-	default:
-		return fmt.Sprintf("%d초", sec)
-	}
-}
+
 
 func getWatchdogTrayLabel(sec int) string {
 	switch sec {
@@ -776,9 +757,8 @@ func handleSubcommands() bool {
 			targetDir = strings.Trim(os.Args[2], `"`)
 		}
 		if targetDir == "" {
-			var err error
-			targetDir, err = core.FindObsScriptsDir()
-			if err != nil {
+			targetDir, _ = core.DetectObsScriptsDir()
+			if targetDir == "" {
 				os.Exit(1)
 			}
 		}

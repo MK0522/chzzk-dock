@@ -23,19 +23,16 @@ jobs:
           cache: true
 
       - name: Install Dependencies
-        run: go mod tidy
+        run: go mod download
 
       - name: Install Inno Setup
-        run: |
-          choco install innosetup -y --no-progress
+        run: choco install innosetup -y --no-progress
 
       - name: Generate PE Resource
-        run: |
-          go run github.com/josephspurrier/goversioninfo/cmd/goversioninfo@latest -64 -o resource_windows_amd64.syso
+        run: go run github.com/josephspurrier/goversioninfo/cmd/goversioninfo@latest -64 -o resource_windows_amd64.syso
 
       - name: Build Windows Executable
-        run: |
-          go build -trimpath -ldflags="-H windowsgui" -o chzzk-dock.exe .
+        run: go build -trimpath -ldflags="-H windowsgui" -o chzzk-dock.exe .
 
       - name: Build Inno Setup Installer
         run: |
@@ -50,8 +47,7 @@ jobs:
       - name: Prepare Release Notes
         id: release_notes
         shell: pwsh
-        run: |
-          pwsh -ExecutionPolicy Bypass -File .\scripts\prepare_release_notes.ps1
+        run: .\scripts\prepare_release_notes.ps1
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -60,9 +56,8 @@ jobs:
           tag_name: ${{ github.ref_name }}
           name: ${{ steps.release_notes.outputs.release_title }}
           body_path: ${{ steps.release_notes.outputs.has_custom_notes == 'true' && 'release_body.md' || '' }}
-          files: |
-            chzzk-dock-windows-amd64-installer.exe
-            chzzk-dock.exe
-          draft: false
+          # 릴리즈 에셋은 인스톨러 단일 배포 유지 (설치 혼동 및 자동 업데이트 오다운로드 방지)
+          # 단일 실행 바이너리(chzzk-dock.exe)가 필요한 사용자는 직접 소스 빌드하여 사용
+          files: chzzk-dock-setup.exe
           prerelease: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') || contains(github.ref_name, '-') }}
           generate_release_notes: ${{ steps.release_notes.outputs.has_custom_notes != 'true' }}

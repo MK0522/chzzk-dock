@@ -5,6 +5,8 @@
 -- ==============================================================================
 
 local obs = obslua
+-- 스크립트 버전: 알림 건너뛰기 지원 및 차기 업데이트 감지용 정수 버전(< 비교)
+local SCRIPT_VERSION = 2
 local BAKED_EXE_PATH = "" -- Go 설치 프로세스에서 실제 chzzk-dock.exe 경로를 자동 주입
 local exe_path = ""
 local auto_start = true
@@ -28,6 +30,7 @@ if ffi_loaded then
             int MessageBoxW(void* hWnd, const uint16_t* lpText, const uint16_t* lpCaption, unsigned int uType);
             void* OpenMutexW(unsigned long dwDesiredAccess, int bInheritHandle, const uint16_t* lpName);
             int CloseHandle(void* hObject);
+            void* ShellExecuteW(void* hwnd, const uint16_t* lpOperation, const uint16_t* lpFile, const uint16_t* lpParameters, const uint16_t* lpDirectory, int nShowCmd);
         ]]
         cdef_done = true
     end)
@@ -98,65 +101,35 @@ function script_description()
 end
 
 local function get_default_exe_path()
-    -- 1. Go 백엔드에서 주입된 고정 경로가 유효한 경우
     if BAKED_EXE_PATH ~= "" and file_exists(BAKED_EXE_PATH) then
         return BAKED_EXE_PATH
     end
 
-    -- 2. 스크립트 위치 기준 탐색
+    local candidates = {}
     local s_path = script_path()
     if s_path then
         local dir = s_path:match("(.*[/\\])")
         if dir then
-            -- 2-1. 같은 폴더
-            if file_exists(dir .. "chzzk-dock.exe") then
-                return dir .. "chzzk-dock.exe"
-            end
-            -- 2-2. 상위 폴더 (인스톨러 설치 시 {app}\scripts 하위에 스크립트 위치)
-            if file_exists(dir .. "..\\chzzk-dock.exe") then
-                return dir .. "..\\chzzk-dock.exe"
-            end
-            if file_exists(dir .. "../chzzk-dock.exe") then
-                return dir .. "../chzzk-dock.exe"
-            end
+            table.insert(candidates, dir .. "chzzk-dock.exe")
+            table.insert(candidates, dir .. "..\\chzzk-dock.exe")
         end
     end
 
-    -- 3. Inno Setup 인스톨러 표준 설치 경로 탐색
-    local local_appdata = os.getenv("LOCALAPPDATA")
-    if local_appdata then
-        local user_install = local_appdata .. "\\Programs\\CHZZK OBS Dock\\chzzk-dock.exe"
-        if file_exists(user_install) then
-            return user_install
+    local lad = os.getenv("LOCALAPPDATA")
+    if lad then table.insert(candidates, lad .. "\\Programs\\CHZZK OBS Dock\\chzzk-dock.exe") end
+    local pf = os.getenv("ProgramFiles")
+    if pf then table.insert(candidates, pf .. "\\CHZZK OBS Dock\\chzzk-dock.exe") end
+    local pfx86 = os.getenv("ProgramFiles(x86)")
+    if pfx86 then table.insert(candidates, pfx86 .. "\\CHZZK OBS Dock\\chzzk-dock.exe") end
+
+    for _, path in ipairs(candidates) do
+        if file_exists(path) then
+            return path
         end
     end
 
-    local prog_files = os.getenv("ProgramFiles")
-    if prog_files then
-        local admin_install = prog_files .. "\\CHZZK OBS Dock\\chzzk-dock.exe"
-        if file_exists(admin_install) then
-            return admin_install
-        end
-    end
-
-    local prog_files_x86 = os.getenv("ProgramFiles(x86)")
-    if prog_files_x86 then
-        local admin_x86 = prog_files_x86 .. "\\CHZZK OBS Dock\\chzzk-dock.exe"
-        if file_exists(admin_x86) then
-            return admin_x86
-        end
-    end
-
-    -- 4. 폴백: 비록 파일이 현재 없더라도 BAKED_EXE_PATH가 있으면 반환
-    if BAKED_EXE_PATH ~= "" then
-        return BAKED_EXE_PATH
-    end
-
-    -- 5. 기본값: 사용자 설치 표준 경로 제공 (OBS 폴더로 잘못 지정되는 현상 방지)
-    if local_appdata then
-        return local_appdata .. "\\Programs\\CHZZK OBS Dock\\chzzk-dock.exe"
-    end
-
+    if BAKED_EXE_PATH ~= "" then return BAKED_EXE_PATH end
+    if lad then return lad .. "\\Programs\\CHZZK OBS Dock\\chzzk-dock.exe" end
     return ""
 end
 
@@ -183,19 +156,47 @@ local function launch_server_process()
     end
 
     print("[CHZZK Dock] 치지직 독 서버 시작 요청: " .. target)
-    -- chzzk-dock.exe는 순수 GUI 바이너리(-H windowsgui)이므로 /b 없이 start "" 만으로 콘솔 창 없이 독립 실행됩니다.
-    -- (/b 사용 시 부모 OBS의 표준 I/O 핸들이 상속되어 OBS 종료 시 데드락이 발생하므로 금지)
-    local launch_cmd = 'start "" "' .. target .. '"'
-    local ret = os.execute(launch_cmd)
-    if ret ~= 0 then
-        alert_error("치지직 독 서버를 실행하지 못했습니다.\n\n명령: " .. launch_cmd)
+    -- cmd.exe 콘솔 경합 및 표준 I/O 핸들 상속으로 인한 OBS 데드락을 원천 방지하기 위해 Win32 ShellExecuteW를 직접 호출합니다.
+    local launched = false
+    if ffi_loaded and cdef_done then
+        local ok, ret = pcall(function()
+            local op_w = to_wide("open")
+            local file_w = to_wide(target)
+            if op_w and file_w then
+                local res = ffi.C.ShellExecuteW(nil, op_w, file_w, nil, nil, 1) -- 1: SW_SHOWNORMAL
+                -- ShellExecuteW 반환값이 32보다 크면 성공
+                if tonumber(ffi.cast("intptr_t", res)) > 32 then
+                    return true
+                end
+            end
+            return false
+        end)
+        if ok and ret then
+            launched = true
+        end
+    end
+
+    if not launched then
+        -- FFI 호출 실패 시 폴백
+        local launch_cmd = 'start "" "' .. target .. '"'
+        local ret = os.execute(launch_cmd)
+        if ret ~= 0 then
+            alert_error("치지직 독 서버를 실행하지 못했습니다.\n\n명령: " .. launch_cmd)
+        end
     end
 end
 
-local function deferred_start()
-    obs.timer_remove(deferred_start)
-    if auto_start then
-        launch_server_process()
+local has_started = false
+
+local function on_frontend_event(event)
+    -- OBS의 장면/소스/UI 윈도우 초기화가 완전히 완료된 시점에 딱 1회 안전하게 독 서버 기동
+    if event == obs.OBS_FRONTEND_EVENT_FINISHED_LOADING then
+        if not has_started then
+            has_started = true
+            if auto_start then
+                launch_server_process()
+            end
+        end
     end
 end
 
@@ -204,16 +205,13 @@ function script_load(settings)
         exe_path = get_default_exe_path()
     end
 
-    -- OBS UI 렌더링 및 메인 스레드 블로킹 방지:
-    -- OBS 초기화 완료 100ms 후 비동기 타이머로 분기 실행하여 OBS 기동 프리징을 완전히 방지합니다.
-    if auto_start then
-        obs.timer_add(deferred_start, 100)
-    end
+    -- OBS UI 렌더링 및 메인 윈도우 생성 완료 이벤트를 감지하여 안전하게 비동기 기동합니다.
+    obs.obs_frontend_add_event_callback(on_frontend_event)
 end
 
 function script_unload()
-    -- 비동기 타이머가 대기 중인 경우 타이머 해제
-    obs.timer_remove(deferred_start)
+    -- 프론트엔드 이벤트 콜백 해제
+    obs.obs_frontend_remove_event_callback(on_frontend_event)
     -- 독 서버의 자동 종료는 백엔드 자체 워치독이 담당하므로 별도의 강제 종료(taskkill)를 수행하지 않습니다.
 end
 

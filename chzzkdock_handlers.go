@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -366,65 +367,32 @@ type CleanDonationDetails struct {
 
 func fetchDonationDetailsFromChzzk(channelId string) (*CleanDonationDetails, error) {
 	details := &CleanDonationDetails{}
+	targets := []struct {
+		path string
+		dest *any
+	}{
+		{fmt.Sprintf("/manage/v1/channels/%s/donations/chat-setting", channelId), &details.Chat},
+		{fmt.Sprintf("/manage/v1/channels/%s/donations/video-setting", channelId), &details.Video},
+		{fmt.Sprintf("/manage/v1/channels/%s/donations/mission/setting", channelId), &details.Mission},
+		{fmt.Sprintf("/manage/v1/channels/%s/donations/subscription-alert-setting", channelId), &details.Subscription},
+	}
+
 	var wg sync.WaitGroup
-	wg.Add(4)
-
-	go func() {
-		defer wg.Done()
-		path := fmt.Sprintf("/manage/v1/channels/%s/donations/chat-setting", channelId)
-		status, data, err := callChzzk("GET", path, nil, true)
-		if err == nil && status == http.StatusOK {
-			var raw struct {
-				Content any `json:"content"`
+	for _, t := range targets {
+		wg.Add(1)
+		go func(path string, dest *any) {
+			defer wg.Done()
+			status, data, err := callChzzk("GET", path, nil, true)
+			if err == nil && status == http.StatusOK {
+				var raw struct {
+					Content any `json:"content"`
+				}
+				if json.Unmarshal(data, &raw) == nil && raw.Content != nil {
+					*dest = raw.Content
+				}
 			}
-			if json.Unmarshal(data, &raw) == nil && raw.Content != nil {
-				details.Chat = raw.Content
-			}
-		}
-	}()
-
-	go func() {
-		defer wg.Done()
-		path := fmt.Sprintf("/manage/v1/channels/%s/donations/video-setting", channelId)
-		status, data, err := callChzzk("GET", path, nil, true)
-		if err == nil && status == http.StatusOK {
-			var raw struct {
-				Content any `json:"content"`
-			}
-			if json.Unmarshal(data, &raw) == nil && raw.Content != nil {
-				details.Video = raw.Content
-			}
-		}
-	}()
-
-	go func() {
-		defer wg.Done()
-		path := fmt.Sprintf("/manage/v1/channels/%s/donations/mission/setting", channelId)
-		status, data, err := callChzzk("GET", path, nil, true)
-		if err == nil && status == http.StatusOK {
-			var raw struct {
-				Content any `json:"content"`
-			}
-			if json.Unmarshal(data, &raw) == nil && raw.Content != nil {
-				details.Mission = raw.Content
-			}
-		}
-	}()
-
-	go func() {
-		defer wg.Done()
-		path := fmt.Sprintf("/manage/v1/channels/%s/donations/subscription-alert-setting", channelId)
-		status, data, err := callChzzk("GET", path, nil, true)
-		if err == nil && status == http.StatusOK {
-			var raw struct {
-				Content any `json:"content"`
-			}
-			if json.Unmarshal(data, &raw) == nil && raw.Content != nil {
-				details.Subscription = raw.Content
-			}
-		}
-	}()
-
+		}(t.path, t.dest)
+	}
 	wg.Wait()
 	return details, nil
 }
@@ -1329,67 +1297,71 @@ func formatDropsConditionText(rawSec int) string {
 	return fmt.Sprintf("%d분 시청", m)
 }
 
-// handleChzzkDropsMatchGet: GET /chzzkdock/drops/match?category=... (카테고리별 채널 활성 드롭스 원샷 판별 & 보상 정보)
+// handleChzzkDropsMatchGet: GET /chzzkdock/drops/match?campaignNo=... 또는 ?category=... (드롭스 상세 보상 정보 직통 조회)
 func handleChzzkDropsMatchGet(w http.ResponseWriter, r *http.Request) {
-	category := strings.TrimSpace(r.URL.Query().Get("category"))
-	if category == "" {
-		category = strings.TrimSpace(r.URL.Query().Get("categoryId"))
+	q := strings.TrimSpace(r.URL.Query().Get("campaignNo"))
+	if q == "" {
+		q = strings.TrimSpace(r.URL.Query().Get("category"))
 	}
-	if category == "" {
-		respondOK(w, dropsMatchResponse{Supported: false})
-		return
+	if q == "" {
+		q = strings.TrimSpace(r.URL.Query().Get("categoryId"))
 	}
-	catNorm := strings.ToLower(category)
-
-	cid, err := resolveChzzkChannelId(r)
-	if err != nil {
-		respondErr(w, http.StatusUnauthorized, err.Error())
-		return
-	}
-
-	listPath := fmt.Sprintf("/manage/v1/channels/%s/drops/campaigns", cid)
-	status, data, err := callChzzk("GET", listPath, nil, true)
-	if err != nil || status != http.StatusOK {
-		respondOK(w, dropsMatchResponse{Supported: false})
-		return
-	}
-
-	var rawList struct {
-		Content struct {
-			CampaignList []struct {
-				CampaignNo    int64  `json:"campaignNo"`
-				CampaignName  string `json:"campaignName"`
-				CategoryID    string `json:"categoryId"`
-				CategoryValue string `json:"categoryValue"`
-				Category      *struct {
-					CategoryID    string `json:"categoryId"`
-					CategoryValue string `json:"categoryValue"`
-				} `json:"category"`
-			} `json:"campaignList"`
-		} `json:"content"`
-	}
-	if err := json.Unmarshal(data, &rawList); err != nil || len(rawList.Content.CampaignList) == 0 {
+	if q == "" {
 		respondOK(w, dropsMatchResponse{Supported: false})
 		return
 	}
 
 	var matchedCampaignNo int64
 	var matchedTitle string
-	for _, c := range rawList.Content.CampaignList {
-		id := strings.ToLower(strings.TrimSpace(c.CategoryID))
-		val := strings.ToLower(strings.TrimSpace(c.CategoryValue))
-		if c.Category != nil {
-			if id == "" {
-				id = strings.ToLower(strings.TrimSpace(c.Category.CategoryID))
-			}
-			if val == "" {
-				val = strings.ToLower(strings.TrimSpace(c.Category.CategoryValue))
-			}
+
+	// 1. 숫자가 전달된 경우: 불필요한 채널 목록 역추적 없이 치지직 공개 상세 API 직통 조회
+	if no, err := strconv.ParseInt(q, 10, 64); err == nil && no > 0 {
+		matchedCampaignNo = no
+	} else {
+		// 2. 카테고리 문자열이 전달된 경우의 폴백: 채널 활성 목록에서 카테고리명/ID 대조
+		cid, err := resolveChzzkChannelId(r)
+		if err != nil {
+			respondOK(w, dropsMatchResponse{Supported: false})
+			return
 		}
-		if (id != "" && id == catNorm) || (val != "" && val == catNorm) {
-			matchedCampaignNo = c.CampaignNo
-			matchedTitle = c.CampaignName
-			break
+
+		listPath := fmt.Sprintf("/manage/v1/channels/%s/drops/campaigns", cid)
+		status, data, err := callChzzk("GET", listPath, nil, true)
+		if err == nil && status == http.StatusOK {
+			var rawList struct {
+				Content struct {
+					CampaignList []struct {
+						CampaignNo    int64  `json:"campaignNo"`
+						CampaignName  string `json:"campaignName"`
+						CategoryID    string `json:"categoryId"`
+						CategoryValue string `json:"categoryValue"`
+						Category      *struct {
+							CategoryID    string `json:"categoryId"`
+							CategoryValue string `json:"categoryValue"`
+						} `json:"category"`
+					} `json:"campaignList"`
+				} `json:"content"`
+			}
+			if json.Unmarshal(data, &rawList) == nil {
+				qNorm := strings.ToLower(q)
+				for _, c := range rawList.Content.CampaignList {
+					id := strings.ToLower(strings.TrimSpace(c.CategoryID))
+					val := strings.ToLower(strings.TrimSpace(c.CategoryValue))
+					if c.Category != nil {
+						if id == "" {
+							id = strings.ToLower(strings.TrimSpace(c.Category.CategoryID))
+						}
+						if val == "" {
+							val = strings.ToLower(strings.TrimSpace(c.Category.CategoryValue))
+						}
+					}
+					if (id != "" && id == qNorm) || (val != "" && val == qNorm) || strconv.FormatInt(c.CampaignNo, 10) == qNorm {
+						matchedCampaignNo = c.CampaignNo
+						matchedTitle = c.CampaignName
+						break
+					}
+				}
+			}
 		}
 	}
 
@@ -1398,8 +1370,9 @@ func handleChzzkDropsMatchGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 치지직 공개 캠페인 상세 API 직통 호출
 	detailPath := fmt.Sprintf("/service/v2/drops/campaigns/%d", matchedCampaignNo)
-	status, data, err = callChzzk("GET", detailPath, nil, false)
+	status, data, err := callChzzk("GET", detailPath, nil, false)
 	if err != nil || status != http.StatusOK {
 		detailPath = fmt.Sprintf("/service/v1/drops/campaigns/%d", matchedCampaignNo)
 		status, data, err = callChzzk("GET", detailPath, nil, false)

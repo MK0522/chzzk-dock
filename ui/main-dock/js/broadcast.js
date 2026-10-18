@@ -283,38 +283,16 @@ async function initConnection() {
         return dropsCampaignDetailsCache[campaignNo];
       }
       try {
-        // v2 엔드포인트 우선 시도, 실패 시 v1 폴백
-        let res = await apiFetch(`/unofficial/service/v2/drops/campaigns/${campaignNo}`);
-        if (!res.ok) {
-          res = await apiFetch(`/unofficial/service/v1/drops/campaigns/${campaignNo}`);
-        }
+        const res = await apiFetch(`/chzzkdock/drops/match?campaignNo=${encodeURIComponent(campaignNo)}`);
         if (res.ok) {
-          const data = await res.json();
-          const content = data?.content;
-          if (content) {
-            const rawRewards = content.rewards || content.rewardList || [];
-            const parsedRewards = rawRewards.map(r => {
-              const name = r.name || r.rewardName || r.title || (r.item && (r.item.name || r.item.rewardName)) || '보상 아이템';
-              const imageUrl = r.imageUrl || r.rewardImageUrl || r.iconUrl || (r.item && (r.item.imageUrl || r.item.rewardImageUrl)) || '';
-              const conditionText = formatDropsCondition(r);
-              return {
-                name: name,
-                imageUrl: imageUrl,
-                conditionText: conditionText
-              };
-            });
-
-            const isTerminated = content.state === 'TERMINATED' || (content.endDate && new Date(content.endDate).getTime() < Date.now());
-            const pcUrl = content.pcLinkUrl;
-            const validUrl = (typeof pcUrl === 'string' && pcUrl.startsWith('https://')) ? pcUrl : null;
-
+          const matchData = await res.json();
+          if (matchData && matchData.supported) {
             const details = {
-              campaignNo: content.campaignNo || campaignNo,
-              title: content.title || content.campaignName || '드롭스 캠페인',
-              state: content.state,
-              isTerminated: isTerminated,
-              rewards: parsedRewards,
-              linkUrl: validUrl
+              campaignNo: matchData.campaignNo || campaignNo,
+              title: matchData.title || '드롭스 캠페인',
+              isTerminated: matchData.isTerminated,
+              rewards: matchData.rewards || [],
+              linkUrl: matchData.linkUrl
             };
             dropsCampaignDetailsCache[campaignNo] = details;
             applyDropsCampaignDetails(details);
@@ -329,26 +307,19 @@ async function initConnection() {
 
     let activeChannelDrops = []; // 채널별 실시간 활성 드롭스 캠페인 목록 캐시
 
-
     function applyDropsCampaignDetails(details) {
       if (!details) return;
       currentDropsCampaignTitle = details.title;
       updateDropsBadgeUI(details);
     }
 
-    // 치지직 스튜디오 공식 API: 현재 채널이 참여 가능한 실시간 활성 드롭스 캠페인 목록 조회
-
+    // 치지직 스튜디오 공식 API: 현재 채널이 참여 가능한 실시간 활성 드롭스 캠페인 목록 조회 (BFF)
     async function fetchChannelDropsCampaigns(channelId) {
-      const chId = channelId || userChannelId;
-      if (!chId) return [];
       try {
-        const res = await apiFetch(`/unofficial/manage/v1/channels/${chId}/drops/campaigns`);
+        const res = await apiFetch('/chzzkdock/drops/campaigns');
         if (res.ok) {
           const data = await res.json();
-          const list = Array.isArray(data.content) ? data.content :
-                       (Array.isArray(data.content?.campaigns) ? data.content.campaigns :
-                       (Array.isArray(data.content?.items) ? data.content.items : []));
-          activeChannelDrops = list || [];
+          activeChannelDrops = Array.isArray(data) ? data : (data?.content?.campaignList || []);
           return activeChannelDrops;
         }
       } catch (e) {
@@ -722,22 +693,13 @@ async function initConnection() {
         let isLive = false;
         let viewerCount = 0;
 
-        // 1. 치지직 공식 실시간 Polling API 호출 (동시 시청자 수, 방송 상태)
-        const res = await apiFetch(`/unofficial/polling/v2/channels/${userChannelId}/live-status`);
+        // 치지직 실시간 라이브 상태 BFF 호출 (쿠키 불필요, 공개 캐싱)
+        const res = await chzzkApi.getLiveStatus();
         if (res.ok) {
-          const data = await res.json();
-          const content = data.content || data;
-          if (content && content.status === 'OPEN') {
+          const content = await res.json();
+          if (content && (content.isLive || content.status === 'OPEN')) {
             isLive = true;
             viewerCount = typeof content.concurrentUserCount === 'number' ? content.concurrentUserCount : 0;
-          }
-        } else {
-          // 2. 서비스 채널 정보 fallback
-          const fbRes = await apiFetch(`/unofficial/service/v1/channels/${userChannelId}`);
-          if (fbRes.ok) {
-            const fbData = await fbRes.json();
-            const fbContent = fbData.content || fbData;
-            isLive = !!(fbContent && fbContent.openLive);
           }
         }
 
@@ -1078,6 +1040,8 @@ async function initConnection() {
     }
 
 
+    // checkLoginGuard: 비로그인 상태에서 방송 제어 및 웹뷰 창 실행 요청을 UI 단에서 사전 차단
+    // 로그아웃 상태에서는 안내 토스트만 표시하고 백엔드 웹뷰 실행 요청 자체를 전송하지 않습니다.
     function checkLoginGuard(actionName) {
       const hasCookies = (serverConfig.nid_aut && serverConfig.nid_ses);
       if (!userChannelId && !hasCookies) {
@@ -1147,12 +1111,12 @@ async function initConnection() {
           showToast('로그인 필요', 'warn', '치지직 로그인을 먼저 확인해 주세요.');
           return;
         }
-        const wpRes = await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/watch-parties`);
+        const wpRes = await apiFetch('/chzzkdock/watch-parties');
         if (wpRes.ok) {
           const wpData = await wpRes.json();
-          const wpContent = wpData.content || wpData;
-          if (wpContent && Array.isArray(wpContent.watchParties)) {
-            availableWatchParties = wpContent.watchParties;
+          const list = wpData.watchParties || wpData.content?.watchParties || [];
+          if (Array.isArray(list)) {
+            availableWatchParties = list;
             renderWatchPartyOptions(availableWatchParties);
             const curVal = document.getElementById('select-watch-party')?.value;
             if (curVal) {
@@ -1829,17 +1793,13 @@ async function initConnection() {
         cardBroadcast.addEventListener('keydown', guardFn, true);
       }
 
-      // ── 2. 백그라운드에서 연결 시도 (UI 차단 없음) ──
+      // ── 2. 백그라운드에서 연결 시도 및 통합 설정 1회 로드 (원리 A) ──
       initConnection();
       initFontScale();
-      loadShowViewerCountSetting();
+      if (typeof loadAllDockSettings === 'function') {
+        loadAllDockSettings();
+      }
       checkObsScriptStatus();
-      loadWatchdogTimeout();
-      loadPortStatus();
-      loadPopupOnStartSetting();
-      loadGPUSetting();
-      loadExternalBrowserSetting();
-      loadBetaUpdatesSetting();
       loadBroadcastPresets();
       loadCategoryFavorites();
       checkForUpdate(false);
@@ -2103,14 +2063,14 @@ async function initConnection() {
 
         let loaded = false;
 
-        // 0. 같이보기(Watch Party) 목록 조회
+        // 0. 같이보기(Watch Party) 목록 조회 (BFF)
         try {
-          const wpRes = await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/watch-parties`);
+          const wpRes = await apiFetch('/chzzkdock/watch-parties');
           if (wpRes.ok) {
             const wpData = await wpRes.json();
-            const wpContent = wpData.content || wpData;
-            if (wpContent && Array.isArray(wpContent.watchParties)) {
-              availableWatchParties = wpContent.watchParties;
+            const list = wpData.watchParties || wpData.content?.watchParties || [];
+            if (Array.isArray(list)) {
+              availableWatchParties = list;
               renderWatchPartyOptions(availableWatchParties);
             }
           }
@@ -2121,9 +2081,9 @@ async function initConnection() {
           await fetchChannelDropsCampaigns(userChannelId);
         } catch (e) {}
 
-        // 1. 방송 정보 및 다시보기/연령제한/클립 설정
+        // 1. 방송 정보 및 다시보기/연령제한/클립 설정 (BFF)
         try {
-          const res = await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/live-setting/normal`);
+          const res = await chzzkApi.getBroadcast();
           if (res.ok) {
             const data = await res.json();
             const content = data.content || data;
@@ -2229,9 +2189,9 @@ async function initConnection() {
           }
         } catch (e) {}
 
-      // 2. 채팅 설정
+      // 2. 채팅 설정 (BFF)
       try {
-        const chatRes = await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/live-setting/chat`);
+        const chatRes = await chzzkApi.getChatRule();
         if (chatRes.ok) {
           const chatData = await chatRes.json();
           const chatContent = chatData.content || chatData;
@@ -2419,11 +2379,7 @@ async function initConnection() {
           channelDonationBoardMessage: (isWp && activeWatchParty && activeWatchParty.donationBoardInfo) ? (currentDonationBoardMessage || '') : void 0
         };
 
-        const resLive = await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/live-setting/normal`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payloadLive)
-        });
+        const resLive = await chzzkApi.saveBroadcast(payloadLive);
 
         if (resLive.ok) {
           currentLiveSetting.adult = payloadLive.adult;
@@ -2450,7 +2406,7 @@ async function initConnection() {
         showToast('방송 정보 저장 오류', 'error', err.message);
       }
 
-      // 2. 채팅 설정 저장 (PUT /live-setting/chat)
+      // 2. 채팅 설정 저장 (BFF: PUT /chzzkdock/chat-rule)
       try {
         const group = getSelectedChatGroup();
         const payloadChat = {
@@ -2459,11 +2415,7 @@ async function initConnection() {
           allowSubscriberInFollowerMode: document.getElementById('toggle-sub-exception').checked
         };
 
-        const resChat = await apiFetch(`/unofficial/manage/v1/channels/${userChannelId}/live-setting/chat`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payloadChat)
-        });
+        const resChat = await chzzkApi.saveChatRule(payloadChat);
 
         if (resChat.ok) {
           chatSuccess = true;
@@ -2608,10 +2560,10 @@ async function initConnection() {
       if (!keyword || !keyword.trim()) return [];
       try {
         const q = encodeURIComponent(keyword.trim());
-        const res = await apiFetch(`/unofficial/manage/v1/auto-complete/categories?keyword=${q}&size=50`);
+        const res = await apiFetch(`/chzzkdock/categories/search?keyword=${q}&size=50`);
         if (res.ok) {
-          const data = await res.json();
-          return data?.content?.results || [];
+          const results = await res.json();
+          return Array.isArray(results) ? results : (results?.content?.results || []);
         }
       } catch (err) {
         console.error('fetchCategoriesApi 에러', err);
@@ -2632,6 +2584,9 @@ async function initConnection() {
       const mappedAlias = CATEGORY_ALIAS_MAP[qLower];
 
       try {
+        if (activeChannelDrops.length === 0 && userChannelId) {
+          fetchChannelDropsCampaigns(userChannelId).catch(() => {});
+        }
         // 별칭 매핑이 있는 경우, 별칭 검색과 원본 검색을 병렬로 동시 요청
         const reqs = [fetchCategoriesApi(qTrim)];
         if (mappedAlias && mappedAlias.toLowerCase() !== qLower) {

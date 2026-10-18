@@ -44,6 +44,7 @@ type AppSettings struct {
 	FontScale            float64            `json:"font_scale"`                       // 독 화면/폰트 배율 (기본값: 1.2)
 	ShowViewerCount      *bool              `json:"show_viewer_count,omitempty"`      // 상단 실시간 시청자 수 표시 여부 (기본값: true)
 	SkipUpdateVersion    string             `json:"skip_update_version,omitempty"`    // 건너뛴 업데이트 버전 태그
+	SkipScriptVersion    int                `json:"skip_script_version,omitempty"`    // 건너뛴 OBS Lua 스크립트 버전 번호
 	BroadcastPresets        []BroadcastPreset       `json:"broadcast_presets,omitempty"`          // 방송 정보 프리셋 목록 (최대 10개)
 	CategoryFavorites       []CategoryFavorite      `json:"category_favorites,omitempty"`        // 카테고리 즐겨찾기 목록 (최대 8개)
 	PreWatchPartySnapshot   *WatchPartySnapshot     `json:"pre_watch_party_snapshot,omitempty"`  // 같이보기 전환 직전 방송 옵션 원본 스냅샷
@@ -532,17 +533,7 @@ func SaveWatchPartySnapshot(snap *WatchPartySnapshot) error {
 	return SaveSettings(st)
 }
 
-// ResetSettingsForTest: 단위 테스트용 캐시 초기화
-func ResetSettingsForTest() {
-	settingsMu.Lock()
-	defer settingsMu.Unlock()
-	settingsLoaded = false
-	defPop := false
-	defNotif := true
-	defGPU := true
-	defGuard := true
-	cachedSettings = AppSettings{WatchdogTimeoutSec: 60, HttpPort: 8081, PopupOnStart: &defPop, NotifyOnShutdown: &defNotif, EnableGPU: &defGPU, ExternalBrowserGuard: &defGuard}
-}
+
 
 // -----------------------------------------------------------------------------
 // 2. 인앱 자동 업데이트 파이프라인 (Updater)
@@ -663,11 +654,7 @@ func ParseSemVerInfo(v string) SemVerInfo {
 	return res
 }
 
-// ParseSemVer: "v0.5.12" 또는 "0.5.12" 형태의 문자열을 [major, minor, patch] 숫자로 분리 (하위 호환)
-func ParseSemVer(v string) (int, int, int) {
-	info := ParseSemVerInfo(v)
-	return info.Major, info.Minor, info.Patch
-}
+
 
 // CompareSemVer: v1 < v2 (-1), v1 == v2 (0), v1 > v2 (1)
 // SemVer 2.0 규칙 적용: Major.Minor.Patch 비교 후, 동일할 경우 정식 버전(접미사 없음)이 사전 릴리즈보다 우선
@@ -815,7 +802,7 @@ func CheckForUpdate(currentVersion string, force bool) (*UpdateInfo, error) {
 	var assetSize int64
 	for _, asset := range targetRelease.Assets {
 		name := strings.ToLower(asset.Name)
-		if strings.HasSuffix(name, "-installer.exe") || strings.Contains(name, "setup") || strings.HasSuffix(name, ".exe") {
+		if strings.HasSuffix(name, ".exe") && (strings.Contains(name, "setup") || strings.Contains(name, "installer")) {
 			downloadURL = asset.BrowserDownloadURL
 			assetSize = asset.Size
 			break

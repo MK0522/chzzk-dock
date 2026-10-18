@@ -8,7 +8,9 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -34,6 +36,7 @@ var (
 	iphlpapiDLL       = syscall.NewLazyDLL("iphlpapi.dll")
 	procGetOsTcpTable = iphlpapiDLL.NewProc("GetExtendedTcpTable")
 
+	procCloseHandle = kernel32.NewProc("CloseHandle")
 	procCreateT32Snap   = kernel32.NewProc("CreateToolhelp32Snapshot")
 	procProcess32FirstW = kernel32.NewProc("Process32FirstW")
 	procProcess32NextW  = kernel32.NewProc("Process32NextW")
@@ -87,73 +90,67 @@ type BROWSEINFOW struct {
 // 2. 프로세스 조회 및 스냅샷 (Process Inspection)
 // -----------------------------------------------------------------------------
 
-// IsProcessRunning: 특정 실행 파일명(예: "obs64.exe")이 시스템에서 실행 중인지 확인
-func IsProcessRunning(targetExe string) bool {
+// forEachProcess: Toolhelp32 프로세스 스냅샷을 안전하게 열고 순회하는 단일 캡슐화 헬퍼 (핸들 누수 방지 및 성능 최적화)
+func forEachProcess(fn func(pid uint32, exeName string) bool) {
 	hSnap, _, _ := procCreateT32Snap.Call(TH32CS_SNAPPROCESS, 0)
 	if hSnap == 0 || hSnap == uintptr(syscall.InvalidHandle) {
-		return false
+		return
 	}
-	defer kernel32.NewProc("CloseHandle").Call(hSnap)
+	defer procCloseHandle.Call(hSnap)
 
 	var entry PROCESSENTRY32W
 	entry.DwSize = uint32(unsafe.Sizeof(entry))
 
 	ret, _, _ := procProcess32FirstW.Call(hSnap, uintptr(unsafe.Pointer(&entry)))
 	if ret == 0 {
-		return false
+		return
 	}
 
 	for {
 		exeName := syscall.UTF16ToString(entry.SzExeFile[:])
-		if strings.EqualFold(exeName, targetExe) {
-			return true
+		if !fn(entry.Th32ProcessID, exeName) {
+			break
 		}
 		ret, _, _ = procProcess32NextW.Call(hSnap, uintptr(unsafe.Pointer(&entry)))
 		if ret == 0 {
 			break
 		}
 	}
-	return false
+}
+
+// IsProcessRunning: 특정 실행 파일명(예: "obs64.exe")이 시스템에서 실행 중인지 확인
+func IsProcessRunning(targetExe string) bool {
+	var found bool
+	forEachProcess(func(pid uint32, exeName string) bool {
+		if strings.EqualFold(exeName, targetExe) {
+			found = true
+			return false
+		}
+		return true
+	})
+	return found
 }
 
 // FindRunningObsPath: 실행 중인 obs64.exe / obs32.exe의 전체 실행 파일 경로 검색
 func FindRunningObsPath() string {
-	hSnap, _, _ := procCreateT32Snap.Call(TH32CS_SNAPPROCESS, 0)
-	if hSnap == 0 || hSnap == uintptr(syscall.InvalidHandle) {
-		return ""
-	}
-	defer kernel32.NewProc("CloseHandle").Call(hSnap)
-
-	var entry PROCESSENTRY32W
-	entry.DwSize = uint32(unsafe.Sizeof(entry))
-
-	ret, _, _ := procProcess32FirstW.Call(hSnap, uintptr(unsafe.Pointer(&entry)))
-	if ret == 0 {
-		return ""
-	}
-
-	for {
-		exeName := syscall.UTF16ToString(entry.SzExeFile[:])
+	var foundPath string
+	forEachProcess(func(pid uint32, exeName string) bool {
 		if strings.EqualFold(exeName, "obs64.exe") || strings.EqualFold(exeName, "obs32.exe") {
-			pid := entry.Th32ProcessID
 			hProcess, _, _ := procOpenProcess.Call(PROCESS_QUERY_LIMITED_INFORMATION, 0, uintptr(pid))
 			if hProcess != 0 {
 				var buf [1024]uint16
 				size := uint32(len(buf))
 				qRet, _, _ := procQueryFullProcessImageNameW.Call(hProcess, 0, uintptr(unsafe.Pointer(&buf[0])), uintptr(unsafe.Pointer(&size)))
-				kernel32.NewProc("CloseHandle").Call(hProcess)
+				procCloseHandle.Call(hProcess)
 				if qRet != 0 {
-					return syscall.UTF16ToString(buf[:size])
+					foundPath = syscall.UTF16ToString(buf[:size])
+					return false
 				}
 			}
 		}
-
-		ret, _, _ = procProcess32NextW.Call(hSnap, uintptr(unsafe.Pointer(&entry)))
-		if ret == 0 {
-			break
-		}
-	}
-	return ""
+		return true
+	})
+	return foundPath
 }
 
 // -----------------------------------------------------------------------------
@@ -195,26 +192,13 @@ func FindProcessUsingPort(port int) (uint32, string) {
 		if int(p) == port {
 			var pname string = ""
 			if row.OwningPid != 0 {
-				netSnap, _, _ := procCreateT32Snap.Call(TH32CS_SNAPPROCESS, 0)
-				if netSnap != 0 && netSnap != uintptr(syscall.InvalidHandle) {
-					var entry PROCESSENTRY32W
-					entry.DwSize = uint32(unsafe.Sizeof(entry))
-
-					rFirst, _, _ := procProcess32FirstW.Call(netSnap, uintptr(unsafe.Pointer(&entry)))
-					if rFirst != 0 {
-						for {
-							if entry.Th32ProcessID == row.OwningPid {
-								pname = syscall.UTF16ToString(entry.SzExeFile[:])
-								break
-							}
-							rNext, _, _ := procProcess32NextW.Call(netSnap, uintptr(unsafe.Pointer(&entry)))
-							if rNext == 0 {
-								break
-							}
-						}
+				forEachProcess(func(pid uint32, exeName string) bool {
+					if pid == row.OwningPid {
+						pname = exeName
+						return false
 					}
-					kernel32.NewProc("CloseHandle").Call(netSnap)
-				}
+					return true
+				})
 			}
 			return row.OwningPid, pname
 		}
@@ -297,11 +281,7 @@ func DetectObsScriptsDir() (string, bool) {
 	return defaultPath, false
 }
 
-// FindObsScriptsDir: 호환성을 위한 기존 탐색 함수 (경로 문자열 반환)
-func FindObsScriptsDir() (string, error) {
-	path, _ := DetectObsScriptsDir()
-	return path, nil
-}
+
 
 // ResolveObsScriptsDir: 사용자가 입력하거나 선택한 폴더 경로로부터 scripts 디렉터리 경로를 도출합니다.
 func ResolveObsScriptsDir(inputPath string) string {
@@ -419,40 +399,55 @@ func PrepareLauncherScriptWithExePath(scriptData []byte) []byte {
 	return []byte(scriptStr)
 }
 
-// IsScriptInstalled: 대상 scripts 디렉터리에 chzzk_dock_launcher.lua가 정상 배치되어 있는지 확인합니다.
-func IsScriptInstalled(scriptsDir string) bool {
-	if scriptsDir == "" {
-		scriptsDir, _ = DetectObsScriptsDir()
+var reScriptVersion = regexp.MustCompile(`SCRIPT_VERSION\s*=\s*([0-9]+)`)
+
+// ParseScriptVersion: 스크립트 내용에서 SCRIPT_VERSION 정수 버전을 추출합니다. (버전 상수가 없는 구버전은 0 반환)
+func ParseScriptVersion(data []byte) int {
+	if m := reScriptVersion.FindSubmatch(data); len(m) > 1 {
+		if v, err := strconv.Atoi(string(m[1])); err == nil {
+			return v
+		}
 	}
-	targetFile := filepath.Join(scriptsDir, "chzzk_dock_launcher.lua")
-	if stat, err := os.Stat(targetFile); err == nil && stat.Size() > 0 {
-		return true
-	}
-	return false
+	return 0
 }
 
-// CheckScriptStatus: 대상 scripts 디렉터리에 스크립트 설치 여부 및 최신 내용 일치 여부(업데이트 필요 여부)를 검사합니다.
-func CheckScriptStatus(scriptsDir string, latestScript []byte) (installed bool, needsUpdate bool) {
+// CheckScriptStatusWithVersion: 스크립트 설치 여부, 업데이트 필요 여부(< 비교), 설치된 버전 및 최신 버전을 함께 반환합니다.
+func CheckScriptStatusWithVersion(scriptsDir string, latestScript []byte) (installed bool, needsUpdate bool, installedVer int, latestVer int) {
+	latestVer = ParseScriptVersion(latestScript)
 	if scriptsDir == "" {
 		scriptsDir, _ = DetectObsScriptsDir()
 	}
 	if scriptsDir == "" {
-		return false, false
+		return false, false, 0, latestVer
 	}
 	targetFile := filepath.Join(scriptsDir, "chzzk_dock_launcher.lua")
 	existingData, err := os.ReadFile(targetFile)
 	if err != nil || len(existingData) == 0 {
-		return false, false
+		return false, false, 0, latestVer
 	}
 	installed = true
+	installedVer = ParseScriptVersion(existingData)
 
-	expectedData := PrepareLauncherScriptWithExePath(latestScript)
-	normExisting := strings.ReplaceAll(string(existingData), "\r\n", "\n")
-	normExpected := strings.ReplaceAll(string(expectedData), "\r\n", "\n")
-
-	if strings.TrimSpace(normExisting) != strings.TrimSpace(normExpected) {
+	// 버전이 명시된 경우 정수 버전 비교 (installedVer < latestVer)
+	if installedVer > 0 && latestVer > 0 {
+		needsUpdate = installedVer < latestVer
+	} else if installedVer < latestVer {
+		// 구버전(installedVer == 0)이고 최신본에 버전이 부여된 경우
 		needsUpdate = true
+	} else {
+		// 둘 다 버전이 0이거나 동일한 경우 텍스트 비교 폴백
+		expectedData := PrepareLauncherScriptWithExePath(latestScript)
+		normExisting := strings.ReplaceAll(string(existingData), "\r\n", "\n")
+		normExpected := strings.ReplaceAll(string(expectedData), "\r\n", "\n")
+		needsUpdate = strings.TrimSpace(normExisting) != strings.TrimSpace(normExpected)
 	}
+
+	return installed, needsUpdate, installedVer, latestVer
+}
+
+// CheckScriptStatus: 대상 scripts 디렉터리에 스크립트 설치 여부 및 최신 내용 일치 여부(업데이트 필요 여부)를 검사합니다.
+func CheckScriptStatus(scriptsDir string, latestScript []byte) (installed bool, needsUpdate bool) {
+	installed, needsUpdate, _, _ = CheckScriptStatusWithVersion(scriptsDir, latestScript)
 	return installed, needsUpdate
 }
 
@@ -462,11 +457,7 @@ func InstallLauncherScriptToObs(customDir string, scriptData []byte) (string, er
 	if customDir != "" {
 		targetDir = ResolveObsScriptsDir(customDir)
 	} else {
-		var err error
-		targetDir, err = FindObsScriptsDir()
-		if err != nil {
-			return "", err
-		}
+		targetDir, _ = DetectObsScriptsDir()
 	}
 
 	scriptData = PrepareLauncherScriptWithExePath(scriptData)
@@ -509,3 +500,4 @@ func InstallLauncherScriptToObs(customDir string, scriptData []byte) (string, er
 
 	return "", fmt.Errorf("관리자 권한 프로세스 실행 후 파일 생성을 확인하지 못했습니다")
 }
+

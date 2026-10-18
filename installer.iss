@@ -3,7 +3,7 @@
 ; ==============================================================================
 
 #define MyAppName "CHZZK OBS Dock"
-#define MyAppVersion "0.6.3-beta3"
+#define MyAppVersion "0.6.3-beta4"
 #define MyAppPublisher "CHZZK OBS Dock"
 #define MyAppURL "https://github.com/Dingteus/chzzk-dock"
 #define MyAppExeName "chzzk-dock.exe"
@@ -28,7 +28,7 @@ DisableProgramGroupPage=yes
 
 ; 설치 결과 파일명
 OutputDir=.
-OutputBaseFilename=chzzk-dock-windows-amd64-installer
+OutputBaseFilename=chzzk-dock-setup
 SetupIconFile=icon.ico
 Compression=lzma2/max
 SolidCompression=yes

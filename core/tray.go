@@ -176,49 +176,7 @@ func NewPureWinTrayIcon(tooltip, iconPath string, iconBytes []byte) *PureWinTray
 }
 
 func (t *PureWinTrayIcon) createIcon() syscall.Handle {
-	if t.IconPath != "" {
-		if _, err := os.Stat(t.IconPath); err == nil {
-			pathPtr, err := syscall.UTF16PtrFromString(t.IconPath)
-			if err == nil {
-				hicon, _, _ := procLoadImageW.Call(
-					0,
-					uintptr(unsafe.Pointer(pathPtr)),
-					uintptr(IMAGE_ICON),
-					0,
-					0,
-					uintptr(LR_LOADFROMFILE|LR_DEFAULTSIZE),
-				)
-				if hicon != 0 {
-					return syscall.Handle(hicon)
-				}
-			}
-		}
-	}
-
-	// 임베디드 아이콘 바이트가 있는 경우 임시 파일로 작성 후 로드
-	if len(t.IconBytes) > 0 {
-		tempIconPath := filepath.Join(os.TempDir(), "chzzk_dock_temp_icon.ico")
-		if err := os.WriteFile(tempIconPath, t.IconBytes, 0644); err == nil {
-			pathPtr, err := syscall.UTF16PtrFromString(tempIconPath)
-			if err == nil {
-				hicon, _, _ := procLoadImageW.Call(
-					0,
-					uintptr(unsafe.Pointer(pathPtr)),
-					uintptr(IMAGE_ICON),
-					0,
-					0,
-					uintptr(LR_LOADFROMFILE|LR_DEFAULTSIZE),
-				)
-				if hicon != 0 {
-					return syscall.Handle(hicon)
-				}
-			}
-		}
-	}
-
-	// 시스템 기본 어플리케이션 아이콘 (IDI_APPLICATION = 32512)
-	hicon, _, _ := procLoadIconW.Call(0, uintptr(32512))
-	return syscall.Handle(hicon)
+	return LoadAppIcon()
 }
 
 // LoadAppIcon: 현재 실행 파일의 PE 리소스(ID: 1) 또는 icon.ico에서 HICON 로드
@@ -351,11 +309,6 @@ func (t *PureWinTrayIcon) ShowNotification(title, msg string) {
 	t.sendNotification(title, msg, NIIF_INFO)
 }
 
-// ShowErrorNotification: 트레이 풍선 알림 표시 (오류 - 빨간색 X)
-func (t *PureWinTrayIcon) ShowErrorNotification(title, msg string) {
-	t.sendNotification(title, msg, NIIF_ERROR)
-}
-
 // UpdateTooltip: 트레이 아이콘의 마우스 호버 툴팁을 동적으로 변경
 func (t *PureWinTrayIcon) UpdateTooltip(tip string) {
 	t.mu.Lock()
@@ -379,18 +332,7 @@ func (t *PureWinTrayIcon) UpdateTooltip(tip string) {
 	procShell_NotifyIconW.Call(uintptr(NIM_MODIFY), uintptr(unsafe.Pointer(&nid)))
 }
 
-// ShowAlert: 오류 발생 시 윈도우 알림 (트레이 풍선 알림 또는 백업 MessageBoxW) 표시
-func ShowAlert(title, msg string) {
-	if GlobalTray != nil && GlobalTray.Nid != nil {
-		GlobalTray.ShowErrorNotification(title, msg)
-	} else {
-		user32 := syscall.NewLazyDLL("user32.dll")
-		procMessageBoxW := user32.NewProc("MessageBoxW")
-		titlePtr, _ := syscall.UTF16PtrFromString(title)
-		msgPtr, _ := syscall.UTF16PtrFromString(msg)
-		procMessageBoxW.Call(0, uintptr(unsafe.Pointer(msgPtr)), uintptr(unsafe.Pointer(titlePtr)), 0x10) // MB_ICONERROR
-	}
-}
+
 
 // SetClipboardText: [SYS-501] Win32 네이티브 API(OpenClipboard / SetClipboardData)를 사용하여
 // cmd.exe 및 clip.exe 호출 없이 즉각적이고 안전하게 텍스트를 클립보드에 복사합니다.

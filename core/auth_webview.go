@@ -115,39 +115,7 @@ var (
 	cookieCaptured = false
 )
 
-// ClearWebViewSession: 브라우저 정적 자원(HTML/CSS/JS 및 V8 컴파일 캐시)은 보존하면서,
-// 계정 전환 및 자동 로그인을 차단하기 위해 세션/쿠키/로컬 스토리지 데이터만 선별적으로 안전하게 제거합니다.
-func ClearWebViewSession(profileDir string) {
-	if profileDir == "" {
-		return
-	}
-	defaultDir := filepath.Join(profileDir, "EBWebView", "Default")
-	if _, err := os.Stat(defaultDir); os.IsNotExist(err) {
-		return
-	}
 
-	patterns := []string{
-		filepath.Join(defaultDir, "Network", "Cookies*"),
-		filepath.Join(defaultDir, "Cookies*"),
-		filepath.Join(defaultDir, "Local Storage"),
-		filepath.Join(defaultDir, "Session Storage"),
-		filepath.Join(defaultDir, "IndexedDB"),
-		filepath.Join(defaultDir, "Web Data*"),
-		filepath.Join(defaultDir, "Login Data*"),
-	}
-
-	for _, pattern := range patterns {
-		matches, err := filepath.Glob(pattern)
-		if err == nil && len(matches) > 0 {
-			for _, m := range matches {
-				_ = os.RemoveAll(m)
-			}
-		} else {
-			_ = os.RemoveAll(pattern)
-		}
-	}
-	LogInfo("[Webview] 브라우저 정적 캐시 보존 및 세션/쿠키 데이터 선별 초기화 완료")
-}
 
 // COM vtable definitions for ICoreWebView2GetCookiesCompletedHandler
 type ICoreWebView2GetCookiesCompletedHandler interface {
@@ -474,25 +442,6 @@ func RunLoginWebview() {
 	chromium.NavigationCompletedCallback = func(sender *edge.ICoreWebView2, args *edge.ICoreWebView2NavigationCompletedEventArgs) {
 		src, _ := sender.GetSource()
 		LogInfo("[Webview Login] 페이지 로드 완료: %s", src)
-		// 네이버 로그인 페이지 접속 시 '로그인 상태 유지' 체크박스 활성화 보장
-		if strings.Contains(src, "nidlogin.login") {
-			chromium.Eval(`(function() {
-				try {
-					var stay = document.getElementById("loginStay") || 
-					           document.getElementById("keep") || 
-					           document.querySelector('input[name="nvlong"]');
-					if (stay && !stay.checked) {
-						stay.click();
-						if (!stay.checked) {
-							stay.checked = true;
-							stay.value = "on";
-							stay.setAttribute("aria-checked", "true");
-							stay.dispatchEvent(new Event("change", { bubbles: true }));
-						}
-					}
-				} catch(e) {}
-			})();`)
-		}
 	}
 
 	if !chromium.Embed(hwnd) {

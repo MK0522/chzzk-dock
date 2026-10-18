@@ -96,30 +96,8 @@ func buildRouter() http.Handler {
 	wrap("GET /open-browser", handleOpenBrowser, true)
 	wrap("GET /remote-webview", handleRemoteWebview, true)
 	wrap("GET /chat-webview", handleChatWebview, true)
-	wrap("GET /watchdog-timeout", handleGetWatchdogTimeout, true)
-	wrap("POST /watchdog-timeout", handleSaveWatchdogTimeout, true)
-	wrap("GET /port-status", handlePortStatus, true)
 	wrap("POST /check-port", handleCheckPort, true)
 	wrap("POST /save-port", handleSavePort, true)
-	wrap("GET /startup-popup-status", handleGetStartupPopupStatus, true)
-	wrap("POST /save-startup-popup", handleSaveStartupPopup, true)
-	wrap("GET /shutdown-notify-status", handleGetShutdownNotifyStatus, true)
-	wrap("POST /save-shutdown-notify", handleSaveShutdownNotify, true)
-	wrap("GET /gpu-status", handleGetGpuStatus, true)
-	wrap("POST /save-gpu", handleSaveGpu, true)
-	wrap("GET /external-browser-status", handleGetExternalBrowserStatus, true)
-	wrap("POST /save-external-browser", handleSaveExternalBrowser, true)
-	wrap("GET /beta-updates-status", handleGetBetaUpdatesStatus, true)
-	wrap("POST /save-beta-updates", handleSaveBetaUpdates, true)
-	wrap("GET /auto-check-update-status", handleGetAutoCheckUpdateStatus, true)
-	wrap("POST /save-auto-check-update", handleSaveAutoCheckUpdate, true)
-	wrap("GET /font-scale-status", handleGetFontScaleStatus, true)
-	wrap("POST /save-font-scale", handleSaveFontScale, true)
-	wrap("GET /show-viewer-count-status", handleGetShowViewerCountStatus, true)
-	wrap("POST /save-show-viewer-count", handleSaveShowViewerCount, true)
-	wrap("POST /save-skip-update", handleSaveSkipUpdate, true)
-	wrap("GET /remote-tester-status", handleGetRemoteTesterStatus, true)
-	wrap("POST /remote-tester-auth", handleRemoteTesterAuth, true)
 	wrap("GET /app-settings", handleAppSettingsGet, true)
 	wrap("PUT /app-settings", handleAppSettingsPut, true)
 
@@ -158,7 +136,6 @@ func buildRouter() http.Handler {
 	wrap("GET /chzzkdock/profile", handleChzzkProfileGet, true)                // 치지직 쿠키 불필요 (공개 프로필)
 	wrap("GET /chzzkdock/live-status", handleChzzkLiveStatusGet, true)          // 치지직 쿠키 불필요 (공개 라이브 상태)
 	wrap("GET /chzzkdock/user-status", handleChzzkUserStatusGet, true)
-	wrap("GET /unofficial-user", handleChzzkUserStatusGet, true)
 	wrap("GET /chzzkdock/session/bootstrap", handleChzzkSessionBootstrap, true)
 	wrap("GET /chzzkdock/chat-rule", handleChzzkChatRuleGet, true)
 	wrap("PUT /chzzkdock/chat-rule", handleChzzkChatRulePut, true)
@@ -166,7 +143,6 @@ func buildRouter() http.Handler {
 	wrap("PUT /chzzkdock/broadcast", handleChzzkBroadcastPut, true)
 	wrap("GET /chzzkdock/categories/search", handleChzzkCategoriesSearchGet, true)        // 치지직 쿠키 불필요 (공개 검색)
 	wrap("GET /chzzkdock/categories/recommended", handleChzzkCategoriesRecommendedGet, true)  // 치지직 쿠키 불필요 (공개 추천)
-	wrap("GET /categories-recommended", handleChzzkCategoriesRecommendedGet, true)            // 레거시/단축 호환 별칭
 	wrap("GET /chzzkdock/drops/campaigns", handleChzzkDropsCampaignsGet, true)
 	wrap("GET /chzzkdock/drops/match", handleChzzkDropsMatchGet, true)                    // 치지직 쿠키 불필요 (공개 드롭스)
 	wrap("GET /chzzkdock/watch-parties", handleChzzkWatchPartiesGet, true)
@@ -178,7 +154,6 @@ func buildRouter() http.Handler {
 	wrap("GET /guide-image/1", handleGuideImage1, false)
 	wrap("GET /guide-image/2", handleGuideImage2, false)
 	wrap("GET /obs-script", handleObsScriptFile, false)
-	wrap("GET /obs-launcher.lua", handleObsScriptFile, false)
 	wrap("GET /chzzk_dock_launcher.lua", handleObsScriptFile, false)
 	wrap("GET /show-ui", handleShowUI, false)
 	wrap("GET /api/show-ui", handleShowUI, false)
@@ -332,13 +307,13 @@ func handleSaveConfig(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// handleLogout: 세션 로그아웃 처리
+// [보안/UX 설계] 네이버 2차 인증 기기 기억(NID_JST) 토큰을 보존하기 위해 webview_profile 폴더는 삭제하지 않습니다.
+// 폴더 삭제 시 로그인할 때마다 2차 인증(OTP)을 매번 반복해야 하는 치명적 UX 퇴행이 발생하므로,
+// 자격 증명 초기화(ClearConfig) 및 서브 프로세스 일괄 종료(killAllSubProcesses)로 안전하게 세션을 종료합니다.
 func handleLogout(w http.ResponseWriter, r *http.Request) {
+	killAllSubProcesses()
 	core.ClearConfig()
-	appData := os.Getenv("LOCALAPPDATA")
-	if appData == "" {
-		appData = os.Getenv("USERPROFILE")
-	}
-	core.ClearWebViewSession(appData)
 	respondOK(w, map[string]any{"code": 200, "message": "성공적으로 로그아웃되었습니다."})
 }
 
@@ -682,49 +657,7 @@ func handleChatWebview(w http.ResponseWriter, r *http.Request) {
 	respondOK(w, map[string]any{"status": "started", "message": "치지직 채팅 창이 열렸습니다."})
 }
 
-func handleGetWatchdogTimeout(w http.ResponseWriter, r *http.Request) {
-	timeoutSec := core.GetWatchdogTimeoutSec()
-	respondOK(w, map[string]any{"code": 200, "timeout_sec": timeoutSec})
-}
 
-func handleSaveWatchdogTimeout(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		TimeoutSec int `json:"timeout_sec"`
-	}
-	if !bindJSON(w, r, &req) {
-		return
-	}
-	if req.TimeoutSec != -1 && req.TimeoutSec != 0 && (req.TimeoutSec < 5 || req.TimeoutSec > 86400) {
-		respondErr(w, http.StatusBadRequest, "대기 시간은 -1, 0 또는 5초에서 86400초 사이여야 합니다.")
-		return
-	}
-	core.SetWatchdogTimeoutSec(req.TimeoutSec)
-	st := core.LoadSettings()
-	st.WatchdogTimeoutSec = req.TimeoutSec
-	st.WatchdogDisabled = (req.TimeoutSec == -1)
-	_ = core.SaveSettings(st)
-	if trayInstance != nil {
-		trayInstance.UpdateTooltip(getTrayTooltip())
-	}
-	msg := "대기 시간이 성공적으로 변경되었습니다."
-	if req.TimeoutSec == 0 {
-		msg = "OBS 종료 시 즉시 종료되도록 설정되었습니다."
-	} else if req.TimeoutSec == -1 {
-		msg = "OBS 자동 종료가 비활성화되었습니다. (상시 실행 유지)"
-	}
-	respondOK(w, map[string]any{"code": 200, "message": msg, "timeout_sec": req.TimeoutSec})
-}
-
-func handlePortStatus(w http.ResponseWriter, r *http.Request) {
-	respondOK(w, map[string]any{
-		"code":            200,
-		"active_port":     activeHttpPort,
-		"configured_port": core.GetConfiguredPort(),
-		"is_fallback":     isFallbackPort,
-		"fallback_reason": portFallbackReason,
-		"default_port":    DEFAULT_HTTP_PORT,
-	})
-}
 
 func handleCheckPort(w http.ResponseWriter, r *http.Request) {
 	var req struct {
@@ -809,85 +742,7 @@ func handleSavePort(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func handleGetStartupPopupStatus(w http.ResponseWriter, r *http.Request) {
-	respondOK(w, map[string]any{"code": 200, "popup_on_start": core.GetPopupOnStart()})
-}
 
-func handleSaveStartupPopup(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		PopupOnStart bool `json:"popup_on_start"`
-	}
-	if !bindJSON(w, r, &req) {
-		return
-	}
-	if err := core.SetPopupOnStartSetting(req.PopupOnStart); err != nil {
-		respondErr(w, http.StatusInternalServerError, "설정 저장에 실패했습니다.")
-		return
-	}
-	respondOK(w, map[string]any{"code": 200, "popup_on_start": req.PopupOnStart, "message": "시작 팝업 설정이 저장되었습니다."})
-}
-
-func handleGetShutdownNotifyStatus(w http.ResponseWriter, r *http.Request) {
-	respondOK(w, map[string]any{"code": 200, "notify_on_shutdown": core.GetNotifyOnShutdown()})
-}
-
-func handleSaveShutdownNotify(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		NotifyOnShutdown bool `json:"notify_on_shutdown"`
-	}
-	if !bindJSON(w, r, &req) {
-		return
-	}
-	if err := core.SetNotifyOnShutdownSetting(req.NotifyOnShutdown); err != nil {
-		respondErr(w, http.StatusInternalServerError, "설정 저장에 실패했습니다.")
-		return
-	}
-	respondOK(w, map[string]any{"code": 200, "notify_on_shutdown": req.NotifyOnShutdown, "message": "자동 종료 알림 설정이 저장되었습니다."})
-}
-
-func handleGetGpuStatus(w http.ResponseWriter, r *http.Request) {
-	respondOK(w, map[string]any{"code": 200, "enable_gpu": core.GetEnableGPU()})
-}
-
-func handleSaveGpu(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		EnableGPU bool `json:"enable_gpu"`
-	}
-	if !bindJSON(w, r, &req) {
-		return
-	}
-	if err := core.SetEnableGPUSetting(req.EnableGPU); err != nil {
-		respondErr(w, http.StatusInternalServerError, "설정 저장에 실패했습니다.")
-		return
-	}
-	respondOK(w, map[string]any{"code": 200, "enable_gpu": req.EnableGPU, "message": "웹뷰 GPU 가속 설정이 저장되었습니다."})
-}
-
-func handleGetExternalBrowserStatus(w http.ResponseWriter, r *http.Request) {
-	respondOK(w, map[string]any{
-		"code":                   200,
-		"external_browser_guard": core.GetExternalBrowserGuard(),
-		"browser_name":           core.GetDefaultBrowserName(),
-	})
-}
-
-func handleSaveExternalBrowser(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		ExternalBrowserGuard bool `json:"external_browser_guard"`
-	}
-	if !bindJSON(w, r, &req) {
-		return
-	}
-	if err := core.SetExternalBrowserGuardSetting(req.ExternalBrowserGuard); err != nil {
-		respondErr(w, http.StatusInternalServerError, "설정 저장에 실패했습니다.")
-		return
-	}
-	respondOK(w, map[string]any{
-		"code":                   200,
-		"external_browser_guard": req.ExternalBrowserGuard,
-		"message":                "외부 링크 브라우저 열기 설정이 저장되었습니다.",
-	})
-}
 
 // handleAppSettingsGet: GET /app-settings
 // settings.json의 모든 일반 설정 및 런타임 상태(포트, 기본 브라우저)를 단일 JSON 객체로 반환
@@ -948,10 +803,19 @@ func handleAppSettingsPut(w http.ResponseWriter, r *http.Request) {
 		st.SetNotifyOnShutdown(v)
 	}
 	if v, ok := patch["watchdog_timeout_sec"].(float64); ok {
-		st.WatchdogTimeoutSec = int(v)
+		timeout := int(v)
+		st.WatchdogTimeoutSec = timeout
+		st.WatchdogDisabled = (timeout == -1)
+		core.SetWatchdogTimeoutSec(timeout)
+		if trayInstance != nil {
+			trayInstance.UpdateTooltip(getTrayTooltip())
+		}
 	}
 	if v, ok := patch["skip_update_version"].(string); ok {
 		st.SetSkipUpdateVersion(v)
+	}
+	if v, ok := patch["skip_script_version"].(float64); ok {
+		st.SkipScriptVersion = int(v)
 	}
 
 	if err := core.SaveSettings(st); err != nil {
@@ -961,139 +825,24 @@ func handleAppSettingsPut(w http.ResponseWriter, r *http.Request) {
 	respondOK(w, map[string]any{"code": 200, "message": "설정이 성공적으로 저장되었습니다.", "settings": st})
 }
 
-func handleGetBetaUpdatesStatus(w http.ResponseWriter, r *http.Request) {
-	respondOK(w, map[string]any{"code": 200, "enable_beta_updates": core.LoadSettings().IsEnableBetaUpdates()})
-}
-
-func handleSaveBetaUpdates(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		EnableBetaUpdates bool `json:"enable_beta_updates"`
-	}
-	if !bindJSON(w, r, &req) {
-		return
-	}
-	st := core.LoadSettings()
-	st.SetEnableBetaUpdates(req.EnableBetaUpdates)
-	if err := core.SaveSettings(st); err != nil {
-		respondErr(w, http.StatusInternalServerError, "설정 저장에 실패했습니다.")
-		return
-	}
-	respondOK(w, map[string]any{"code": 200, "enable_beta_updates": req.EnableBetaUpdates, "message": "테스트 버전 업데이트 설정이 저장되었습니다."})
-}
-
-func handleGetAutoCheckUpdateStatus(w http.ResponseWriter, r *http.Request) {
-	respondOK(w, map[string]any{"code": 200, "auto_check_update": core.LoadSettings().IsAutoCheckUpdate()})
-}
-
-func handleSaveAutoCheckUpdate(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		AutoCheckUpdate bool `json:"auto_check_update"`
-	}
-	if !bindJSON(w, r, &req) {
-		return
-	}
-	st := core.LoadSettings()
-	st.SetAutoCheckUpdate(req.AutoCheckUpdate)
-	if err := core.SaveSettings(st); err != nil {
-		respondErr(w, http.StatusInternalServerError, "설정 저장에 실패했습니다.")
-		return
-	}
-	respondOK(w, map[string]any{"code": 200, "auto_check_update": req.AutoCheckUpdate, "message": "업데이트 자동 확인 설정이 저장되었습니다."})
-}
-
-func handleGetFontScaleStatus(w http.ResponseWriter, r *http.Request) {
-	respondOK(w, map[string]any{"code": 200, "font_scale": core.LoadSettings().GetFontScale()})
-}
-
-func handleSaveFontScale(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		FontScale float64 `json:"font_scale"`
-	}
-	if !bindJSON(w, r, &req) {
-		return
-	}
-	st := core.LoadSettings()
-	st.SetFontScale(req.FontScale)
-	if err := core.SaveSettings(st); err != nil {
-		respondErr(w, http.StatusInternalServerError, "설정 저장에 실패했습니다.")
-		return
-	}
-	respondOK(w, map[string]any{"code": 200, "font_scale": st.GetFontScale(), "message": "화면 및 폰트 크기 설정이 저장되었습니다."})
-}
-
-func handleGetShowViewerCountStatus(w http.ResponseWriter, r *http.Request) {
-	respondOK(w, map[string]any{"code": 200, "show_viewer_count": core.LoadSettings().IsShowViewerCount()})
-}
-
-func handleSaveShowViewerCount(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		ShowViewerCount bool `json:"show_viewer_count"`
-	}
-	if !bindJSON(w, r, &req) {
-		return
-	}
-	st := core.LoadSettings()
-	st.SetShowViewerCount(req.ShowViewerCount)
-	if err := core.SaveSettings(st); err != nil {
-		respondErr(w, http.StatusInternalServerError, "설정 저장에 실패했습니다.")
-		return
-	}
-	respondOK(w, map[string]any{"code": 200, "show_viewer_count": st.IsShowViewerCount(), "message": "시청자 수 표시 설정이 저장되었습니다."})
-}
-
-func handleSaveSkipUpdate(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		SkipUpdateVersion string `json:"skip_update_version"`
-	}
-	if !bindJSON(w, r, &req) {
-		return
-	}
-	st := core.LoadSettings()
-	st.SetSkipUpdateVersion(req.SkipUpdateVersion)
-	if err := core.SaveSettings(st); err != nil {
-		respondErr(w, http.StatusInternalServerError, "설정 저장에 실패했습니다.")
-		return
-	}
-	respondOK(w, map[string]any{"code": 200, "skip_update_version": st.GetSkipUpdateVersion(), "message": "건너뛸 업데이트 버전 설정이 저장되었습니다."})
-}
-
-func handleGetRemoteTesterStatus(w http.ResponseWriter, r *http.Request) {
-	respondOK(w, map[string]any{"code": 200, "unlocked": core.GetRemoteTesterUnlocked()})
-}
-
-func handleRemoteTesterAuth(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		Code   string `json:"code"`
-		Action string `json:"action"`
-	}
-	if !bindJSON(w, r, &req) {
-		return
-	}
-	if req.Action == "revoke" {
-		_ = core.SetRemoteTesterUnlocked(false)
-		respondOK(w, map[string]any{"code": 200, "unlocked": false, "message": "테스터 모드가 해제되었습니다."})
-		return
-	}
-	cleanCode := strings.TrimSpace(strings.ToLower(req.Code))
-	if cleanCode == "chzzk" || cleanCode == "tester" || cleanCode == "test" || cleanCode == "0600" {
-		_ = core.SetRemoteTesterUnlocked(true)
-		respondOK(w, map[string]any{"code": 200, "unlocked": true, "message": "테스터 인증이 완료되었습니다."})
-		return
-	}
-	respondErr(w, http.StatusUnauthorized, "유효하지 않은 인증 코드입니다.")
-}
-
 // --- [OBS 연동 & 업데이트 & 텔레메트리 핸들러] ---
 
 func handleObsScriptStatus(w http.ResponseWriter, r *http.Request) {
 	scriptsDir, detected := core.DetectObsScriptsDir()
-	installed, needsUpdate := core.CheckScriptStatus(scriptsDir, getLauncherScriptData())
+	installed, needsUpdate, installedVer, latestVer := core.CheckScriptStatusWithVersion(scriptsDir, getLauncherScriptData())
+
+	st := core.LoadSettings()
+	shouldPrompt := installed && needsUpdate && (st.SkipScriptVersion < latestVer)
+
 	respondOK(w, map[string]any{
-		"code":         200,
-		"detected":     detected,
-		"path":         scriptsDir,
-		"installed":    installed,
-		"needs_update": needsUpdate,
+		"code":              200,
+		"detected":          detected,
+		"path":              scriptsDir,
+		"installed":         installed,
+		"needs_update":      needsUpdate,
+		"installed_version": installedVer,
+		"latest_version":    latestVer,
+		"should_prompt":     shouldPrompt,
 	})
 }
 
@@ -1221,27 +970,23 @@ func handleClientLog(w http.ResponseWriter, r *http.Request) {
 	respondOK(w, map[string]string{"status": "ok"})
 }
 
-// --- [정적 페이지 및 스크립트 서빙 핸들러] ---
-
-func handleIndexHtml(w http.ResponseWriter, r *http.Request) {
+func serveDockPage(w http.ResponseWriter, content []byte) {
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 	w.Header().Set("Pragma", "no-cache")
 	w.Header().Set("Expires", "0")
-	sendBytes(w, getRenderedHTML(), http.StatusOK, "text/html; charset=utf-8")
+	sendBytes(w, content, http.StatusOK, "text/html; charset=utf-8")
+}
+
+func handleIndexHtml(w http.ResponseWriter, r *http.Request) {
+	serveDockPage(w, getRenderedHTML())
 }
 
 func handleStatsHtml(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
-	w.Header().Set("Pragma", "no-cache")
-	w.Header().Set("Expires", "0")
-	sendBytes(w, getRenderedStatsHTML(), http.StatusOK, "text/html; charset=utf-8")
+	serveDockPage(w, getRenderedStatsHTML())
 }
 
 func handleMiniHtml(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
-	w.Header().Set("Pragma", "no-cache")
-	w.Header().Set("Expires", "0")
-	sendBytes(w, getRenderedMiniHTML(), http.StatusOK, "text/html; charset=utf-8")
+	serveDockPage(w, getRenderedMiniHTML())
 }
 
 func handleGuideImage1(w http.ResponseWriter, r *http.Request) {
