@@ -291,6 +291,31 @@ func captureDockWindowState(hwnd uintptr) DockWindowState {
 	}
 }
 
+var (
+	savedDockPort        int
+	savedDockVersion     string
+	dockShutdownCallback func()
+)
+
+// SetDockShutdownCallback: 인스톨러나 시스템 종료 시그널 수신 시 메인 앱을 안전하게 종료하기 위한 콜백 등록
+func SetDockShutdownCallback(cb func()) {
+	dockShutdownCallback = cb
+}
+
+// GetSharedBrowserArgs: webview_profile을 공유하는 모든 WebView2 인스턴스의 브라우저 인자를 100% 동일하게 통일하여 0x8007139F 충돌을 방지합니다.
+func GetSharedBrowserArgs() []string {
+	args := []string{
+		"--disable-features=CalculateNativeWinOcclusion",
+		"--disable-background-timer-throttling",
+		"--disable-backgrounding-occluded-windows",
+		"--disable-renderer-backgrounding",
+	}
+	if !GetEnableGPU() {
+		args = append(args, "--disable-gpu")
+	}
+	return args
+}
+
 func dockWndProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr {
 	// 버전별 등록 윈도우 메시지 수신 시 (중복 실행 프로세스에서 창 열기 요청)
 	if dockRegisteredMsg != 0 && msg == dockRegisteredMsg {
@@ -326,6 +351,12 @@ func dockWndProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintpt
 			}
 			return 0
 		}
+		// [사용자 창 닫기] X 버튼이나 Alt+F4는 WM_SYSCOMMAND의 SC_CLOSE로 유입 -> 프로세스 유지하고 창만 숨김
+		if (wParam & 0xFFF0) == 0xF060 /* SC_CLOSE */ {
+			saveDockWindowState(captureDockWindowState(uintptr(hwnd)))
+			procShowWindow.Call(uintptr(hwnd), 0 /* SW_HIDE */)
+			return 0
+		}
 
 	case 0x0024: // WM_GETMINMAXINFO: 최소 창 크기 제한
 		if lParam != 0 {
@@ -336,9 +367,23 @@ func dockWndProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintpt
 		}
 
 	case WM_CLOSE_VAL:
-		// [핵심] 창 닫기(X 버튼 또는 화면 닫기) 시 프로세스를 종료하지 않고 숨김 처리 (트레이 & 백그라운드 유지)
+		// [Ponytail/YAGNI] 인스톨러(Inno Setup) 또는 OS 시스템 종료 요청 시 즉시 완전 종료 수행
 		saveDockWindowState(captureDockWindowState(uintptr(hwnd)))
-		procShowWindow.Call(uintptr(hwnd), 0 /* SW_HIDE */)
+		if dockShutdownCallback != nil {
+			dockShutdownCallback()
+		}
+		return 0
+
+	case 0x0011 /* WM_QUERYENDSESSION */:
+		return 1 // 시스템 종료 가능 응답
+
+	case 0x0016 /* WM_ENDSESSION */:
+		if wParam != 0 {
+			saveDockWindowState(captureDockWindowState(uintptr(hwnd)))
+			if dockShutdownCallback != nil {
+				dockShutdownCallback()
+			}
+		}
 		return 0
 
 	case WM_DESTROY_WV:
@@ -350,9 +395,23 @@ func dockWndProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintpt
 	return ret
 }
 
-// ShowDockWindow: 독 윈도우를 화면에 복원 및 표시하고 맨 앞으로 가져옵니다.
+// EnsureDockWindow: 독 윈도우 인스턴스를 준비합니다. showInitially가 false인 경우 지연 초기화(Lazy Init)로 메모리를 절약합니다.
+func EnsureDockWindow(port int, version string, showInitially bool) uintptr {
+	savedDockPort = port
+	savedDockVersion = version
+	if showInitially {
+		return InitDockWindow(port, version, true)
+	}
+	LogInfo("[Dock Window] 시작 시 팝업 비활성화 상태 -> WebView2 지연 초기화(Lazy Init) 모드로 대기 (~240MB 메모리 절감)")
+	return 0
+}
+
+// ShowDockWindow: 독 윈도우를 화면에 복원 및 표시하고 맨 앞으로 가져옵니다. 미초기화 상태면 즉시 생성합니다.
 func ShowDockWindow() {
 	if dockHwnd == 0 {
+		if savedDockPort > 0 {
+			InitDockWindow(savedDockPort, savedDockVersion, true)
+		}
 		return
 	}
 	if dockRegisteredMsg != 0 {
@@ -450,17 +509,7 @@ func InitDockWindow(port int, version string, showInitially bool) uintptr {
 
 	chromium := edge.NewChromium()
 	chromium.DataPath = profileDir
-
-	dockBrowserArgs := []string{
-		"--disable-features=CalculateNativeWinOcclusion",
-		"--disable-background-timer-throttling",
-		"--disable-backgrounding-occluded-windows",
-		"--disable-renderer-backgrounding",
-	}
-	if !GetEnableGPU() {
-		dockBrowserArgs = append(dockBrowserArgs, "--disable-gpu")
-	}
-	chromium.AdditionalBrowserArgs = dockBrowserArgs
+	chromium.AdditionalBrowserArgs = GetSharedBrowserArgs()
 	activeDockChromium = chromium
 
 	toggleDockTopmost = func() {
@@ -480,6 +529,14 @@ func InitDockWindow(port int, version string, showInitially bool) uintptr {
 		LogError("[Dock Window] [%s] WebView2 렌더러 프로세스 장애 발생", ErrSysWebviewRuntime)
 	}
 
+	var embedFailed bool
+	var embedErr error
+	chromium.SetErrorCallback(func(err error) {
+		LogWarn("[Dock Window] WebView2 초기화 에러 콜백: %v", err)
+		embedFailed = true
+		embedErr = err
+	})
+
 	dockToolbarScript := makeFloatingToolbarScript("dock_pin_pos", true, false)
 	dockUrl := fmt.Sprintf("http://127.0.0.1:%d", port)
 	chromium.NavigationCompletedCallback = func(sender *edge.ICoreWebView2, args *edge.ICoreWebView2NavigationCompletedEventArgs) {
@@ -493,14 +550,19 @@ func InitDockWindow(port int, version string, showInitially bool) uintptr {
 		}
 	}
 
-	if !chromium.Embed(hwnd) {
-		LogWarn("[Dock Window] [%s] WebView2 임베딩 실패 (WebView2 Runtime 미설치 가능성)", ErrSysWebviewRuntime)
-		if showInitially {
-			procShellExecuteW := shell32.NewProc("ShellExecuteW")
-			urlPtr, _ := syscall.UTF16PtrFromString(dockUrl)
-			procShellExecuteW.Call(0, 0, uintptr(unsafe.Pointer(urlPtr)), 0, 0, 1)
+	if !chromium.Embed(hwnd) || embedFailed {
+		LogWarn("[Dock Window] [%s] WebView2 임베딩 실패 (에러: %v)", ErrSysWebviewRuntime, embedErr)
+		if GlobalTray != nil {
+			errMsg := fmt.Sprintf("독 창 웹뷰 초기화 실패 (에러: %v). 잠시 후 다시 시도해 주세요.", embedErr)
+			if embedErr == nil {
+				errMsg = "독 창 웹뷰 초기화 실패 (WebView2 런타임 오류). 잠시 후 다시 시도해 주세요."
+			}
+			GlobalTray.ShowErrorNotification("CHZZK OBS Dock", errMsg)
 		}
-		return hwnd
+		procDestroyWindow.Call(hwnd)
+		dockHwnd = 0
+		activeDockChromium = nil
+		return 0
 	}
 
 	// 컨트롤러 가시성 보장 및 크기 동기화
@@ -934,6 +996,17 @@ func RunToolWebview(cfg ToolWebviewConfig) {
 				}
 				return 0
 			}
+		case 0x0011 /* WM_QUERYENDSESSION */:
+			return 1
+		case 0x0016 /* WM_ENDSESSION */:
+			if wParam != 0 {
+				procPostQuitMessage.Call(0)
+				os.Exit(0)
+			}
+			return 0
+		case WM_CLOSE_VAL:
+			procDestroyWindow.Call(uintptr(hwnd))
+			return 0
 		case WM_DESTROY_WV:
 			var rect struct{ Left, Top, Right, Bottom int32 }
 			procGetWindowRect.Call(uintptr(hwnd), uintptr(unsafe.Pointer(&rect)))
@@ -1007,17 +1080,7 @@ func RunToolWebview(cfg ToolWebviewConfig) {
 
 	chromium := edge.NewChromium()
 	chromium.DataPath = cfg.ProfileDir
-
-	browserArgs := []string{
-		"--disable-features=CalculateNativeWinOcclusion",
-		"--disable-background-timer-throttling",
-		"--disable-backgrounding-occluded-windows",
-		"--disable-renderer-backgrounding",
-	}
-	if !GetEnableGPU() {
-		browserArgs = append(browserArgs, "--disable-gpu")
-	}
-	chromium.AdditionalBrowserArgs = browserArgs
+	chromium.AdditionalBrowserArgs = GetSharedBrowserArgs()
 	activeChromium = chromium
 
 	toggleTopmost = func() {
@@ -1031,6 +1094,15 @@ func RunToolWebview(cfg ToolWebviewConfig) {
 		state.Topmost = isTopmost
 		saveToolWindowState(cfg.StateFileName, state)
 	}
+
+	var embedFailed bool
+	var embedErr error
+	chromium.SetErrorCallback(func(err error) {
+		LogError("[%s] WebView2 초기화 에러 콜백: %v", cfg.Title, err)
+		embedFailed = true
+		embedErr = err
+		procPostMessageW.Call(hwnd, uintptr(WM_CLOSE_VAL), 0, 0)
+	})
 
 	// 웹뷰 IPC 메시지 핸들러
 	chromium.MessageCallback = func(message string, sender *edge.ICoreWebView2, args *edge.ICoreWebView2WebMessageReceivedEventArgs) {
@@ -1052,10 +1124,18 @@ func RunToolWebview(cfg ToolWebviewConfig) {
 	}
 
 	// [중요] 반드시 Embed(hwnd) 성공 후에 Init/Show/Resize/Navigate를 호출해야 함 (Embed 전 Init 호출 시 nil pointer dereference 패닉 발생)
-	if !chromium.Embed(hwnd) {
-		LogError("[%s] [%s] WebView2 임베딩 실패", cfg.Title, ErrSysWebviewRuntime)
+	if !chromium.Embed(hwnd) || embedFailed {
+		LogError("[%s] [%s] WebView2 임베딩 실패 (에러: %v)", cfg.Title, ErrSysWebviewRuntime, embedErr)
+		user32 := syscall.NewLazyDLL("user32.dll")
+		titlePtr, _ := syscall.UTF16PtrFromString(cfg.Title)
+		errMsg := fmt.Sprintf("%s 초기화에 실패했습니다.\n\n오류: %v\n\n잠시 후 다시 시도해 주세요.", cfg.Title, embedErr)
+		if embedErr == nil {
+			errMsg = fmt.Sprintf("%s 초기화에 실패했습니다.\n\n잠시 후 다시 시도해 주세요.", cfg.Title)
+		}
+		msgPtr, _ := syscall.UTF16PtrFromString(errMsg)
+		user32.NewProc("MessageBoxW").Call(hwnd, uintptr(unsafe.Pointer(msgPtr)), uintptr(unsafe.Pointer(titlePtr)), 0x10)
 		procDestroyWindow.Call(hwnd)
-		return
+		os.Exit(1)
 	}
 
 	// 컨트롤러 가시성 및 크기 동기화
@@ -1167,16 +1247,6 @@ func BringChatWindowToFront() bool {
 // -----------------------------------------------------------------------------
 // 5. 플로팅 공식 스튜디오 리모컨 창 (Floating Remote Window)
 // -----------------------------------------------------------------------------
-
-type RemoteWindowState = ToolWindowState
-
-func loadRemoteWindowState() RemoteWindowState {
-	return loadToolWindowState("remote_window.json", 720, 880)
-}
-
-func saveRemoteWindowState(state RemoteWindowState) {
-	saveToolWindowState("remote_window.json", state)
-}
 
 // RunRemoteWebview: 치지직 공식 리모컨 웹뷰 창 실행
 func RunRemoteWebview(channelId string) {

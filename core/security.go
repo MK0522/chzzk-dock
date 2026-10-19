@@ -43,11 +43,8 @@ func CheckSecurity(w http.ResponseWriter, r *http.Request) bool {
 	return true
 }
 
-// CheckApiAuth: [SEC-01] Local CSRF 방어: 보안 검증 및 X-Requested-With 커스텀 헤더 검사
+// CheckApiAuth: [SEC-01] Local CSRF 방어: X-Requested-With 커스텀 헤더 검사
 func CheckApiAuth(w http.ResponseWriter, r *http.Request) bool {
-	if !CheckSecurity(w, r) {
-		return false
-	}
 	reqWith := r.Header.Get("X-Requested-With")
 	if reqWith != "ChzzkDock" {
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")

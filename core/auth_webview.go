@@ -251,6 +251,23 @@ func inspectCookies(cm *edge.ICoreWebView2CookieManager, listPtr uintptr) (aut, 
 	return aut, ses, false
 }
 
+const autoCheckKeepScript = `(function() {
+	try {
+		var stay = document.getElementById("loginStay") || 
+		           document.getElementById("keep") || 
+		           document.querySelector('input[name="nvlong"]');
+		if (stay && !stay.checked) {
+			stay.click();
+			if (!stay.checked) {
+				stay.checked = true;
+				stay.value = "on";
+				stay.setAttribute("aria-checked", "true");
+				stay.dispatchEvent(new Event("change", { bubbles: true }));
+			}
+		}
+	} catch(e) {}
+})();`
+
 func loginWndProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr {
 	switch msg {
 	case WM_MOVE_WV:
@@ -267,41 +284,32 @@ func loginWndProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintp
 
 	case WM_TIMER_WV:
 		if wParam == TIMER_ID_WV && activeChromium != nil && !cookieCaptured {
-			activeChromium.Eval(`(function() {
-				try {
-					var stay = document.getElementById("loginStay") || 
-					           document.getElementById("keep") || 
-					           document.querySelector('input[name="nvlong"]');
-					if (stay && !stay.checked) {
-						stay.click();
-						if (!stay.checked) {
-							stay.checked = true;
-							stay.value = "on";
-							stay.setAttribute("aria-checked", "true");
-							stay.dispatchEvent(new Event("change", { bubbles: true }));
-						}
-					}
-				} catch(e) {}
-			})();`)
+			activeChromium.Eval(autoCheckKeepScript)
 
 			cm, err := activeChromium.GetCookieManager()
 			if err == nil && cm != nil {
 				handleList := func(listPtr uintptr, err error) {
-					if err != nil || listPtr == 0 || cookieCaptured {
+					if listPtr == 0 {
+						return
+					}
+					// [COM 수명주기 보장] WebView2가 반환한 ICoreWebView2CookieList COM 객체 반납
+					defer func() {
+						vtablePtr := *(*uintptr)(unsafe.Pointer(listPtr))
+						vtable := (*[10]uintptr)(unsafe.Pointer(vtablePtr))
+						syscall.SyscallN(vtable[2], listPtr) // IUnknown::Release
+					}()
+
+					if err != nil || cookieCaptured {
 						return
 					}
 					aut, ses, found := inspectCookies(cm, listPtr)
 					if found && !cookieCaptured {
 						cookieCaptured = true
 						SaveConfig(map[string]interface{}{
-							"nid_aut":     aut,
-							"nid_ses":     ses,
-							"auth_method": "webview",
+							"nid_aut": aut,
+							"nid_ses": ses,
 						})
 						LogInfo("[Webview Login] 세션 쿠키 추출 완료 (NID_AUT, NID_SES) -> 자격 증명 관리자에 저장됨.")
-
-						// [시점 A] 백엔드 저장 완료 후 웹뷰 프로필에서 세션 쿠키를 제거하여 다음 로그인 시 즉시 닫힘 방지
-						purgeSessionCookies(cm)
 
 						procKillTimer.Call(uintptr(hwnd), TIMER_ID_WV)
 						// 안전하게 창 닫기: 메인 스레드에 WM_CLOSE 포스팅
@@ -313,6 +321,17 @@ func loginWndProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintp
 					_ = callGetCookies(cm, "https://nid.naver.com", handleList)
 				}
 			}
+		}
+		return 0
+
+	case 0x0011 /* WM_QUERYENDSESSION */:
+		return 1
+
+	case 0x0016 /* WM_ENDSESSION */:
+		if wParam != 0 {
+			procKillTimer.Call(uintptr(hwnd), TIMER_ID_WV)
+			procPostQuitMessage.Call(0)
+			os.Exit(0)
 		}
 		return 0
 
@@ -337,12 +356,14 @@ func RunLoginWebview() {
 
 	// [단일 인스턴스 보장]
 	mutexNamePtr, _ := syscall.UTF16PtrFromString(`Local\ChzzkObsDock_Login_Mutex`)
-	mutexHandle, _, _ := kernel32.NewProc("CreateMutexW").Call(0, 0, uintptr(unsafe.Pointer(mutexNamePtr)))
-	lastErr, _, _ := kernel32.NewProc("GetLastError").Call()
+	mutexHandle, _, errCall := kernel32.NewProc("CreateMutexW").Call(0, 0, uintptr(unsafe.Pointer(mutexNamePtr)))
+	errno, isErrno := errCall.(syscall.Errno)
 
 	className, _ := syscall.UTF16PtrFromString("ChzzkLoginWindowClass")
 
-	if lastErr == 183 { // ERROR_ALREADY_EXISTS
+	// 183: ERROR_ALREADY_EXISTS, 5: ERROR_ACCESS_DENIED
+	// [Ponytail/YAGNI] 새 의존성 없이 기존 IsProcessRunning으로 2차 검증하여 안전하게 중복 판단
+	if isErrno && (errno == 183 || (errno == 5 && IsProcessRunning("chzzk-dock.exe"))) {
 		LogWarn("[Webview] [%s] 이미 로그인 창이 실행 중입니다. 중복 실행을 건너뜁니다.", ErrAuthDuplicateLogin)
 		existingHwnd, _, _ := procFindWindowW.Call(uintptr(unsafe.Pointer(className)), 0)
 		if existingHwnd != 0 {
@@ -422,16 +443,17 @@ func RunLoginWebview() {
 
 	chromium := edge.NewChromium()
 	chromium.DataPath = profileDir
-
-	// [렌더링 가속 및 백그라운드 스로틀링 방지 인자]
-	browserArgs := []string{
-		"--disable-features=CalculateNativeWinOcclusion",
-	}
-	if !GetEnableGPU() {
-		browserArgs = append(browserArgs, "--disable-gpu")
-	}
-	chromium.AdditionalBrowserArgs = browserArgs
+	chromium.AdditionalBrowserArgs = GetSharedBrowserArgs()
 	activeChromium = chromium
+
+	var embedFailed bool
+	var embedErr error
+	chromium.SetErrorCallback(func(err error) {
+		LogError("[Login Webview] WebView2 초기화 에러 콜백: %v", err)
+		embedFailed = true
+		embedErr = err
+		procPostMessageW.Call(hwnd, WM_CLOSE_WV, 0, 0)
+	})
 
 	// 프로세스 실패(크래시) 감지 콜백
 	chromium.ProcessFailedCallback = func(sender *edge.ICoreWebView2, args *edge.ICoreWebView2ProcessFailedEventArgs) {
@@ -444,10 +466,18 @@ func RunLoginWebview() {
 		LogInfo("[Webview Login] 페이지 로드 완료: %s", src)
 	}
 
-	if !chromium.Embed(hwnd) {
-		LogError("[Webview Error] [%s] WebView2 임베딩 실패 (Microsoft Edge WebView2 Runtime이 설치되어 있는지 확인하세요)", ErrSysWebviewRuntime)
+	if !chromium.Embed(hwnd) || embedFailed {
+		LogError("[Webview Error] [%s] WebView2 임베딩 실패 (에러: %v)", ErrSysWebviewRuntime, embedErr)
+		user32 := syscall.NewLazyDLL("user32.dll")
+		titlePtr, _ := syscall.UTF16PtrFromString("네이버 로그인 - CHZZK OBS Dock")
+		errMsg := fmt.Sprintf("네이버 로그인 웹뷰 초기화에 실패했습니다.\n\n오류: %v\n\n잠시 후 다시 시도해 주세요.", embedErr)
+		if embedErr == nil {
+			errMsg = "네이버 로그인 웹뷰 초기화에 실패했습니다.\n\n잠시 후 다시 시도해 주세요."
+		}
+		msgPtr, _ := syscall.UTF16PtrFromString(errMsg)
+		user32.NewProc("MessageBoxW").Call(hwnd, uintptr(unsafe.Pointer(msgPtr)), uintptr(unsafe.Pointer(titlePtr)), 0x10)
 		procDestroyWindow.Call(hwnd)
-		return
+		os.Exit(1)
 	}
 
 	// [시점 B] 웹뷰 임베딩 직후 이전 세션 쿠키 선별 삭제 (기기 기억 토큰 NID_JST 등은 보존)
@@ -465,24 +495,8 @@ func RunLoginWebview() {
 	}
 
 	// [로그인 상태 유지 자동화] NID_AUT 장기 쿠키 발급 및 외부 링크 기본 브라우저 열기 가드
-	keepLoginScript := `
-	(function() {
-		function autoCheckKeep() {
-			try {
-				var stay = document.getElementById("loginStay") || 
-				           document.getElementById("keep") || 
-				           document.querySelector('input[name="nvlong"]');
-				if (stay && !stay.checked) {
-					stay.click();
-					if (!stay.checked) {
-						stay.checked = true;
-						stay.value = "on";
-						stay.setAttribute("aria-checked", "true");
-						stay.dispatchEvent(new Event("change", { bubbles: true }));
-					}
-				}
-			} catch(e) {}
-		}
+	keepLoginScript := `(function() {
+		function autoCheckKeep() { ` + autoCheckKeepScript + ` }
 		if (document.readyState === 'loading') {
 			document.addEventListener('DOMContentLoaded', autoCheckKeep);
 		} else {
@@ -491,11 +505,9 @@ func RunLoginWebview() {
 		var attempts = 0;
 		var timer = setInterval(function() {
 			autoCheckKeep();
-			attempts++;
-			if (attempts > 30) clearInterval(timer);
+			if (++attempts > 30) clearInterval(timer);
 		}, 100);
-	})();
-	`
+	})();`
 	chromium.Init(keepLoginScript)
 	chromium.Init(ExternalLinkGuardScript)
 

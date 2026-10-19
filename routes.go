@@ -11,11 +11,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
 
-	"chzzk-obs-dock/core"
+	"chzzk-dock/core"
 )
 
 // ============================================================
@@ -155,8 +156,8 @@ func buildRouter() http.Handler {
 	wrap("GET /guide-image/2", handleGuideImage2, false)
 	wrap("GET /obs-script", handleObsScriptFile, false)
 	wrap("GET /chzzk_dock_launcher.lua", handleObsScriptFile, false)
-	wrap("GET /show-ui", handleShowUI, false)
-	wrap("GET /api/show-ui", handleShowUI, false)
+	wrap("GET /show-ui", handleShowUI, true)
+	wrap("GET /api/show-ui", handleShowUI, true)
 	wrap("GET /stats", handleStatsHtml, false)
 	wrap("GET /stat", handleStatsHtml, false)
 	wrap("GET /mini", handleMiniHtml, false)
@@ -203,9 +204,8 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 		sesMask = "••••••••••••••••••••••••••••••••"
 	}
 	respondOK(w, map[string]any{
-		"nid_aut":                autMask,
-		"nid_ses":                sesMask,
-		"remote_tester_unlocked": core.GetRemoteTesterUnlocked(),
+		"nid_aut": autMask,
+		"nid_ses": sesMask,
 	})
 }
 
@@ -262,6 +262,9 @@ func handleSwitchSession(w http.ResponseWriter, r *http.Request) {
 	}
 	cfg := core.LoadConfig()
 	cid, cname, _, ok := fetchSessionUserStatus(cfg.NidAut, cfg.NidSes)
+	if ok && cid != "" {
+		SetCachedActiveChannelId(cid)
+	}
 	if ok && cname != "" {
 		core.LogInfo("[HTTP] 계정 전환 완료 -> 스트리머 '%s' (채널 ID: %s)", cname, cid)
 	} else {
@@ -295,8 +298,15 @@ func handleSaveConfig(w http.ResponseWriter, r *http.Request) {
 		respondErr(w, http.StatusBadRequest, "더미 마스킹 값이 아닌 실제 쿠키 값을 입력하세요.")
 		return
 	}
-	bodyMap["auth_method"] = "manual"
 	core.SaveConfig(bodyMap)
+	if aut, ok := bodyMap["nid_aut"].(string); ok && aut != "" {
+		ses, _ := bodyMap["nid_ses"].(string)
+		go func(a, s string) {
+			if cid, _, _, ok := fetchSessionUserStatus(a, s); ok && cid != "" {
+				SetCachedActiveChannelId(cid)
+			}
+		}(aut, ses)
+	}
 	respondOK(w, map[string]any{
 		"code":    200,
 		"message": "성공적으로 저장되었습니다.",
@@ -314,6 +324,7 @@ func handleSaveConfig(w http.ResponseWriter, r *http.Request) {
 func handleLogout(w http.ResponseWriter, r *http.Request) {
 	killAllSubProcesses()
 	core.ClearConfig()
+	SetCachedActiveChannelId("")
 	respondOK(w, map[string]any{"code": 200, "message": "성공적으로 로그아웃되었습니다."})
 }
 
@@ -347,13 +358,17 @@ func handleLoginWebview(w http.ResponseWriter, r *http.Request) {
 	}
 	procAllowSetForegroundWindow.Call(uintptr(cmd.Process.Pid))
 	webviewProcess = cmd
-	trackSubProcess(cmd)
 	waitCh := make(chan struct{})
 	webviewWaitCh = waitCh
-	go func(c *exec.Cmd, ch chan struct{}) {
-		_ = c.Wait()
-		close(ch)
-	}(cmd, waitCh)
+	trackSubProcess(cmd, func() {
+		close(waitCh)
+		cfg := core.LoadConfig()
+		if cfg.NidAut != "" && cfg.NidSes != "" {
+			if cid, _, _, ok := fetchSessionUserStatus(cfg.NidAut, cfg.NidSes); ok && cid != "" {
+				SetCachedActiveChannelId(cid)
+			}
+		}
+	})
 	webviewLock.Unlock()
 	core.LogInfo("[HTTP] /login-webview: 로그인 서브프로세스 시작 완료 (PID: %d)", cmd.Process.Pid)
 
@@ -567,11 +582,10 @@ func handleUploadThumbnail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	core.LogError("[Thumbnail] 치지직 서버 업로드 응답 실패: %s", string(respBytes))
+	core.LogError("[Thumbnail] 치지직 서버 업로드 응답 실패 (HTTP %d, 바이트 크기: %d)", resp.StatusCode, len(respBytes))
 	sendJSON(w, map[string]any{
 		"code":    500,
 		"message": "치지직 서버에서 이미지 URL을 반환하지 않았습니다.",
-		"raw":     string(respBytes),
 	}, http.StatusInternalServerError)
 }
 
@@ -587,8 +601,53 @@ func handleOpenBrowser(w http.ResponseWriter, r *http.Request) {
 	respondOK(w, map[string]any{"status": "ok"})
 }
 
+var (
+	channelIdRegex        = regexp.MustCompile(`^[a-zA-Z0-9_-]{16,64}$`)
+	activeChannelIdLock   sync.RWMutex
+	cachedActiveChannelId string
+)
+
+// SetCachedActiveChannelId: 현재 활성 계정의 채널 ID를 백엔드 메모리에 캐시
+func SetCachedActiveChannelId(cid string) {
+	activeChannelIdLock.Lock()
+	cachedActiveChannelId = cid
+	activeChannelIdLock.Unlock()
+}
+
+// GetCachedActiveChannelId: 백엔드 메모리에 캐시된 활성 계정의 채널 ID 반환
+func GetCachedActiveChannelId() string {
+	activeChannelIdLock.RLock()
+	defer activeChannelIdLock.RUnlock()
+	return cachedActiveChannelId
+}
+
+// resolveChannelIdFromRequest: 클라이언트 전달 channelId 또는 백엔드 캐시된 활성 채널 ID 해석 (외부 통신 지연 제거)
+func resolveChannelIdFromRequest(r *http.Request) string {
+	// 1. 요청 파라미터로 명시 전달된 channelId 우선 (영숫자/언더스코어/하이픈 정규식 형식 검증)
+	channelId := strings.TrimSpace(r.URL.Query().Get("channelId"))
+	if channelId != "" && channelIdRegex.MatchString(channelId) {
+		return channelId
+	}
+
+	// 2. 백엔드 메모리에 캐시된 활성 계정의 채널 ID 반환 (0ms, 외부 통신 없음)
+	if cached := GetCachedActiveChannelId(); cached != "" {
+		return cached
+	}
+
+	// 3. 캐시가 비어있는 경우에만 폴백 조회 및 캐싱
+	cfg := core.LoadConfig()
+	if cfg.NidAut != "" && cfg.NidSes != "" {
+		if cid, _, _, ok := fetchSessionUserStatus(cfg.NidAut, cfg.NidSes); ok && cid != "" {
+			SetCachedActiveChannelId(cid)
+			return cid
+		}
+	}
+
+	return ""
+}
+
 func handleRemoteWebview(w http.ResponseWriter, r *http.Request) {
-	channelId := r.URL.Query().Get("channelId")
+	channelId := resolveChannelIdFromRequest(r)
 	core.LogInfo("[HTTP] /remote-webview 요청 수신 (channelId: %s)", channelId)
 	if core.BringRemoteWindowToFront() {
 		respondOK(w, map[string]any{
@@ -619,15 +678,7 @@ func handleRemoteWebview(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleChatWebview(w http.ResponseWriter, r *http.Request) {
-	channelId := strings.TrimSpace(r.URL.Query().Get("channelId"))
-	if channelId == "" {
-		cfg := core.LoadConfig()
-		if cfg.NidAut != "" && cfg.NidSes != "" {
-			if cid, _, _, ok := fetchSessionUserStatus(cfg.NidAut, cfg.NidSes); ok && cid != "" {
-				channelId = cid
-			}
-		}
-	}
+	channelId := resolveChannelIdFromRequest(r)
 	core.LogInfo("[HTTP] /chat-webview 요청 수신 (channelId: %s)", channelId)
 	if core.BringChatWindowToFront() {
 		respondOK(w, map[string]any{
@@ -910,27 +961,12 @@ func handleUpdateStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleExecuteUpdate(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		DownloadURL   string `json:"download_url"`
-		LatestVersion string `json:"latest_version"`
-	}
-	_ = bindJSON(w, r, &req)
-	if req.DownloadURL == "" || req.LatestVersion == "" {
-		info, err := core.CheckForUpdate(APP_VERSION, false)
-		if err == nil && info != nil {
-			if req.DownloadURL == "" {
-				req.DownloadURL = info.DownloadURL
-			}
-			if req.LatestVersion == "" {
-				req.LatestVersion = info.LatestVersion
-			}
-		}
-	}
-	if req.DownloadURL == "" {
-		respondErr(w, http.StatusBadRequest, "다운로드 URL이 제공되지 않았습니다.")
+	info, err := core.CheckForUpdate(APP_VERSION, false)
+	if err != nil || info == nil || info.DownloadURL == "" {
+		respondErr(w, http.StatusBadRequest, "사용 가능한 업데이트 정보를 찾을 수 없습니다.")
 		return
 	}
-	if err := core.StartDownloadAndInstall(req.LatestVersion, req.DownloadURL, 0, exitApp); err != nil {
+	if err := core.ExecuteUpdate(info.LatestVersion, info.DownloadURL, info.AssetSize, exitApp); err != nil {
 		respondErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -1006,10 +1042,7 @@ func handleShowUI(w http.ResponseWriter, r *http.Request) {
 	respondOK(w, map[string]any{"code": 200, "message": "UI 표시 완료"})
 }
 
-// handleStaticUI: GET /ui/* 정적 자산(CSS, JS, 이미지 등) 스트리밍 서빙
-// 1. 로컬 개발 환경 ui/ 폴더 우선 (핫 리로드)
-// 2. 실행 바이너리 디렉토리 ui/ 폴더
-// 3. 내장 embed.FS (단일 실행 바이너리 배포)
+// handleStaticUI: GET /ui/* 정적 자산(CSS, JS, 이미지 등) 내장 embed.FS 서빙
 func handleStaticUI(w http.ResponseWriter, r *http.Request) {
 	relPath := strings.TrimPrefix(r.URL.Path, "/ui/")
 	if strings.Contains(relPath, "..") {
@@ -1023,23 +1056,6 @@ func handleStaticUI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 1. 로컬 개발 환경 ui/ 디렉토리
-	localPath := filepath.Join("ui", cleanRel)
-	if data, err := os.ReadFile(localPath); err == nil {
-		sendStaticAsset(w, cleanRel, data)
-		return
-	}
-
-	// 2. 바이너리 디렉토리 내 ui/ 디렉토리
-	if exePath, err := os.Executable(); err == nil {
-		exeDirFile := filepath.Join(filepath.Dir(exePath), "ui", cleanRel)
-		if data, err := os.ReadFile(exeDirFile); err == nil {
-			sendStaticAsset(w, cleanRel, data)
-			return
-		}
-	}
-
-	// 3. embed.FS 내장 파일
 	slashPath := "ui/" + filepath.ToSlash(cleanRel)
 	if data, err := embeddedUI.ReadFile(slashPath); err == nil {
 		sendStaticAsset(w, cleanRel, data)

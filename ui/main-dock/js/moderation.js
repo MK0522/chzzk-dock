@@ -186,15 +186,6 @@ async function openExternalUrl(url, label = '페이지') {
   }
 }
 
-async function openChannelInBrowser() {
-  if (!userChannelId) {
-    showToast('채널 정보 없음', 'warn', '치지직 로그인이 완료된 후 클릭하세요.');
-    return;
-  }
-  const url = `https://chzzk.naver.com/live/${encodeURIComponent(userChannelId)}`;
-  await openExternalUrl(url, `${currentChannelName || '내 채널'} 라이브 화면`);
-}
-
 async function openChatWebview() {
   if (typeof checkLoginGuard === 'function' && !checkLoginGuard('채팅창 열기')) return;
   try {
@@ -1437,12 +1428,6 @@ function updateSpamFilterUI(val) {
   }
 }
 
-function toggleSpamFilterInfo(e) {
-  if (e) e.stopPropagation();
-  const card = document.getElementById('dsetting-spam-info-card');
-  if (card) card.classList.toggle('hidden');
-}
-
 // ===== 구독 활성화 여부 확인 및 잠금 UI =====
 async function checkChannelMonetization() {
   try {
@@ -1603,27 +1588,6 @@ async function loadAllDonationSettings() {
   }
 }
 
-async function toggleChatActive(checked) {
-  if (!userChannelId) return;
-  try {
-    await apiFetch('/chzzkdock/donations/chat', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ enabled: checked })
-    });
-    const mainEl = document.getElementById('toggle-chat-donation');
-    if (mainEl) mainEl.checked = checked;
-    currentDonationState.chatDonationActive = checked;
-    updateDonationDetailButtonsState();
-
-    const existingToasts = document.querySelectorAll('#toast-container .toast');
-    existingToasts.forEach(t => t.remove());
-    showToast(checked ? '💬 채팅 후원 켜짐' : '💬 채팅 후원 꺼짐', 'info', `채팅 후원 기능이 ${checked ? '활성화' : '비활성화'}되었습니다.`);
-  } catch (e) {
-    showToast('오류 발생', 'error', e.message);
-  }
-}
-
 async function saveChatDonationCondition() {
   if (!userChannelId) return;
   const minEl = document.getElementById('dsetting-chat-min-amount');
@@ -1683,27 +1647,6 @@ async function toggleEnvelope(checked) {
   }
 }
 
-async function toggleVideoActive(checked) {
-  if (!userChannelId) return;
-  try {
-    await apiFetch('/chzzkdock/donations/video', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ enabled: checked })
-    });
-    const mainEl = document.getElementById('toggle-video-donation');
-    if (mainEl) mainEl.checked = checked;
-    currentDonationState.videoDonationActive = checked;
-    updateDonationDetailButtonsState();
-
-    const existingToasts = document.querySelectorAll('#toast-container .toast');
-    existingToasts.forEach(t => t.remove());
-    showToast(checked ? '🎬 영상 후원 켜짐' : '🎬 영상 후원 꺼짐', 'info', `영상 후원 기능이 ${checked ? '활성화' : '비활성화'}되었습니다.`);
-  } catch (e) {
-    showToast('오류 발생', 'error', e.message);
-  }
-}
-
 async function saveVideoDonationSetting() {
   if (!userChannelId) return;
   const minCheese = parseFormattedAmount(document.getElementById('dsetting-video-min-cheese')?.value) || 1000;
@@ -1731,27 +1674,6 @@ async function saveVideoDonationSetting() {
     const existingToasts = document.querySelectorAll('#toast-container .toast');
     existingToasts.forEach(t => t.remove());
     showToast('💾 영상 후원 설정 저장 완료', 'success', '영상 후원 규칙이 성공적으로 반영되었습니다.');
-  } catch (e) {
-    showToast('오류 발생', 'error', e.message);
-  }
-}
-
-async function toggleMissionActive(checked) {
-  if (!userChannelId) return;
-  try {
-    await apiFetch('/chzzkdock/donations/mission', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ enabled: checked })
-    });
-    const mainEl = document.getElementById('toggle-mission-donation');
-    if (mainEl) mainEl.checked = checked;
-    currentDonationState.missionDonationActive = checked;
-    updateDonationDetailButtonsState();
-
-    const existingToasts = document.querySelectorAll('#toast-container .toast');
-    existingToasts.forEach(t => t.remove());
-    showToast(checked ? '🎯 미션 후원 켜짐' : '🎯 미션 후원 꺼짐', 'info', `미션 후원 기능이 ${checked ? '활성화' : '비활성화'}되었습니다.`);
   } catch (e) {
     showToast('오류 발생', 'error', e.message);
   }
@@ -2196,15 +2118,6 @@ function copyFieldValue(fieldId, label) {
     document.execCommand('copy');
     showToast(`✅ ${label} 복사 완료!`, 'success');
   });
-}
-
-async function openUrlField(fieldId) {
-  const input = document.getElementById(fieldId);
-  if (!input || !input.value || !input.value.startsWith('http')) {
-    showToast('열기 실패', 'warn', '유효한 URL이 아닙니다.');
-    return;
-  }
-  await openExternalUrl(input.value, '해당 URL');
 }
 
 async function fetchStreamingInfo() {

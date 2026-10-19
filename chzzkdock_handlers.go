@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"chzzk-obs-dock/core"
+	"chzzk-dock/core"
 )
 
 // ============================================================
@@ -59,9 +59,13 @@ type CleanChatRule struct {
 
 // resolveChzzkChannelId: 현재 활성 세션 쿠키에서 채널 ID 자동 추출
 func resolveChzzkChannelId(_ *http.Request) (string, error) {
+	if cached := GetCachedActiveChannelId(); cached != "" {
+		return cached, nil
+	}
 	cfg := core.LoadConfig()
 	if cfg.NidAut != "" && cfg.NidSes != "" {
 		if id, _, _, ok := fetchSessionUserStatus(cfg.NidAut, cfg.NidSes); ok && id != "" {
+			SetCachedActiveChannelId(id)
 			return id, nil
 		}
 	}
@@ -831,6 +835,7 @@ func handleChzzkUserStatusGet(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	SetCachedActiveChannelId(cid)
 	respondOK(w, map[string]any{
 		"loggedIn":        true,
 		"channelId":       cid,
@@ -854,9 +859,8 @@ func handleChzzkSessionBootstrap(w http.ResponseWriter, r *http.Request) {
 	}
 
 	configMap := map[string]any{
-		"nid_aut":                autMask,
-		"nid_ses":                sesMask,
-		"remote_tester_unlocked": core.GetRemoteTesterUnlocked(),
+		"nid_aut": autMask,
+		"nid_ses": sesMask,
 	}
 
 	views := buildSessionViews(cfg)
@@ -879,6 +883,10 @@ func handleChzzkSessionBootstrap(w http.ResponseWriter, r *http.Request) {
 			channelName = cname
 			profileImageURL = avatar
 		}
+	}
+
+	if loggedIn && channelID != "" {
+		SetCachedActiveChannelId(channelID)
 	}
 
 	// 프로필 이미지/닉네임 보강 (필요한 경우)
@@ -1016,7 +1024,11 @@ func handleChzzkBroadcastPut(w http.ResponseWriter, r *http.Request) {
 				msg = errRes.Message
 			}
 		}
-		core.LogWarn("[BFF] Broadcast PUT failed (status %d): %s (err: %v)", status, string(data), err)
+		summary := strings.TrimSpace(string(data))
+		if len(summary) > 120 {
+			summary = summary[:120] + "..."
+		}
+		core.LogWarn("[BFF] Broadcast PUT failed (status %d): %s (err: %v)", status, summary, err)
 		respondErr(w, http.StatusBadGateway, msg)
 		return
 	}

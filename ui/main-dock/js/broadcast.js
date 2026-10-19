@@ -53,14 +53,12 @@ function applyBootstrapState(content) {
     if (elChannelName) {
       if (currentChannelName) {
         elChannelName.style.display = 'inline-flex';
-        if (typeof updateLiveStatusUI === 'function') {
-          updateLiveStatusUI((typeof isCurrentlyLive !== 'undefined') ? isCurrentlyLive : false);
-        }
+        updateLiveStatusUI((typeof isCurrentlyLive !== 'undefined') ? isCurrentlyLive : false);
       } else {
         elChannelName.style.display = 'none';
       }
     }
-    if (typeof checkLiveStatus === 'function') checkLiveStatus();
+    checkLiveStatus();
     if (typeof checkChannelMonetization === 'function') checkChannelMonetization();
 
     if (text) { text.textContent = '연동됨'; text.className = 'font-medium text-[#00FFA3]'; }
@@ -78,7 +76,7 @@ function applyBootstrapState(content) {
     }
     if (inputAut) inputAut.className = "chzzk-input border-emerald-500/40 bg-emerald-950/10 text-emerald-300";
     if (inputSes) inputSes.className = "chzzk-input border-emerald-500/40 bg-emerald-950/10 text-emerald-300";
-    if (typeof setBroadcastFormLocked === 'function') setBroadcastFormLocked(false);
+    setBroadcastFormLocked(false);
     return userChannelId;
   } else {
     userChannelId = "";
@@ -98,7 +96,7 @@ async function updateConnectionStatus() {
       const elChannelName = document.getElementById('header-channel-name');
       if (text) { text.textContent = '오류'; text.className = 'font-medium text-[#FF4D6A]'; }
       if (elChannelName) elChannelName.style.display = 'none';
-      if (typeof setBroadcastFormLocked === 'function') setBroadcastFormLocked(true);
+      setBroadcastFormLocked(true);
     }
     return userChannelId;
   }
@@ -113,7 +111,7 @@ async function initConnection() {
     try {
       const channelId = await updateConnectionStatus();
       if (channelId) {
-        if (typeof loadCurrentSettings === 'function') await loadCurrentSettings(true);
+        await loadCurrentSettings(true);
         return;
       }
     } catch (e) {
@@ -154,7 +152,6 @@ async function initConnection() {
     var isDropsActive = false;
     var isDropsSupported = false;
     var currentDropsCampaignTitle = '';
-    var dropsCampaignTitleCache = {};
 
     var availableWatchParties = [];
     var activeWatchParty = null;
@@ -180,8 +177,6 @@ async function initConnection() {
       const elOverseas = document.getElementById('toggle-overseas');
       const elPaid = document.getElementById('toggle-paid-promotion');
       const elReplay = document.querySelector('input[name="replayPublishType"]:checked');
-      const elMinFollower = document.getElementById('min-follower-minute');
-      const elSubEx = document.getElementById('toggle-sub-exception');
 
       return {
         title: (elTitle ? elTitle.value : '').trim(),
@@ -195,9 +190,6 @@ async function initConnection() {
         overseas: elOverseas ? elOverseas.checked : true,
         paidPromotion: elPaid ? elPaid.checked : false,
         replayPublishType: elReplay ? elReplay.value : 'MANUAL',
-        chatGroup: typeof getSelectedChatGroup === 'function' ? getSelectedChatGroup() : 'ALL',
-        minFollowerMinute: elMinFollower ? elMinFollower.value : '0',
-        subException: elSubEx ? elSubEx.checked : true,
         watchPartyNo: (document.getElementById('select-watch-party')?.value || ''),
         boardMessage: currentDonationBoardMessage || '',
         dropsCampaignNo: (isDropsSupported && isDropsActive) ? currentDropsCampaignNo : null
@@ -244,35 +236,6 @@ async function initConnection() {
         return Number(cat.dropsCampaign.campaignNo) || cat.dropsCampaign.campaignNo;
       }
       return null;
-    }
-
-
-    function formatDropsCondition(r) {
-      if (!r) return '';
-      const cond = r.condition || {};
-      let val = r.conditionForMinutes ?? cond.conditionForMinutes ?? cond.conditionValue ?? cond.value ?? r.conditionValue ?? r.viewingMinutes;
-      if (val === undefined || val === null || val === '') {
-        // 보상명에 포함된 (n분) 문자열 파싱 폴백
-        const match = (r.name || r.rewardName || '').match(/\((\d+)분\)/);
-        if (match) {
-          val = match[1];
-        } else if (cond.conditionType && cond.conditionType !== 'VIEWING_TIME') {
-          return cond.conditionType;
-        } else {
-          return '';
-        }
-      }
-      val = Number(val);
-      if (isNaN(val)) return '';
-      // 초 단위로 반환되는 경우(300초 이상이면서 60의 배수) 분으로 변환
-      if (val >= 300 && val % 60 === 0) {
-        val = Math.round(val / 60);
-      }
-      const h = Math.floor(val / 60);
-      const m = val % 60;
-      if (h > 0 && m > 0) return `${h}시간 ${m}분 시청`;
-      if (h > 0) return `${h}시간 시청`;
-      return `${m}분 시청`;
     }
 
 
@@ -492,13 +455,6 @@ async function initConnection() {
       const boardDirty = cur.boardMessage !== base.boardMessage;
       const dropsDirty = cur.dropsCampaignNo !== (base.dropsCampaignNo || null);
 
-      let chatDirty = cur.chatGroup !== base.chatGroup;
-      if (cur.chatGroup === 'FOLLOWER') {
-        if (cur.minFollowerMinute !== base.minFollowerMinute || cur.subException !== base.subException) {
-          chatDirty = true;
-        }
-      }
-
       // 1. 개별 입력 요소 테두리 & 타이틀 점 하이라이트 (글로우 효과 없음)
       const elTitle = document.getElementById('live-title');
       if (elTitle) elTitle.classList.toggle('border-dirty', titleDirty);
@@ -525,8 +481,7 @@ async function initConnection() {
       const dotWp = document.getElementById('dot-dirty-watch-party');
       if (dotWp) dotWp.style.display = wpDirty ? 'inline-block' : 'none';
 
-      // 2. 3-Way 알약 캡슐 탭 (다시보기, 방송 옵션, 채팅 권한) 변경 알림
-      // 사용자가 다른 캡슐을 보고 있어도 가려진 탭의 수정 여부를 즉각 알 수 있도록 테두리 점등 및 점 표시
+      // 2. 캡슐 탭 (다시보기, 방송 옵션) 변경 알림
       const tabReplay = document.getElementById('tab-btn-replay');
       const dotTabReplay = document.getElementById('dot-dirty-tab-replay');
       if (tabReplay) tabReplay.classList.toggle('border-dirty', replayDirty);
@@ -538,11 +493,6 @@ async function initConnection() {
       if (tabStream) tabStream.classList.toggle('border-dirty', streamDirty);
       if (dotTabStream) dotTabStream.style.display = streamDirty ? 'inline-block' : 'none';
 
-      const tabChat = document.getElementById('tab-btn-chat');
-      const dotTabChat = document.getElementById('dot-dirty-tab-chat');
-      if (tabChat) tabChat.classList.toggle('border-dirty', chatDirty);
-      if (dotTabChat) dotTabChat.style.display = chatDirty ? 'inline-block' : 'none';
-
       // 세부 옵션 개별 라벨 테두리 하이라이트
       const elAdult = document.getElementById('label-adult');
       if (elAdult) elAdult.classList.toggle('border-dirty', adultDirty);
@@ -551,7 +501,7 @@ async function initConnection() {
       const elOverseas = document.getElementById('label-overseas');
       if (elOverseas) elOverseas.classList.toggle('border-dirty', overseasDirty);
 
-      const isDirty = titleDirty || catDirty || tagsDirty || thumbDirty || streamDirty || replayDirty || chatDirty || wpDirty || boardDirty || dropsDirty;
+      const isDirty = titleDirty || catDirty || tagsDirty || thumbDirty || streamDirty || replayDirty || wpDirty || boardDirty || dropsDirty;
 
       setSaveButtonDirty(isDirty);
       return isDirty;
@@ -573,104 +523,6 @@ async function initConnection() {
         if (saveText) saveText.textContent = '적용';
         if (btnRevert) btnRevert.disabled = true;
       }
-    }
-
-
-    function revertBroadcastState() {
-      if (!savedBroadcastBaseline) {
-        showToast('되돌리기 실패', 'warn', '저장된 기준 설정 정보가 없습니다.');
-        return;
-      }
-      const base = savedBroadcastBaseline;
-
-      // 1. 방송 제목
-      const elTitle = document.getElementById('live-title');
-      if (elTitle) {
-        elTitle.value = base.title || '';
-        const countEl = document.getElementById('title-count');
-        if (countEl) countEl.textContent = `${(base.title || '').length}/50`;
-        const clearBtn = document.getElementById('title-clear');
-        if (clearBtn) clearBtn.style.display = (base.title ? 'block' : 'none');
-      }
-
-      // 2. 카테고리
-      const elCatId = document.getElementById('category-id');
-      const elCatType = document.getElementById('category-type');
-      const elCatSearch = document.getElementById('category-search');
-      const elCatClear = document.getElementById('category-clear');
-      if (elCatId) elCatId.value = base.categoryId || '';
-      if (elCatType) elCatType.value = base.categoryType || '';
-      if (elCatSearch) elCatSearch.value = base.categoryValue || base.categoryId || '';
-      if (elCatClear) elCatClear.style.display = (base.categoryId ? 'block' : 'none');
-
-      // 3. 태그 복원
-      if (base.tags) {
-        currentTags = base.tags.split(',').filter(Boolean);
-      } else {
-        currentTags = [];
-      }
-      renderTags();
-
-      // 4. 방송 옵션 (연령제한, 클립, 해외시청)
-      const elAdult = document.getElementById('toggle-adult');
-      if (elAdult) elAdult.checked = !!base.adult;
-
-      const elClip = document.getElementById('toggle-clip');
-      if (elClip) elClip.checked = !!base.clipActive;
-
-      const elOverseas = document.getElementById('toggle-overseas');
-      if (elOverseas) elOverseas.checked = !!base.overseas;
-
-      const elPaid = document.getElementById('toggle-paid-promotion');
-      if (elPaid) elPaid.checked = !!base.paidPromotion;
-
-      // 5. 다시보기 복원
-      const radio = document.querySelector(`input[name="replayPublishType"][value="${base.replayPublishType || 'MANUAL'}"]`);
-      if (radio) radio.checked = true;
-
-      // 6. 같이보기 복원
-      const selWp = document.getElementById('select-watch-party');
-      if (selWp) {
-        selWp.value = base.watchPartyNo || '';
-      }
-      currentDonationBoardMessage = base.boardMessage || '';
-      if (base.watchPartyNo) {
-        const wpItem = availableWatchParties.find(p => String(p.watchPartyNo) === String(base.watchPartyNo));
-        if (wpItem) {
-          applyWatchPartyLock(wpItem, false);
-        }
-      } else {
-        preWatchPartySnapshot = null;
-        releaseWatchPartyLock(false);
-      }
-
-      // 7. 채팅 권한
-      if (typeof setSelectedChatGroup === 'function') {
-        setSelectedChatGroup(base.chatGroup || 'ALL');
-      }
-      const elMinFollower = document.getElementById('min-follower-minute');
-      if (elMinFollower) elMinFollower.value = base.minFollowerMinute || '0';
-      const elSubEx = document.getElementById('toggle-sub-exception');
-      if (elSubEx) elSubEx.checked = base.subException !== undefined ? base.subException : true;
-
-      // 8. 썸네일 복원
-      currentLiveSetting.defaultThumbnailImageUrl = base.thumbnail || null;
-      updateThumbnailToolbarButton();
-
-      // 9. 드롭스 복원
-      if (base.dropsCampaignNo) {
-        currentDropsCampaignNo = base.dropsCampaignNo;
-        isDropsSupported = true;
-        isDropsActive = true;
-      } else {
-        currentDropsCampaignNo = null;
-        isDropsSupported = false;
-        isDropsActive = false;
-      }
-      updateDropsBadgeUI();
-
-      checkBroadcastStateDirty();
-      showToast('설정 복원 완료', 'info', '저장된 기준 설정으로 복원되었습니다.');
     }
 
 
@@ -1631,15 +1483,6 @@ async function initConnection() {
             updatePortClearButton();
           }
         });
-        portInput.addEventListener('keydown', (e) => {
-          if (e.key === 'Escape') {
-            if (!portInput.value.trim()) {
-              portInput.value = currentActivePort || currentConfiguredPort || 8081;
-              updatePortClearButton();
-            }
-            portInput.blur();
-          }
-        });
       }
 
       const catSearch = document.getElementById('category-search');
@@ -1708,10 +1551,6 @@ async function initConnection() {
               selectCategoryItem(items[0]);
             }
             selectedCatIdx = -1;
-          } else if (e.key === 'Escape') {
-            dropdown.style.display = 'none';
-            selectedCatIdx = -1;
-            validateCategoryInput();
           }
         });
       }
@@ -1744,9 +1583,6 @@ async function initConnection() {
       document.getElementById('select-watch-party')?.addEventListener('change', (e) => {
         onWatchPartyChange(e.target.value);
       });
-      document.querySelectorAll('input[name="chatAvailableGroup"]').forEach(el => el.addEventListener('change', checkBroadcastStateDirty));
-      document.getElementById('min-follower-minute')?.addEventListener('change', checkBroadcastStateDirty);
-      document.getElementById('toggle-sub-exception')?.addEventListener('change', checkBroadcastStateDirty);
 
       // 태그 인라인 입력 이벤트 리스너 (한글 IME 조합 및 좌표 이탈 완벽 대응)
       const tagInput = document.getElementById('tag-inline-input');
@@ -1761,9 +1597,6 @@ async function initConnection() {
           if (e.key === 'Enter') {
             e.preventDefault();
             confirmTagInput();
-          } else if (e.key === 'Escape') {
-            e.preventDefault();
-            closeTagInput();
           }
         });
         tagInput.addEventListener('keyup', (e) => {
@@ -1775,27 +1608,8 @@ async function initConnection() {
         });
       }
 
-      // ── 미로그인 시 메인 방송 설정 영역 조작 가드 (캡처링 단계 차단) ──
-      const cardBroadcast = document.getElementById('card-broadcast');
-      if (cardBroadcast) {
-        const guardFn = (e) => {
-          if (e.target.closest('#preset-toolbar-wrapper')) return;
-          if (!checkLoginGuard('방송 설정')) {
-            e.preventDefault();
-            e.stopPropagation();
-            if (document.activeElement && cardBroadcast.contains(document.activeElement)) {
-              document.activeElement.blur();
-            }
-          }
-        };
-        cardBroadcast.addEventListener('click', guardFn, true);
-        cardBroadcast.addEventListener('focusin', guardFn, true);
-        cardBroadcast.addEventListener('keydown', guardFn, true);
-      }
-
       // ── 2. 백그라운드에서 연결 시도 및 통합 설정 1회 로드 (원리 A) ──
       initConnection();
-      initFontScale();
       if (typeof loadAllDockSettings === 'function') {
         loadAllDockSettings();
       }
@@ -2258,7 +2072,6 @@ async function initConnection() {
       spinner.style.display = 'inline-block';
 
       let liveSuccess = false;
-      let chatSuccess = false;
 
       try {
         // 1. 방송 정보 & 세부 설정 저장 (PUT /live-setting/normal)
@@ -2406,48 +2219,12 @@ async function initConnection() {
         showToast('방송 정보 저장 오류', 'error', err.message);
       }
 
-      // 2. 채팅 설정 저장 (BFF: PUT /chzzkdock/chat-rule)
-      try {
-        const group = getSelectedChatGroup();
-        const payloadChat = {
-          chatAvailableGroup: group,
-          minFollowerMinute: group === 'FOLLOWER' ? (parseInt(document.getElementById('min-follower-minute').value) || 0) : 0,
-          allowSubscriberInFollowerMode: document.getElementById('toggle-sub-exception').checked
-        };
-
-        const resChat = await chzzkApi.saveChatRule(payloadChat);
-
-        if (resChat.ok) {
-          chatSuccess = true;
-        } else {
-          let chatErrorMsg = '채팅 설정 저장에 실패했습니다.';
-          try {
-            const errChat = await resChat.json();
-            if (errChat && errChat.message) chatErrorMsg = errChat.message;
-          } catch (e) {}
-          showToast('채팅 설정 저장 실패', 'error', chatErrorMsg);
-        }
-      } catch (err) {
-        showToast('채팅 설정 저장 오류', 'error', err.message);
-      }
-
-        // 3. 방송 설정 저장이 성공한 경우에만 화면에 최신 방송 & 채팅 정보 다시 동기화
+        // 2. 방송 설정 저장이 성공한 경우에만 화면에 최신 방송 정보 다시 동기화
         // (저장이 실패한 경우 사용자가 선택해둔 같이보기나 폼 입력값이 리셋되는 문제 방지)
         if (liveSuccess) {
           await loadCurrentSettings(true);
-        }
-
-        if (liveSuccess && chatSuccess) {
           saveText.textContent = '✅ 적용 완료!';
-          showToast('🎉 방송, 채팅 & 후원 설정 적용 완료!', 'success');
-          setTimeout(() => { saveText.textContent = '적용'; }, 1500);
-        } else if (liveSuccess) {
-          saveText.textContent = '✅ 적용 완료!';
-          showToast('방송 정보만 적용되었습니다.', 'warn');
-          setTimeout(() => { saveText.textContent = '적용'; }, 1500);
-        } else if (chatSuccess) {
-          saveText.textContent = '✅ 적용 완료!';
-          showToast('채팅 설정만 적용되었습니다.', 'warn');
+          showToast('🎉 방송 설정 적용 완료!', 'success');
           setTimeout(() => { saveText.textContent = '적용'; }, 1500);
         } else {
           saveText.textContent = '적용';
@@ -3034,10 +2811,8 @@ async function initConnection() {
 // ============================================================
 //  Bootstrap Entrypoint Execution
 // ============================================================
-if (typeof startApp === 'function') {
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', startApp);
-  } else {
-    startApp();
-  }
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', startApp);
+} else {
+  startApp();
 }

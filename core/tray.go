@@ -136,8 +136,6 @@ type MenuItem struct {
 
 type PureWinTrayIcon struct {
 	Tooltip                string
-	IconPath               string
-	IconBytes              []byte
 	Hwnd                   syscall.Handle
 	Hicon                  syscall.Handle
 	Nid                    *NOTIFYICONDATAW
@@ -164,48 +162,84 @@ func ExportLauncherScript(scriptContent []byte) (string, error) {
 }
 
 // NewPureWinTrayIcon: 트레이 아이콘 인스턴스 생성
-func NewPureWinTrayIcon(tooltip, iconPath string, iconBytes []byte) *PureWinTrayIcon {
+func NewPureWinTrayIcon(tooltip string) *PureWinTrayIcon {
 	tray := &PureWinTrayIcon{
 		Tooltip:   tooltip,
-		IconPath:  iconPath,
-		IconBytes: iconBytes,
 		MenuItems: make([]MenuItem, 0),
 	}
 	GlobalTray = tray
 	return tray
 }
 
-func (t *PureWinTrayIcon) createIcon() syscall.Handle {
-	return LoadAppIcon()
+var embeddedIconData []byte
+
+// SetEmbeddedIcon: 바이너리에 임베드된 icon.ico 바이트 데이터 등록
+func SetEmbeddedIcon(data []byte) {
+	embeddedIconData = data
 }
 
-// LoadAppIcon: 현재 실행 파일의 PE 리소스(ID: 1) 또는 icon.ico에서 HICON 로드
+func loadIconFromFile(filePath string) syscall.Handle {
+	if _, err := os.Stat(filePath); err != nil {
+		return 0
+	}
+	pathPtr, err := syscall.UTF16PtrFromString(filePath)
+	if err != nil {
+		return 0
+	}
+	h, _, _ := procLoadImageW.Call(
+		0,
+		uintptr(unsafe.Pointer(pathPtr)),
+		uintptr(IMAGE_ICON),
+		0, 0,
+		uintptr(LR_LOADFROMFILE|LR_DEFAULTSIZE),
+	)
+	if h != 0 {
+		return syscall.Handle(h)
+	}
+	return 0
+}
+
+// LoadAppIcon: 실행 파일 디렉토리, 로컬 캐시, 임베디드 리소스에서 HICON을 안전하게 로드
 func LoadAppIcon() syscall.Handle {
+	// 1. 실행 파일과 동일한 디렉토리에 있는 icon.ico 확인
+	if exePath, err := os.Executable(); err == nil {
+		exeIcon := filepath.Join(filepath.Dir(exePath), "icon.ico")
+		if h := loadIconFromFile(exeIcon); h != 0 {
+			return h
+		}
+	}
+
+	// 2. 현재 작업 디렉토리의 icon.ico 확인
+	if h := loadIconFromFile("icon.ico"); h != 0 {
+		return h
+	}
+
+	// 3. 임베디드 아이콘 데이터가 있으면 로컬 앱데이터 캐시에 저장 후 로드
+	appData := os.Getenv("LOCALAPPDATA")
+	if appData == "" {
+		appData = os.Getenv("USERPROFILE")
+	}
+	if appData != "" {
+		cachedIcon := filepath.Join(appData, "ChzzkObsDock", "icon.ico")
+		if len(embeddedIconData) > 0 {
+			if _, err := os.Stat(cachedIcon); err != nil {
+				_ = os.MkdirAll(filepath.Dir(cachedIcon), 0755)
+				_ = os.WriteFile(cachedIcon, embeddedIconData, 0644)
+			}
+		}
+		if h := loadIconFromFile(cachedIcon); h != 0 {
+			return h
+		}
+	}
+
+	// 4. 컴파일 시 임베드된 PE 리소스 아이콘 (goversioninfo 기본 ID 1)
 	hInst, _, _ := procGetModuleHandleW.Call(0)
-	// 1. 컴파일 시 임베드된 PE 리소스 아이콘 (goversioninfo 기본 ID 1)
 	hIcon, _, _ := procLoadIconW.Call(hInst, uintptr(1))
 	if hIcon != 0 {
 		return syscall.Handle(hIcon)
 	}
 
-	// 2. 로컬 icon.ico 파일 확인
-	if _, err := os.Stat("icon.ico"); err == nil {
-		pathPtr, err := syscall.UTF16PtrFromString("icon.ico")
-		if err == nil {
-			h, _, _ := procLoadImageW.Call(
-				0,
-				uintptr(unsafe.Pointer(pathPtr)),
-				uintptr(IMAGE_ICON),
-				0, 0,
-				uintptr(LR_LOADFROMFILE|LR_DEFAULTSIZE),
-			)
-			if h != 0 {
-				return syscall.Handle(h)
-			}
-		}
-	}
-
-	// 3. 시스템 기본 어플리케이션 아이콘 (IDI_APPLICATION = 32512)
+	// 5. 시스템 기본 어플리케이션 아이콘 (IDI_APPLICATION = 32512)
 	h, _, _ := procLoadIconW.Call(0, uintptr(32512))
 	return syscall.Handle(h)
 }
@@ -307,6 +341,12 @@ func (t *PureWinTrayIcon) sendNotification(title, msg string, dwInfoFlags uint32
 func (t *PureWinTrayIcon) ShowNotification(title, msg string) {
 	LogInfo("[Tray Notification] %s: %s", title, msg)
 	t.sendNotification(title, msg, NIIF_INFO)
+}
+
+// ShowErrorNotification: 트레이 풍선 알림 표시 (경고/에러)
+func (t *PureWinTrayIcon) ShowErrorNotification(title, msg string) {
+	LogWarn("[Tray Notification] %s: %s", title, msg)
+	t.sendNotification(title, msg, NIIF_ERROR)
 }
 
 // UpdateTooltip: 트레이 아이콘의 마우스 호버 툴팁을 동적으로 변경
@@ -450,7 +490,7 @@ func (t *PureWinTrayIcon) Run() {
 		0,
 	)
 	t.Hwnd = syscall.Handle(hwnd)
-	t.Hicon = t.createIcon()
+	t.Hicon = LoadAppIcon()
 
 	nid := NOTIFYICONDATAW{
 		CbSize:           uint32(unsafe.Sizeof(NOTIFYICONDATAW{})),

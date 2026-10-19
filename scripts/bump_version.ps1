@@ -8,14 +8,17 @@ $OutputEncoding = [System.Text.Encoding]::UTF8
 
 # Strip leading 'v' or 'V' if present
 $ver = $NewVersion.TrimStart('v', 'V').Trim()
-$parts = $ver.Split('.')
-if ($parts.Length -lt 3) {
-    Write-Error "Version must be in format Major.Minor.Patch (e.g. 0.5.6)"
+if ($ver -notmatch '^(\d+)\.(\d+)\.(\d+)') {
+    Write-Error "Version must start with Major.Minor.Patch (e.g. 0.5.6 or 0.6.4-beta.1)"
     exit 1
 }
-$major = [int]$parts[0]
-$minor = [int]$parts[1]
-$patch = [int]$parts[2]
+$major = [int]$Matches[1]
+$minor = [int]$Matches[2]
+$patch = [int]$Matches[3]
+$build = 0
+if ($ver -match '[-.](?:beta|rc|alpha|build)\.?(\d+)') {
+    $build = [int]$Matches[1]
+}
 
 Write-Host "======================================================"
 Write-Host "  Bumping CHZZK OBS Dock version to v$ver"
@@ -26,7 +29,7 @@ $mainPath = "main.go"
 if (Test-Path $mainPath) {
     $c = Get-Content $mainPath -Raw -Encoding UTF8
     $c = $c -replace 'APP_VERSION\s*=\s*"v[^"]+"', "APP_VERSION       = `"v$ver`""
-    $c = $c -replace 'CHZZK OBS Dock Server v[0-9.]+', "CHZZK OBS Dock Server v$ver"
+    $c = $c -replace 'CHZZK OBS Dock Server v[^\s]+', "CHZZK OBS Dock Server v$ver"
     Set-Content $mainPath -Value $c -Encoding UTF8
     Write-Host "[OK] Updated $mainPath"
 }
@@ -38,11 +41,13 @@ if (Test-Path $viPath) {
     $vi.FixedFileInfo.FileVersion.Major = $major
     $vi.FixedFileInfo.FileVersion.Minor = $minor
     $vi.FixedFileInfo.FileVersion.Patch = $patch
+    $vi.FixedFileInfo.FileVersion.Build = $build
     $vi.FixedFileInfo.ProductVersion.Major = $major
     $vi.FixedFileInfo.ProductVersion.Minor = $minor
     $vi.FixedFileInfo.ProductVersion.Patch = $patch
-    $vi.StringFileInfo.FileVersion = "$major.$minor.$patch.0"
-    $vi.StringFileInfo.ProductVersion = "$major.$minor.$patch.0"
+    $vi.FixedFileInfo.ProductVersion.Build = $build
+    $vi.StringFileInfo.FileVersion = "$major.$minor.$patch.$build"
+    $vi.StringFileInfo.ProductVersion = "$ver"
     $newJson = $vi | ConvertTo-Json -Depth 10
     $utf8NoBom = New-Object System.Text.UTF8Encoding $false
     [System.IO.File]::WriteAllText((Resolve-Path $viPath).Path, $newJson, $utf8NoBom)

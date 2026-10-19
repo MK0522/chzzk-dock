@@ -43,12 +43,12 @@ func SetWatchdogTimeoutSec(sec int) {
 // - OBS 실행 감지 후, OBS가 종료되면 설정된 대기 시간(GetWatchdogTimeoutSec) 동안 대기 후 자동 종료 (0초: 즉시 종료)
 // - -1초(사용 안 함) 설정 시 OBS가 종료되어도 자동 종료하지 않고 영구 대기
 // - 대기 시간 내에 OBS가 재실행되면 카운트다운을 즉시 취소하고 연동 복구
-func StartObsWatchdog(silentMode bool) {
+func StartObsWatchdog(silentMode bool, obsLaunchMode bool) {
 	settings := LoadSettings()
 	SetWatchdogTimeoutSec(settings.WatchdogTimeoutSec)
 
 	go func() {
-		LogInfo("[Watchdog] OBS 프로세스 감시 시작 (종료 대기 유예 시간: %d초, Silent: %v)", GetWatchdogTimeoutSec(), silentMode)
+		LogInfo("[Watchdog] OBS 프로세스 감시 시작 (종료 대기 유예 시간: %d초, Silent: %v, ObsLaunch: %v)", GetWatchdogTimeoutSec(), silentMode, obsLaunchMode)
 
 		obsEverDetected := false
 		var obsStoppedAt time.Time
@@ -102,7 +102,7 @@ func StartObsWatchdog(silentMode bool) {
 							os.Exit(0)
 						}
 					}
-				} else if silentMode {
+				} else if silentMode || obsLaunchMode {
 					// 백그라운드 스크립트 실행 모드에서 시작 후 한 번도 OBS가 안 켜진 경우 고아 프로세스 방지
 					timeoutSec := GetWatchdogTimeoutSec()
 					waitLimit := time.Duration(timeoutSec) * time.Second

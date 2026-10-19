@@ -288,21 +288,6 @@
         eventSubscriptions: 1023
       };
 
-      if (d && d.authentication) {
-        const password = localStorage.getItem('obs_ws_password') || '';
-        try {
-          const enc = new TextEncoder();
-          const sha256 = async (str) => {
-            const buf = await crypto.subtle.digest('SHA-256', enc.encode(str));
-            return btoa(String.fromCharCode(...new Uint8Array(buf)));
-          };
-          const secret = await sha256(password + d.authentication.salt);
-          identifyData.authentication = await sha256(secret + d.authentication.challenge);
-        } catch (authErr) {
-          console.error('[Stats] OBS Auth Error:', authErr);
-        }
-      }
-
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({
           op: 1,

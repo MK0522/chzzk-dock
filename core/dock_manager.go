@@ -40,7 +40,6 @@ type AppSettings struct {
 	ExternalBrowserGuard *bool             `json:"external_browser_guard,omitempty"` // 네이버 외 외부 링크 클릭 시 기본 브라우저로 열기 (기본값: true)
 	EnableBetaUpdates    *bool             `json:"enable_beta_updates,omitempty"`    // 테스트(Beta) 버전 업데이트 수신 여부 (기본값: false)
 	AutoCheckUpdate      *bool             `json:"auto_check_update,omitempty"`      // 앱 시작 시 업데이트 자동 확인 여부 (기본값: true)
-	RemoteTesterUnlocked bool              `json:"remote_tester_unlocked,omitempty"` // 리모컨 테스터 인증 승인 여부
 	FontScale            float64            `json:"font_scale"`                       // 독 화면/폰트 배율 (기본값: 1.2)
 	ShowViewerCount      *bool              `json:"show_viewer_count,omitempty"`      // 상단 실시간 시청자 수 표시 여부 (기본값: true)
 	SkipUpdateVersion    string             `json:"skip_update_version,omitempty"`    // 건너뛴 업데이트 버전 태그
@@ -79,14 +78,6 @@ type BroadcastPreset struct {
 	CategoryType string   `json:"category_type,omitempty"`
 	CategoryName string   `json:"category_name"`
 	Tags         []string `json:"tags"`
-}
-
-func (s AppSettings) IsRemoteTesterUnlocked() bool {
-	return s.RemoteTesterUnlocked
-}
-
-func (s *AppSettings) SetRemoteTesterUnlocked(val bool) {
-	s.RemoteTesterUnlocked = val
 }
 
 func (s AppSettings) IsEnableBetaUpdates() bool {
@@ -155,13 +146,6 @@ func (s *AppSettings) SetExternalBrowserGuard(val bool) {
 	s.ExternalBrowserGuard = &val
 }
 
-func (s AppSettings) GetFontScale() float64 {
-	if s.FontScale <= 0 {
-		return 1.2
-	}
-	return s.FontScale
-}
-
 func (s *AppSettings) SetFontScale(val float64) {
 	if val <= 0 {
 		val = 1.2
@@ -206,12 +190,6 @@ func SetEnableGPUSetting(val bool) error {
 func GetExternalBrowserGuard() bool {
 	s := LoadSettings()
 	return s.IsExternalBrowserGuard()
-}
-
-func SetExternalBrowserGuardSetting(val bool) error {
-	st := LoadSettings()
-	st.SetExternalBrowserGuard(val)
-	return SaveSettings(st)
 }
 
 var (
@@ -471,18 +449,6 @@ func IsPreRelease(v string) bool {
 		}
 	}
 	return false
-}
-
-// GetRemoteTesterUnlocked: 리모컨 테스터 인증 승인 여부 조회
-func GetRemoteTesterUnlocked() bool {
-	return LoadSettings().IsRemoteTesterUnlocked()
-}
-
-// SetRemoteTesterUnlocked: 리모컨 테스터 인증 승인 여부 저장 (%LOCALAPPDATA%\ChzzkObsDock\settings.json)
-func SetRemoteTesterUnlocked(val bool) error {
-	st := LoadSettings()
-	st.SetRemoteTesterUnlocked(val)
-	return SaveSettings(st)
 }
 
 // GetBroadcastPresets: 방송 정보 프리셋 목록 조회 (%LOCALAPPDATA%\ChzzkObsDock\settings.json)
@@ -881,8 +847,8 @@ func ExecuteUpdate(version, downloadURL string, expectedSize int64, onShutdown f
 		LogInfo("[Updater] 기존에 다운로드 완료된 인스톨러 사용: %s", installerPath)
 		progressMu.Lock()
 		currentProgress.Percent = 100
-		currentProgress.Done = true
-		currentProgress.Active = false
+		currentProgress.Active = true
+		currentProgress.Done = false
 		progressMu.Unlock()
 
 		go func() {
@@ -891,10 +857,17 @@ func ExecuteUpdate(version, downloadURL string, expectedSize int64, onShutdown f
 			if err := cmd.Start(); err != nil {
 				LogError("[Updater] 인스톨러 실행 실패: %v", err)
 				progressMu.Lock()
+				currentProgress.Active = false
+				currentProgress.Done = false
 				currentProgress.Error = fmt.Sprintf("설치기 실행 실패: %v", err)
 				progressMu.Unlock()
 				return
 			}
+			progressMu.Lock()
+			currentProgress.Done = true
+			currentProgress.Active = false
+			progressMu.Unlock()
+
 			LogInfo("[Updater] 새 버전 인스톨러 실행됨 (PID %d). 현재 프로세스 종료 준비...", cmd.Process.Pid)
 			if onShutdown != nil {
 				onShutdown()
@@ -955,6 +928,10 @@ func ExecuteUpdate(version, downloadURL string, expectedSize int64, onShutdown f
 			progressMu.Unlock()
 			return
 		}
+		defer func() {
+			_ = outFile.Close()
+			_ = os.Remove(tmpPath)
+		}()
 
 		buf := make([]byte, 32*1024)
 		var received int64
@@ -967,8 +944,6 @@ func ExecuteUpdate(version, downloadURL string, expectedSize int64, onShutdown f
 			if n > 0 {
 				_, wErr := outFile.Write(buf[:n])
 				if wErr != nil {
-					outFile.Close()
-					_ = os.Remove(tmpPath)
 					progressMu.Lock()
 					currentProgress.Active = false
 					currentProgress.Error = fmt.Sprintf("파일 쓰기 실패: %v", wErr)
@@ -1008,8 +983,6 @@ func ExecuteUpdate(version, downloadURL string, expectedSize int64, onShutdown f
 				if rErr == io.EOF {
 					break
 				}
-				outFile.Close()
-				_ = os.Remove(tmpPath)
 				progressMu.Lock()
 				currentProgress.Active = false
 				currentProgress.Error = fmt.Sprintf("데이터 수신 오류: %v", rErr)
@@ -1017,7 +990,7 @@ func ExecuteUpdate(version, downloadURL string, expectedSize int64, onShutdown f
 				return
 			}
 		}
-		outFile.Close()
+		_ = outFile.Close()
 
 		// 온전하게 다운로드된 임시 파일을 정식 인스톨러 이름으로 확정
 		_ = os.Remove(installerPath)
@@ -1031,8 +1004,8 @@ func ExecuteUpdate(version, downloadURL string, expectedSize int64, onShutdown f
 
 		progressMu.Lock()
 		currentProgress.Percent = 100
-		currentProgress.Done = true
-		currentProgress.Active = false
+		currentProgress.Active = true
+		currentProgress.Done = false
 		progressMu.Unlock()
 
 		LogInfo("[Updater] 인스톨러 다운로드 완료 (%d bytes) -> %s (경과: %v)", received, installerPath, time.Since(startTime).Round(time.Millisecond))
@@ -1044,10 +1017,17 @@ func ExecuteUpdate(version, downloadURL string, expectedSize int64, onShutdown f
 		if err := cmd.Start(); err != nil {
 			LogError("[Updater] 인스톨러 실행 실패: %v", err)
 			progressMu.Lock()
+			currentProgress.Active = false
+			currentProgress.Done = false
 			currentProgress.Error = fmt.Sprintf("설치기 실행 실패: %v", err)
 			progressMu.Unlock()
 			return
 		}
+
+		progressMu.Lock()
+		currentProgress.Done = true
+		currentProgress.Active = false
+		progressMu.Unlock()
 
 		LogInfo("[Updater] 새 버전 인스톨러 실행됨 (PID %d). 현재 프로세스 종료 준비...", cmd.Process.Pid)
 		if onShutdown != nil {
@@ -1057,9 +1037,4 @@ func ExecuteUpdate(version, downloadURL string, expectedSize int64, onShutdown f
 	}()
 
 	return nil
-}
-
-// StartDownloadAndInstall: ExecuteUpdate를 호출하는 헬퍼 함수
-func StartDownloadAndInstall(version, downloadURL string, expectedSize int64, onShutdown func()) error {
-	return ExecuteUpdate(version, downloadURL, expectedSize, onShutdown)
 }

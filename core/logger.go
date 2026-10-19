@@ -139,10 +139,6 @@ func (m *MemoryLogger) GetLogsText() string {
 }
 
 // Global Logging Functions
-func LogDebug(format string, args ...interface{}) {
-	appLogger.Log(LevelDebug, format, args...)
-}
-
 func LogInfo(format string, args ...interface{}) {
 	appLogger.Log(LevelInfo, format, args...)
 }
@@ -176,6 +172,7 @@ func ViewLogsInNotepad() error {
 		LogError("메모장 실행 실패: %v", err)
 		return err
 	}
+	_ = cmd.Process.Release()
 	return nil
 }
 
@@ -280,7 +277,10 @@ func SaveLogsWithDialog() (string, error) {
 	}
 
 	// 저장된 파일을 탐색기에서 선택된 상태로 표시
-	_ = exec.Command("explorer.exe", fmt.Sprintf("/select,%s", targetPath)).Start()
+	cmd := exec.Command("explorer.exe", fmt.Sprintf("/select,%s", targetPath))
+	if err := cmd.Start(); err == nil {
+		_ = cmd.Process.Release()
+	}
 
 	return targetPath, nil
 }

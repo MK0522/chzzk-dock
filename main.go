@@ -1,4 +1,4 @@
-package main
+﻿package main
 
 import (
 	"embed"
@@ -18,7 +18,7 @@ import (
 	"time"
 	"unsafe"
 
-	"chzzk-obs-dock/core"
+	"chzzk-dock/core"
 	"golang.org/x/sys/windows"
 )
 
@@ -34,23 +34,23 @@ var embeddedStatsHTML []byte
 //go:embed ui/mini-dock/index.html
 var embeddedMiniHTML []byte
 
-//go:embed icon.ico
-var embeddedIcon []byte
-
 //go:embed docs/cookie_guide_1.png
 var embeddedGuide1 []byte
 
 //go:embed docs/cookie_guide_2.png
 var embeddedGuide2 []byte
 
+//go:embed icon.ico
+var embeddedAppIcon []byte
+
 //go:embed scripts/chzzk_dock_launcher.lua
 var embeddedLauncherScript []byte
 
 // ============================================================
-//  CHZZK OBS Dock Server v0.6.3-beta3 (Modular Architecture)
+//  CHZZK OBS Dock Server v0.6.3-rc1 (Modular Architecture)
 // ============================================================
 const (
-	APP_VERSION       = "v0.6.3-beta4"
+	APP_VERSION       = "v0.6.3-rc1"
 	DEFAULT_HTTP_PORT = 8081
 	USER_AGENT        = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 )
@@ -70,8 +70,8 @@ var (
 	naverGameApiBaseURL = "https://comm-api.game.naver.com"
 )
 
-// trackSubProcess: 서브프로세스 생명주기 추적 및 정상 종료 시 핸들 자동 정리
-func trackSubProcess(cmd *exec.Cmd) {
+// trackSubProcess: 서브프로세스 생명주기 추적 및 정상 종료 시 핸들 자동 정리 (선택적 onExit 콜백 지원)
+func trackSubProcess(cmd *exec.Cmd, onExit ...func()) {
 	if cmd == nil || cmd.Process == nil {
 		return
 	}
@@ -82,12 +82,15 @@ func trackSubProcess(cmd *exec.Cmd) {
 	go func() {
 		_ = cmd.Wait()
 		subProcessesLock.Lock()
-		defer subProcessesLock.Unlock()
 		for i, c := range subProcesses {
 			if c == cmd {
 				subProcesses = append(subProcesses[:i], subProcesses[i+1:]...)
 				break
 			}
+		}
+		subProcessesLock.Unlock()
+		if len(onExit) > 0 && onExit[0] != nil {
+			onExit[0]()
 		}
 	}()
 }
@@ -126,16 +129,6 @@ var (
 )
 
 func getRenderedHTML() []byte {
-	// 로컬 개발 환경에서 ui/main-dock/index.html 변경 시 즉각 반영 (핫 리로드)
-	if data, err := os.ReadFile(filepath.Join("ui", "main-dock", "index.html")); err == nil && len(data) > 0 {
-		return bytes.ReplaceAll(data, []byte("{{APP_VERSION}}"), []byte(APP_VERSION))
-	}
-	if exePath, err := os.Executable(); err == nil {
-		localHtml := filepath.Join(filepath.Dir(exePath), "ui", "main-dock", "index.html")
-		if data, err := os.ReadFile(localHtml); err == nil && len(data) > 0 {
-			return bytes.ReplaceAll(data, []byte("{{APP_VERSION}}"), []byte(APP_VERSION))
-		}
-	}
 	renderedHTMLOnce.Do(func() {
 		renderedHTMLCache = bytes.ReplaceAll(embeddedHTML, []byte("{{APP_VERSION}}"), []byte(APP_VERSION))
 	})
@@ -143,30 +136,10 @@ func getRenderedHTML() []byte {
 }
 
 func getRenderedStatsHTML() []byte {
-	// 로컬 개발 환경에서 ui/stats-dock/index.html 변경 시 즉각 반영 (핫 리로드)
-	if data, err := os.ReadFile(filepath.Join("ui", "stats-dock", "index.html")); err == nil && len(data) > 0 {
-		return data
-	}
-	if exePath, err := os.Executable(); err == nil {
-		localHtml := filepath.Join(filepath.Dir(exePath), "ui", "stats-dock", "index.html")
-		if data, err := os.ReadFile(localHtml); err == nil && len(data) > 0 {
-			return data
-		}
-	}
 	return embeddedStatsHTML
 }
 
 func getRenderedMiniHTML() []byte {
-	// 로컬 개발 환경에서 ui/mini-dock/index.html 변경 시 즉각 반영 (핫 리로드)
-	if data, err := os.ReadFile(filepath.Join("ui", "mini-dock", "index.html")); err == nil && len(data) > 0 {
-		return data
-	}
-	if exePath, err := os.Executable(); err == nil {
-		localHtml := filepath.Join(filepath.Dir(exePath), "ui", "mini-dock", "index.html")
-		if data, err := os.ReadFile(localHtml); err == nil && len(data) > 0 {
-			return data
-		}
-	}
 	return embeddedMiniHTML
 }
 
@@ -197,12 +170,22 @@ func handleDiskTotal(w http.ResponseWriter, r *http.Request) {
 // handleOpenFolder: GET /api/open-folder?path=D:\Recordings
 func handleOpenFolder(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimSpace(r.URL.Query().Get("path"))
-	if path != "" {
-		cleanPath := filepath.Clean(path)
-		go func() {
-			_ = exec.Command("explorer.exe", cleanPath).Start()
-		}()
+	if path == "" {
+		sendJSON(w, map[string]string{"error": "path is required"}, http.StatusBadRequest)
+		return
 	}
+	cleanPath := filepath.Clean(path)
+	info, err := os.Stat(cleanPath)
+	if err != nil || !info.IsDir() {
+		sendJSON(w, map[string]string{"error": "유효한 폴더 경로가 아닙니다."}, http.StatusBadRequest)
+		return
+	}
+	go func() {
+		cmd := exec.Command("explorer.exe", cleanPath)
+		if err := cmd.Start(); err == nil {
+			_ = cmd.Process.Release()
+		}
+	}()
 	sendJSON(w, map[string]string{"status": "ok"}, http.StatusOK)
 }
 
@@ -216,12 +199,6 @@ var (
 )
 
 func getLauncherScriptData() []byte {
-	if localScript, err := os.ReadFile("scripts/chzzk_dock_launcher.lua"); err == nil {
-		return localScript
-	}
-	if localScript, err := os.ReadFile("chzzk_dock_launcher.lua"); err == nil {
-		return localScript
-	}
 	return embeddedLauncherScript
 }
 
@@ -323,7 +300,7 @@ func proxyUnofficialRequest(w http.ResponseWriter, r *http.Request, method, path
 
 	var bodyReader io.Reader
 	if len(body) > 0 {
-		bodyReader = strings.NewReader(string(body))
+		bodyReader = bytes.NewReader(body)
 	}
 
 	req, err := http.NewRequest(method, targetURL, bodyReader)
@@ -384,7 +361,7 @@ func proxyUnofficialRequest(w http.ResponseWriter, r *http.Request, method, path
 
 			var retryBodyReader io.Reader
 			if len(body) > 0 {
-				retryBodyReader = strings.NewReader(string(body))
+				retryBodyReader = bytes.NewReader(body)
 			}
 			retryReq, rErr := http.NewRequest(method, targetURL, retryBodyReader)
 			if rErr == nil {
@@ -428,7 +405,11 @@ func proxyUnofficialRequest(w http.ResponseWriter, r *http.Request, method, path
 		default:
 			errCode = core.ErrApiOtherError
 		}
-		core.LogError("[Proxy %s %s] [%s] 치지직 API 오류 (%d): %s", method, targetURL, errCode, resp.StatusCode, string(respBytes))
+		errSummary := strings.TrimSpace(string(respBytes))
+		if len(errSummary) > 120 {
+			errSummary = errSummary[:120] + "..."
+		}
+		core.LogError("[Proxy %s %s] [%s] 치지직 API 오류 (%d): %s", method, targetURL, errCode, resp.StatusCode, errSummary)
 	}
 
 	core.SetCachedApiResponse(method, targetURL, respBytes, resp.StatusCode, contentType)
@@ -540,17 +521,15 @@ func runTray(silentMode bool) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	// 1. 독 독립 윈도우(WebView2) 생성
-	// - silentMode(OBS 연동 등)가 아니고, 설정에서 '시작 시 팝업 열기'가 켜져 있을 때만 화면에 즉시 표시
-	showWindow := !silentMode && core.GetPopupOnStart()
-	core.InitDockWindow(activeHttpPort, APP_VERSION, showWindow)
+	// 1. 트레이 아이콘 인스턴스 생성 (트레이를 가장 먼저 띄워 UI 반응성을 즉시 확보)
+	tray := core.NewPureWinTrayIcon(getTrayTooltip())
+	trayInstance = tray
 
-	// 2. 트레이 아이콘 설정
-	tray := core.NewPureWinTrayIcon(
-		getTrayTooltip(),
-		"icon.ico",
-		embeddedIcon,
-	)
+	// 2. 독 독립 윈도우(WebView2) 인스턴스 준비 (Lazy Init)
+	// - silentMode가 아니고, 설정에서 '시작 시 팝업 열기'가 켜져 있을 때만 화면에 즉시 표시
+	// - 팝업 열기가 꺼져 있으면 WebView2를 미리 띄우지 않아 백그라운드 메모리(~240MB) 절감
+	showWindow := !silentMode && core.GetPopupOnStart()
+	core.EnsureDockWindow(activeHttpPort, APP_VERSION, showWindow)
 
 	tray.StartNotificationTitle = "CHZZK OBS Dock"
 	if isFallbackPort {
@@ -701,7 +680,6 @@ func activateExistingInstance(user32 *syscall.LazyDLL) {
 
 	procFindWindowW := user32.NewProc("FindWindowW")
 	procPostMessageW := user32.NewProc("PostMessageW")
-	procShowWindow := user32.NewProc("ShowWindow")
 
 	var existingHwnd uintptr
 	for i := 0; i < 15; i++ {
@@ -715,13 +693,12 @@ func activateExistingInstance(user32 *syscall.LazyDLL) {
 	if existingHwnd != 0 {
 		showMsgId := core.GetShowDockMessageId()
 		if showMsgId != 0 {
+			// [Ponytail/YAGNI] 동기식 ShowWindow/ForceForegroundWindow 호출로 인한 타 프로세스 UI 블로킹을 배제하고 비동기 PostMessageW만 전송
 			procPostMessageW.Call(existingHwnd, uintptr(showMsgId), 0, 0)
 		}
-		procShowWindow.Call(existingHwnd, 9 /* SW_RESTORE */)
-		core.ForceForegroundWindow(existingHwnd, false)
 	}
 
-	time.Sleep(50 * time.Millisecond)
+	time.Sleep(30 * time.Millisecond)
 }
 
 // ============================================================
@@ -783,6 +760,15 @@ func isSilentMode() bool {
 	return false
 }
 
+func isObsLaunchMode() bool {
+	for _, arg := range os.Args[1:] {
+		if arg == "--obs-launch" || arg == "--from-obs" {
+			return true
+		}
+	}
+	return false
+}
+
 func acquireSingleInstanceMutex(silentMode bool, user32 *syscall.LazyDLL) {
 	kernel32 := syscall.NewLazyDLL("kernel32.dll")
 	mutexName := `Local\ChzzkDock`
@@ -791,8 +777,10 @@ func acquireSingleInstanceMutex(silentMode bool, user32 *syscall.LazyDLL) {
 	globalMutexHandle = mutexHandle
 
 	errno, isErrno := errCall.(syscall.Errno)
-	if isErrno && errno == 183 { // ERROR_ALREADY_EXISTS
-		if silentMode {
+	// 183: ERROR_ALREADY_EXISTS, 5: ERROR_ACCESS_DENIED (관리자 OBS 실행 인스턴스를 일반 사용자가 감지한 경우)
+	// [Ponytail/YAGNI] 새 라이브러리 추가 없이 기존 core.IsProcessRunning으로 2차 검증하여 유령 핸들로 인한 오종료 방지
+	if isErrno && (errno == 183 || (errno == 5 && core.IsProcessRunning("chzzk-dock.exe"))) {
+		if silentMode || isObsLaunchMode() {
 			releaseSingleInstanceMutex()
 			os.Exit(0)
 		}
@@ -820,7 +808,7 @@ func initWatchdog(silentMode bool) {
 		}
 	}
 	if enableWatchdog {
-		core.StartObsWatchdog(silentMode)
+		core.StartObsWatchdog(silentMode, isObsLaunchMode())
 	}
 }
 
@@ -829,6 +817,9 @@ func triggerStartupSessionCheck() {
 		cfg := core.LoadConfig()
 		if cfg.NidAut != "" {
 			core.CheckAndRefreshSessionOnStartup(cfg.NidAut, cfg.NidSes)
+			if cid, _, _, ok := fetchSessionUserStatus(cfg.NidAut, cfg.NidSes); ok && cid != "" {
+				SetCachedActiveChannelId(cid)
+			}
 		}
 	}()
 }
@@ -937,11 +928,14 @@ func startHttpServer(listener net.Listener) {
 // ============================================================
 func main() {
 	core.SetAppVersion(APP_VERSION)
+	core.SetEmbeddedIcon(embeddedAppIcon)
 	core.OnShutdownCallback = exitApp
-
 	if handleSubcommands() {
 		return
 	}
+
+	core.SetDockShutdownCallback(exitApp)
+	core.InitProcessJobObject()
 
 	silentMode := isSilentMode()
 	user32 := syscall.NewLazyDLL("user32.dll")
@@ -960,6 +954,7 @@ func main() {
 
 	runTray(silentMode)
 }
+
 
 
 

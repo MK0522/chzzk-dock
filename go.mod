@@ -1,4 +1,4 @@
-module chzzk-obs-dock
+module chzzk-dock
 
 go 1.22
 

@@ -51,7 +51,81 @@ var (
 	procCoUninitialize      = ole32DLL.NewProc("CoUninitialize")
 	procGetForegroundWindow = user32.NewProc("GetForegroundWindow")
 	procSetWindowPos        = user32.NewProc("SetWindowPos")
+
+	procCreateJobObjectW         = kernel32.NewProc("CreateJobObjectW")
+	procSetInformationJobObject  = kernel32.NewProc("SetInformationJobObject")
+	procAssignProcessToJobObject = kernel32.NewProc("AssignProcessToJobObject")
+	procGetCurrentProcess        = kernel32.NewProc("GetCurrentProcess")
 )
+
+const (
+	JobObjectExtendedLimitInformation    = 9
+	JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE   = 0x2000
+	JOB_OBJECT_LIMIT_SILENT_BREAKAWAY_OK = 0x00000010
+)
+
+type JOBOBJECT_BASIC_LIMIT_INFORMATION struct {
+	PerProcessUserTimeLimit int64
+	PerJobUserTimeLimit     int64
+	LimitFlags              uint32
+	MinimumWorkingSetSize   uintptr
+	MaximumWorkingSetSize   uintptr
+	ActiveProcessLimit      uint32
+	Affinity                uintptr
+	PriorityClass           uint32
+	SchedulingClass         uint32
+}
+
+type IO_COUNTERS struct {
+	ReadOperationCount  uint64
+	WriteOperationCount uint64
+	OtherOperationCount uint64
+	ReadTransferCount   uint64
+	WriteTransferCount  uint64
+	OtherTransferCount  uint64
+}
+
+type JOBOBJECT_EXTENDED_LIMIT_INFORMATION struct {
+	BasicLimitInformation JOBOBJECT_BASIC_LIMIT_INFORMATION
+	IoInfo                IO_COUNTERS
+	ProcessMemoryLimit    uintptr
+	JobMemoryLimit        uintptr
+	PeakProcessMemoryUsed uintptr
+	PeakJobMemoryUsed     uintptr
+}
+
+var globalJobHandle uintptr
+
+// InitProcessJobObject: [Ponytail/YAGNI 예외] 메인 서버가 강제 종료되거나 충돌하더라도 윈도우 커널이 자식 프로세스(--chat, --remote, --login)를 100% 자동 회수하도록 보장하는 표준 Win32 Job Object 바인딩
+func InitProcessJobObject() {
+	if runtime.GOOS != "windows" {
+		return
+	}
+	hJob, _, _ := procCreateJobObjectW.Call(0, 0)
+	if hJob == 0 {
+		return
+	}
+	var info JOBOBJECT_EXTENDED_LIMIT_INFORMATION
+	info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE | JOB_OBJECT_LIMIT_SILENT_BREAKAWAY_OK
+	ret, _, _ := procSetInformationJobObject.Call(
+		hJob,
+		uintptr(JobObjectExtendedLimitInformation),
+		uintptr(unsafe.Pointer(&info)),
+		uintptr(unsafe.Sizeof(info)),
+	)
+	if ret == 0 {
+		procCloseHandle.Call(hJob)
+		return
+	}
+	curProc, _, _ := procGetCurrentProcess.Call()
+	ret, _, _ = procAssignProcessToJobObject.Call(hJob, curProc)
+	if ret != 0 {
+		globalJobHandle = hJob
+		LogInfo("[JobObject] 프로세스 작업 개체 등록 완료 (부모 프로세스 비정상 종료 시 자식 일괄 자동 회수 보장)")
+	} else {
+		procCloseHandle.Call(hJob)
+	}
+}
 
 type PROCESSENTRY32W struct {
 	DwSize              uint32

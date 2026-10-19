@@ -10,7 +10,7 @@ var serverConfig = {};
 async function handleSessionExpired() {
   // 백엔드에 저장된 NID_AUT가 있는지 확인 (백엔드 자동 갱신 중일 수 있으므로 즉시 파기 방지)
   try {
-    const cRes = await fetch('/config', { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+    const cRes = await apiFetch('/config');
     if (cRes.ok) {
       const cfg = await cRes.json();
       if (cfg && cfg.nid_aut) {

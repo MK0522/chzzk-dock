@@ -43,47 +43,8 @@
     }
 
 
-    async function initFontScale() {
-      let saved = 1.2;
-      try {
-        const res = await apiFetch('/app-settings');
-        if (res.ok) {
-          const data = await res.json();
-          if (data && typeof data.font_scale === 'number') saved = data.font_scale;
-        }
-      } catch (e) {}
-      setFontScale(saved || 1.2, false);
-    }
-
     // ===== Broadcast Settings Dirty State (설정 변경 감지 및 테두리 하이라이트) =====
     let savedBroadcastBaseline = null;
-
-
-    async function loadWatchdogTimeout() {
-      try {
-        const res = await apiFetch('/watchdog-timeout');
-        if (res.ok) {
-          const data = await res.json();
-          const sec = data.timeout_sec;
-          const select = document.getElementById('select-watchdog-timeout');
-          const customContainer = document.getElementById('custom-watchdog-container');
-          const customInput = document.getElementById('input-custom-watchdog');
-          if (!select) return;
-
-          const presets = ['0', '10', '30', '60', '300', '600', '-1'];
-          if (presets.includes(String(sec))) {
-            select.value = String(sec);
-            if (customContainer) customContainer.classList.add('hidden');
-          } else {
-            select.value = 'custom';
-            if (customInput) customInput.value = sec;
-            if (customContainer) customContainer.classList.remove('hidden');
-          }
-        }
-      } catch (e) {
-        console.warn('[CHZZK Dock] OBS 대기 시간 로드 예외:', e);
-      }
-    }
 
 
     async function onWatchdogTimeoutChange(val) {
@@ -161,48 +122,6 @@
       const clearBtn = document.getElementById('port-clear');
       if (input && clearBtn) {
         clearBtn.style.display = input.value.length > 0 ? 'block' : 'none';
-      }
-    }
-
-
-    async function loadPortStatus() {
-      try {
-        const res = await apiFetch('/port-status');
-        if (!res.ok) return;
-        const data = await res.json();
-        currentActivePort = data.active_port || 8081;
-        currentConfiguredPort = data.configured_port || 8081;
-
-        const badge = document.getElementById('badge-port-status');
-        const banner = document.getElementById('port-fallback-banner');
-        const reasonEl = document.getElementById('port-fallback-reason');
-        const inputPort = document.getElementById('input-custom-port');
-
-        if (badge) {
-          if (data.is_fallback) {
-            badge.className = 'px-2 py-0.5 rounded text-[10px] font-bold bg-amber-950/80 text-amber-400 border border-amber-500/30 font-mono';
-            badge.textContent = `현재 포트: ${currentActivePort} (대체)`;
-          } else {
-            badge.className = 'px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950/80 text-emerald-400 border border-emerald-500/30 font-mono';
-            badge.textContent = `현재 포트: ${currentActivePort}`;
-          }
-        }
-
-        if (banner && reasonEl) {
-          if (data.is_fallback) {
-            banner.classList.remove('hidden');
-            reasonEl.textContent = data.fallback_reason || '기본 포트 충돌로 인해 임시 포트로 실행 중입니다.';
-          } else {
-            banner.classList.add('hidden');
-          }
-        }
-
-        if (inputPort && !inputPort.value) {
-          inputPort.value = currentConfiguredPort;
-        }
-        updatePortClearButton();
-      } catch (e) {
-        console.warn('[CHZZK Dock] 포트 상태 조회 예외:', e);
       }
     }
 
@@ -518,41 +437,34 @@
       }
     }
 
-    // 개별 설정 제어 (단일 API 및 하위 호환 래퍼)
-    async function loadShowViewerCountSetting() { await loadAllDockSettings(); }
+    // 개별 설정 저장 제어
     async function saveShowViewerCountSetting(checked) {
       showViewerCountState = checked;
       if (typeof updateLiveStatusUI === 'function') updateLiveStatusUI(isCurrentlyLive, currentViewerCount);
       await saveAppSettingField('show_viewer_count', checked, checked ? '메인 UI에 시청자 수가 표시됩니다.' : '메인 UI에서 시청자 수가 숨겨집니다.');
     }
 
-    async function loadPopupOnStartSetting() { await loadAllDockSettings(); }
     async function savePopupOnStartSetting(checked) {
       await saveAppSettingField('popup_on_start', checked, checked ? '프로그램 시작 시 독 팝업창이 자동으로 열립니다.' : '프로그램 시작 시 팝업창을 띄우지 않고 트레이로만 실행됩니다.');
     }
 
-    async function loadShutdownNotifySetting() { await loadAllDockSettings(); }
     async function saveShutdownNotifySetting(checked) {
       await saveAppSettingField('notify_on_shutdown', checked, checked ? 'OBS 종료 또는 미감지로 자동 종료 시 알림을 받습니다.' : '자동 종료 시 알림 없이 조용히 종료됩니다.');
     }
 
-    async function loadGPUSetting() { await loadAllDockSettings(); }
     async function saveGPUSetting(checked) {
       await saveAppSettingField('enable_gpu', checked, checked ? '웹뷰 GPU 하드웨어 가속이 활성화되었습니다. (창을 다시 열 때 적용)' : '웹뷰 GPU 하드웨어 가속이 비활성화되었습니다. (CPU 렌더링, 창을 다시 열 때 적용)');
     }
 
-    async function loadExternalBrowserSetting() { await loadAllDockSettings(); }
     async function saveExternalBrowserSetting(checked) {
       await saveAppSettingField('external_browser_guard', checked, checked ? '외부 링크 클릭 시 기본 브라우저로 열립니다.' : '외부 링크 클릭 시 웹뷰 내에서 열립니다.');
     }
 
-    async function loadBetaUpdatesSetting() { await loadAllDockSettings(); }
     async function saveBetaUpdatesSetting(checked) {
       const ok = await saveAppSettingField('enable_beta_updates', checked, checked ? '테스트(Beta) 버전 업데이트 확인이 활성화되었습니다.' : '안정화(정식) 버전만 업데이트를 받습니다.');
       if (ok && typeof checkForUpdate === 'function') checkForUpdate(true);
     }
 
-    async function loadAutoCheckUpdateSetting() { await loadAllDockSettings(); }
     async function saveAutoCheckUpdateSetting(checked) {
       await saveAppSettingField('auto_check_update', checked, checked ? '앱 시작 시 최신 버전을 자동으로 확인합니다.' : '업데이트 자동 확인이 해제되었습니다. 수동으로만 확인합니다.');
     }
@@ -1036,11 +948,8 @@
         const formData = new FormData();
         formData.append('file', blob, outFileName);
 
-        const uploadRes = await fetch('/upload-thumbnail', {
+        const uploadRes = await apiFetch('/upload-thumbnail', {
           method: 'POST',
-          headers: {
-            'X-Requested-With': 'ChzzkDock'
-          },
           body: formData
         });
 
@@ -1642,18 +1551,6 @@
 
 
     async function checkForUpdate(manual = false) {
-      if (!manual) {
-        try {
-          const sRes = await apiFetch('/auto-check-update-status');
-          if (sRes.ok) {
-            const sData = await sRes.json();
-            if (sData && sData.auto_check_update === false) {
-              return; // 자동 확인 옵션이 꺼져 있으면 시작 시 자동 확인 건너뜀
-            }
-          }
-        } catch (_) {}
-      }
-
       if (isCheckingUpdate) return;
       isCheckingUpdate = true;
 
@@ -1771,12 +1668,7 @@
 
       try {
         const res = await apiFetch('/execute-update', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            download_url: cachedUpdateInfo?.download_url || '',
-            latest_version: cachedUpdateInfo?.latest_version || ''
-          })
+          method: 'POST'
         });
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
@@ -1844,23 +1736,7 @@
       }
     }
 
-    // ===== 설정창 아코디언 그룹 접기/펼치기 제어 =====
-
-    function toggleSettingsGroup(group) {
-      const content = document.getElementById(`group-${group}-content`);
-      const arrow = document.getElementById(`group-${group}-arrow`);
-      if (!content) return;
-      const isHidden = content.classList.contains('hidden');
-      if (isHidden) {
-        content.classList.remove('hidden');
-        if (arrow) arrow.style.transform = 'rotate(0deg)';
-      } else {
-        content.classList.add('hidden');
-        if (arrow) arrow.style.transform = 'rotate(-90deg)';
-      }
-    }
-
-    // ===== Webview Login (이벤트 기반 비동기 대기 / 더블클릭 방지) =====
+    // ===== Account Logout & Session Clear (Option B: 깔끔한 계정 전환) =====
 
 
     // ===== Account Logout & Session Clear (Option B: 깔끔한 계정 전환) =====
