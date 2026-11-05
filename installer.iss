@@ -3,7 +3,7 @@
 ; ==============================================================================
 
 #define MyAppName "CHZZK OBS Dock"
-#define MyAppVersion "0.6.3-rc1"
+#define MyAppVersion "0.6.3-rc2"
 #define MyAppPublisher "CHZZK OBS Dock"
 #define MyAppURL "https://github.com/Dingteus/chzzk-dock"
 #define MyAppExeName "chzzk-dock.exe"
@@ -46,33 +46,16 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Name: "startmenuicon"; Description: "시작 메뉴에 바로 가기 만들기(&M)"; GroupDescription: "{cm:AdditionalIcons}"
 
 [InstallDelete]
-; {app} 설치 폴더 내 구버전 잔여 파일 전면 정리 (새 버전에 필요한 파일 외 찌꺼기 원천 차단)
+; {app} 설치 폴더 내 임시 파일 및 구버전 바로가기 정리 (상세 잔재 및 %TEMP% 청소는 Go 백엔드 CleanupLegacyArtifactsIfNeeded에서 수행)
 Type: files; Name: "{app}\*.html"
-Type: files; Name: "{app}\*.ico"
 Type: files; Name: "{app}\*.png"
 Type: files; Name: "{app}\*.tmp"
 Type: files; Name: "{app}\*.log"
-; 구버전 WebView2 디스크 웹 캐시 강제 청소
-Type: filesandordirs; Name: "{localappdata}\ChzzkObsDock\dock_profile\EBWebView\Default\Cache"
-Type: filesandordirs; Name: "{localappdata}\ChzzkObsDock\dock_profile\EBWebView\Default\Code Cache"
-; 과거 레거시 경로 잔여 파일 및 구버전 바로가기 자동 청소 (윈도우 검색 인덱서 충돌 방지)
-; [임시 조치: 베타 마이그레이션용 - 정식 릴리즈 시 제거 예정]
-; TODO(v1.0.0): 정식 버전 배포 시 베타 임시 잔재 정리 코드([InstallDelete] 추가 블록) 제거
-Type: filesandordirs; Name: "{localappdata}\ChzzkObsDock\webview_profile_test"
-Type: filesandordirs; Name: "{localappdata}\ChzzkObsDock\webview_profile\EBWebView\Default\Cache"
-Type: filesandordirs; Name: "{localappdata}\ChzzkObsDock\webview_profile\EBWebView\Default\Code Cache"
-Type: files; Name: "{app}\chzzk_dock_launcher.lua"
-Type: files; Name: "{app}\chzzk-obs-dock.exe"
-Type: files; Name: "{tmp}\chzzk_dock_temp_icon.ico"
-Type: files; Name: "{tmp}\chzzk-dock-setup-*.exe"
-Type: files; Name: "{localappdata}\chzzk-dock.exe"
-Type: files; Name: "{localappdata}\{#MyAppName}\chzzk-dock.exe"
 Type: files; Name: "{autoprograms}\chzzk-dock.lnk"
 Type: files; Name: "{commonprograms}\{#MyAppName}.lnk"
 Type: files; Name: "{commonprograms}\chzzk-dock.lnk"
 Type: files; Name: "{commonprograms}\{#MyAppName}\*.lnk"
 Type: dirifempty; Name: "{commonprograms}\{#MyAppName}"
-
 
 [Files]
 Source: "chzzk-dock.exe"; DestDir: "{app}"; Flags: ignoreversion
@@ -114,15 +97,42 @@ begin
     PostMessage(Hwnd, 16, 0, 0);
 end;
 
+// 2단계 안전 종료: WM_CLOSE 정상 종료 대기 후 미종료 시에만 강제 종료
+procedure EnsureDockTerminated();
+var
+  I, ResultCode: Integer;
+begin
+  if not IsChzzkDockRunning() then
+    Exit;
+
+  SendGracefulClose();
+  for I := 1 to 10 do
+  begin
+    Sleep(200);
+    if not IsChzzkDockRunning() then
+      Exit;
+  end;
+
+  Exec('taskkill.exe', '/F /IM chzzk-dock.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Sleep(300);
+end;
+
+// 수동 설치 및 인앱 무인 업데이트(/SILENT) 모두에서 파일 교체 직전 실행
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+begin
+  Result := '';
+  if IsChzzkDockRunning() then
+    EnsureDockTerminated();
+end;
+
 // 위저드 페이지 이동 시 이벤트 ('다음' 또는 '설치' 버튼 클릭 시점)
 function NextButtonClick(CurPageID: Integer): Boolean;
 var
   PromptResult: Integer;
-  ResultCode: Integer;
 begin
   Result := True;
 
-  // 자동 인앱 업데이트(/SILENT) 시에는 UI 팝업 생략
+  // 자동 인앱 업데이트(/SILENT) 시에는 UI 팝업 생략 (PrepareToInstall에서 자동 처리)
   if WizardSilent then
     Exit;
 
@@ -140,12 +150,10 @@ begin
 
       if PromptResult = IDOK then
       begin
-        // 확인 클릭: 무시하고 다음 단계로 진행
         Result := True;
       end
       else
       begin
-        // 취소 클릭: 인스톨러 마법사 창 닫기
         WizardForm.Close;
         Result := False;
         Exit;
@@ -153,7 +161,7 @@ begin
     end;
   end;
 
-  // [2차 안내]: 설치 준비 완료(wpReady)에서 '설치' 클릭 시 아직도 안 꺼져 있으면 정상 종료 시도 후 최후의 수단으로 강제 종료
+  // [2차 안내]: 설치 준비 완료(wpReady)에서 '설치' 클릭 시 아직도 안 꺼져 있으면 종료 확인
   if CurPageID = wpReady then
   begin
     if IsChzzkDockRunning() then
@@ -166,34 +174,15 @@ begin
 
       if PromptResult = IDYES then
       begin
-        // 1단계: 정상 종료 신호(WM_CLOSE) 우선 전송 후 대기
-        SendGracefulClose();
-        Sleep(500);
-
-        // 2단계: 여전히 실행 중이면 추가 대기 후 최후의 수단으로 taskkill 강제 종료
-        if IsChzzkDockRunning() then
-        begin
-          Sleep(1000);
-          if IsChzzkDockRunning() then
-            Exec('taskkill.exe', '/F /IM chzzk-dock.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-        end;
-        Sleep(300);
+        EnsureDockTerminated();
         Result := True;
       end
       else
       begin
-        // 아니오 클릭: 설치를 보류하고 준비 페이지에 머무름
         Result := False;
         Exit;
       end;
     end;
   end;
 end;
-
-
-
-
-
-
-
 

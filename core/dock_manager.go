@@ -2,6 +2,8 @@ package core
 
 import (
 	"cmp"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -44,6 +46,7 @@ type AppSettings struct {
 	ShowViewerCount      *bool              `json:"show_viewer_count,omitempty"`      // 상단 실시간 시청자 수 표시 여부 (기본값: true)
 	SkipUpdateVersion    string             `json:"skip_update_version,omitempty"`    // 건너뛴 업데이트 버전 태그
 	SkipScriptVersion    int                `json:"skip_script_version,omitempty"`    // 건너뛴 OBS Lua 스크립트 버전 번호
+	LastCleanedVersion   string             `json:"last_cleaned_version,omitempty"`   // 마지막으로 레거시 잔재 청소를 완료한 앱 버전
 	BroadcastPresets        []BroadcastPreset       `json:"broadcast_presets,omitempty"`          // 방송 정보 프리셋 목록 (최대 10개)
 	CategoryFavorites       []CategoryFavorite      `json:"category_favorites,omitempty"`        // 카테고리 즐겨찾기 목록 (최대 8개)
 	PreWatchPartySnapshot   *WatchPartySnapshot     `json:"pre_watch_party_snapshot,omitempty"`  // 같이보기 전환 직전 방송 옵션 원본 스냅샷
@@ -520,6 +523,7 @@ type UpdateInfo struct {
 	ReleaseURL        string `json:"release_url"`
 	DownloadURL       string `json:"download_url"`
 	AssetSize         int64  `json:"asset_size"`
+	AssetDigest       string `json:"asset_digest,omitempty"`
 	AlreadyDownloaded bool   `json:"already_downloaded"`
 }
 
@@ -669,19 +673,127 @@ func getInstallerTempPath(version string) string {
 	return filepath.Join(os.TempDir(), fmt.Sprintf("chzzk-dock-setup-%s.exe", cleanVer))
 }
 
-// CleanOldInstallers: 현재 버전과 다른 이전 임시 인스톨러 파일 정리
+// CleanOldInstallers: 현재 버전과 다른 이전 임시 인스톨러 및 중단된 임시 파일(.tmp) 정리
 func CleanOldInstallers(currentVersion string) {
 	tempDir := os.TempDir()
-	matches, err := filepath.Glob(filepath.Join(tempDir, "chzzk-dock-setup-*.exe"))
-	if err != nil {
-		return
-	}
 	keepName := filepath.Base(getInstallerTempPath(currentVersion))
-	for _, m := range matches {
-		if filepath.Base(m) != keepName {
-			_ = os.Remove(m)
+	if matches, err := filepath.Glob(filepath.Join(tempDir, "chzzk-dock-setup-*.exe*")); err == nil {
+		for _, m := range matches {
+			if filepath.Base(m) != keepName {
+				_ = os.Remove(m)
+			}
 		}
 	}
+}
+
+// CleanupLegacyArtifactsIfNeeded: 버전 변경 후 최초 1회 실행 시 구버전 임시 파일 및 레거시 잔재 일괄 청소
+func CleanupLegacyArtifactsIfNeeded(currentVersion string) {
+	exePath, _ := os.Executable()
+	var exeDir string
+	if exePath != "" {
+		exeDir = filepath.Dir(exePath)
+	}
+	cleanupLegacyArtifactsInDir(currentVersion, exeDir)
+}
+
+func removeRequiredPath(path string) bool {
+	if err := os.RemoveAll(path); err != nil && !os.IsNotExist(err) {
+		LogWarn("[Cleanup] 필수 잔재 삭제 실패 (다음 실행 시 재시도): %s (%v)", path, err)
+		return false
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		LogWarn("[Cleanup] 삭제 시도 후에도 경로가 남아 있음 (다음 실행 시 재시도): %s", path)
+		return false
+	}
+	return true
+}
+
+func cleanupLegacyArtifactsInDir(currentVersion string, exeDir string) {
+	currentVersion = strings.TrimSpace(currentVersion)
+	if currentVersion == "" {
+		return
+	}
+	st := LoadSettings()
+	if st.LastCleanedVersion == currentVersion {
+		return
+	}
+
+	allRequiredRemoved := true
+	checkRemove := func(path string) {
+		if !removeRequiredPath(path) {
+			allRequiredRemoved = false
+		}
+	}
+
+	tempDir := os.TempDir()
+	checkRemove(filepath.Join(tempDir, "chzzk_dock_temp_icon.ico"))
+	if matches, err := filepath.Glob(filepath.Join(tempDir, "chzzk-dock-setup-*.exe*")); err == nil {
+		for _, m := range matches {
+			checkRemove(m)
+		}
+	}
+
+	appData := os.Getenv("LOCALAPPDATA")
+	if appData == "" {
+		appData = os.Getenv("USERPROFILE")
+	}
+	if appData != "" {
+		// 필수 삭제 대상: 폐기된 테스트 프로필 및 과거 오설치 실행 파일
+		checkRemove(filepath.Join(appData, "ChzzkObsDock", "webview_profile_test"))
+		checkRemove(filepath.Join(appData, "chzzk-dock.exe"))
+		checkRemove(filepath.Join(appData, "CHZZK OBS Dock", "chzzk-dock.exe"))
+
+		// 최선 시도(Best-effort) 대상: 현재 사용 중인 프로필의 WebView2 캐시는 런타임 중 잠길 수 있으므로 완료 판정에서 제외
+		_ = os.RemoveAll(filepath.Join(appData, "ChzzkObsDock", "dock_profile", "EBWebView", "Default", "Cache"))
+		_ = os.RemoveAll(filepath.Join(appData, "ChzzkObsDock", "dock_profile", "EBWebView", "Default", "Code Cache"))
+		_ = os.RemoveAll(filepath.Join(appData, "ChzzkObsDock", "webview_profile", "EBWebView", "Default", "Cache"))
+		_ = os.RemoveAll(filepath.Join(appData, "ChzzkObsDock", "webview_profile", "EBWebView", "Default", "Code Cache"))
+	}
+
+	// 개발 폴더(예: chzzk-dock)에서 실행된 경우 배포 폴더 정리를 생략하고 완료 마커(LastCleanedVersion)도 갱신하지 않음
+	isProdInstallDir := exeDir != "" && strings.EqualFold(filepath.Base(exeDir), "CHZZK OBS Dock")
+	if !isProdInstallDir {
+		return
+	}
+
+	checkRemove(filepath.Join(exeDir, "ui"))
+	checkRemove(filepath.Join(exeDir, "chzzk_dock_launcher.lua"))
+	checkRemove(filepath.Join(exeDir, "chzzk-obs-dock.exe"))
+
+	if !allRequiredRemoved {
+		return
+	}
+
+	st = LoadSettings()
+	st.LastCleanedVersion = currentVersion
+	if err := SaveSettings(st); err == nil {
+		LogInfo("[Cleanup] 버전(%s) 마이그레이션 및 레거시 잔재 1회 정리 완료", currentVersion)
+	}
+}
+
+func normalizeSHA256Hex(digest string) string {
+	d := strings.ToLower(strings.TrimSpace(digest))
+	d = strings.TrimPrefix(d, "sha256:")
+	return strings.TrimSpace(d)
+}
+
+func verifyFileSHA256(filePath, expectedDigest string) bool {
+	expectedHex := normalizeSHA256Hex(expectedDigest)
+	if expectedHex == "" {
+		return false
+	}
+	f, err := os.Open(filePath)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return false
+	}
+	actualHex := hex.EncodeToString(h.Sum(nil))
+	return strings.EqualFold(actualHex, expectedHex)
 }
 
 // CheckForUpdate: GitHub Releases API 비동기 조회 (10분 캐시)
@@ -697,7 +809,7 @@ func CheckForUpdate(currentVersion string, force bool) (*UpdateInfo, error) {
 		if !allowBeta && IsPreRelease(cachedCopy.LatestVersion) {
 			cachedCopy.HasUpdate = false
 		}
-		cachedCopy.AlreadyDownloaded = isInstallerReady(cachedCopy.LatestVersion, cachedCopy.AssetSize)
+		cachedCopy.AlreadyDownloaded = isInstallerReady(cachedCopy.LatestVersion, cachedCopy.AssetDigest)
 		return &cachedCopy, nil
 	}
 
@@ -713,6 +825,7 @@ func CheckForUpdate(currentVersion string, force bool) (*UpdateInfo, error) {
 		Assets     []struct {
 			Name               string `json:"name"`
 			Size               int64  `json:"size"`
+			Digest             string `json:"digest"`
 			BrowserDownloadURL string `json:"browser_download_url"`
 		} `json:"assets"`
 	}
@@ -766,11 +879,13 @@ func CheckForUpdate(currentVersion string, force bool) (*UpdateInfo, error) {
 
 	var downloadURL string
 	var assetSize int64
+	var assetDigest string
 	for _, asset := range targetRelease.Assets {
 		name := strings.ToLower(asset.Name)
 		if strings.HasSuffix(name, ".exe") && (strings.Contains(name, "setup") || strings.Contains(name, "installer")) {
 			downloadURL = asset.BrowserDownloadURL
 			assetSize = asset.Size
+			assetDigest = strings.TrimSpace(asset.Digest)
 			break
 		}
 	}
@@ -789,7 +904,8 @@ func CheckForUpdate(currentVersion string, force bool) (*UpdateInfo, error) {
 		ReleaseURL:        targetRelease.HTMLURL,
 		DownloadURL:       downloadURL,
 		AssetSize:         assetSize,
-		AlreadyDownloaded: isInstallerReady(latestVer, assetSize),
+		AssetDigest:       assetDigest,
+		AlreadyDownloaded: isInstallerReady(latestVer, assetDigest),
 	}
 
 	cachedUpdate = info
@@ -798,19 +914,19 @@ func CheckForUpdate(currentVersion string, force bool) (*UpdateInfo, error) {
 	return info, nil
 }
 
-func isInstallerReady(version string, expectedSize int64) bool {
-	if version == "" {
+func isInstallerReady(version string, expectedDigest string) bool {
+	if version == "" || normalizeSHA256Hex(expectedDigest) == "" {
 		return false
 	}
 	path := getInstallerTempPath(version)
-	stat, err := os.Stat(path)
-	if err != nil {
+	if _, err := os.Stat(path); err != nil {
 		return false
 	}
-	if expectedSize > 0 && stat.Size() != expectedSize {
+	if !verifyFileSHA256(path, expectedDigest) {
+		_ = os.Remove(path)
 		return false
 	}
-	return stat.Size() > 1024*1024 // 최소 1MB 이상
+	return true
 }
 
 // GetUpdateProgress: 현재 진행률 조회
@@ -821,9 +937,12 @@ func GetUpdateProgress() UpdateProgress {
 }
 
 // ExecuteUpdate: 인스톨러 다운로드 및 백그라운드 설치 실행
-func ExecuteUpdate(version, downloadURL string, expectedSize int64, onShutdown func()) error {
+func ExecuteUpdate(version, downloadURL string, expectedSize int64, expectedDigest string, onShutdown func()) error {
 	if !LoadSettings().IsEnableBetaUpdates() && IsPreRelease(version) {
 		return fmt.Errorf("테스트 버전(Beta) 업데이트 옵션이 꺼져 있어 설치할 수 없습니다")
+	}
+	if normalizeSHA256Hex(expectedDigest) == "" {
+		return fmt.Errorf("릴리즈 해시(SHA-256) 검증 정보가 없어 업데이트를 진행할 수 없습니다")
 	}
 	progressMu.Lock()
 	if currentProgress.Active {
@@ -841,46 +960,12 @@ func ExecuteUpdate(version, downloadURL string, expectedSize int64, onShutdown f
 	progressMu.Unlock()
 
 	installerPath := getInstallerTempPath(version)
+	ready := isInstallerReady(version, expectedDigest)
 
-	// 이미 받아둔 온전한 인스톨러가 있는 경우 다운로드 건너뛰기
-	if isInstallerReady(version, expectedSize) {
-		LogInfo("[Updater] 기존에 다운로드 완료된 인스톨러 사용: %s", installerPath)
-		progressMu.Lock()
-		currentProgress.Percent = 100
-		currentProgress.Active = true
-		currentProgress.Done = false
-		progressMu.Unlock()
-
-		go func() {
-			time.Sleep(500 * time.Millisecond)
-			cmd := exec.Command(installerPath, "/SILENT", "/SP-")
-			if err := cmd.Start(); err != nil {
-				LogError("[Updater] 인스톨러 실행 실패: %v", err)
-				progressMu.Lock()
-				currentProgress.Active = false
-				currentProgress.Done = false
-				currentProgress.Error = fmt.Sprintf("설치기 실행 실패: %v", err)
-				progressMu.Unlock()
-				return
-			}
-			progressMu.Lock()
-			currentProgress.Done = true
-			currentProgress.Active = false
-			progressMu.Unlock()
-
-			LogInfo("[Updater] 새 버전 인스톨러 실행됨 (PID %d). 현재 프로세스 종료 준비...", cmd.Process.Pid)
-			if onShutdown != nil {
-				onShutdown()
-			}
-			os.Exit(0)
-		}()
-		return nil
-	}
-
-	if downloadURL == "" {
+	if !ready && downloadURL == "" {
 		progressMu.Lock()
 		currentProgress.Active = false
-		currentProgress.Error = "다운로드 URL을 찾을 수 없습니다."
+		currentProgress.Error = "다운로드 URL이 비어 있습니다"
 		progressMu.Unlock()
 		return fmt.Errorf("다운로드 URL이 비어 있습니다")
 	}
@@ -895,125 +980,166 @@ func ExecuteUpdate(version, downloadURL string, expectedSize int64, onShutdown f
 			}
 		}()
 
-		client := &http.Client{Timeout: 10 * time.Minute}
-		resp, err := client.Get(downloadURL)
-		if err != nil {
+		if ready {
+			LogInfo("[Updater] 기존에 다운로드 완료된 인스톨러 사용: %s", installerPath)
 			progressMu.Lock()
-			currentProgress.Active = false
-			currentProgress.Error = fmt.Sprintf("다운로드 실패: %v", err)
+			currentProgress.Percent = 100
+			currentProgress.Active = true
+			currentProgress.Done = false
 			progressMu.Unlock()
-			return
-		}
-		defer resp.Body.Close()
+			time.Sleep(500 * time.Millisecond)
+		} else {
+			client := &http.Client{Timeout: 10 * time.Minute}
+			tmpPath := installerPath + ".tmp"
+			expectedHex := normalizeSHA256Hex(expectedDigest)
+			const maxAttempts = 3 // 최초 1회 + 최대 2회 재다운로드 시도
+			var lastErrMsg string
 
-		if resp.StatusCode != http.StatusOK {
-			progressMu.Lock()
-			currentProgress.Active = false
-			currentProgress.Error = fmt.Sprintf("다운로드 서버 응답 오류 (HTTP %d)", resp.StatusCode)
-			progressMu.Unlock()
-			return
-		}
-
-		totalSize := resp.ContentLength
-		if totalSize <= 0 {
-			totalSize = expectedSize
-		}
-
-		tmpPath := installerPath + ".tmp"
-		outFile, err := os.Create(tmpPath)
-		if err != nil {
-			progressMu.Lock()
-			currentProgress.Active = false
-			currentProgress.Error = fmt.Sprintf("임시 파일 생성 실패: %v", err)
-			progressMu.Unlock()
-			return
-		}
-		defer func() {
-			_ = outFile.Close()
-			_ = os.Remove(tmpPath)
-		}()
-
-		buf := make([]byte, 32*1024)
-		var received int64
-		startTime := time.Now()
-		lastTick := time.Now()
-		lastReceived := int64(0)
-
-		for {
-			n, rErr := resp.Body.Read(buf)
-			if n > 0 {
-				_, wErr := outFile.Write(buf[:n])
-				if wErr != nil {
+			for attempt := 1; attempt <= maxAttempts; attempt++ {
+				if attempt > 1 {
+					LogWarn("[Updater] 다운로드 재시도 중 (%d/%d)...", attempt-1, maxAttempts-1)
 					progressMu.Lock()
-					currentProgress.Active = false
-					currentProgress.Error = fmt.Sprintf("파일 쓰기 실패: %v", wErr)
+					currentProgress.Received = 0
+					currentProgress.Percent = 0
+					currentProgress.SpeedBps = 0
 					progressMu.Unlock()
-					return
+					time.Sleep(1 * time.Second)
 				}
-				received += int64(n)
 
-				now := time.Now()
-				if now.Sub(lastTick) >= 150*time.Millisecond || rErr == io.EOF {
-					elapsedTick := now.Sub(lastTick).Seconds()
-					var speed int64
-					if elapsedTick > 0 {
-						speed = int64(float64(received-lastReceived) / elapsedTick)
-					}
-					lastTick = now
-					lastReceived = received
+				resp, err := client.Get(downloadURL)
+				if err != nil {
+					lastErrMsg = fmt.Sprintf("다운로드 실패: %v", err)
+					LogWarn("[Updater] 시도 %d/%d 오류: %s", attempt, maxAttempts, lastErrMsg)
+					continue
+				}
 
-					percent := 0
-					if totalSize > 0 {
-						percent = int((float64(received) / float64(totalSize)) * 100)
-						if percent > 99 && rErr != io.EOF {
-							percent = 99
+				if resp.StatusCode != http.StatusOK {
+					_ = resp.Body.Close()
+					lastErrMsg = fmt.Sprintf("다운로드 서버 응답 오류 (HTTP %d)", resp.StatusCode)
+					LogWarn("[Updater] 시도 %d/%d 오류: %s", attempt, maxAttempts, lastErrMsg)
+					continue
+				}
+
+				totalSize := resp.ContentLength
+				if totalSize <= 0 {
+					totalSize = expectedSize
+				}
+
+				outFile, err := os.Create(tmpPath)
+				if err != nil {
+					_ = resp.Body.Close()
+					lastErrMsg = fmt.Sprintf("임시 파일 생성 실패: %v", err)
+					LogWarn("[Updater] 시도 %d/%d 오류: %s", attempt, maxAttempts, lastErrMsg)
+					continue
+				}
+
+				buf := make([]byte, 32*1024)
+				hasher := sha256.New()
+				var received int64
+				startTime := time.Now()
+				lastTick := time.Now()
+				lastReceived := int64(0)
+				var streamErr error
+
+				for {
+					n, rErr := resp.Body.Read(buf)
+					if n > 0 {
+						_, wErr := outFile.Write(buf[:n])
+						if wErr != nil {
+							streamErr = fmt.Errorf("파일 쓰기 실패: %v", wErr)
+							break
+						}
+						_, _ = hasher.Write(buf[:n])
+						received += int64(n)
+
+						now := time.Now()
+						if now.Sub(lastTick) >= 150*time.Millisecond || rErr == io.EOF {
+							elapsedTick := now.Sub(lastTick).Seconds()
+							var speed int64
+							if elapsedTick > 0 {
+								speed = int64(float64(received-lastReceived) / elapsedTick)
+							}
+							lastTick = now
+							lastReceived = received
+
+							percent := 0
+							if totalSize > 0 {
+								percent = int((float64(received) / float64(totalSize)) * 100)
+								if percent > 99 && rErr != io.EOF {
+									percent = 99
+								}
+							}
+
+							progressMu.Lock()
+							currentProgress.Received = received
+							currentProgress.Total = totalSize
+							currentProgress.Percent = percent
+							currentProgress.SpeedBps = speed
+							progressMu.Unlock()
 						}
 					}
 
-					progressMu.Lock()
-					currentProgress.Received = received
-					currentProgress.Total = totalSize
-					currentProgress.Percent = percent
-					currentProgress.SpeedBps = speed
-					progressMu.Unlock()
+					if rErr != nil {
+						if rErr == io.EOF {
+							break
+						}
+						streamErr = fmt.Errorf("데이터 수신 오류: %v", rErr)
+						break
+					}
 				}
+				_ = outFile.Close()
+				_ = resp.Body.Close()
+
+				if streamErr != nil {
+					_ = os.Remove(tmpPath)
+					lastErrMsg = streamErr.Error()
+					LogWarn("[Updater] 시도 %d/%d 오류: %s", attempt, maxAttempts, lastErrMsg)
+					continue
+				}
+
+				actualHex := hex.EncodeToString(hasher.Sum(nil))
+				if expectedHex == "" || !strings.EqualFold(actualHex, expectedHex) {
+					_ = os.Remove(tmpPath)
+					LogError("[Updater] 다운로드 파일 해시(SHA-256) 불일치 (시도 %d/%d, 기대: %s, 실제: %s)", attempt, maxAttempts, expectedHex, actualHex)
+					lastErrMsg = "다운로드된 설치 파일의 무결성(SHA-256 해시) 검증에 실패했습니다."
+					continue
+				}
+
+				// 해시 검증이 완료된 임시 파일을 정식 인스톨러 이름으로 확정
+				_ = os.Remove(installerPath)
+				if err := os.Rename(tmpPath, installerPath); err != nil {
+					_ = os.Remove(tmpPath)
+					lastErrMsg = fmt.Sprintf("인스톨러 확정 실패: %v", err)
+					LogWarn("[Updater] 시도 %d/%d 오류: %s", attempt, maxAttempts, lastErrMsg)
+					continue
+				}
+
+				progressMu.Lock()
+				currentProgress.Percent = 100
+				currentProgress.Active = true
+				currentProgress.Done = false
+				progressMu.Unlock()
+
+				LogInfo("[Updater] 인스톨러 다운로드 및 해시 검증 완료 (%d bytes, 시도 %d/%d) -> %s (경과: %v)", received, attempt, maxAttempts, installerPath, time.Since(startTime).Round(time.Millisecond))
+				lastErrMsg = ""
+				break
 			}
 
-			if rErr != nil {
-				if rErr == io.EOF {
-					break
-				}
+			if lastErrMsg != "" {
+				_ = os.Remove(tmpPath)
 				progressMu.Lock()
 				currentProgress.Active = false
-				currentProgress.Error = fmt.Sprintf("데이터 수신 오류: %v", rErr)
+				currentProgress.Done = false
+				currentProgress.Error = fmt.Sprintf("%s (재다운로드 2회 시도 후 실패)", lastErrMsg)
 				progressMu.Unlock()
 				return
 			}
+
+			time.Sleep(1 * time.Second)
 		}
-		_ = outFile.Close()
-
-		// 온전하게 다운로드된 임시 파일을 정식 인스톨러 이름으로 확정
-		_ = os.Remove(installerPath)
-		if err := os.Rename(tmpPath, installerPath); err != nil {
-			progressMu.Lock()
-			currentProgress.Active = false
-			currentProgress.Error = fmt.Sprintf("인스톨러 확정 실패: %v", err)
-			progressMu.Unlock()
-			return
-		}
-
-		progressMu.Lock()
-		currentProgress.Percent = 100
-		currentProgress.Active = true
-		currentProgress.Done = false
-		progressMu.Unlock()
-
-		LogInfo("[Updater] 인스톨러 다운로드 완료 (%d bytes) -> %s (경과: %v)", received, installerPath, time.Since(startTime).Round(time.Millisecond))
-
-		// 1초 후 인스톨러 실행 (/SILENT /SP-)
-		time.Sleep(1 * time.Second)
 
 		cmd := exec.Command(installerPath, "/SILENT", "/SP-")
+		DetachFromJob(cmd)
 		if err := cmd.Start(); err != nil {
 			LogError("[Updater] 인스톨러 실행 실패: %v", err)
 			progressMu.Lock()

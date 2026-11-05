@@ -1639,6 +1639,23 @@
     }
 
 
+    function resetUpdateModalToPrompt() {
+      if (updatePollTimer) {
+        clearInterval(updatePollTimer);
+        updatePollTimer = null;
+      }
+      const progressBar = document.getElementById('update-progress-bar');
+      const percentText = document.getElementById('update-percent-text');
+      const cancelBtn = document.getElementById('btn-update-cancel');
+      if (progressBar) progressBar.style.width = '0%';
+      if (percentText) percentText.textContent = '0%';
+      if (cancelBtn) cancelBtn.textContent = '백그라운드에서 진행';
+      document.getElementById('update-notice-box')?.classList.add('hidden');
+      if (cachedUpdateInfo) cachedUpdateInfo.already_downloaded = false;
+      if (typeof openUpdateModal === 'function') openUpdateModal(false);
+    }
+
+
     function startUpdateDownload() {
       const promptView = document.getElementById('update-prompt-view');
       const progressView = document.getElementById('update-progress-view');
@@ -1685,22 +1702,8 @@
             if (!p) return;
 
             if (p.error) {
-              clearInterval(updatePollTimer);
-              if (progressBar) {
-                progressBar.style.width = '100%';
-                progressBar.className = 'h-full bg-rose-500 rounded-full';
-              }
-              if (percentText) {
-                percentText.textContent = '오류';
-                percentText.className = 'font-bold text-rose-400';
-              }
-              if (statusText) statusText.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span> 실패`;
-              if (noticeBox && noticeMsg) {
-                noticeBox.classList.remove('hidden');
-                noticeBox.className = 'p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-[11px] text-rose-300 leading-relaxed';
-                noticeMsg.textContent = p.error;
-              }
-              if (cancelBtn) cancelBtn.textContent = '닫기';
+              resetUpdateModalToPrompt();
+              showToast('업데이트 실패', 'error', p.error);
               return;
             }
 
@@ -1731,8 +1734,8 @@
           }
         }, 300);
       } catch (err) {
+        resetUpdateModalToPrompt();
         showToast('업데이트 시작 실패', 'error', err.message);
-        if (cancelBtn) cancelBtn.textContent = '닫기';
       }
     }
 

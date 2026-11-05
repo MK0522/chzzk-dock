@@ -319,10 +319,8 @@ func handleSaveConfig(w http.ResponseWriter, r *http.Request) {
 
 // handleLogout: 세션 로그아웃 처리
 // [보안/UX 설계] 네이버 2차 인증 기기 기억(NID_JST) 토큰을 보존하기 위해 webview_profile 폴더는 삭제하지 않습니다.
-// 폴더 삭제 시 로그인할 때마다 2차 인증(OTP)을 매번 반복해야 하는 치명적 UX 퇴행이 발생하므로,
-// 자격 증명 초기화(ClearConfig) 및 서브 프로세스 일괄 종료(killAllSubProcesses)로 안전하게 세션을 종료합니다.
+// 폴더 삭제 시 로그인할 때마다 2차 인증(OTP)을 매번 반복해야 하는 치명적 UX 퇴행이 발생하므로, 자격 증명만 초기화합니다.
 func handleLogout(w http.ResponseWriter, r *http.Request) {
-	killAllSubProcesses()
 	core.ClearConfig()
 	SetCachedActiveChannelId("")
 	respondOK(w, map[string]any{"code": 200, "message": "성공적으로 로그아웃되었습니다."})
@@ -360,7 +358,8 @@ func handleLoginWebview(w http.ResponseWriter, r *http.Request) {
 	webviewProcess = cmd
 	waitCh := make(chan struct{})
 	webviewWaitCh = waitCh
-	trackSubProcess(cmd, func() {
+	go func() {
+		_ = cmd.Wait()
 		close(waitCh)
 		cfg := core.LoadConfig()
 		if cfg.NidAut != "" && cfg.NidSes != "" {
@@ -368,7 +367,7 @@ func handleLoginWebview(w http.ResponseWriter, r *http.Request) {
 				SetCachedActiveChannelId(cid)
 			}
 		}
-	})
+	}()
 	webviewLock.Unlock()
 	core.LogInfo("[HTTP] /login-webview: 로그인 서브프로세스 시작 완료 (PID: %d)", cmd.Process.Pid)
 
@@ -673,7 +672,6 @@ func handleRemoteWebview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	procAllowSetForegroundWindow.Call(uintptr(cmd.Process.Pid))
-	trackSubProcess(cmd)
 	respondOK(w, map[string]any{"status": "started", "message": "치지직 리모컨 창이 열렸습니다."})
 }
 
@@ -704,7 +702,6 @@ func handleChatWebview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	procAllowSetForegroundWindow.Call(uintptr(cmd.Process.Pid))
-	trackSubProcess(cmd)
 	respondOK(w, map[string]any{"status": "started", "message": "치지직 채팅 창이 열렸습니다."})
 }
 
@@ -966,7 +963,7 @@ func handleExecuteUpdate(w http.ResponseWriter, r *http.Request) {
 		respondErr(w, http.StatusBadRequest, "사용 가능한 업데이트 정보를 찾을 수 없습니다.")
 		return
 	}
-	if err := core.ExecuteUpdate(info.LatestVersion, info.DownloadURL, info.AssetSize, exitApp); err != nil {
+	if err := core.ExecuteUpdate(info.LatestVersion, info.DownloadURL, info.AssetSize, info.AssetDigest, exitApp); err != nil {
 		respondErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}

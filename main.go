@@ -47,10 +47,10 @@ var embeddedAppIcon []byte
 var embeddedLauncherScript []byte
 
 // ============================================================
-//  CHZZK OBS Dock Server v0.6.3-rc1 (Modular Architecture)
+//  CHZZK OBS Dock Server v0.6.3-rc2 (Modular Architecture)
 // ============================================================
 const (
-	APP_VERSION       = "v0.6.3-rc1"
+	APP_VERSION       = "v0.6.3-rc2"
 	DEFAULT_HTTP_PORT = 8081
 	USER_AGENT        = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 )
@@ -62,51 +62,11 @@ var (
 	webviewProcess      *exec.Cmd
 	webviewWaitCh       chan struct{}
 	webviewLock         sync.Mutex
-	subProcessesLock    sync.Mutex
-	subProcesses        []*exec.Cmd
 	trayInstance        *core.PureWinTrayIcon
 	httpClient          = &http.Client{Timeout: 10 * time.Second}
 	chzzkApiBaseURL     = "https://api.chzzk.naver.com"
 	naverGameApiBaseURL = "https://comm-api.game.naver.com"
 )
-
-// trackSubProcess: 서브프로세스 생명주기 추적 및 정상 종료 시 핸들 자동 정리 (선택적 onExit 콜백 지원)
-func trackSubProcess(cmd *exec.Cmd, onExit ...func()) {
-	if cmd == nil || cmd.Process == nil {
-		return
-	}
-	subProcessesLock.Lock()
-	subProcesses = append(subProcesses, cmd)
-	subProcessesLock.Unlock()
-
-	go func() {
-		_ = cmd.Wait()
-		subProcessesLock.Lock()
-		for i, c := range subProcesses {
-			if c == cmd {
-				subProcesses = append(subProcesses[:i], subProcesses[i+1:]...)
-				break
-			}
-		}
-		subProcessesLock.Unlock()
-		if len(onExit) > 0 && onExit[0] != nil {
-			onExit[0]()
-		}
-	}()
-}
-
-// killAllSubProcesses: 독 서버 종료 시 모든 자식 프로세스 일괄 안전 종료
-func killAllSubProcesses() {
-	subProcessesLock.Lock()
-	defer subProcessesLock.Unlock()
-	for _, cmd := range subProcesses {
-		if cmd != nil && cmd.Process != nil {
-			_ = cmd.Process.Kill()
-		}
-	}
-	subProcesses = nil
-}
-
 
 func sendBytes(w http.ResponseWriter, body []byte, status int, contentType string) {
 	w.Header().Set("Content-Type", contentType)
@@ -439,7 +399,6 @@ func proxyDispatch(w http.ResponseWriter, r *http.Request, method string) bool {
 //  시스템 트레이 및 앱 생명주기 관리
 // ============================================================
 func exitApp() {
-	killAllSubProcesses()
 	core.DestroyDockWindow()
 	if trayInstance != nil {
 		trayInstance.Stop()
@@ -463,7 +422,6 @@ func restartSelf() {
 		cleanArgs = append(cleanArgs, os.Args[i])
 	}
 
-	killAllSubProcesses()
 	core.DestroyDockWindow()
 	if trayInstance != nil {
 		trayInstance.Stop()
@@ -476,6 +434,7 @@ func restartSelf() {
 	}
 
 	cmd := exec.Command(exePath, cleanArgs...)
+	core.DetachFromJob(cmd)
 	if err := cmd.Start(); err != nil {
 		core.LogError("[Main] 새 프로세스 실행 실패: %v", err)
 	}
@@ -712,9 +671,11 @@ func handleSubcommands() bool {
 	cmd := os.Args[1]
 	switch cmd {
 	case "--login", "-l":
+		core.StartParentWatchdog()
 		core.RunLoginWebview()
 		os.Exit(0)
 	case "--remote", "-r":
+		core.StartParentWatchdog()
 		channelId := ""
 		if len(os.Args) > 2 {
 			channelId = strings.TrimSpace(os.Args[2])
@@ -722,6 +683,7 @@ func handleSubcommands() bool {
 		core.RunRemoteWebview(channelId)
 		os.Exit(0)
 	case "--chat", "-c":
+		core.StartParentWatchdog()
 		channelId := ""
 		if len(os.Args) > 2 {
 			channelId = strings.TrimSpace(os.Args[2])
@@ -944,6 +906,7 @@ func main() {
 	defer releaseSingleInstanceMutex()
 
 	initWatchdog(silentMode)
+	go core.CleanupLegacyArtifactsIfNeeded(APP_VERSION)
 	triggerStartupSessionCheck()
 
 	cliPort := parseCliPort()
@@ -954,6 +917,7 @@ func main() {
 
 	runTray(silentMode)
 }
+
 
 
 

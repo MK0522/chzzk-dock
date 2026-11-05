@@ -12,9 +12,15 @@ dist/
 
 # Local Config & Credentials (SECURITY: DO NOT COMMIT)
 config.json
+settings.json
+settings*.json
 cert.pem
 key.pem
 server_debug.txt
+*.log
+*.tmp
+*.env
+*.env.*
 
 # Editor & System files
 .vscode/
@@ -31,6 +37,7 @@ RELEASE_HISTORY.md
 AGENTS.md
 GEMINI.md
 docs/PROJECT_STRUCTURE_GUIDE.md
+docs/ARCHITECTURE_NOTES.md
 docs/rules/
 
 # Test files (Do not upload to GitHub)

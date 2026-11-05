@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -56,12 +57,15 @@ var (
 	procSetInformationJobObject  = kernel32.NewProc("SetInformationJobObject")
 	procAssignProcessToJobObject = kernel32.NewProc("AssignProcessToJobObject")
 	procGetCurrentProcess        = kernel32.NewProc("GetCurrentProcess")
+	procWaitForSingleObject      = kernel32.NewProc("WaitForSingleObject")
+	procGetProcessTimes          = kernel32.NewProc("GetProcessTimes")
 )
 
 const (
-	JobObjectExtendedLimitInformation    = 9
-	JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE   = 0x2000
-	JOB_OBJECT_LIMIT_SILENT_BREAKAWAY_OK = 0x00000010
+	JobObjectExtendedLimitInformation  = 9
+	JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x2000
+	JOB_OBJECT_LIMIT_BREAKAWAY_OK      = 0x00000800
+	CREATE_BREAKAWAY_FROM_JOB          = 0x01000000
 )
 
 type JOBOBJECT_BASIC_LIMIT_INFORMATION struct {
@@ -101,30 +105,79 @@ func InitProcessJobObject() {
 	if runtime.GOOS != "windows" {
 		return
 	}
-	hJob, _, _ := procCreateJobObjectW.Call(0, 0)
+	hJob, _, err := procCreateJobObjectW.Call(0, 0)
 	if hJob == 0 {
+		LogError("[JobObject] 작업 개체 생성 실패 (CreateJobObjectW): %v", err)
 		return
 	}
 	var info JOBOBJECT_EXTENDED_LIMIT_INFORMATION
-	info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE | JOB_OBJECT_LIMIT_SILENT_BREAKAWAY_OK
-	ret, _, _ := procSetInformationJobObject.Call(
+	info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE | JOB_OBJECT_LIMIT_BREAKAWAY_OK
+	ret, _, err := procSetInformationJobObject.Call(
 		hJob,
 		uintptr(JobObjectExtendedLimitInformation),
 		uintptr(unsafe.Pointer(&info)),
 		uintptr(unsafe.Sizeof(info)),
 	)
 	if ret == 0 {
+		LogError("[JobObject] 작업 개체 제한 설정 실패 (SetInformationJobObject): %v", err)
 		procCloseHandle.Call(hJob)
 		return
 	}
 	curProc, _, _ := procGetCurrentProcess.Call()
-	ret, _, _ = procAssignProcessToJobObject.Call(hJob, curProc)
+	ret, _, err = procAssignProcessToJobObject.Call(hJob, curProc)
 	if ret != 0 {
 		globalJobHandle = hJob
 		LogInfo("[JobObject] 프로세스 작업 개체 등록 완료 (부모 프로세스 비정상 종료 시 자식 일괄 자동 회수 보장)")
 	} else {
+		LogError("[JobObject] 작업 개체 프로세스 할당 실패 (AssignProcessToJobObject): %v", err)
 		procCloseHandle.Call(hJob)
 	}
+}
+
+func StartParentWatchdog() {
+	if runtime.GOOS != "windows" {
+		return
+	}
+	ppid := os.Getppid()
+	if ppid <= 0 {
+		return
+	}
+	const SYNCHRONIZE = 0x00100000
+	hParent, _, _ := procOpenProcess.Call(
+		uintptr(SYNCHRONIZE|PROCESS_QUERY_LIMITED_INFORMATION),
+		0,
+		uintptr(ppid),
+	)
+	if hParent == 0 {
+		os.Exit(0)
+	}
+
+	var pCreate, pExit, pKernel, pUser uint64
+	var sCreate, sExit, sKernel, sUser uint64
+	curProc, _, _ := procGetCurrentProcess.Call()
+	r1, _, _ := procGetProcessTimes.Call(hParent, uintptr(unsafe.Pointer(&pCreate)), uintptr(unsafe.Pointer(&pExit)), uintptr(unsafe.Pointer(&pKernel)), uintptr(unsafe.Pointer(&pUser)))
+	r2, _, _ := procGetProcessTimes.Call(curProc, uintptr(unsafe.Pointer(&sCreate)), uintptr(unsafe.Pointer(&sExit)), uintptr(unsafe.Pointer(&sKernel)), uintptr(unsafe.Pointer(&sUser)))
+	if r1 != 0 && r2 != 0 && pCreate > sCreate {
+		procCloseHandle.Call(hParent)
+		os.Exit(0)
+	}
+
+	go func() {
+		procWaitForSingleObject.Call(hParent, 0xFFFFFFFF)
+		procCloseHandle.Call(hParent)
+		os.Exit(0)
+	}()
+}
+
+// DetachFromJob: 독립적으로 실행되어야 하는 프로세스(인스톨러, 재시작 등)가 현재 Job Object에 묶여 부모 종료 시 함께 종료되지 않도록 탈출 플래그를 설정합니다.
+func DetachFromJob(cmd *exec.Cmd) {
+	if cmd == nil || runtime.GOOS != "windows" {
+		return
+	}
+	if cmd.SysProcAttr == nil {
+		cmd.SysProcAttr = &syscall.SysProcAttr{}
+	}
+	cmd.SysProcAttr.CreationFlags |= CREATE_BREAKAWAY_FROM_JOB
 }
 
 type PROCESSENTRY32W struct {
@@ -485,6 +538,12 @@ func ParseScriptVersion(data []byte) int {
 	return 0
 }
 
+func sameScriptContent(a, b []byte) bool {
+	normA := strings.TrimSpace(strings.ReplaceAll(string(a), "\r\n", "\n"))
+	normB := strings.TrimSpace(strings.ReplaceAll(string(b), "\r\n", "\n"))
+	return normA == normB
+}
+
 // CheckScriptStatusWithVersion: 스크립트 설치 여부, 업데이트 필요 여부(< 비교), 설치된 버전 및 최신 버전을 함께 반환합니다.
 func CheckScriptStatusWithVersion(scriptsDir string, latestScript []byte) (installed bool, needsUpdate bool, installedVer int, latestVer int) {
 	latestVer = ParseScriptVersion(latestScript)
@@ -502,18 +561,15 @@ func CheckScriptStatusWithVersion(scriptsDir string, latestScript []byte) (insta
 	installed = true
 	installedVer = ParseScriptVersion(existingData)
 
-	// 버전이 명시된 경우 정수 버전 비교 (installedVer < latestVer)
-	if installedVer > 0 && latestVer > 0 {
-		needsUpdate = installedVer < latestVer
-	} else if installedVer < latestVer {
-		// 구버전(installedVer == 0)이고 최신본에 버전이 부여된 경우
+	expectedData := PrepareLauncherScriptWithExePath(latestScript)
+	contentMismatch := !sameScriptContent(existingData, expectedData)
+
+	if installedVer < latestVer {
 		needsUpdate = true
+	} else if installedVer == latestVer {
+		needsUpdate = contentMismatch
 	} else {
-		// 둘 다 버전이 0이거나 동일한 경우 텍스트 비교 폴백
-		expectedData := PrepareLauncherScriptWithExePath(latestScript)
-		normExisting := strings.ReplaceAll(string(existingData), "\r\n", "\n")
-		normExpected := strings.ReplaceAll(string(expectedData), "\r\n", "\n")
-		needsUpdate = strings.TrimSpace(normExisting) != strings.TrimSpace(normExpected)
+		needsUpdate = false
 	}
 
 	return installed, needsUpdate, installedVer, latestVer
@@ -564,14 +620,16 @@ func InstallLauncherScriptToObs(customDir string, scriptData []byte) (string, er
 		return "", fmt.Errorf("관리자 권한(UAC) 승인이 거부되었거나 실패했습니다 (코드: %d): %w", ret, err)
 	}
 
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(15 * time.Second)
 	for time.Now().Before(deadline) {
 		time.Sleep(300 * time.Millisecond)
-		if stat, err := os.Stat(targetPath); err == nil && stat.Size() > 0 {
-			return targetPath, nil
+		if written, err := os.ReadFile(targetPath); err == nil && len(written) > 0 {
+			if sameScriptContent(written, scriptData) {
+				return targetPath, nil
+			}
 		}
 	}
 
-	return "", fmt.Errorf("관리자 권한 프로세스 실행 후 파일 생성을 확인하지 못했습니다")
+	return "", fmt.Errorf("관리자 권한 프로세스 실행 후 최신 스크립트 반영을 확인하지 못했습니다")
 }
 
