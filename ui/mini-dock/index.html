@@ -72,6 +72,7 @@
       border-radius: 50%;
       transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
     }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; } }
     .mini-switch input:checked + .mini-slider {
       background-color: #00FFA3;
       border-color: #00C77F;
@@ -237,7 +238,7 @@
   </div>
 
   <!-- 토스트 안내바 -->
-  <div id="mini-toast"></div>
+  <div id="mini-toast" role="status" aria-live="polite"></div>
 
   <script>
     function showToast(msg, type = 'success') {
@@ -251,8 +252,40 @@
       }, 2000);
     }
 
+    let statusRetryTimer = null;
+    let statusRequestPending = null;
+    let settingsChangesPending = 0;
+
+    function beginSettingsChange() {
+      settingsChangesPending++;
+      clearTimeout(statusRetryTimer);
+      statusRetryTimer = null;
+      statusRequestPending = null;
+      document.getElementById('sync-icon')?.classList.remove('animate-spin');
+    }
+
+    function endSettingsChange() {
+      if (--settingsChangesPending === 0) fetchAllStatus();
+    }
+
+    function scheduleStatusRetry() {
+      if (statusRetryTimer === null) {
+        statusRetryTimer = setTimeout(() => {
+          statusRetryTimer = null;
+          fetchAllStatus(true);
+        }, 10000);
+      }
+    }
+
     // 전체 상태 동기화 (채팅 모드 + 후원 4종)
-    async function fetchAllStatus() {
+    async function fetchAllStatus(isRetry = false) {
+      if (statusRequestPending || settingsChangesPending) return;
+      const request = {};
+      statusRequestPending = request;
+      if (statusRetryTimer !== null) {
+        clearTimeout(statusRetryTimer);
+        statusRetryTimer = null;
+      }
       const syncIcon = document.getElementById('sync-icon');
       if (syncIcon) syncIcon.classList.add('animate-spin');
 
@@ -262,29 +295,36 @@
           chzzkApi.getDonations()
         ]);
 
+        if (statusRequestPending !== request) return;
+
         if (chatRes.status === 401 || donRes.status === 401) {
-          showToast('로그인 필요 (메인 독 확인)', 'warn');
+          if (!isRetry) showToast('로그인 필요 (메인 독 확인)', 'warn');
+          scheduleStatusRetry();
           return;
         }
 
-        if (chatRes.ok) {
-          const chat = await chatRes.json();
-          const elEmoji = document.getElementById('toggle-emoji');
-          const elSlow = document.getElementById('select-slow');
-          if (elEmoji) elEmoji.checked = !!chat.emojiOnly;
-          if (elSlow) elSlow.value = String(chat.slowSec || 0);
+        if (!chatRes.ok || !donRes.ok) {
+          if (!isRetry) showToast('상태 조회 실패. 10초 후 다시 확인합니다.', 'error');
+          scheduleStatusRetry();
+          return;
         }
-
-        if (donRes.ok) {
-          const don = await donRes.json();
-          syncDonationUI(don);
-        }
-
-        showToast('동기화 완료', 'success');
+        const [chat, don] = await Promise.all([chatRes.json(), donRes.json()]);
+        if (statusRequestPending !== request) return;
+        const elEmoji = document.getElementById('toggle-emoji');
+        const elSlow = document.getElementById('select-slow');
+        if (elEmoji) elEmoji.checked = !!chat.emojiOnly;
+        if (elSlow) elSlow.value = String(chat.slowSec || 0);
+        syncDonationUI(don);
+        showToast(isRetry ? '상태 동기화 복구' : '동기화 완료', 'success');
       } catch (e) {
-        showToast('상태 조회 실패', 'error');
+        if (statusRequestPending !== request) return;
+        if (!isRetry) showToast('상태 조회 실패. 10초 후 다시 확인합니다.', 'error');
+        scheduleStatusRetry();
       } finally {
-        if (syncIcon) setTimeout(() => syncIcon.classList.remove('animate-spin'), 300);
+        if (statusRequestPending === request) {
+          statusRequestPending = null;
+          if (syncIcon) syncIcon.classList.remove('animate-spin');
+        }
       }
     }
 
@@ -302,6 +342,7 @@
 
     // 이모티콘 전용 모드 토글 (개별 엔드포인트 PUT /chzzkdock/chat-mode/emoji)
     async function updateEmojiMode(enabled) {
+      beginSettingsChange();
       try {
         const res = await chzzkApi.setEmojiMode(enabled);
         if (res.ok) {
@@ -314,12 +355,15 @@
         }
       } catch (e) {
         document.getElementById('toggle-emoji').checked = !enabled;
-        showToast('통신 오류', 'error');
+        showToast('통신 오류. 서버 연결을 확인하고 다시 시도하세요.', 'error');
+      } finally {
+        endSettingsChange();
       }
     }
 
     // 저속 모드 변경 (개별 엔드포인트 PUT /chzzkdock/chat-mode/slow)
     async function updateSlowMode(sec) {
+      beginSettingsChange();
       try {
         const res = await chzzkApi.setSlowMode(sec);
         if (res.ok) {
@@ -330,12 +374,15 @@
           showToast('변경 실패 (로그인 확인)', 'error');
         }
       } catch (e) {
-        showToast('통신 오류', 'error');
+        showToast('통신 오류. 서버 연결을 확인하고 다시 시도하세요.', 'error');
+      } finally {
+        endSettingsChange();
       }
     }
 
     // 후원 4종 개별 토글 (chat, video, mission, subscription 개별 엔드포인트)
     async function toggleDonation(target, enabled) {
+      beginSettingsChange();
       const targetLower = target.toLowerCase();
       const el = document.getElementById(getDonationElementId(targetLower));
       const nameMap = { chat: '채팅 후원', video: '영상 후원', mission: '미션 후원', sub: '구독 알림', subscription: '구독 알림' };
@@ -352,7 +399,9 @@
         }
       } catch (e) {
         if (el) el.checked = !enabled;
-        showToast('통신 오류', 'error');
+        showToast('통신 오류. 서버 연결을 확인하고 다시 시도하세요.', 'error');
+      } finally {
+        endSettingsChange();
       }
     }
 
@@ -368,7 +417,7 @@
     }
 
     // 초기 로드
-    window.addEventListener('DOMContentLoaded', fetchAllStatus);
+    window.addEventListener('DOMContentLoaded', () => fetchAllStatus());
   </script>
 </body>
 </html>

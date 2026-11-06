@@ -779,30 +779,6 @@ func makeFloatingToolbarScript(storageKey string, alignRight bool, enableReload 
       if (raw) savedPos = JSON.parse(raw);
     } catch(e) {}
 
-    var initialTop = '10px';
-    var initialLeft = '';
-    var initialRight = '';
-
-    if (savedPos && typeof savedPos.top === 'number' && typeof savedPos.left === 'number') {
-      initialTop = savedPos.top + 'px';
-      initialLeft = savedPos.left + 'px';
-    } else {
-      if (%t) {
-        initialRight = '14px';
-      } else {
-        initialLeft = '14px';
-      }
-    }
-
-    bar.style.top = initialTop;
-    if (initialLeft) {
-      bar.style.left = initialLeft;
-      bar.style.right = 'auto';
-    } else {
-      bar.style.right = initialRight;
-      bar.style.left = 'auto';
-    }
-
     var pinBtn = document.createElement('button');
     pinBtn.id = 'chzzk-floating-pin-btn';
     pinBtn.title = '항상 위에 고정 (드래그하여 위치 이동)';
@@ -820,6 +796,8 @@ func makeFloatingToolbarScript(storageKey string, alignRight bool, enableReload 
     }
 
     var isDragging = false;
+    var desiredPos = savedPos && typeof savedPos.top === 'number' && typeof savedPos.left === 'number'
+      ? { left: savedPos.left, top: savedPos.top } : null;
     var startX = 0, startY = 0;
     var offsetX = 0, offsetY = 0;
     var hasMoved = false;
@@ -855,6 +833,7 @@ func makeFloatingToolbarScript(storageKey string, alignRight bool, enableReload 
         if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
           hasMoved = true;
         }
+        if (!hasMoved) return;
         var maxW = window.innerWidth - bar.offsetWidth;
         var maxH = window.innerHeight - bar.offsetHeight;
         var newLeft = Math.max(0, Math.min(maxW, moveEvent.clientX - offsetX));
@@ -874,6 +853,7 @@ func makeFloatingToolbarScript(storageKey string, alignRight bool, enableReload 
         if (hasMoved) {
           try {
             var rect = bar.getBoundingClientRect();
+            desiredPos = { left: rect.left, top: rect.top };
             localStorage.setItem('%s', JSON.stringify({ left: rect.left, top: rect.top }));
           } catch(err) {}
           setTimeout(function() { hasMoved = false; }, 50);
@@ -904,6 +884,16 @@ func makeFloatingToolbarScript(storageKey string, alignRight bool, enableReload 
 
     container.appendChild(bar);
 
+    function fitToolbar() {
+      var left = desiredPos ? desiredPos.left : (%t ? window.innerWidth - bar.offsetWidth - 14 : 14);
+      var top = desiredPos ? desiredPos.top : 10;
+      bar.style.left = Math.max(0, Math.min(left, window.innerWidth - bar.offsetWidth)) + 'px';
+      bar.style.top = Math.max(0, Math.min(top, window.innerHeight - bar.offsetHeight)) + 'px';
+      bar.style.right = 'auto';
+    }
+    window.addEventListener('resize', fitToolbar);
+    fitToolbar();
+
     window.__updateTopmostUI = function(isTopmost) {
       var b = document.getElementById('chzzk-floating-pin-btn');
       if (!b) return;
@@ -930,7 +920,7 @@ func makeFloatingToolbarScript(storageKey string, alignRight bool, enableReload 
   setTimeout(initToolbar, 300);
   setTimeout(initToolbar, 1000);
 })();
-`, storageKey, alignRight, enableReload, storageKey)
+`, storageKey, enableReload, storageKey, alignRight)
 }
 
 // RunToolWebview: 치지직 팝업 툴(채팅창, 리모컨 등) 공통 실행 함수

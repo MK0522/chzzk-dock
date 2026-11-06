@@ -49,6 +49,7 @@
     ::-webkit-scrollbar-thumb { background: #21262D; border-radius: 3px; }
     ::-webkit-scrollbar-thumb:hover { background: #30363D; }
 
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
     /* 점(dot)만 반짝이는 펄스 애니메이션 (박스는 깜빡이지 않음) */
     .dot-pulse {
       animation: dotGlow 1.4s infinite ease-in-out;
@@ -72,6 +73,7 @@
       <h1 class="text-[13.5px] font-bold tracking-tight text-white">
         통계 (Stats)
       </h1>
+      <span id="stats-connection" role="status" class="text-[10px] text-obsMuted">OBS 연결 끊김</span>
     </div>
 
     <!-- 우측 단위 전환, 초기화 컨트롤 -->
@@ -166,16 +168,16 @@
         <!-- 저장 영역: 전체 용량 뱃지(마우스 호버 시 탐색기 용량 툴팁) + 프로그레스 바(클릭 시 폴더 열기) -->
         <div class="flex items-center gap-2 select-none">
           <!-- 전체 용량 뱃지 (마우스 올리면 윈도우 파일 탐색기 기준 용량 툴팁 표시) -->
-          <span id="label-disk-total" class="mono-num text-[11px] font-bold text-obsMuted bg-obsBg/90 px-1.5 py-0.5 rounded border border-obsBorderSubtle shrink-0 shadow-inner hover:text-white hover:border-obsAccent/50 transition-colors cursor-help" title="탐색기 용량 조회 중...">1TB</span>
+          <span id="label-disk-total" class="mono-num text-[11px] font-bold text-obsMuted bg-obsBg/90 px-1.5 py-0.5 rounded border border-obsBorderSubtle shrink-0 shadow-inner hover:text-white hover:border-obsAccent/50 transition-colors cursor-help" title="탐색기 용량 조회 중...">—</span>
           
           <!-- 프로그레스 바 (마우스 호버 시 녹화 경로 툴팁, 클릭 시 폴더 열기) -->
           <div id="box-disk-bar" onclick="openRecordDirectory()" class="relative flex-1 bg-zinc-950/90 h-5 rounded overflow-hidden flex items-center border border-zinc-700/60 shadow-inner hover:border-obsAccent/60 transition-colors cursor-pointer group" title="녹화 폴더 열기(클릭)">
             <!-- 채워진 사용량 바 (고시인성 에메랄드/그라디언트) -->
-            <div id="bar-disk-used" class="h-full bg-gradient-to-r from-emerald-600 via-teal-500 to-cyan-500 transition-all duration-500" style="width: 37.7%"></div>
+            <div id="bar-disk-used" class="h-full bg-gradient-to-r from-emerald-600 via-teal-500 to-cyan-500 transition-all duration-500" style="width: 0%"></div>
             <!-- 게이지 바 내부 % 텍스트 -->
             <div class="absolute inset-0 flex items-center justify-between px-2 text-[10px] font-mono font-bold tracking-tight">
-              <span id="label-disk-pct" class="text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">37.7% 사용 중</span>
-              <span id="label-disk-free" class="text-emerald-200 drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] font-extrabold">622.6 GB 여유</span>
+              <span id="label-disk-pct" class="text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">—</span>
+              <span id="label-disk-free" class="text-emerald-200 drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] font-extrabold">—</span>
             </div>
           </div>
         </div>
@@ -318,6 +320,7 @@
               await handleHello(msg.d);
             } else if (msg.op === 2) {
               isConnected = true;
+              document.getElementById('stats-connection').textContent = '';
               expectedNextPoll = performance.now() + POLL_INTERVAL;
               sendReq('GetVideoSettings');
               sendReq('GetRecordDirectory');
@@ -331,6 +334,7 @@
         };
 
         ws.onclose = () => {
+          document.getElementById('stats-connection').textContent = 'OBS 연결 끊김';
           isConnected = false;
           expectedNextPoll = 0;
           clearTimeout(pollTimer);
@@ -400,19 +404,35 @@
     }
 
     let lastFetchedDrive = '';
-    let cachedTotalDiskBytes = 1000 * 1024 * 1024 * 1024; // 기본 1TB
+    let diskRequest = null;
+    let cachedTotalDiskBytes = 0;
+    let diskRetryAfter = 0;
 
     // 첫 로딩 및 드라이브(C, D 등) 변경 시에만 백엔드 호출 (전체 디스크 용량 바이트 수 조회)
     function fetchTotalDiskSpace(path) {
       if (!path) return;
       const drive = path.charAt(0).toUpperCase();
-      if (drive && drive === lastFetchedDrive) return; // 동일 드라이브면 스킵
+      if (drive === lastFetchedDrive && (cachedTotalDiskBytes > 0 || diskRequest)) return;
+      const driveChanged = drive !== lastFetchedDrive;
       lastFetchedDrive = drive;
+      diskRetryAfter = performance.now() + 10000;
+      const request = {};
+      diskRequest = request;
+      cachedTotalDiskBytes = 0;
+      if (driveChanged) currentFreeDiskBytes = null;
+      document.getElementById('label-disk-total').textContent = '—';
+      document.getElementById('label-disk-pct').textContent = '—';
+      document.getElementById('label-disk-free').textContent = '—';
+      document.getElementById('bar-disk-used').style.width = '0%';
 
       chzzkApi.getDiskTotal(drive)
-        .then(res => res.json())
+        .then(res => {
+          if (!res.ok) throw new Error('디스크 용량 조회 실패');
+          return res.json();
+        })
         .then(data => {
-          if (data && data.totalBytes) {
+          if (diskRequest !== request) return;
+          if (data && data.totalBytes > 0) {
             cachedTotalDiskBytes = data.totalBytes;
             const displaySpec = formatTotalDiskSize(data.totalBytes);
             const explorerSize = formatExplorerDiskSize(data.totalBytes);
@@ -421,10 +441,11 @@
               labelTotal.textContent = displaySpec;
               labelTotal.title = `윈도우 탐색기 인식: ${explorerSize}\n(총 ${data.totalBytes.toLocaleString()} 바이트)`;
             }
-            renderDiskSpace(Math.max(0, cachedTotalDiskBytes - currentFreeDiskBytes), cachedTotalDiskBytes);
+            if (currentFreeDiskBytes !== null) renderDiskSpace(Math.max(0, cachedTotalDiskBytes - currentFreeDiskBytes), cachedTotalDiskBytes);
           }
         })
-        .catch(() => {});
+        .catch(() => {})
+        .finally(() => { if (diskRequest === request) diskRequest = null; });
     }
 
     function updateRecordDirectoryUI(fullPath) {
@@ -543,7 +564,7 @@
       if (labelTotal) labelTotal.textContent = formatTotalDiskSize(totalBytes);
     }
 
-    let currentFreeDiskBytes = 0;
+    let currentFreeDiskBytes = null;
 
     // 녹화 진행 시에만 실시간 비트레이트 기반 남은 녹화 가능 시간 계산 (바 아래 표시)
     function updateEstimatedRecordTime(isRecording, bitrateKbps) {
@@ -664,7 +685,9 @@
       // OBS 제공 남은 디스크 용량 (MB 단위 -> Bytes 변환 및 게이지 렌더링)
       if (d.availableDiskSpace !== undefined && d.availableDiskSpace !== null) {
         const freeBytes = d.availableDiskSpace * 1024 * 1024;
-        renderDiskSpace(Math.max(0, cachedTotalDiskBytes - freeBytes), cachedTotalDiskBytes);
+        currentFreeDiskBytes = freeBytes;
+        if (cachedTotalDiskBytes > 0) renderDiskSpace(Math.max(0, cachedTotalDiskBytes - freeBytes), cachedTotalDiskBytes);
+        else if (currentRecordDir && !diskRequest && performance.now() >= diskRetryAfter) fetchTotalDiskSpace(currentRecordDir);
       }
     }
 
@@ -809,6 +832,10 @@
 
     // 통계 지표 초기화 (인코딩, 렌더링, 네트워크 손실 프레임만 0부터 다시 카운팅, OBS 통계창과 동일)
     function resetStatsAction() {
+      sendReq('GetRecordDirectory');
+      sendReq('GetStats');
+      if (currentRecordDir) fetchTotalDiskSpace(currentRecordDir);
+
       // 1. 현재 카운터를 오프셋 기준점으로 고정
       statsOffset.encSkipped = rawCounters.encSkipped;
       statsOffset.encTotal = rawCounters.encTotal;

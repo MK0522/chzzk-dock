@@ -90,7 +90,7 @@
         <!-- 실시간 시청자 수 -->
         <span id="header-viewer-count" class="hidden text-[10.5px] text-[#00FFA3] font-bold items-center gap-1 bg-[#00FFA3]/10 border border-[#00FFA3]/25 px-1.5 py-0.5 rounded-md flex-shrink-0 cursor-default" title="실시간 시청자 수 (10초 주기 실시간 반영)">
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-          <span id="viewer-count-val">0</span>
+          <span id="viewer-count-val" class="tabular-nums">0</span>
         </span>
       </div>
       <div class="flex items-center gap-1.5 flex-shrink-0">
@@ -201,7 +201,7 @@
               <span class="text-[9.5px] text-slate-400 ml-5">이모티콘만 전송 허용 (채팅 도배 방지)</span>
             </div>
             <label class="toggle-switch">
-              <input type="checkbox" id="toggle-emoji-mode" onchange="updateChatEmojiMode(this.checked)">
+              <input type="checkbox" id="toggle-emoji-mode" aria-label="이모티콘 전용 모드" onchange="updateChatEmojiMode(this.checked)">
               <span class="toggle-slider"></span>
             </label>
           </div>
@@ -262,7 +262,7 @@
                 <span>⚙️</span><span>설정</span>
               </button>
               <label class="toggle-switch">
-                <input type="checkbox" id="toggle-chat-donation" onchange="updateDonationSetting('CHAT')">
+                <input type="checkbox" id="toggle-chat-donation" aria-label="채팅 후원" onchange="updateDonationSetting('CHAT')">
                 <span class="toggle-slider"></span>
               </label>
             </div>
@@ -278,7 +278,7 @@
                 <span>⚙️</span><span>설정</span>
               </button>
               <label class="toggle-switch">
-                <input type="checkbox" id="toggle-video-donation" onchange="updateDonationSetting('VIDEO')">
+                <input type="checkbox" id="toggle-video-donation" aria-label="영상 후원" onchange="updateDonationSetting('VIDEO')">
                 <span class="toggle-slider"></span>
               </label>
             </div>
@@ -294,7 +294,7 @@
                 <span>⚙️</span><span>설정</span>
               </button>
               <label class="toggle-switch">
-                <input type="checkbox" id="toggle-mission-donation" onchange="updateDonationSetting('MISSION')">
+                <input type="checkbox" id="toggle-mission-donation" aria-label="미션 후원" onchange="updateDonationSetting('MISSION')">
                 <span class="toggle-slider"></span>
               </label>
             </div>
@@ -310,7 +310,7 @@
                 <span>⚙️</span><span>설정</span>
               </button>
               <label class="toggle-switch">
-                <input type="checkbox" id="toggle-sub-alert" onchange="toggleSubAlertFromMain(this.checked)">
+                <input type="checkbox" id="toggle-sub-alert" aria-label="구독 알림" onchange="toggleSubAlertFromMain(this.checked)">
                 <span class="toggle-slider"></span>
               </label>
             </div>
@@ -1286,7 +1286,7 @@
                 <div class="text-xs font-bold text-slate-100">🔔 자동 종료 시 Windows 알림 받기</div>
               </div>
               <label class="toggle-switch">
-                <input type="checkbox" id="toggle-shutdown-notify" onchange="saveShutdownNotifySetting(this.checked)" checked>
+                <input type="checkbox" id="toggle-shutdown-notify" aria-label="자동 종료 시 Windows 알림 받기" onchange="saveShutdownNotifySetting(this.checked)" checked>
                 <span class="toggle-slider"></span>
               </label>
             </div>
@@ -1299,7 +1299,7 @@
                 <div class="text-xs font-bold text-slate-100">🖥️ 프로그램 시작 시 독 팝업창 열기</div>
               </div>
               <label class="toggle-switch">
-                <input type="checkbox" id="toggle-popup-on-start" onchange="savePopupOnStartSetting(this.checked)">
+                <input type="checkbox" id="toggle-popup-on-start" aria-label="프로그램 시작 시 독 팝업창 열기" onchange="savePopupOnStartSetting(this.checked)">
                 <span class="toggle-slider"></span>
               </label>
             </div>
@@ -1335,7 +1335,7 @@
                 <div class="text-[9px] text-chzzk-muted leading-tight mt-0.5">상단 헤더에 실시간 시청자 수 뱃지를 표시합니다.</div>
               </div>
               <label class="toggle-switch">
-                <input type="checkbox" id="toggle-show-viewer-count" onchange="saveShowViewerCountSetting(this.checked)">
+                <input type="checkbox" id="toggle-show-viewer-count" aria-label="시청자 수 표시" onchange="saveShowViewerCountSetting(this.checked)">
                 <span class="toggle-slider"></span>
               </label>
             </div>
@@ -1388,7 +1388,7 @@
                 <div class="text-[9px] text-chzzk-muted leading-tight mt-0.5">화면 깨짐 및 WebView 동작 이상시 해제(재실행 권장)</div>
               </div>
               <label class="toggle-switch">
-                <input type="checkbox" id="toggle-enable-gpu" onchange="saveGPUSetting(this.checked)">
+                <input type="checkbox" id="toggle-enable-gpu" aria-label="GPU 하드웨어 가속" onchange="saveGPUSetting(this.checked)">
                 <span class="toggle-slider"></span>
               </label>
             </div>
@@ -1402,7 +1402,7 @@
                 <span id="label-default-browser" class="hidden px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-sky-950/80 text-sky-400 border border-sky-800/60"></span>
               </div>
               <label class="toggle-switch">
-                <input type="checkbox" id="toggle-external-browser" onchange="saveExternalBrowserSetting(this.checked)">
+                <input type="checkbox" id="toggle-external-browser" aria-label="외부 브라우저 사용" onchange="saveExternalBrowserSetting(this.checked)">
                 <span class="toggle-slider"></span>
               </label>
             </div>
@@ -1447,7 +1447,7 @@
                 </div>
               </div>
               <label class="toggle-switch">
-                <input type="checkbox" id="toggle-auto-check-update" onchange="saveAutoCheckUpdateSetting(this.checked)">
+                <input type="checkbox" id="toggle-auto-check-update" aria-label="자동 업데이트 확인" onchange="saveAutoCheckUpdateSetting(this.checked)">
                 <span class="toggle-slider"></span>
               </label>
             </div>
@@ -1463,7 +1463,7 @@
                 </div>
               </div>
               <label class="toggle-switch">
-                <input type="checkbox" id="toggle-beta-updates" onchange="saveBetaUpdatesSetting(this.checked)">
+                <input type="checkbox" id="toggle-beta-updates" aria-label="베타 업데이트" onchange="saveBetaUpdatesSetting(this.checked)">
                 <span class="toggle-slider"></span>
               </label>
             </div>
@@ -2101,7 +2101,7 @@ SOFTWARE.</div>
               <div class="text-[10px] text-slate-400">설정한 금액 이상 후원 시 채팅창에 후원 금액을 노출합니다.</div>
             </div>
             <label class="toggle-switch">
-              <input type="checkbox" id="dsetting-chat-exposure" onchange="toggleChatExposure(this.checked)">
+              <input type="checkbox" id="dsetting-chat-exposure" aria-label="채팅 후원 노출" onchange="toggleChatExposure(this.checked)">
               <span class="toggle-slider"></span>
             </label>
           </div>
@@ -2111,7 +2111,7 @@ SOFTWARE.</div>
               <div class="text-[10px] text-slate-400">고액 후원 시 방송 화면에 특별한 봉투 애니메이션을 노출합니다.</div>
             </div>
             <label class="toggle-switch">
-              <input type="checkbox" id="dsetting-chat-envelope" onchange="toggleEnvelope(this.checked)">
+              <input type="checkbox" id="dsetting-chat-envelope" aria-label="봉투 기능" onchange="toggleEnvelope(this.checked)">
               <span class="toggle-slider"></span>
             </label>
           </div>
@@ -2164,14 +2164,14 @@ SOFTWARE.</div>
           <div class="flex items-center justify-between text-[11px]">
             <span class="text-slate-300">영상 자동 재생</span>
             <label class="toggle-switch">
-              <input type="checkbox" id="dsetting-video-autoplay">
+              <input type="checkbox" id="dsetting-video-autoplay" aria-label="영상 자동 재생">
               <span class="toggle-slider"></span>
             </label>
           </div>
           <div class="flex items-center justify-between text-[11px] pt-1 border-t border-[#1A2333]">
             <span class="text-slate-300">영상 제목 노출</span>
             <label class="toggle-switch">
-              <input type="checkbox" id="dsetting-video-title">
+              <input type="checkbox" id="dsetting-video-title" aria-label="영상 제목 표시">
               <span class="toggle-slider"></span>
             </label>
           </div>
@@ -2213,7 +2213,7 @@ SOFTWARE.</div>
           <div class="flex items-center justify-between">
             <span class="font-bold text-slate-200">사용 여부 설정</span>
             <label class="toggle-switch">
-              <input type="checkbox" id="dsetting-mission-active">
+              <input type="checkbox" id="dsetting-mission-active" aria-label="미션 후원 사용">
               <span class="toggle-slider"></span>
             </label>
           </div>
@@ -2248,7 +2248,7 @@ SOFTWARE.</div>
           <div class="flex items-center justify-between text-[11px]">
             <span class="font-bold text-slate-200">후원 금액 표시 여부 설정</span>
             <label class="toggle-switch">
-              <input type="checkbox" id="dsetting-mission-exposure">
+              <input type="checkbox" id="dsetting-mission-exposure" aria-label="미션 노출">
               <span class="toggle-slider"></span>
             </label>
           </div>
@@ -2288,7 +2288,7 @@ SOFTWARE.</div>
           <div class="flex items-center justify-between">
             <div class="font-bold text-slate-200">TTS 음성 읽기</div>
             <label class="toggle-switch">
-              <input type="checkbox" id="dsetting-sub-tts-active">
+              <input type="checkbox" id="dsetting-sub-tts-active" aria-label="TTS 음성 읽기">
               <span class="toggle-slider"></span>
             </label>
           </div>
@@ -2308,7 +2308,7 @@ SOFTWARE.</div>
   </div>
 
   <!-- Floating Toast Container -->
-  <div id="toast-container"></div>
+  <div id="toast-container" role="status" aria-live="polite"></div>
 
   <!-- Scripts: Clean Zero-Bundler Native Load -->
   <script src="/ui/shared/api.js"></script>

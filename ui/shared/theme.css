@@ -360,3 +360,6 @@ input:-webkit-autofill:active {
 .live-soft-glow {
   animation: liveSoftGlow 2.5s infinite ease-in-out !important;
 }
+
+/* 동작 줄이기 */
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; } }
