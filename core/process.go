@@ -134,7 +134,7 @@ func InitProcessJobObject() {
 	}
 }
 
-func StartParentWatchdog(mode string) {
+func StartParentWatchdog() {
 	if runtime.GOOS != "windows" {
 		return
 	}
@@ -149,6 +149,10 @@ func StartParentWatchdog(mode string) {
 		uintptr(ppid),
 	)
 	if hParent == 0 {
+		mode := ""
+		if len(os.Args) > 1 {
+			mode = os.Args[1]
+		}
 		fmt.Fprintf(os.Stderr, "[Watchdog] OpenProcess 실패 (mode=%s, parent PID=%d, Win32=%d): %v\n", mode, ppid, err, err)
 		os.Exit(0)
 	}
