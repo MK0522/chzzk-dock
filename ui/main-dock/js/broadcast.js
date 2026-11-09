@@ -727,6 +727,19 @@ async function initConnection() {
     }
 
 
+    async function refreshActiveSession() {
+      cachedSessions = null;
+      serverConfig = {};
+      userChannelId = "";
+      currentChannelName = "";
+      currentChannelAvatarUrl = "";
+      streamingInfoLoaded = false;
+      donationsLoaded = false;
+      const channelId = await updateConnectionStatus();
+      if (channelId) await loadCurrentSettings(true);
+      return channelId;
+    }
+
     async function handleSessionCardClick(index, isExpired, isActive) {
       if (isActive && !isExpired) {
         toggleChannelMenu();
@@ -745,14 +758,9 @@ async function initConnection() {
           body: JSON.stringify({ index })
         });
         if (res.ok) {
-          cachedSessions = null; // 세션 변경 시 캐시 무효화
-          userChannelId = "";
-          currentChannelName = "";
-          currentChannelAvatarUrl = "";
           showToast('계정 전환 완료', 'success', '선택한 계정으로 전환되었습니다.');
           toggleChannelMenu();
-          await updateConnectionStatus();
-          await loadCurrentSettings(true);
+          await refreshActiveSession();
         } else {
           showToast('계정 전환 실패', 'error', '세션을 전환할 수 없습니다.');
         }
@@ -763,6 +771,7 @@ async function initConnection() {
 
 
     async function removeAccountSession(index) {
+      if (index === 0) return handleLogout();
       const ok = await showConfirmModal({
         title: '계정 연동 해제',
         message: '해당 치지직 계정 연동을 해제하시겠습니까?',
@@ -1674,7 +1683,7 @@ async function initConnection() {
       const ok = await showConfirmModal({
         title: '치지직 연동 해제',
         message: '치지직 계정 연동을 해제(로그아웃)하시겠습니까?',
-        submessage: '저장된 로그인 쿠키가 삭제되며, 방송 정보 자동 연동이 중단됩니다.',
+        submessage: '현재 계정의 로그인 정보가 삭제됩니다. 저장된 계정이 남아 있으면 다음 계정으로 전환합니다.',
         confirmText: '연동 해제',
         cancelText: '취소',
         danger: true,
@@ -1684,19 +1693,19 @@ async function initConnection() {
       try {
         const res = await apiFetch('/logout', { method: 'POST' });
         if (res.ok) {
-          serverConfig = { nid_aut: '', nid_ses: '' };
-          userChannelId = '';
-          currentChannelName = '';
-          streamingInfoLoaded = false;
-          donationsLoaded = false;
+          document.getElementById('channel-popover-menu')?.classList.add('hidden');
           const inputAut = document.getElementById('cookie-nid-aut');
           const inputSes = document.getElementById('cookie-nid-ses');
-          const elChannelName = document.getElementById('header-channel-name');
           if (inputAut) inputAut.value = '';
           if (inputSes) inputSes.value = '';
-          if (elChannelName) elChannelName.style.display = 'none';
-          handleSessionExpired();
-          showToast('로그아웃 완료', 'info', '치지직 연동이 해제되었습니다. 새로운 계정으로 로그인할 수 있습니다.');
+          const channelId = await refreshActiveSession();
+          if (channelId) {
+            showToast('계정 전환 완료', 'success', '로그아웃 후 다음 저장 계정으로 전환되었습니다.');
+          } else if (cachedSessions?.length) {
+            showToast('로그아웃 완료', 'warn', '다음 계정의 연동 상태를 확인할 수 없습니다.');
+          } else {
+            showToast('로그아웃 완료', 'info');
+          }
         } else {
           showToast('로그아웃 실패', 'error', '서버에서 로그아웃 처리에 실패했습니다.');
         }

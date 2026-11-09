@@ -1159,6 +1159,14 @@ func RunToolWebview(cfg ToolWebviewConfig) {
 	LogInfo("[%s] 웹뷰 페이지 이동: %s", cfg.Title, cfg.TargetURL)
 	chromium.Navigate(cfg.TargetURL)
 
+	// 독의 로그아웃 요청은 창이 뜨기 전에 도착해도 stdin에 남아 있습니다.
+	go func() {
+		var signal [1]byte
+		if n, _ := os.Stdin.Read(signal[:]); n == 1 && signal[0] == 1 {
+			procPostMessageW.Call(hwnd, uintptr(WM_CLOSE_VAL), 0, 0)
+		}
+	}()
+
 	var msg struct {
 		Hwnd    syscall.Handle
 		Message uint32

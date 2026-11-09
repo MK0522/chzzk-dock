@@ -326,13 +326,19 @@ func RemoveSession(index int) bool {
 func ClearConfig() bool {
 	target := GetTargetName()
 	sessions := CredReadSessions(target)
-	if len(sessions) <= 1 {
-		CredDelete(target)
-	} else {
-		sessions = sessions[1:]
-		CredWriteSessions(target, sessions)
+	switch len(sessions) {
+	case 0:
+	case 1:
+		if !CredDelete(target) {
+			return false
+		}
+	default:
+		if !CredWriteSessions(target, sessions[1:]) {
+			return false
+		}
 	}
 	InvalidateConfigCache()
+	ClearApiCache()
 	return true
 }
 

@@ -671,11 +671,11 @@ func handleSubcommands() bool {
 	cmd := os.Args[1]
 	switch cmd {
 	case "--login", "-l":
-		core.StartParentWatchdog()
+		core.StartParentWatchdog(cmd)
 		core.RunLoginWebview()
 		os.Exit(0)
 	case "--remote", "-r":
-		core.StartParentWatchdog()
+		core.StartParentWatchdog(cmd)
 		channelId := ""
 		if len(os.Args) > 2 {
 			channelId = strings.TrimSpace(os.Args[2])
@@ -683,7 +683,7 @@ func handleSubcommands() bool {
 		core.RunRemoteWebview(channelId)
 		os.Exit(0)
 	case "--chat", "-c":
-		core.StartParentWatchdog()
+		core.StartParentWatchdog(cmd)
 		channelId := ""
 		if len(os.Args) > 2 {
 			channelId = strings.TrimSpace(os.Args[2])

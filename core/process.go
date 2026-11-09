@@ -134,7 +134,7 @@ func InitProcessJobObject() {
 	}
 }
 
-func StartParentWatchdog() {
+func StartParentWatchdog(mode string) {
 	if runtime.GOOS != "windows" {
 		return
 	}
@@ -143,12 +143,13 @@ func StartParentWatchdog() {
 		return
 	}
 	const SYNCHRONIZE = 0x00100000
-	hParent, _, _ := procOpenProcess.Call(
+	hParent, _, err := procOpenProcess.Call(
 		uintptr(SYNCHRONIZE|PROCESS_QUERY_LIMITED_INFORMATION),
 		0,
 		uintptr(ppid),
 	)
 	if hParent == 0 {
+		fmt.Fprintf(os.Stderr, "[Watchdog] OpenProcess 실패 (mode=%s, parent PID=%d, Win32=%d): %v\n", mode, ppid, err, err)
 		os.Exit(0)
 	}
 

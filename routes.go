@@ -319,11 +319,48 @@ func handleSaveConfig(w http.ResponseWriter, r *http.Request) {
 
 // handleLogout: 세션 로그아웃 처리
 // [보안/UX 설계] 네이버 2차 인증 기기 기억(NID_JST) 토큰을 보존하기 위해 webview_profile 폴더는 삭제하지 않습니다.
-// 폴더 삭제 시 로그인할 때마다 2차 인증(OTP)을 매번 반복해야 하는 치명적 UX 퇴행이 발생하므로, 자격 증명만 초기화합니다.
 func handleLogout(w http.ResponseWriter, r *http.Request) {
-	core.ClearConfig()
+	toolWebviews.Lock()
+	if !core.ClearConfig() {
+		toolWebviews.Unlock()
+		respondErr(w, http.StatusInternalServerError, "로그아웃을 저장할 수 없습니다.")
+		return
+	}
 	SetCachedActiveChannelId("")
+	for stdin := range toolWebviews.inputs {
+		_, _ = stdin.Write([]byte{1})
+		_ = stdin.Close()
+		delete(toolWebviews.inputs, stdin)
+	}
+	toolWebviews.Unlock()
 	respondOK(w, map[string]any{"code": 200, "message": "성공적으로 로그아웃되었습니다."})
+}
+
+type webviewStderr struct {
+	pending string
+}
+
+func (w *webviewStderr) Write(p []byte) (int, error) {
+	w.pending += string(p)
+	for {
+		line, rest, complete := strings.Cut(w.pending, "\n")
+		if !complete {
+			return len(p), nil
+		}
+		w.pending = rest
+		if strings.HasPrefix(line, "[Watchdog] ") {
+			core.LogWarn("%s", line)
+		}
+	}
+}
+
+func startWebview(cmd *exec.Cmd) error {
+	cmd.Stderr = &webviewStderr{}
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	procAllowSetForegroundWindow.Call(uintptr(cmd.Process.Pid))
+	return nil
 }
 
 func handleLoginWebview(w http.ResponseWriter, r *http.Request) {
@@ -348,13 +385,12 @@ func handleLoginWebview(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cmd := exec.Command(exePath, "--login")
-	if err := cmd.Start(); err != nil {
+	if err := startWebview(cmd); err != nil {
 		webviewLock.Unlock()
 		core.LogError("[HTTP] /login-webview: 로그인 서브프로세스 시작 실패: %v", err)
 		respondErr(w, http.StatusInternalServerError, "로그인 웹뷰를 시작할 수 없습니다.")
 		return
 	}
-	procAllowSetForegroundWindow.Call(uintptr(cmd.Process.Pid))
 	webviewProcess = cmd
 	waitCh := make(chan struct{})
 	webviewWaitCh = waitCh
@@ -645,6 +681,42 @@ func resolveChannelIdFromRequest(r *http.Request) string {
 	return ""
 }
 
+var toolWebviews = struct {
+	sync.Mutex
+	inputs map[io.WriteCloser]struct{}
+}{inputs: make(map[io.WriteCloser]struct{})}
+
+func startToolWebview(mode, channelID string) error {
+	exePath, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	args := []string{mode}
+	if channelID != "" {
+		args = append(args, channelID)
+	}
+	cmd := exec.Command(exePath, args...)
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		return err
+	}
+
+	toolWebviews.Lock()
+	defer toolWebviews.Unlock()
+	if err := startWebview(cmd); err != nil {
+		_ = stdin.Close()
+		return err
+	}
+	toolWebviews.inputs[stdin] = struct{}{}
+	go func() {
+		_ = cmd.Wait()
+		toolWebviews.Lock()
+		delete(toolWebviews.inputs, stdin)
+		toolWebviews.Unlock()
+	}()
+	return nil
+}
+
 func handleRemoteWebview(w http.ResponseWriter, r *http.Request) {
 	channelId := resolveChannelIdFromRequest(r)
 	core.LogInfo("[HTTP] /remote-webview 요청 수신 (channelId: %s)", channelId)
@@ -655,23 +727,11 @@ func handleRemoteWebview(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	exePath, err := os.Executable()
-	if err != nil {
-		core.LogError("[HTTP] /remote-webview executable lookup failed: %v", err)
-		respondErr(w, http.StatusInternalServerError, "실행 파일 경로를 찾을 수 없습니다.")
-		return
-	}
-	args := []string{"--remote"}
-	if channelId != "" {
-		args = append(args, channelId)
-	}
-	cmd := exec.Command(exePath, args...)
-	if err := cmd.Start(); err != nil {
+	if err := startToolWebview("--remote", channelId); err != nil {
 		core.LogError("[HTTP] /remote-webview start failed: %v", err)
 		respondErr(w, http.StatusInternalServerError, "리모컨 창을 시작할 수 없습니다.")
 		return
 	}
-	procAllowSetForegroundWindow.Call(uintptr(cmd.Process.Pid))
 	respondOK(w, map[string]any{"status": "started", "message": "치지직 리모컨 창이 열렸습니다."})
 }
 
@@ -685,23 +745,11 @@ func handleChatWebview(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	exePath, err := os.Executable()
-	if err != nil {
-		core.LogError("[HTTP] /chat-webview executable lookup failed: %v", err)
-		respondErr(w, http.StatusInternalServerError, "실행 파일 경로를 찾을 수 없습니다.")
-		return
-	}
-	args := []string{"--chat"}
-	if channelId != "" {
-		args = append(args, channelId)
-	}
-	cmd := exec.Command(exePath, args...)
-	if err := cmd.Start(); err != nil {
+	if err := startToolWebview("--chat", channelId); err != nil {
 		core.LogError("[HTTP] /chat-webview start failed: %v", err)
 		respondErr(w, http.StatusInternalServerError, "채팅 창을 시작할 수 없습니다.")
 		return
 	}
-	procAllowSetForegroundWindow.Call(uintptr(cmd.Process.Pid))
 	respondOK(w, map[string]any{"status": "started", "message": "치지직 채팅 창이 열렸습니다."})
 }
 
