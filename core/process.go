@@ -143,7 +143,7 @@ func StartParentWatchdog() {
 		return
 	}
 	const SYNCHRONIZE = 0x00100000
-	hParent, _, err := procOpenProcess.Call(
+	hParent, _, openErr := procOpenProcess.Call(
 		uintptr(SYNCHRONIZE|PROCESS_QUERY_LIMITED_INFORMATION),
 		0,
 		uintptr(ppid),
@@ -153,7 +153,16 @@ func StartParentWatchdog() {
 		if len(os.Args) > 1 {
 			mode = os.Args[1]
 		}
-		fmt.Fprintf(os.Stderr, "[Watchdog] OpenProcess 실패 (mode=%s, parent PID=%d, Win32=%d): %v\n", mode, ppid, err, err)
+		message := fmt.Sprintf("OpenProcess failed: mode=%s parentPID=%d windowsError=%d (%v)", mode, ppid, openErr, openErr)
+		fmt.Fprintf(os.Stderr, "[Watchdog] %s\n", message)
+		LogError("[ParentWatchdog] %s", message)
+		dir := filepath.Dir(getSettingsFilePath())
+		if err := os.MkdirAll(dir, 0700); err == nil {
+			if f, err := os.OpenFile(filepath.Join(dir, "watchdog.log"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600); err == nil {
+				fmt.Fprintf(f, "%s [ParentWatchdog] %s\n", time.Now().Format(time.RFC3339), message)
+				f.Close()
+			}
+		}
 		os.Exit(0)
 	}
 

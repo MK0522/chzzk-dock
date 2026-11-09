@@ -1,4 +1,4 @@
-﻿package main
+package main
 
 import (
 	"embed"
@@ -47,10 +47,10 @@ var embeddedAppIcon []byte
 var embeddedLauncherScript []byte
 
 // ============================================================
-//  CHZZK OBS Dock Server v0.6.3-rc2 (Modular Architecture)
+//  CHZZK OBS Dock Server v0.6.3-rc3 (Modular Architecture)
 // ============================================================
 const (
-	APP_VERSION       = "v0.6.3-rc2"
+	APP_VERSION       = "v0.6.3-rc3"
 	DEFAULT_HTTP_PORT = 8081
 	USER_AGENT        = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 )

@@ -809,7 +809,7 @@ func CheckForUpdate(currentVersion string, force bool) (*UpdateInfo, error) {
 		if !allowBeta && IsPreRelease(cachedCopy.LatestVersion) {
 			cachedCopy.HasUpdate = false
 		}
-		cachedCopy.AlreadyDownloaded = isInstallerReady(cachedCopy.LatestVersion, cachedCopy.AssetDigest)
+		cachedCopy.AlreadyDownloaded = isInstallerRecorded(cachedCopy.LatestVersion, cachedCopy.AssetDigest)
 		return &cachedCopy, nil
 	}
 
@@ -905,13 +905,29 @@ func CheckForUpdate(currentVersion string, force bool) (*UpdateInfo, error) {
 		DownloadURL:       downloadURL,
 		AssetSize:         assetSize,
 		AssetDigest:       assetDigest,
-		AlreadyDownloaded: isInstallerReady(latestVer, assetDigest),
+		AlreadyDownloaded: isInstallerRecorded(latestVer, assetDigest),
 	}
 
 	cachedUpdate = info
 	lastCheckTime = time.Now()
 
 	return info, nil
+}
+
+// Stores verified installer digests by path for the lifetime of the app.
+var verifiedInstallers sync.Map
+
+func isInstallerRecorded(version, expectedDigest string) bool {
+	digest := normalizeSHA256Hex(expectedDigest)
+	if version == "" || digest == "" {
+		return false
+	}
+	path := getInstallerTempPath(version)
+	if recorded, ok := verifiedInstallers.Load(path); !ok || recorded != digest {
+		return false
+	}
+	info, err := os.Stat(path)
+	return err == nil && info.Mode().IsRegular()
 }
 
 func isInstallerReady(version string, expectedDigest string) bool {
@@ -923,9 +939,11 @@ func isInstallerReady(version string, expectedDigest string) bool {
 		return false
 	}
 	if !verifyFileSHA256(path, expectedDigest) {
+		verifiedInstallers.Delete(path)
 		_ = os.Remove(path)
 		return false
 	}
+	verifiedInstallers.Store(path, normalizeSHA256Hex(expectedDigest))
 	return true
 }
 
@@ -987,7 +1005,6 @@ func ExecuteUpdate(version, downloadURL string, expectedSize int64, expectedDige
 			currentProgress.Active = true
 			currentProgress.Done = false
 			progressMu.Unlock()
-			time.Sleep(500 * time.Millisecond)
 		} else {
 			client := &http.Client{Timeout: 10 * time.Minute}
 			tmpPath := installerPath + ".tmp"
@@ -1105,6 +1122,7 @@ func ExecuteUpdate(version, downloadURL string, expectedSize int64, expectedDige
 					continue
 				}
 
+				verifiedInstallers.Delete(installerPath)
 				// 해시 검증이 완료된 임시 파일을 정식 인스톨러 이름으로 확정
 				_ = os.Remove(installerPath)
 				if err := os.Rename(tmpPath, installerPath); err != nil {
@@ -1120,6 +1138,7 @@ func ExecuteUpdate(version, downloadURL string, expectedSize int64, expectedDige
 				currentProgress.Done = false
 				progressMu.Unlock()
 
+				verifiedInstallers.Store(installerPath, expectedHex)
 				LogInfo("[Updater] 인스톨러 다운로드 및 해시 검증 완료 (%d bytes, 시도 %d/%d) -> %s (경과: %v)", received, attempt, maxAttempts, installerPath, time.Since(startTime).Round(time.Millisecond))
 				lastErrMsg = ""
 				break
@@ -1136,6 +1155,14 @@ func ExecuteUpdate(version, downloadURL string, expectedSize int64, expectedDige
 			}
 
 			time.Sleep(1 * time.Second)
+			if !isInstallerReady(version, expectedDigest) {
+				LogError("[Updater] 설치 직전 파일 무결성 확인 실패: %s", installerPath)
+				progressMu.Lock()
+				currentProgress.Active = false
+				currentProgress.Error = "설치 직전 파일의 무결성 확인에 실패했습니다."
+				progressMu.Unlock()
+				return
+			}
 		}
 
 		cmd := exec.Command(installerPath, "/SILENT", "/SP-")
