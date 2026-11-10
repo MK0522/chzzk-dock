@@ -923,8 +923,13 @@ func handleAppSettingsPut(w http.ResponseWriter, r *http.Request) {
 
 // --- [OBS 연동 & 업데이트 & 텔레메트리 핸들러] ---
 
+var (
+	detectObsScriptsDir = core.DetectObsScriptsDir
+	updateShutdownFn    = exitApp
+)
+
 func handleObsScriptStatus(w http.ResponseWriter, r *http.Request) {
-	scriptsDir, detected := core.DetectObsScriptsDir()
+	scriptsDir, detected := detectObsScriptsDir()
 	installed, needsUpdate, installedVer, latestVer := core.CheckScriptStatusWithVersion(scriptsDir, getLauncherScriptData())
 
 	st := core.LoadSettings()
@@ -984,15 +989,15 @@ func handleCheckUpdate(w http.ResponseWriter, r *http.Request) {
 		respondOK(w, map[string]any{
 			"code": 200,
 			"info": &core.UpdateInfo{
-				CurrentVersion: APP_VERSION,
-				LatestVersion:  APP_VERSION,
+				CurrentVersion: runtimeAppVersion,
+				LatestVersion:  runtimeAppVersion,
 				HasUpdate:      false,
 				ShouldPrompt:   false,
 			},
 		})
 		return
 	}
-	info, err := core.CheckForUpdate(APP_VERSION, force)
+	info, err := core.CheckForUpdate(runtimeAppVersion, force)
 	if err != nil {
 		respondOK(w, map[string]any{"code": 500, "message": err.Error()})
 		return
@@ -1002,16 +1007,20 @@ func handleCheckUpdate(w http.ResponseWriter, r *http.Request) {
 
 func handleUpdateStatus(w http.ResponseWriter, r *http.Request) {
 	progress := core.GetUpdateProgress()
-	respondOK(w, map[string]any{"code": 200, "progress": progress})
+	respondOK(w, map[string]any{
+		"code":     200,
+		"version":  runtimeAppVersion,
+		"progress": progress,
+	})
 }
 
 func handleExecuteUpdate(w http.ResponseWriter, r *http.Request) {
-	info, err := core.CheckForUpdate(APP_VERSION, false)
+	info, err := core.CheckForUpdate(runtimeAppVersion, false)
 	if err != nil || info == nil || info.DownloadURL == "" {
 		respondErr(w, http.StatusBadRequest, "사용 가능한 업데이트 정보를 찾을 수 없습니다.")
 		return
 	}
-	if err := core.ExecuteUpdate(info.LatestVersion, info.DownloadURL, info.AssetSize, info.AssetDigest, exitApp); err != nil {
+	if err := core.ExecuteUpdate(info.LatestVersion, info.DownloadURL, info.AssetSize, info.AssetDigest, updateShutdownFn); err != nil {
 		respondErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -1051,11 +1060,15 @@ func handleClientLog(w http.ResponseWriter, r *http.Request) {
 	respondOK(w, map[string]string{"status": "ok"})
 }
 
-func serveDockPage(w http.ResponseWriter, content []byte) {
+func sendNoCacheBytes(w http.ResponseWriter, content []byte, contentType string) {
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 	w.Header().Set("Pragma", "no-cache")
 	w.Header().Set("Expires", "0")
-	sendBytes(w, content, http.StatusOK, "text/html; charset=utf-8")
+	sendBytes(w, content, http.StatusOK, contentType)
+}
+
+func serveDockPage(w http.ResponseWriter, content []byte) {
+	sendNoCacheBytes(w, content, "text/html; charset=utf-8")
 }
 
 func handleIndexHtml(w http.ResponseWriter, r *http.Request) {
@@ -1130,8 +1143,5 @@ func sendStaticAsset(w http.ResponseWriter, path string, data []byte) {
 			ctype = "application/octet-stream"
 		}
 	}
-	w.Header().Set("Content-Type", ctype)
-	w.Header().Set("Cache-Control", "no-cache, must-revalidate")
-	w.WriteHeader(http.StatusOK)
-	w.Write(data)
+	sendNoCacheBytes(w, data, ctype)
 }

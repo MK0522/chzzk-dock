@@ -508,7 +508,7 @@ func SaveWatchPartySnapshot(snap *WatchPartySnapshot) error {
 // 2. 인앱 자동 업데이트 파이프라인 (Updater)
 // -----------------------------------------------------------------------------
 
-const (
+var (
 	GithubReleasesAPI = "https://api.github.com/repos/MK0522/chzzk-dock/releases/latest"
 )
 
@@ -1002,6 +1002,8 @@ func ExecuteUpdate(version, downloadURL string, expectedSize int64, expectedDige
 			LogInfo("[Updater] 기존에 다운로드 완료된 인스톨러 사용: %s", installerPath)
 			progressMu.Lock()
 			currentProgress.Percent = 100
+			currentProgress.Received = expectedSize
+			currentProgress.Total = expectedSize
 			currentProgress.Active = true
 			currentProgress.Done = false
 			progressMu.Unlock()
@@ -1178,6 +1180,7 @@ func ExecuteUpdate(version, downloadURL string, expectedSize int64, expectedDige
 		}
 
 		progressMu.Lock()
+		currentProgress.Percent = 100
 		currentProgress.Done = true
 		currentProgress.Active = false
 		progressMu.Unlock()

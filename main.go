@@ -86,11 +86,12 @@ var (
 	renderedHTMLOnce  sync.Once
 	globalMutexHandle uintptr
 	restartExecutor   = restartSelf
+	runtimeAppVersion = APP_VERSION
 )
 
 func getRenderedHTML() []byte {
 	renderedHTMLOnce.Do(func() {
-		renderedHTMLCache = bytes.ReplaceAll(embeddedHTML, []byte("{{APP_VERSION}}"), []byte(APP_VERSION))
+		renderedHTMLCache = bytes.ReplaceAll(embeddedHTML, []byte("{{APP_VERSION}}"), []byte(runtimeAppVersion))
 	})
 	return renderedHTMLCache
 }

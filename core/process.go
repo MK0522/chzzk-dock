@@ -434,6 +434,9 @@ func ResolveObsScriptsDir(inputPath string) string {
 	}
 
 	cleanPath = filepath.Clean(cleanPath)
+	if strings.HasSuffix(strings.ToLower(cleanPath), ".lua") {
+		cleanPath = filepath.Dir(cleanPath)
+	}
 
 	// 1. 이미 scripts 폴더를 가리키고 있는 경우
 	base := strings.ToLower(filepath.Base(cleanPath))
@@ -575,15 +578,15 @@ func CheckScriptStatusWithVersion(scriptsDir string, latestScript []byte) (insta
 	installed = true
 	installedVer = ParseScriptVersion(existingData)
 
-	expectedData := PrepareLauncherScriptWithExePath(latestScript)
-	contentMismatch := !sameScriptContent(existingData, expectedData)
-
-	if installedVer < latestVer {
-		needsUpdate = true
-	} else if installedVer == latestVer {
-		needsUpdate = contentMismatch
-	} else {
+	// 정수 버전이 부여된 스크립트는 버전 번호(< 비교)만으로 업데이트 필요 여부를 판별합니다.
+	// (exe 경로 차이, 수동 내보내기, 주석 변경 등으로 동일 버전에서 반복 업데이트 팝업이 뜨는 현상 방지)
+	if latestVer > 0 {
+		needsUpdate = installedVer < latestVer
+	} else if installedVer > 0 {
 		needsUpdate = false
+	} else {
+		expectedData := PrepareLauncherScriptWithExePath(latestScript)
+		needsUpdate = !sameScriptContent(existingData, expectedData)
 	}
 
 	return installed, needsUpdate, installedVer, latestVer
@@ -634,7 +637,7 @@ func InstallLauncherScriptToObs(customDir string, scriptData []byte) (string, er
 		return "", fmt.Errorf("관리자 권한(UAC) 승인이 거부되었거나 실패했습니다 (코드: %d): %w", ret, err)
 	}
 
-	deadline := time.Now().Add(15 * time.Second)
+	deadline := time.Now().Add(12 * time.Second)
 	for time.Now().Before(deadline) {
 		time.Sleep(300 * time.Millisecond)
 		if written, err := os.ReadFile(targetPath); err == nil && len(written) > 0 {

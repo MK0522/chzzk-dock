@@ -1548,6 +1548,11 @@
     let cachedUpdateInfo = null;
     let updatePollTimer = null;
     let isCheckingUpdate = false;
+    let isUpdateInProgress = false;
+    let isPollingUpdateStatus = false;
+    let updateHandoffStarted = false;
+    let updateRestartWaitStart = 0;
+    const UPDATE_RESTART_TIMEOUT_MS = 90000;
 
 
     async function checkForUpdate(manual = false) {
@@ -1639,24 +1644,84 @@
     }
 
 
-    function resetUpdateModalToPrompt() {
+    function resetUpdaterState() {
       if (updatePollTimer) {
         clearInterval(updatePollTimer);
         updatePollTimer = null;
       }
+      isUpdateInProgress = false;
+      isPollingUpdateStatus = false;
+      updateHandoffStarted = false;
+      updateRestartWaitStart = 0;
+    }
+
+
+    function setUpdateProgressUI({ percent, status, pulse = true, tone = 'emerald', size, speed, cancelText, noticeHtml, noticeTone = 'emerald' } = {}) {
       const progressBar = document.getElementById('update-progress-bar');
       const percentText = document.getElementById('update-percent-text');
+      const statusText = document.getElementById('update-status-text');
+      const sizeDetail = document.getElementById('update-size-detail');
+      const speedDetail = document.getElementById('update-speed-detail');
       const cancelBtn = document.getElementById('btn-update-cancel');
-      if (progressBar) progressBar.style.width = '0%';
-      if (percentText) percentText.textContent = '0%';
-      if (cancelBtn) cancelBtn.textContent = '백그라운드에서 진행';
-      document.getElementById('update-notice-box')?.classList.add('hidden');
-      if (cachedUpdateInfo) cachedUpdateInfo.already_downloaded = false;
+      const noticeBox = document.getElementById('update-notice-box');
+      const noticeMsg = document.getElementById('update-notice-msg');
+
+      if (percent !== undefined) {
+        if (progressBar) progressBar.style.width = `${percent}%`;
+        if (percentText) percentText.textContent = `${percent}%`;
+      }
+      if (status !== undefined && statusText) {
+        const dotColor = tone === 'amber' ? 'bg-amber-400' : 'bg-[#00FFA3]';
+        const dotPulse = pulse ? ' animate-pulse' : '';
+        statusText.innerHTML = `<span class="w-1.5 h-1.5 rounded-full ${dotColor}${dotPulse}"></span> ${status}`;
+      }
+      if (size !== undefined && sizeDetail) sizeDetail.textContent = size;
+      if (speed !== undefined && speedDetail) speedDetail.textContent = speed;
+      if (cancelText !== undefined && cancelBtn) cancelBtn.textContent = cancelText;
+      if (noticeBox && noticeMsg) {
+        if (noticeHtml === null) {
+          noticeBox.classList.add('hidden');
+        } else if (noticeHtml !== undefined) {
+          const boxTone = noticeTone === 'amber'
+            ? 'bg-amber-500/10 border-amber-500/30'
+            : 'bg-[#00FFA3]/10 border-[#00FFA3]/30';
+          noticeBox.classList.remove('hidden');
+          noticeBox.className = `p-2.5 rounded-lg ${boxTone} border text-[11px] text-slate-200 leading-relaxed`;
+          noticeMsg.innerHTML = noticeHtml;
+        }
+      }
+    }
+
+
+    function resetUpdateProgressUI() {
+      setUpdateProgressUI({
+        percent: 0,
+        status: '인스톨러 파일 수신 중...',
+        pulse: true,
+        size: '0.0 MB / 0.0 MB',
+        speed: '대기 중...',
+        cancelText: '백그라운드에서 진행',
+        noticeHtml: null
+      });
+    }
+
+
+    function resetUpdateModalToPrompt(errorMessage = '') {
+      resetUpdaterState();
+      resetUpdateProgressUI();
+      if (cachedUpdateInfo) {
+        cachedUpdateInfo.already_downloaded = false;
+        cachedUpdateInfo.last_error = errorMessage || '';
+      }
       if (typeof openUpdateModal === 'function') openUpdateModal(false);
     }
 
 
     function startUpdateDownload() {
+      if (isUpdateInProgress) {
+        if (typeof openUpdateModal === 'function') openUpdateModal(true);
+        return;
+      }
       const promptView = document.getElementById('update-prompt-view');
       const progressView = document.getElementById('update-progress-view');
       if (promptView) promptView.classList.add('hidden');
@@ -1665,76 +1730,141 @@
     }
 
 
-    async function executeInstall() {
-      const cancelBtn = document.getElementById('btn-update-cancel');
-      const progressBar = document.getElementById('update-progress-bar');
-      const percentText = document.getElementById('update-percent-text');
-      const statusText = document.getElementById('update-status-text');
-      const sizeDetail = document.getElementById('update-size-detail');
-      const speedDetail = document.getElementById('update-speed-detail');
-      const noticeBox = document.getElementById('update-notice-box');
-      const noticeMsg = document.getElementById('update-notice-msg');
+    function completeUpdateAndReload(targetVersion) {
+      resetUpdaterState();
+      setUpdateProgressUI({
+        percent: 100,
+        status: '업데이트 완료! 화면 새로고침 중...',
+        pulse: false,
+        noticeHtml: '🎉 <b>새 버전으로 업데이트가 완료되었습니다.</b><br>잠시 후 화면이 자동으로 새로고침됩니다.'
+      });
 
-      if (cancelBtn) cancelBtn.textContent = '백그라운드에서 진행';
+      try {
+        sessionStorage.setItem('chzzk_just_updated_version', targetVersion || cachedUpdateInfo?.latest_version || '');
+      } catch (_) {}
+
+      setTimeout(() => {
+        window.location.reload();
+      }, 250);
+    }
+
+
+    function handleUpdateRestartWait() {
+      updateHandoffStarted = true;
+      if (!updateRestartWaitStart) updateRestartWaitStart = Date.now();
+
+      if (Date.now() - updateRestartWaitStart > UPDATE_RESTART_TIMEOUT_MS) {
+        resetUpdaterState();
+        setUpdateProgressUI({
+          percent: 100,
+          status: '재시작 대기 시간 초과 (수동 새로고침 필요)',
+          pulse: false,
+          tone: 'amber',
+          speed: '확인 시간 초과',
+          cancelText: '닫기',
+          noticeTone: 'amber',
+          noticeHtml: '⚠️ <b>새 버전 재시작 자동 확인 시간이 초과되었습니다.</b><br>설치가 완료되었다면 페이지를 수동으로 새로고침해 주세요.'
+        });
+        showToast('새로고침 대기 시간 초과', 'warn', '설치가 완료된 후 페이지를 수동으로 새로고침해 주세요.');
+        return;
+      }
+
+      setUpdateProgressUI({
+        percent: 100,
+        status: '새 버전 설치 및 재시작 대기 중...',
+        pulse: true,
+        speed: '설치 진행 중',
+        noticeHtml: '✨ <b>다운로드가 완료되었습니다.</b><br>설치가 끝나고 새 버전이 시작되면 화면이 자동으로 새로고침됩니다.'
+      });
+    }
+
+
+    function renderDownloadProgress(p) {
+      const size = p.total > 0
+        ? `${(p.received / (1024 * 1024)).toFixed(1)} MB / ${(p.total / (1024 * 1024)).toFixed(1)} MB`
+        : undefined;
+      const speed = p.speed_bps > 0
+        ? `~ ${(p.speed_bps / (1024 * 1024)).toFixed(1)} MB/s`
+        : '대기 중...';
+      setUpdateProgressUI({
+        percent: p.percent,
+        status: p.percent >= 100 ? '무결성 검증 및 설치 준비 중...' : '인스톨러 파일 수신 중...',
+        pulse: true,
+        size,
+        speed
+      });
+    }
+
+
+    async function pollUpdateStatusOnce() {
+      if (isPollingUpdateStatus || !isUpdateInProgress) return;
+      isPollingUpdateStatus = true;
+      try {
+        const pRes = await apiFetch('/update-status', { timeout: 2000 });
+        if (!pRes.ok) {
+          handleUpdateRestartWait();
+          return;
+        }
+        const pData = await pRes.json();
+        const p = pData.progress;
+        if (!p) return;
+
+        if (p.error) {
+          resetUpdateModalToPrompt(p.error);
+          showToast('업데이트 실패', 'error', p.error);
+          return;
+        }
+
+        // 실행 중인 업데이트에서는 old server가 반드시 active=true 또는 done=true를 반환함.
+        // active=false && done=false && error=""는 새 서버 프로세스가 기동한 상태이므로 즉시 새로고침.
+        if (!p.active && !p.done) {
+          completeUpdateAndReload(pData.version || cachedUpdateInfo?.latest_version || '');
+          return;
+        }
+
+        if (p.done) {
+          handleUpdateRestartWait();
+          return;
+        }
+
+        updateHandoffStarted = false;
+        updateRestartWaitStart = 0;
+        renderDownloadProgress(p);
+      } catch (e) {
+        handleUpdateRestartWait();
+      } finally {
+        isPollingUpdateStatus = false;
+      }
+    }
+
+
+    async function executeInstall() {
+      resetUpdaterState();
+      resetUpdateProgressUI();
+      if (cachedUpdateInfo) cachedUpdateInfo.last_error = '';
+      document.getElementById('update-error-box')?.classList.add('hidden');
+      isUpdateInProgress = true;
 
       if (cachedUpdateInfo?.already_downloaded) {
-        if (statusText) statusText.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-[#00FFA3]"></span> 보관된 인스톨러로 즉시 설치 실행 중...`;
-        if (progressBar) progressBar.style.width = '100%';
-        if (percentText) percentText.textContent = '100%';
+        setUpdateProgressUI({
+          percent: 100,
+          status: '보관된 인스톨러로 즉시 설치 실행 중...',
+          pulse: false
+        });
       }
 
       try {
         const res = await apiFetch('/execute-update', {
           method: 'POST'
         });
+        const execData = await res.json().catch(() => ({}));
         if (!res.ok) {
-          const data = await res.json().catch(() => ({}));
-          throw new Error(data.message || '업데이트 실행 요청 실패');
+          throw new Error(execData.message || '업데이트 실행 요청 실패');
         }
 
-        if (updatePollTimer) clearInterval(updatePollTimer);
-        updatePollTimer = setInterval(async () => {
-          try {
-            const pRes = await apiFetch('/update-status');
-            if (!pRes.ok) return;
-            const pData = await pRes.json();
-            const p = pData.progress;
-            if (!p) return;
-
-            if (p.error) {
-              resetUpdateModalToPrompt();
-              showToast('업데이트 실패', 'error', p.error);
-              return;
-            }
-
-            if (progressBar) progressBar.style.width = p.percent + '%';
-            if (percentText) percentText.textContent = p.percent + '%';
-            if (sizeDetail && p.total > 0) {
-              const recMB = (p.received / (1024 * 1024)).toFixed(1);
-              const totMB = (p.total / (1024 * 1024)).toFixed(1);
-              sizeDetail.textContent = `${recMB} MB / ${totMB} MB`;
-            }
-            if (speedDetail && p.speed_bps > 0) {
-              const spdMB = (p.speed_bps / (1024 * 1024)).toFixed(1);
-              speedDetail.textContent = `~ ${spdMB} MB/s`;
-            }
-
-            if (p.done) {
-              clearInterval(updatePollTimer);
-              if (statusText) statusText.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-[#00FFA3]"></span> 설치 프로그램 실행 중...`;
-              if (noticeBox && noticeMsg) {
-                noticeBox.classList.remove('hidden');
-                noticeBox.className = 'p-2.5 rounded-lg bg-[#00FFA3]/10 border border-[#00FFA3]/30 text-[11px] text-slate-200 leading-relaxed';
-                noticeMsg.innerHTML = '✨ <b>다운로드가 완료되었습니다.</b><br>설치 프로그램이 실행되며 기존 독이 자동으로 닫힙니다.';
-              }
-              if (cancelBtn) cancelBtn.textContent = '닫기';
-            }
-          } catch (e) {
-            console.warn('Update poll error:', e);
-          }
-        }, 300);
+        updatePollTimer = setInterval(pollUpdateStatusOnce, 300);
       } catch (err) {
-        resetUpdateModalToPrompt();
+        resetUpdateModalToPrompt(err.message);
         showToast('업데이트 시작 실패', 'error', err.message);
       }
     }
@@ -1787,13 +1917,22 @@
 
     function promptObsScriptUpdate(data) {
       const latestVer = data.latest_version || 2;
+      const installedVer = data.installed_version || 0;
       const chkId = 'chk-skip-obs-script-' + latestVer;
+      const submessage = installedVer > 0
+        ? `현재 설치된 스크립트(v${installedVer})에서 최신 버전(v${latestVer})으로 업데이트합니다.`
+        : 'OBS 시작 시 백그라운드 멈춤 방지 및 실행 안정성이 개선되었습니다.';
 
       showNoticeModal({
         title: 'OBS 연동 스크립트 업데이트',
         message: `OBS 연동 스크립트의 새로운 버전(v${latestVer})이 있습니다. 지금 업데이트하시겠습니까?`,
-        submessage: 'OBS 시작 시 백그라운드 멈춤 방지 및 안정성이 개선되었습니다.',
+        submessage,
         icon: '🔄',
+        onDismiss: () => {
+          if (document.getElementById(chkId)?.checked) {
+            saveAppSettingField('skip_script_version', latestVer).catch(() => {});
+          }
+        },
         html: `
           <div class="mt-3 pt-2.5 border-t border-zinc-800/80 flex items-center justify-start">
             <label class="flex items-center gap-2 cursor-pointer select-none text-[12px] text-zinc-400 hover:text-zinc-300">
@@ -1806,19 +1945,7 @@
           {
             text: '나중에',
             className: 'px-3.5 py-1.5 rounded-lg bg-[#1C1C26] hover:bg-[#282837] text-zinc-300 text-xs font-medium transition-colors cursor-pointer',
-            onClick: async () => {
-              const chk = document.getElementById(chkId);
-              if (chk && chk.checked) {
-                try {
-                  await apiFetch('/app-settings', {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ skip_script_version: latestVer })
-                  });
-                } catch (e) {
-                  console.warn('Failed to save skip_script_version:', e);
-                }
-              }
+            onClick: () => {
               window.__resolveConfirmModal(false);
             }
           },
@@ -1865,9 +1992,9 @@
           }
           currentObsStatus.installed = true;
           currentObsStatus.needs_update = false;
-          if (data.path) {
-            currentObsStatus.path = data.path;
-            currentObsStatus.detected = true;
+          currentObsStatus.detected = true;
+          if (currentObsStatus.latest_version) {
+            currentObsStatus.installed_version = currentObsStatus.latest_version;
           }
         } else {
           showToast(isUpdate ? '업데이트 실패' : '설치 실패', 'error', data.message || '스크립트 적용 실패');

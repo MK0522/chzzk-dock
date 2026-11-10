@@ -1618,6 +1618,13 @@ async function initConnection() {
       }
 
       // ── 2. 백그라운드에서 연결 시도 및 통합 설정 1회 로드 (원리 A) ──
+      try {
+        const updatedVer = sessionStorage.getItem('chzzk_just_updated_version');
+        if (updatedVer !== null) {
+          sessionStorage.removeItem('chzzk_just_updated_version');
+          showToast('🎉 업데이트 완료', 'success', updatedVer ? `${updatedVer} 버전이 적용되었습니다.` : '최신 버전이 적용되었습니다.');
+        }
+      } catch (_) {}
       initConnection();
       if (typeof loadAllDockSettings === 'function') {
         loadAllDockSettings();
@@ -1649,12 +1656,31 @@ async function initConnection() {
       if (latestVerEl) latestVerEl.textContent = cachedUpdateInfo.latest_version || '';
       if (currentVerEl) currentVerEl.textContent = cachedUpdateInfo.current_version || '';
 
-      const installBtnLabel = document.getElementById('btn-start-update-label');
-      if (installBtnLabel) {
-        installBtnLabel.textContent = cachedUpdateInfo.already_downloaded ? '즉시 설치 (다운로드 완료됨)' : '업데이트 설치';
+      const errorBox = document.getElementById('update-error-box');
+      const errorMsg = document.getElementById('update-error-msg');
+      const hasFailedError = Boolean(cachedUpdateInfo.last_error);
+      if (errorBox && errorMsg) {
+        if (hasFailedError) {
+          errorBox.classList.remove('hidden');
+          errorMsg.innerHTML = `⚠️ <b>이전 업데이트 시도가 실패했습니다:</b> ${escapeHtml(cachedUpdateInfo.last_error)}`;
+        } else {
+          errorBox.classList.add('hidden');
+          errorMsg.textContent = '';
+        }
       }
 
-      if (forceProgress) {
+      const installBtnLabel = document.getElementById('btn-start-update-label');
+      if (installBtnLabel) {
+        if (cachedUpdateInfo.already_downloaded) {
+          installBtnLabel.textContent = '즉시 설치 (다운로드 완료됨)';
+        } else if (hasFailedError) {
+          installBtnLabel.textContent = '다시 시도';
+        } else {
+          installBtnLabel.textContent = '업데이트 설치';
+        }
+      }
+
+      if (forceProgress || (typeof isUpdateInProgress !== 'undefined' && isUpdateInProgress)) {
         if (promptView) promptView.classList.add('hidden');
         if (progressView) progressView.classList.remove('hidden');
       } else {
@@ -1667,7 +1693,11 @@ async function initConnection() {
 
 
     function closeUpdateModal() {
-      if (updatePollTimer) clearInterval(updatePollTimer);
+      const activeUpdate = (typeof isUpdateInProgress !== 'undefined' && isUpdateInProgress);
+      if (updatePollTimer && !activeUpdate) {
+        clearInterval(updatePollTimer);
+        updatePollTimer = null;
+      }
       const modal = document.getElementById('modal-updater');
       if (modal) modal.classList.add('hidden');
     }

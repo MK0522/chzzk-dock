@@ -108,6 +108,7 @@ async function resolveChannelId() {
 // ============================================================
 
 var confirmModalResolver = null;
+var confirmModalDismissHandler = null;
 
 function escapeHtml(str) {
   if (typeof str !== 'string') return str;
@@ -189,8 +190,10 @@ function showNoticeModal({
   submessage = '',
   html = '',
   icon = 'ℹ️',
-  buttons = null
+  buttons = null,
+  onDismiss = null
 } = {}) {
+  confirmModalDismissHandler = typeof onDismiss === 'function' ? onDismiss : null;
   const modal = document.getElementById('modal-custom-confirm');
   const elTitle = document.getElementById('confirm-modal-title');
   const elMsg = document.getElementById('confirm-modal-message');
@@ -265,6 +268,11 @@ function showConfirmModal({ title = '확인', message = '', submessage = '', con
 
 window.__resolveConfirmModal = function(val) {
   const modal = document.getElementById('modal-custom-confirm');
+  const dismissFn = confirmModalDismissHandler;
+  confirmModalDismissHandler = null;
+  if (!val && dismissFn) {
+    try { dismissFn(); } catch (_) {}
+  }
   if (modal) modal.classList.add('hidden');
   if (confirmModalResolver) {
     const r = confirmModalResolver;
