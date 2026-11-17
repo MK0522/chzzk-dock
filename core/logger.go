@@ -92,7 +92,7 @@ func (m *MemoryLogger) Log(level LogLevel, format string, args ...interface{}) {
 }
 
 var (
-	currentAppVersion = "v0.6.1"
+	currentAppVersion = "unknown"
 )
 
 // SetAppVersion: 진단 리포트용 앱 버전 설정

@@ -1,4 +1,4 @@
-package main
+﻿package main
 
 import (
 	"embed"
@@ -46,16 +46,37 @@ var embeddedAppIcon []byte
 //go:embed scripts/chzzk_dock_launcher.lua
 var embeddedLauncherScript []byte
 
+//go:embed versioninfo.json
+var embeddedVersionInfo []byte
+
+func loadAppVersionFromEmbed() string {
+	var vi struct {
+		StringFileInfo struct {
+			ProductVersion string `json:"ProductVersion"`
+		} `json:"StringFileInfo"`
+	}
+	if err := json.Unmarshal(embeddedVersionInfo, &vi); err == nil {
+		ver := strings.TrimSpace(vi.StringFileInfo.ProductVersion)
+		if ver != "" {
+			if !strings.HasPrefix(ver, "v") && !strings.HasPrefix(ver, "V") {
+				return "v" + ver
+			}
+			return ver
+		}
+	}
+	return "v0.0.0-dev"
+}
+
 // ============================================================
-//  CHZZK OBS Dock Server v0.6.3-rc3 (Modular Architecture)
+//  CHZZK OBS Dock Server (Modular Architecture)
 // ============================================================
 const (
-	APP_VERSION       = "v0.6.3-rc3"
 	DEFAULT_HTTP_PORT = 8081
 	USER_AGENT        = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 )
 
 var (
+	APP_VERSION = loadAppVersionFromEmbed()
 	activeHttpPort     = DEFAULT_HTTP_PORT
 	isFallbackPort     = false
 	portFallbackReason = ""
@@ -918,6 +939,7 @@ func main() {
 
 	runTray(silentMode)
 }
+
 
 
 

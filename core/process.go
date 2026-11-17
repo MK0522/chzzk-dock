@@ -606,6 +606,9 @@ func InstallLauncherScriptToObs(customDir string, scriptData []byte) (string, er
 	} else {
 		targetDir, _ = DetectObsScriptsDir()
 	}
+	if strings.TrimSpace(targetDir) == "" {
+		return "", fmt.Errorf("OBS scripts 폴더를 찾을 수 없습니다")
+	}
 
 	scriptData = PrepareLauncherScriptWithExePath(scriptData)
 	targetPath := filepath.Join(targetDir, "chzzk_dock_launcher.lua")
