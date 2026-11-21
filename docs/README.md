@@ -7,7 +7,7 @@ OBS Studio 안에서 사용자 브라우저 독(`http://localhost:8081`)을 추�
 | Chzzk OBS Dock | Twitch Info Dock |
 | :---: | :---: |
 | <img src="preview.png" width="380" alt="Chzzk OBS Dock"> | <img src="twitch.jpg" width="380" alt="Twitch Info Dock"> |
-> `v0.6.3` 기준
+> `v0.6.4` 기준
 
 ---
 
