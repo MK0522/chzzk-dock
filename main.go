@@ -217,24 +217,36 @@ func isPublicEndpoint(path, customURL string) bool {
 	return strings.Contains(target, "/auto-complete/") || strings.Contains(target, "/service/") || strings.Contains(target, "/polling/")
 }
 
-// fetchSessionUserStatus: 특정 세션 토큰으로 치지직 사용자 상태 조회
-func fetchSessionUserStatus(aut, ses string) (channelID, channelName, profileImage string, ok bool) {
+// verifySessionUserStatus: 특정 세션 토큰으로 치지직 사용자 상태 검증 및 오류 코드 반환
+func verifySessionUserStatus(aut, ses string) (channelID, channelName, profileImage, errCode, detail string, ok bool) {
 	if aut == "" && ses == "" {
-		return "", "", "", false
+		return "", "", "", core.ErrAuthSessionExpired, "세션 쿠키 없음", false
 	}
 	req, err := http.NewRequest("GET", naverGameApiBaseURL+"/nng_main/v1/user/getUserStatus", nil)
 	if err != nil {
-		return "", "", "", false
+		return "", "", "", core.ErrApiOtherError, fmt.Sprintf("요청 생성 실패: %v", err), false
 	}
 	req.Header.Set("User-Agent", USER_AGENT)
 	req.Header.Set("Cookie", fmt.Sprintf("NID_AUT=%s; NID_SES=%s", aut, ses))
 	req.Header.Set("Origin", "https://chzzk.naver.com")
 	client := &http.Client{Timeout: 4 * time.Second}
 	resp, err := client.Do(req)
-	if err != nil || resp.StatusCode != http.StatusOK {
-		return "", "", "", false
+	if err != nil {
+		return "", "", "", core.ErrApiOtherError, fmt.Sprintf("통신 실패: %v", err), false
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		code := core.ErrApiOtherError
+		switch {
+		case resp.StatusCode == http.StatusUnauthorized:
+			code = core.ErrApiUnauthorized
+		case resp.StatusCode == http.StatusForbidden:
+			code = core.ErrApiPermissionWait
+		case resp.StatusCode >= 500:
+			code = core.ErrApiServerDown
+		}
+		return "", "", "", code, fmt.Sprintf("HTTP %d", resp.StatusCode), false
+	}
 	var res struct {
 		Content struct {
 			LoggedIn        bool   `json:"loggedIn"`
@@ -243,10 +255,19 @@ func fetchSessionUserStatus(aut, ses string) (channelID, channelName, profileIma
 			ProfileImageUrl string `json:"profileImageUrl"`
 		} `json:"content"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil || !res.Content.LoggedIn {
-		return "", "", "", false
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return "", "", "", core.ErrApiOtherError, fmt.Sprintf("응답 파싱 실패: %v", err), false
 	}
-	return res.Content.UserIdHash, res.Content.Nickname, res.Content.ProfileImageUrl, true
+	if !res.Content.LoggedIn {
+		return "", "", "", core.ErrAuthSessionExpired, "loggedIn=false (만료 또는 미인증 세션)", false
+	}
+	return res.Content.UserIdHash, res.Content.Nickname, res.Content.ProfileImageUrl, "", "", true
+}
+
+// fetchSessionUserStatus: 특정 세션 토큰으로 치지직 사용자 상태 조회
+func fetchSessionUserStatus(aut, ses string) (channelID, channelName, profileImage string, ok bool) {
+	channelID, channelName, profileImage, _, _, ok = verifySessionUserStatus(aut, ses)
+	return
 }
 
 // proxyUnofficialRequest: 치지직 비공식 API 프록시 (Rate Limiter 및 세션 헤더 포함)
