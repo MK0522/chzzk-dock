@@ -348,10 +348,22 @@ func (w *webviewStderr) Write(p []byte) (int, error) {
 			return len(p), nil
 		}
 		w.pending = rest
-		if strings.HasPrefix(line, "[Watchdog] ") {
+		line = strings.TrimRight(line, "\r")
+		switch {
+		case strings.HasPrefix(line, "[Watchdog] "):
 			core.LogWarn("%s", line)
+		case strings.Contains(line, "[Webview"),
+			strings.Contains(line, "[Login Webview]"),
+			strings.Contains(line, "[WebView2]"),
+			strings.HasPrefix(line, "Exception "),
+			strings.HasPrefix(line, "panic:"):
+			core.LogError("[Subprocess] %s", line)
 		}
 	}
+}
+
+var newLoginCommand = func(exePath string) *exec.Cmd {
+	return exec.Command(exePath, "--login")
 }
 
 func startWebview(cmd *exec.Cmd) error {
@@ -384,7 +396,7 @@ func handleLoginWebview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cmd := exec.Command(exePath, "--login")
+	cmd := newLoginCommand(exePath)
 	if err := startWebview(cmd); err != nil {
 		webviewLock.Unlock()
 		core.LogError("[HTTP] /login-webview: 로그인 서브프로세스 시작 실패: %v", err)
@@ -395,8 +407,18 @@ func handleLoginWebview(w http.ResponseWriter, r *http.Request) {
 	waitCh := make(chan struct{})
 	webviewWaitCh = waitCh
 	go func() {
-		_ = cmd.Wait()
+		waitErr := cmd.Wait()
+		if waitErr != nil {
+			core.LogError("[HTTP] /login-webview: 로그인 서브프로세스 비정상 종료: %v", waitErr)
+		}
+		webviewLock.Lock()
+		if webviewProcess == cmd {
+			webviewProcess = nil
+		}
+		webviewLock.Unlock()
+		core.InvalidateConfigCache()
 		close(waitCh)
+
 		cfg := core.LoadConfig()
 		if cfg.NidAut != "" && cfg.NidSes != "" {
 			if cid, _, _, ok := fetchSessionUserStatus(cfg.NidAut, cfg.NidSes); ok && cid != "" {
@@ -414,6 +436,10 @@ func handleLoginWebview(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleLoginWait(w http.ResponseWriter, r *http.Request) {
+	// main.go 서버의 WriteTimeout(15초)으로 인해 180초 로그인 대기 중 소켓이 끊기지 않도록 응답 마감 시한 연장
+	rc := http.NewResponseController(w)
+	_ = rc.SetWriteDeadline(time.Now().Add(190 * time.Second))
+
 	webviewLock.Lock()
 	waitCh := webviewWaitCh
 	webviewWaitCh = nil

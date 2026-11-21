@@ -109,12 +109,16 @@ func CredWriteSessions(targetName string, sessions []SessionToken) bool {
 		UserName:           userNamePtr,
 	}
 
-	r1, _, _ := procCredWriteW.Call(
+	r1, _, callErr := procCredWriteW.Call(
 		uintptr(unsafe.Pointer(&cred)),
 		0,
 	)
+	if r1 == 0 {
+		LogError("[Credentials] CredWriteW 실패: %v", callErr)
+		return false
+	}
 
-	return r1 != 0
+	return true
 }
 
 // CredReadSessions: Windows Credential Manager에서 세션 목록 로드 (레거시 단일 객체 감지 및 자동 마이그레이션 지원)

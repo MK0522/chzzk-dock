@@ -113,6 +113,7 @@ const (
 var (
 	activeChromium *edge.Chromium
 	cookieCaptured = false
+	loginURL       = LOGIN_URL
 )
 
 
@@ -161,7 +162,7 @@ func callGetCookies(cm *edge.ICoreWebView2CookieManager, uri string, onDone func
 
 	handlerObj := &cookiesCompletedHandler{onDone: onDone}
 	comPtr := combridge.New[iCoreWebView2GetCookiesCompletedHandler](handlerObj)
-	_ = comPtr // Keep alive for the asynchronous callback
+	defer comPtr.Close()
 
 	vtablePtr := *(*uintptr)(unsafe.Pointer(cm))
 	vtable := (*[10]uintptr)(unsafe.Pointer(vtablePtr))
@@ -173,6 +174,8 @@ func callGetCookies(cm *edge.ICoreWebView2CookieManager, uri string, onDone func
 		uintptr(unsafe.Pointer(uriUTF16)),
 		comPtr.Ref(),
 	)
+	runtime.KeepAlive(uriUTF16)
+	runtime.KeepAlive(comPtr)
 	if hr != 0 {
 		return syscall.Errno(hr)
 	}
@@ -195,7 +198,7 @@ func purgeSessionCookies(cm *edge.ICoreWebView2CookieManager) {
 	}
 }
 
-func inspectCookies(cm *edge.ICoreWebView2CookieManager, listPtr uintptr) (aut, ses string, found bool) {
+func inspectCookies(listPtr uintptr) (aut, ses string, found bool) {
 	if listPtr == 0 {
 		return "", "", false
 	}
@@ -288,28 +291,26 @@ func loginWndProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintp
 
 			cm, err := activeChromium.GetCookieManager()
 			if err == nil && cm != nil {
+				defer cm.Release()
 				handleList := func(listPtr uintptr, err error) {
-					if listPtr == 0 {
+					if err != nil || listPtr == 0 || cookieCaptured {
 						return
 					}
-					// [COM 수명주기 보장] WebView2가 반환한 ICoreWebView2CookieList COM 객체 반납
-					defer func() {
-						vtablePtr := *(*uintptr)(unsafe.Pointer(listPtr))
-						vtable := (*[10]uintptr)(unsafe.Pointer(vtablePtr))
-						syscall.SyscallN(vtable[2], listPtr) // IUnknown::Release
-					}()
-
-					if err != nil || cookieCaptured {
-						return
-					}
-					aut, ses, found := inspectCookies(cm, listPtr)
+					// [HOTFIX-06-01] ICoreWebView2CookieList*는 Invoke의 [in] 파라미터로 WebView2 런타임이 소유하므로
+					// 절대 IUnknown::Release를 호출하지 않는다 (호출 시 이중 해제로 0xC0000005 크래시 발생).
+					aut, ses, found := inspectCookies(listPtr)
 					if found && !cookieCaptured {
 						cookieCaptured = true
-						SaveConfig(map[string]interface{}{
+						saved := SaveConfig(map[string]interface{}{
 							"nid_aut": aut,
 							"nid_ses": ses,
 						})
-						LogInfo("[Webview Login] 세션 쿠키 추출 완료 (NID_AUT, NID_SES) -> 자격 증명 관리자에 저장됨.")
+						if saved.NidAut == "" || saved.NidSes == "" {
+							LogError("[Webview Login] 추출한 세션 쿠키 저장 실패 (Windows 자격 증명 관리자 오류)")
+							fmt.Fprintf(os.Stderr, "[Webview Login] 추출한 세션 쿠키 저장 실패 (Windows 자격 증명 관리자 오류)\n")
+						} else {
+							LogInfo("[Webview Login] 세션 쿠키 추출 완료 (NID_AUT, NID_SES) -> 자격 증명 관리자에 저장됨.")
+						}
 
 						procKillTimer.Call(uintptr(hwnd), TIMER_ID_WV)
 						// 안전하게 창 닫기: 메인 스레드에 WM_CLOSE 포스팅
@@ -483,6 +484,7 @@ func RunLoginWebview() {
 	// [시점 B] 웹뷰 임베딩 직후 이전 세션 쿠키 선별 삭제 (기기 기억 토큰 NID_JST 등은 보존)
 	if cm, err := chromium.GetCookieManager(); err == nil && cm != nil {
 		purgeSessionCookies(cm)
+		cm.Release()
 	}
 
 	chromium.MessageCallback = func(message string, sender *edge.ICoreWebView2, args *edge.ICoreWebView2WebMessageReceivedEventArgs) {
@@ -511,8 +513,8 @@ func RunLoginWebview() {
 	chromium.Init(keepLoginScript)
 	chromium.Init(ExternalLinkGuardScript)
 
-	LogInfo("[Webview Login] 로그인 페이지로 이동: %s", LOGIN_URL)
-	chromium.Navigate(LOGIN_URL)
+	LogInfo("[Webview Login] 로그인 페이지로 이동: %s", loginURL)
+	chromium.Navigate(loginURL)
 
 	// 컨트롤러 가시성 보장 및 포커스 부여 후 부드럽게 윈도우 활성화
 	_ = chromium.Show()
