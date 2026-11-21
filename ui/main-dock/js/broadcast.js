@@ -1030,7 +1030,7 @@ async function initConnection() {
       const replayChecked = document.querySelector('input[name="replayPublishType"]:checked')?.value || 'MANUAL';
       return {
         categoryId: document.getElementById('category-id')?.value || '',
-        categoryType: document.getElementById('category-type')?.value || 'ETC',
+        categoryType: document.getElementById('category-type')?.value || '',
         categorySearch: document.getElementById('category-search')?.value || '',
         adult: document.getElementById('toggle-adult')?.checked ?? false,
         clip: document.getElementById('toggle-clip')?.checked ?? true,
@@ -1346,7 +1346,7 @@ async function initConnection() {
       const lockCat = document.getElementById('lock-category');
       if (preWatchPartySnapshot) {
         if (elCatId) elCatId.value = preWatchPartySnapshot.categoryId || '';
-        if (elCatType) elCatType.value = preWatchPartySnapshot.categoryType || 'ETC';
+        if (elCatType) elCatType.value = preWatchPartySnapshot.categoryType || '';
         if (elCatSearch) elCatSearch.value = preWatchPartySnapshot.categorySearch || preWatchPartySnapshot.categoryId || '';
       }
       if (elCatSearch) elCatSearch.disabled = false;
@@ -1950,8 +1950,8 @@ async function initConnection() {
 
               const cat = content.category || {};
               const catId = cat.categoryId || content.liveCategory || '';
-              const catType = cat.categoryType || content.categoryType || 'ETC';
-              const catValue = cat.categoryValue || catId;
+              const catType = catId ? (cat.categoryType || content.categoryType || 'ETC') : '';
+              const catValue = catId ? (cat.categoryValue || catId) : '';
               document.getElementById('category-id').value = catId;
               document.getElementById('category-type').value = catType;
               const elCatSearch = document.getElementById('category-search');
@@ -2135,8 +2135,8 @@ async function initConnection() {
         let catId = (document.getElementById('category-id')?.value || '').trim();
         let catType = (document.getElementById('category-type')?.value || '').trim();
 
-        // 카테고리 미지정 시 자동 확정 1회 시도 후, 유효하지 않으면 에러 표시 및 저장 중단
-        if (!catId || !catSearchVal) {
+        // 검색어가 입력되어 있는데 카테고리가 미확정인 경우 자동 확정 1회 시도 (빈 값은 "없음"으로 허용)
+        if (catSearchVal && !catId) {
           await autoConfirmOrValidateCategory();
           catSearchVal = (document.getElementById('category-search')?.value || '').trim();
           catId = (document.getElementById('category-id')?.value || '').trim();
@@ -2148,7 +2148,7 @@ async function initConnection() {
           catType = 'ETC';
         }
 
-        if (!catId || !catSearchVal) {
+        if (catSearchVal && !catId) {
           setCategoryErrorState(true);
           showToast('카테고리 지정 필요', 'warn', '정확한 카테고리를 목록에서 선택해 주세요.');
           btn.disabled = false;
@@ -2211,8 +2211,8 @@ async function initConnection() {
         const base = currentLiveSetting.rawContent || {};
         const payloadLive = {
           defaultLiveTitle: title,
-          categoryType: catType,
-          liveCategory: catId,
+          categoryType: catId ? catType : null,
+          liveCategory: catId ? catId : null,
           tags: currentTags || [],
           adult: isWpAdult ? true : targetAdult,
           clipActive: isWpClipFalse ? false : targetClip,
@@ -2505,9 +2505,13 @@ async function initConnection() {
 
 
     function selectCategoryItem(el) {
-      const type = el.getAttribute('data-type') || 'ETC';
       const id = el.getAttribute('data-id') || '';
       const value = el.getAttribute('data-value') || '';
+      if (!id && !value) {
+        clearCategory(true);
+        return;
+      }
+      const type = el.getAttribute('data-type') || 'ETC';
       const drops = el.getAttribute('data-drops') || '';
       selectCategory(type, id, value, drops ? (Number(drops) || drops) : null);
     }
@@ -2587,9 +2591,9 @@ async function initConnection() {
       if (!elSearch) return;
 
       const val = elSearch.value.trim();
-      if (!val) {
+      if (!val || val === '없음') {
         clearCategory();
-        setCategoryErrorState(true);
+        setCategoryErrorState(false);
         return;
       }
       const valLower = val.toLowerCase();
@@ -2640,8 +2644,8 @@ async function initConnection() {
       const elId = document.getElementById('category-id');
       if (!elSearch) return;
       const val = elSearch.value.trim();
-      if (!val) {
-        setCategoryErrorState(true);
+      if (!val || val === '없음') {
+        setCategoryErrorState(false);
       } else if (elId && elId.value && (elSearch.dataset.confirmedValue === val || !elSearch.dataset.confirmedValue)) {
         setCategoryErrorState(false);
       } else {
@@ -2650,10 +2654,17 @@ async function initConnection() {
     }
 
 
-    function clearCategory() {
-      document.getElementById('category-search').value = '';
+    function clearCategory(showNotify = false) {
+      const elSearch = document.getElementById('category-search');
+      if (elSearch) {
+        elSearch.value = '';
+        elSearch.dataset.confirmedValue = '';
+        elSearch.dataset.confirmedId = '';
+      }
       document.getElementById('category-type').value = '';
       document.getElementById('category-id').value = '';
+      const dropdown = document.getElementById('category-dropdown');
+      if (dropdown) dropdown.style.display = 'none';
       document.getElementById('category-clear').style.display = 'none';
 
       currentDropsCampaignNo = null;
@@ -2665,6 +2676,9 @@ async function initConnection() {
       updateCategoryFavoriteToggleUI();
 
       checkBroadcastStateDirty();
+      if (showNotify) {
+        showToast('카테고리: 없음', 'info');
+      }
     }
 
 

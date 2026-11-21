@@ -2255,7 +2255,24 @@
       if (!dropdown) return;
       const favs = getFavoriteCategories();
       const seenIds = new Set();
-      let html = '';
+      let html = `
+        <div class="category-item flex items-center justify-between"
+             data-type=""
+             data-id=""
+             data-value=""
+             data-drops=""
+             onclick="selectCategoryItem(this)">
+          <div class="flex items-center gap-2 min-w-0 flex-1">
+            <div class="w-6 h-6 rounded bg-chzzk-border flex items-center justify-center text-[10px] text-chzzk-muted flex-shrink-0">🚫</div>
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-1.5">
+                <span class="text-slate-300 text-xs font-medium truncate">없음</span>
+              </div>
+              <div class="text-[9px] text-chzzk-muted">카테고리 미지정</div>
+            </div>
+          </div>
+        </div>
+      `;
 
       if (favs.length > 0) {
         html += `

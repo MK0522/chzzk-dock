@@ -49,22 +49,32 @@ var embeddedLauncherScript []byte
 //go:embed versioninfo.json
 var embeddedVersionInfo []byte
 
-func loadAppVersionFromEmbed() string {
+var appVersionLoadErr error
+
+func parseAppVersionFromJSON(raw []byte) (string, error) {
+	raw = bytes.TrimPrefix(raw, []byte{0xEF, 0xBB, 0xBF})
 	var vi struct {
 		StringFileInfo struct {
 			ProductVersion string `json:"ProductVersion"`
 		} `json:"StringFileInfo"`
 	}
-	if err := json.Unmarshal(embeddedVersionInfo, &vi); err == nil {
-		ver := strings.TrimSpace(vi.StringFileInfo.ProductVersion)
-		if ver != "" {
-			if !strings.HasPrefix(ver, "v") && !strings.HasPrefix(ver, "V") {
-				return "v" + ver
-			}
-			return ver
-		}
+	if err := json.Unmarshal(raw, &vi); err != nil {
+		return "v0.0.0-dev", err
 	}
-	return "v0.0.0-dev"
+	ver := strings.TrimSpace(vi.StringFileInfo.ProductVersion)
+	if ver == "" {
+		return "v0.0.0-dev", fmt.Errorf("ProductVersion이 비어 있음")
+	}
+	if !strings.HasPrefix(ver, "v") && !strings.HasPrefix(ver, "V") {
+		return "v" + ver, nil
+	}
+	return ver, nil
+}
+
+func loadAppVersionFromEmbed() string {
+	ver, err := parseAppVersionFromJSON(embeddedVersionInfo)
+	appVersionLoadErr = err
+	return ver
 }
 
 // ============================================================
@@ -868,18 +878,20 @@ func bindServerListener(cliPort int, silentMode bool, user32 *syscall.LazyDLL) n
 		isFallbackPort = true
 		portFallbackReason = fmt.Sprintf("지정 포트(%d)가 '%s'(PID: %d)에 의해 사용 중이어서 안전한 임시 포트(%d)로 자동 전환되었습니다.", targetPort, procName, pid, fallbackPort)
 
+		reasonHeader := fmt.Sprintf("기본 포트(%d)가 다른 프로그램에 의해 사용 중이어서\n", targetPort)
 		occupantLine := fmt.Sprintf("• 점유 프로그램: %s (PID: %d)\n", procName, pid)
 		if pid == 0 {
-			occupantLine = "• 점유 프로그램: 다른 프로그램에서 사용 중\n"
+			reasonHeader = fmt.Sprintf("기본 포트(%d)가 Windows 시스템 예약 포트여서\n", targetPort)
+			occupantLine = "• 원인: Windows 시스템 예약 포트와 충돌\n"
 		}
 		notifyMsg := fmt.Sprintf(
-			"기본 포트(%d)가 다른 프로그램에 의해 사용 중이어서\n"+
+			"%s"+
 				"안전한 임시 포트(%d)로 서버가 시작되었습니다.\n\n"+
 				"%s"+
 				"• 현재 독 주소: http://localhost:%d\n\n"+
 				"OBS 브라우저 독 또는 웹 브라우저에서 위 새 주소로 접속해 주세요.\n"+
 				"(독 설정 화면에서 원하시는 포트로 변경할 수 있습니다.)",
-			targetPort, fallbackPort, occupantLine, fallbackPort,
+			reasonHeader, fallbackPort, occupantLine, fallbackPort,
 		)
 		go showMessageBox("CHZZK OBS Dock - 안내", notifyMsg)
 	}
@@ -912,6 +924,9 @@ func startHttpServer(listener net.Listener) {
 // ============================================================
 func main() {
 	core.SetAppVersion(APP_VERSION)
+	if appVersionLoadErr != nil {
+		core.LogWarn("[Version] versioninfo.json 파싱 실패로 기본 버전(%s) 사용: %v", APP_VERSION, appVersionLoadErr)
+	}
 	core.SetEmbeddedIcon(embeddedAppIcon)
 	core.OnShutdownCallback = exitApp
 	if handleSubcommands() {
