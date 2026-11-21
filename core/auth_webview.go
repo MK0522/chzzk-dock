@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 	"unsafe"
@@ -99,6 +100,9 @@ var (
 
 	// procPostQuitMessage: 로그인 창이 닫힐 때 Win32 메시지 루프에 종료 신호(WM_QUIT)를 전달
 	procPostQuitMessage = user32.NewProc("PostQuitMessage")
+
+	// procPeekMessageW: 동기 쿠키 정리 배리어 대기 중 Win32/COM 메시지 펌핑에 사용
+	procPeekMessageW = user32.NewProc("PeekMessageW")
 )
 
 const (
@@ -111,9 +115,11 @@ const (
 )
 
 var (
-	activeChromium *edge.Chromium
-	cookieCaptured = false
-	loginURL       = LOGIN_URL
+	activeChromium               *edge.Chromium
+	cookieCaptured               = false
+	closeOnce                    sync.Once
+	loginURL                     = LOGIN_URL
+	onLoginWebviewStartedForTest func(*edge.Chromium)
 )
 
 
@@ -182,7 +188,7 @@ func callGetCookies(cm *edge.ICoreWebView2CookieManager, uri string, onDone func
 	return nil
 }
 
-// purgeSessionCookies deletes NID_AUT and NID_SES across all naver domains including top-level .naver.com
+// purgeSessionCookies deletes NID_AUT and NID_SES across naver/chzzk domains while preserving 2FA tokens like NID_JST.
 func purgeSessionCookies(cm *edge.ICoreWebView2CookieManager) {
 	if cm == nil {
 		return
@@ -191,6 +197,7 @@ func purgeSessionCookies(cm *edge.ICoreWebView2CookieManager) {
 		"https://naver.com",
 		"https://nid.naver.com",
 		"https://chzzk.naver.com",
+		"https://studio.chzzk.naver.com",
 	}
 	for _, target := range targets {
 		_ = cm.DeleteCookies("NID_AUT", target)
@@ -198,9 +205,11 @@ func purgeSessionCookies(cm *edge.ICoreWebView2CookieManager) {
 	}
 }
 
-func inspectCookies(listPtr uintptr) (aut, ses string, found bool) {
+// forEachCookieInList iterates over an ICoreWebView2CookieList [in] pointer without releasing listPtr itself,
+// releasing each individual cookie COM object after invoking fn.
+func forEachCookieInList(listPtr uintptr, fn func(name, val string, cookiePtr uintptr)) {
 	if listPtr == 0 {
-		return "", "", false
+		return
 	}
 	vtablePtr := *(*uintptr)(unsafe.Pointer(listPtr))
 	vtable := (*[10]uintptr)(unsafe.Pointer(vtablePtr))
@@ -208,7 +217,7 @@ func inspectCookies(listPtr uintptr) (aut, ses string, found bool) {
 	var count uint32
 	hr, _, _ := syscall.SyscallN(vtable[3], listPtr, uintptr(unsafe.Pointer(&count)))
 	if hr != 0 || count == 0 {
-		return "", "", false
+		return
 	}
 
 	for i := uint32(0); i < count; i++ {
@@ -236,16 +245,126 @@ func inspectCookies(listPtr uintptr) (aut, ses string, found bool) {
 			procCoTaskMemFree.Call(uintptr(unsafe.Pointer(valPtr)))
 		}
 
+		fn(cName, cVal, cookiePtr)
+
+		// Release individual cookie object retrieved via GetValueAtIndex
+		syscall.SyscallN(cookieVtable[2], cookiePtr)
+	}
+}
+
+// deleteSessionCookiesInList deletes NID_AUT and NID_SES cookie objects from listPtr while preserving 2FA tokens (e.g., NID_JST).
+func deleteSessionCookiesInList(cm *edge.ICoreWebView2CookieManager, listPtr uintptr) int {
+	if cm == nil || listPtr == 0 {
+		return 0
+	}
+	deleted := 0
+	forEachCookieInList(listPtr, func(cName, _ string, cookiePtr uintptr) {
+		if cName == "NID_AUT" || cName == "NID_SES" {
+			if err := cm.DeleteCookie((*edge.ICoreWebView2Cookie)(unsafe.Pointer(cookiePtr))); err == nil {
+				deleted++
+			}
+		}
+	})
+	return deleted
+}
+
+// purgeSessionCookiesSync clears NID_AUT/NID_SES both by URI and by direct cookie object deletion,
+// pumping the UI message loop until a verification GetCookies barrier completes or timeout elapses.
+func purgeSessionCookiesSync(cm *edge.ICoreWebView2CookieManager, timeout time.Duration) {
+	if cm == nil {
+		return
+	}
+	purgeSessionCookies(cm)
+
+	deleteTargets := []string{
+		"https://chzzk.naver.com",
+		"https://nid.naver.com",
+		"https://studio.chzzk.naver.com",
+	}
+	verifyTargets := []string{
+		"https://chzzk.naver.com",
+		"https://nid.naver.com",
+	}
+
+	done := false
+	phase2Pending := len(verifyTargets)
+	onVerify := func(listPtr uintptr, err error) {
+		if err == nil && listPtr != 0 {
+			deleteSessionCookiesInList(cm, listPtr)
+		}
+		phase2Pending--
+		if phase2Pending <= 0 {
+			done = true
+		}
+	}
+
+	startVerify := func() {
+		for _, target := range verifyTargets {
+			if err := callGetCookies(cm, target, onVerify); err != nil {
+				phase2Pending--
+			}
+		}
+		if phase2Pending <= 0 {
+			done = true
+		}
+	}
+
+	phase1Pending := len(deleteTargets)
+	onDeleteList := func(listPtr uintptr, err error) {
+		if err == nil && listPtr != 0 {
+			deleteSessionCookiesInList(cm, listPtr)
+		}
+		phase1Pending--
+		if phase1Pending <= 0 {
+			startVerify()
+		}
+	}
+
+	for _, target := range deleteTargets {
+		if err := callGetCookies(cm, target, onDeleteList); err != nil {
+			phase1Pending--
+		}
+	}
+	if phase1Pending <= 0 {
+		startVerify()
+	}
+
+	const (
+		pmRemove = 0x0001
+		wmQuit   = 0x0012
+	)
+	var m MSG
+	deadline := time.Now().Add(timeout)
+	for !done && time.Now().Before(deadline) {
+		drained := false
+		for {
+			ret, _, _ := procPeekMessageW.Call(uintptr(unsafe.Pointer(&m)), 0, 0, 0, pmRemove)
+			if ret == 0 {
+				break
+			}
+			drained = true
+			if m.Message == wmQuit {
+				procPostQuitMessage.Call(m.WParam)
+				return
+			}
+			procTranslateMessage.Call(uintptr(unsafe.Pointer(&m)))
+			procDispatchMessageW.Call(uintptr(unsafe.Pointer(&m)))
+		}
+		if !done && !drained {
+			time.Sleep(10 * time.Millisecond)
+		}
+	}
+}
+
+func inspectCookies(listPtr uintptr) (aut, ses string, found bool) {
+	forEachCookieInList(listPtr, func(cName, cVal string, _ uintptr) {
 		switch cName {
 		case "NID_AUT":
 			aut = cVal
 		case "NID_SES":
 			ses = cVal
 		}
-
-		// Release individual cookie object
-		syscall.SyscallN(cookieVtable[2], cookiePtr)
-	}
+	})
 
 	if aut != "" && ses != "" {
 		return aut, ses, true
@@ -301,6 +420,14 @@ func loginWndProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintp
 					aut, ses, found := inspectCookies(listPtr)
 					if found && !cookieCaptured {
 						cookieCaptured = true
+						procKillTimer.Call(uintptr(hwnd), TIMER_ID_WV)
+
+						postClose := func() {
+							closeOnce.Do(func() {
+								procPostMessageW.Call(uintptr(hwnd), WM_CLOSE_WV, 0, 0)
+							})
+						}
+
 						saved := SaveConfig(map[string]interface{}{
 							"nid_aut": aut,
 							"nid_ses": ses,
@@ -308,13 +435,51 @@ func loginWndProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintp
 						if saved.NidAut == "" || saved.NidSes == "" {
 							LogError("[Webview Login] 추출한 세션 쿠키 저장 실패 (Windows 자격 증명 관리자 오류)")
 							fmt.Fprintf(os.Stderr, "[Webview Login] 추출한 세션 쿠키 저장 실패 (Windows 자격 증명 관리자 오류)\n")
-						} else {
-							LogInfo("[Webview Login] 세션 쿠키 추출 완료 (NID_AUT, NID_SES) -> 자격 증명 관리자에 저장됨.")
+							postClose()
+							return
 						}
+						LogInfo("[Webview Login] 세션 쿠키 추출 완료 (NID_AUT, NID_SES) -> 자격 증명 관리자에 저장됨.")
 
-						procKillTimer.Call(uintptr(hwnd), TIMER_ID_WV)
-						// 안전하게 창 닫기: 메인 스레드에 WM_CLOSE 포스팅
-						procPostMessageW.Call(uintptr(hwnd), WM_CLOSE_WV, 0, 0)
+						// [시점 A] 백엔드 저장 완료 후 웹뷰 프로필에서 세션 쿠키만 선별 파기하고(2차 인증 NID_JST 보존),
+						// 삭제 IPC가 반영된 것을 GetCookies 배리어로 확인한 뒤 창을 닫아 다음 로그인 시 잔류 쿠키 재추출을 방지.
+						cm2, cmErr := activeChromium.GetCookieManager()
+						if cmErr != nil || cm2 == nil {
+							postClose()
+							return
+						}
+						var releaseCm2Once sync.Once
+						releaseCm2 := func() {
+							releaseCm2Once.Do(func() {
+								cm2.Release()
+							})
+						}
+						deleteSessionCookiesInList(cm2, listPtr)
+						purgeSessionCookies(cm2)
+
+						fallbackTimer := time.AfterFunc(1500*time.Millisecond, postClose)
+						cleanupPending := 2
+						onCleanupBarrier := func(bListPtr uintptr, bErr error) {
+							if bErr == nil && bListPtr != 0 {
+								deleteSessionCookiesInList(cm2, bListPtr)
+							}
+							cleanupPending--
+							if cleanupPending <= 0 {
+								fallbackTimer.Stop()
+								releaseCm2()
+								postClose()
+							}
+						}
+						if err1 := callGetCookies(cm2, "https://nid.naver.com", onCleanupBarrier); err1 != nil {
+							cleanupPending--
+						}
+						if err2 := callGetCookies(cm2, "https://chzzk.naver.com", onCleanupBarrier); err2 != nil {
+							cleanupPending--
+						}
+						if cleanupPending <= 0 {
+							fallbackTimer.Stop()
+							releaseCm2()
+							postClose()
+						}
 					}
 				}
 				_ = callGetCookies(cm, "https://chzzk.naver.com", handleList)
@@ -382,6 +547,7 @@ func RunLoginWebview() {
 	}()
 
 	cookieCaptured = false
+	closeOnce = sync.Once{}
 
 	appData := os.Getenv("LOCALAPPDATA")
 	if appData == "" {
@@ -481,9 +647,9 @@ func RunLoginWebview() {
 		os.Exit(1)
 	}
 
-	// [시점 B] 웹뷰 임베딩 직후 이전 세션 쿠키 선별 삭제 (기기 기억 토큰 NID_JST 등은 보존)
+	// [시점 B] 웹뷰 임베딩 직후 이전 세션 쿠키 선별 삭제 및 반영 완료 대기 (기기 기억 토큰 NID_JST 등은 보존)
 	if cm, err := chromium.GetCookieManager(); err == nil && cm != nil {
-		purgeSessionCookies(cm)
+		purgeSessionCookiesSync(cm, 2*time.Second)
 		cm.Release()
 	}
 
@@ -524,6 +690,9 @@ func RunLoginWebview() {
 
 	// 1초마다 로그인 완료 쿠키 감지 타이머 가동
 	procSetTimer.Call(hwnd, TIMER_ID_WV, 1000, 0)
+	if onLoginWebviewStartedForTest != nil {
+		onLoginWebviewStartedForTest(chromium)
+	}
 
 	var m MSG
 	for {
