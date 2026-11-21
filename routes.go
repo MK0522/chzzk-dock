@@ -266,9 +266,9 @@ func handleSwitchSession(w http.ResponseWriter, r *http.Request) {
 		SetCachedActiveChannelId(cid)
 	}
 	if ok && cname != "" {
-		core.LogInfo("[HTTP] 계정 전환 완료 -> 스트리머 '%s' (채널 ID: %s)", cname, cid)
+		core.LogInfo("[Auth] 계정 전환 완료 -> 스트리머 '%s' (채널 ID: %s)", cname, cid)
 	} else {
-		core.LogInfo("[HTTP] 계정 전환 완료 (인덱스: %d)", req.Index)
+		core.LogInfo("[Auth] 계정 전환 완료 (인덱스: %d)", req.Index)
 	}
 	respondOK(w, map[string]any{"code": 200, "message": "계정 전환 완료"})
 }
@@ -376,11 +376,11 @@ func startWebview(cmd *exec.Cmd) error {
 }
 
 func handleLoginWebview(w http.ResponseWriter, r *http.Request) {
-	core.LogInfo("[HTTP] /login-webview 요청 수신")
+	core.LogInfo("[Auth] /login-webview 요청 수신")
 	webviewLock.Lock()
 	if webviewProcess != nil && webviewProcess.ProcessState == nil {
 		webviewLock.Unlock()
-		core.LogWarn("[HTTP] /login-webview: 이미 네이버 로그인 창이 열려 있습니다.")
+		core.LogWarn("[Auth] /login-webview: 이미 네이버 로그인 창이 열려 있습니다.")
 		respondOK(w, map[string]any{
 			"status":  "already_open",
 			"message": "이미 네이버 로그인 창이 열려 있습니다.",
@@ -391,7 +391,7 @@ func handleLoginWebview(w http.ResponseWriter, r *http.Request) {
 	exePath, err := os.Executable()
 	if err != nil {
 		webviewLock.Unlock()
-		core.LogError("[HTTP] /login-webview: 실행 파일 경로 확인 실패: %v", err)
+		core.LogError("[Auth] /login-webview: 실행 파일 경로 확인 실패: %v", err)
 		respondErr(w, http.StatusInternalServerError, "실행 파일 경로를 찾을 수 없습니다.")
 		return
 	}
@@ -399,7 +399,7 @@ func handleLoginWebview(w http.ResponseWriter, r *http.Request) {
 	cmd := newLoginCommand(exePath)
 	if err := startWebview(cmd); err != nil {
 		webviewLock.Unlock()
-		core.LogError("[HTTP] /login-webview: 로그인 서브프로세스 시작 실패: %v", err)
+		core.LogError("[Auth] /login-webview: 로그인 서브프로세스 시작 실패: %v", err)
 		respondErr(w, http.StatusInternalServerError, "로그인 웹뷰를 시작할 수 없습니다.")
 		return
 	}
@@ -409,7 +409,7 @@ func handleLoginWebview(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		waitErr := cmd.Wait()
 		if waitErr != nil {
-			core.LogError("[HTTP] /login-webview: 로그인 서브프로세스 비정상 종료: %v", waitErr)
+			core.LogError("[Auth] /login-webview: 로그인 서브프로세스 비정상 종료: %v", waitErr)
 		}
 		webviewLock.Lock()
 		if webviewProcess == cmd {
@@ -427,7 +427,7 @@ func handleLoginWebview(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 	webviewLock.Unlock()
-	core.LogInfo("[HTTP] /login-webview: 로그인 서브프로세스 시작 완료 (PID: %d)", cmd.Process.Pid)
+	core.LogInfo("[Auth] /login-webview: 로그인 서브프로세스 시작 완료 (PID: %d)", cmd.Process.Pid)
 
 	respondOK(w, map[string]any{
 		"status":  "started",
@@ -448,39 +448,40 @@ func handleLoginWait(w http.ResponseWriter, r *http.Request) {
 	if waitCh == nil {
 		core.InvalidateConfigCache()
 		cfg := core.LoadConfig()
-		if cfg.NidAut != "" && cfg.NidSes != "" {
-			respondOK(w, map[string]any{
-				"status": "completed",
-				"config": map[string]string{
-					"nid_aut": "••••••••••••••••••••••••••••••••",
-					"nid_ses": "••••••••••••••••••••••••••••••••",
-				},
-			})
-		} else {
+		if cfg.NidAut == "" || cfg.NidSes == "" {
 			respondOK(w, map[string]any{
 				"status":  "closed",
 				"message": "로그인 창이 열려있지 않습니다.",
 			})
+			return
 		}
-		return
+	} else {
+		core.LogInfo("[Auth] /login-wait 대기 시작")
+		select {
+		case <-waitCh:
+			core.LogInfo("[Auth] /login-wait: 로그인 프로세스 종료 감지")
+		case <-time.After(180 * time.Second):
+			core.LogWarn("[Auth] /login-wait: 180초 대기 타임아웃")
+		}
+		core.InvalidateConfigCache()
 	}
 
-	core.LogInfo("[HTTP] /login-wait 대기 시작")
-	select {
-	case <-waitCh:
-		core.LogInfo("[HTTP] /login-wait: 로그인 프로세스 종료 감지")
-	case <-time.After(180 * time.Second):
-		core.LogWarn("[HTTP] /login-wait: 180초 대기 타임아웃")
-	}
-
-	core.InvalidateConfigCache()
 	cfg := core.LoadConfig()
 	if cfg.NidAut != "" && cfg.NidSes != "" {
-		cid, cname, _, ok := fetchSessionUserStatus(cfg.NidAut, cfg.NidSes)
-		if ok && cname != "" {
-			core.LogInfo("[HTTP] /login-wait: 네이버 로그인 연동 성공 -> 스트리머 '%s' (채널 ID: %s)", cname, cid)
+		cid, cname, _, errCode, detail, ok := verifySessionUserStatus(cfg.NidAut, cfg.NidSes)
+		if !ok {
+			core.LogWarn("[Auth] [%s] /login-wait: 세션 검증 실패 (%s)", errCode, detail)
+			respondOK(w, map[string]any{
+				"status":     "invalid_session",
+				"error_code": errCode,
+				"message":    fmt.Sprintf("로그인 상태를 확인할 수 없습니다. 잠시 후 다시 시도하거나 문제가 계속되면 로그를 전달해 주세요. (오류 코드: %s)", errCode),
+			})
+			return
+		}
+		if cname != "" {
+			core.LogInfo("[Auth] /login-wait: 네이버 로그인 연동 성공 -> 스트리머 '%s' (채널 ID: %s)", cname, cid)
 		} else {
-			core.LogInfo("[HTTP] /login-wait: 네이버 로그인 세션 쿠키 연동 성공")
+			core.LogInfo("[Auth] /login-wait: 네이버 로그인 세션 쿠키 연동 성공")
 		}
 		respondOK(w, map[string]any{
 			"status": "completed",
@@ -490,7 +491,7 @@ func handleLoginWait(w http.ResponseWriter, r *http.Request) {
 			},
 		})
 	} else {
-		core.LogWarn("[HTTP] /login-wait: 쿠키 미취득 상태로 창 닫힘")
+		core.LogWarn("[Auth] /login-wait: 쿠키 미취득 상태로 창 닫힘")
 		respondOK(w, map[string]any{
 			"status":  "closed",
 			"message": "로그인 창이 닫혔습니다.",
@@ -745,7 +746,7 @@ func startToolWebview(mode, channelID string) error {
 
 func handleRemoteWebview(w http.ResponseWriter, r *http.Request) {
 	channelId := resolveChannelIdFromRequest(r)
-	core.LogInfo("[HTTP] /remote-webview 요청 수신 (channelId: %s)", channelId)
+	core.LogInfo("[Remote] /remote-webview 요청 수신 (channelId: %s)", channelId)
 	if core.BringRemoteWindowToFront() {
 		respondOK(w, map[string]any{
 			"status":  "started",
@@ -754,7 +755,7 @@ func handleRemoteWebview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := startToolWebview("--remote", channelId); err != nil {
-		core.LogError("[HTTP] /remote-webview start failed: %v", err)
+		core.LogError("[Remote] /remote-webview start failed: %v", err)
 		respondErr(w, http.StatusInternalServerError, "리모컨 창을 시작할 수 없습니다.")
 		return
 	}
@@ -763,7 +764,7 @@ func handleRemoteWebview(w http.ResponseWriter, r *http.Request) {
 
 func handleChatWebview(w http.ResponseWriter, r *http.Request) {
 	channelId := resolveChannelIdFromRequest(r)
-	core.LogInfo("[HTTP] /chat-webview 요청 수신 (channelId: %s)", channelId)
+	core.LogInfo("[Chat] /chat-webview 요청 수신 (channelId: %s)", channelId)
 	if core.BringChatWindowToFront() {
 		respondOK(w, map[string]any{
 			"status":  "started",
@@ -772,7 +773,7 @@ func handleChatWebview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := startToolWebview("--chat", channelId); err != nil {
-		core.LogError("[HTTP] /chat-webview start failed: %v", err)
+		core.LogError("[Chat] /chat-webview start failed: %v", err)
 		respondErr(w, http.StatusInternalServerError, "채팅 창을 시작할 수 없습니다.")
 		return
 	}

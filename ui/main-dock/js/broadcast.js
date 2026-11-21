@@ -1770,7 +1770,10 @@ async function initConnection() {
           // 세션 완료 여부 다중 체크 (status === 'completed' 또는 쿠키 직접 보유)
           const hasCookies = Boolean(waitData.config && waitData.config.nid_aut && waitData.config.nid_ses);
 
-          if (waitData.status === 'completed' || hasCookies) {
+          if (waitData.status === 'invalid_session') {
+            const code = waitData.error_code ? `[${waitData.error_code}] ` : '';
+            showToast('⚠️ 로그인 상태 확인 실패', 'warn', waitData.message || `${code}로그인 상태를 확인할 수 없습니다. 잠시 후 다시 시도하거나 문제가 계속되면 로그를 전달해 주세요.`);
+          } else if (waitData.status === 'completed' || hasCookies) {
             serverConfig = waitData.config || (await (await apiFetch('/config')).json());
             const cid = await updateConnectionStatus();
             if (cid) {
