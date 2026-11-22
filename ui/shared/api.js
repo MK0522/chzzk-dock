@@ -113,5 +113,60 @@ const chzzkApi = {
   saveAppSettings: (patch) => apiFetch('/app-settings', {
     method: 'PUT',
     body: JSON.stringify(patch)
+  }),
+
+  // --- [6. 리모컨 & 파티 관리] ---
+  getRemoteState: () => apiFetch('/chzzkdock/remote/state'),
+  getRemoteFeeds: (typeFilters = '', size = 20) => apiFetch(
+    `/chzzkdock/remote/feeds?size=${encodeURIComponent(size)}${typeFilters ? '&typeFilters=' + encodeURIComponent(typeFilters) : ''}`
+  ),
+  setRemotePause: (active) => apiFetch('/chzzkdock/remote/pause', {
+    method: 'PUT',
+    body: JSON.stringify({ active: !!active })
+  }),
+  setRemoteVolume: (target, volume) => apiFetch('/chzzkdock/remote/volume', {
+    method: 'PATCH',
+    body: JSON.stringify({ target, volume: Number(volume) })
+  }),
+  sendRemoteCommand: (command, donationId = '', newsFeedNo = null) => apiFetch('/chzzkdock/remote/command', {
+    method: 'POST',
+    body: JSON.stringify({ command, donationId, newsFeedNo })
+  }),
+  postponeAd: () => apiFetch('/chzzkdock/remote/ad/postpone', {
+    method: 'POST',
+    body: JSON.stringify({})
+  }),
+  settleMission: (outcome, missionDonationId) => apiFetch(
+    `/chzzkdock/remote/mission/${encodeURIComponent(outcome)}?missionDonationId=${encodeURIComponent(missionDonationId)}`,
+    { method: 'PUT' }
+  ),
+  getParty: () => apiFetch('/chzzkdock/remote/party'),
+  createParty: (partyName) => apiFetch('/chzzkdock/remote/party', {
+    method: 'POST',
+    body: JSON.stringify({ partyName })
+  }),
+  renameParty: (partyName) => apiFetch('/chzzkdock/remote/party/name', {
+    method: 'PUT',
+    body: JSON.stringify({ partyName })
+  }),
+  getPartyToken: (partyNo) => apiFetch(`/chzzkdock/remote/party/token?partyNo=${encodeURIComponent(partyNo)}`),
+  reissuePartyToken: (partyNo) => apiFetch(`/chzzkdock/remote/party/token?partyNo=${encodeURIComponent(partyNo)}`, {
+    method: 'PATCH'
+  }),
+  joinParty: (token) => apiFetch('/chzzkdock/remote/party/join', {
+    method: 'POST',
+    body: JSON.stringify({ token })
+  }),
+  leaveParty: (partyNo) => apiFetch('/chzzkdock/remote/party/leave', {
+    method: 'POST',
+    body: JSON.stringify({ partyNo })
+  }),
+  endParty: (status = '') => apiFetch('/chzzkdock/remote/party/end', {
+    method: 'POST',
+    body: JSON.stringify({ status })
+  }),
+  openChannelLive: (channelId) => apiFetch('/chzzkdock/open-channel', {
+    method: 'POST',
+    body: JSON.stringify({ channelId })
   })
 };

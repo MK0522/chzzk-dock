@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"os"
@@ -208,15 +207,6 @@ func setCORSHeaders(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// isPublicEndpoint: 쿠키 값 없이 작동 가능한 공개 API 경로인지 판별
-func isPublicEndpoint(path, customURL string) bool {
-	target := path
-	if customURL != "" {
-		target = customURL
-	}
-	return strings.Contains(target, "/auto-complete/") || strings.Contains(target, "/service/") || strings.Contains(target, "/polling/")
-}
-
 // verifySessionUserStatus: 특정 세션 토큰으로 치지직 사용자 상태 검증 및 오류 코드 반환
 func verifySessionUserStatus(aut, ses string) (channelID, channelName, profileImage, errCode, detail string, ok bool) {
 	if aut == "" && ses == "" {
@@ -269,184 +259,6 @@ func fetchSessionUserStatus(aut, ses string) (channelID, channelName, profileIma
 	channelID, channelName, profileImage, _, _, ok = verifySessionUserStatus(aut, ses)
 	return
 }
-
-// proxyUnofficialRequest: 치지직 비공식 API 프록시 (Rate Limiter 및 세션 헤더 포함)
-func proxyUnofficialRequest(w http.ResponseWriter, r *http.Request, method, path string, body []byte, customURL string) {
-	isPublic := isPublicEndpoint(path, customURL)
-
-	cfg := core.LoadConfig()
-	nidAut := cfg.NidAut
-	nidSes := cfg.NidSes
-
-	// 쿠키가 필요한 엔드포인트인데 NID_AUT만 있고 NID_SES가 누락된 경우 즉시 자동 갱신 시도
-	if !isPublic && nidAut != "" && nidSes == "" {
-		if _, newSes, err := core.RefreshNaverSession(nidAut); err == nil && newSes != "" {
-			cfg = core.LoadConfig()
-			nidAut = cfg.NidAut
-			nidSes = cfg.NidSes
-		}
-	}
-
-	// 쿠키가 필요한 엔드포인트인 경우에만 로그인 쿠키 검증
-	if !isPublic && (nidAut == "" || nidSes == "") {
-		sendJSON(w, map[string]interface{}{
-			"code":    401,
-			"message": "네이버 로그인 쿠키가 설정되지 않았습니다. 독 설정에서 로그인하세요.",
-		}, http.StatusUnauthorized)
-		return
-	}
-
-	var targetURL string
-	if customURL != "" {
-		targetURL = customURL
-	} else if strings.HasPrefix(path, "/manage/") || strings.HasPrefix(path, "/service/") || strings.HasPrefix(path, "/polling/") {
-		targetURL = chzzkApiBaseURL + path
-	} else {
-		targetURL = chzzkApiBaseURL + "/manage/v1" + path
-	}
-
-	// [LEG-01] 3초 Rate Limiting 인메모리 캐시 조회
-	if cached, found := core.GetCachedApiResponse(method, targetURL); found {
-		sendBytes(w, cached.Body, cached.Status, cached.ContentType)
-		return
-	}
-
-	var bodyReader io.Reader
-	if len(body) > 0 {
-		bodyReader = bytes.NewReader(body)
-	}
-
-	req, err := http.NewRequest(method, targetURL, bodyReader)
-	if err != nil {
-		sendJSON(w, map[string]interface{}{"code": 502, "message": "프록시 요청 생성 실패"}, http.StatusBadGateway)
-		return
-	}
-
-	req.Header.Set("User-Agent", USER_AGENT)
-	if len(body) > 0 {
-		req.Header.Set("Content-Type", "application/json")
-	}
-
-	// 쿠키 값 없이 작동 가능한 엔드포인트는 Cookie, Origin, Referer 등 불필요한 헤더를 첨부하지 않음
-	if !isPublic && nidAut != "" && nidSes != "" {
-		req.Header.Set("Cookie", fmt.Sprintf("NID_AUT=%s; NID_SES=%s", nidAut, nidSes))
-		req.Header.Set("Origin", "https://chzzk.naver.com")
-		req.Header.Set("Referer", "https://chzzk.naver.com/")
-	}
-
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		sendJSON(w, map[string]interface{}{"code": 502, "message": "프록시 요청 실패"}, http.StatusBadGateway)
-		return
-	}
-	defer resp.Body.Close()
-
-	respBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		sendJSON(w, map[string]interface{}{"code": 502, "message": "프록시 응답 읽기 실패"}, http.StatusBadGateway)
-		return
-	}
-
-	contentType := resp.Header.Get("Content-Type")
-	if contentType == "" {
-		contentType = "application/json"
-	}
-
-	// 401 Unauthorized이거나 /unofficial-user에서 loggedIn: false가 반환된 경우, NID_AUT로 1회 무중단 자동 갱신 및 재시도
-	isUserStatusLoggedOut := false
-	if !isPublic && resp.StatusCode == http.StatusOK && strings.Contains(targetURL, "getUserStatus") {
-		var statusResp struct {
-			Content struct {
-				LoggedIn bool `json:"loggedIn"`
-			} `json:"content"`
-		}
-		if err := json.Unmarshal(respBytes, &statusResp); err == nil && !statusResp.Content.LoggedIn {
-			isUserStatusLoggedOut = true
-		}
-	}
-
-	if !isPublic && nidAut != "" && (resp.StatusCode == http.StatusUnauthorized || isUserStatusLoggedOut) {
-		core.LogWarn("[Auth] 네이버 세션 만료 감지 (HTTP %d, loggedOut=%v). NID_AUT 기반 자동 갱신 시도...", resp.StatusCode, isUserStatusLoggedOut)
-		if _, newSes, err := core.RefreshNaverSession(nidAut); err == nil && newSes != "" {
-			cfg = core.LoadConfig()
-			nidAut = cfg.NidAut
-			nidSes = cfg.NidSes
-
-			var retryBodyReader io.Reader
-			if len(body) > 0 {
-				retryBodyReader = bytes.NewReader(body)
-			}
-			retryReq, rErr := http.NewRequest(method, targetURL, retryBodyReader)
-			if rErr == nil {
-				retryReq.Header.Set("User-Agent", USER_AGENT)
-				if len(body) > 0 {
-					retryReq.Header.Set("Content-Type", "application/json")
-				}
-				retryReq.Header.Set("Cookie", fmt.Sprintf("NID_AUT=%s; NID_SES=%s", nidAut, nidSes))
-				retryReq.Header.Set("Origin", "https://chzzk.naver.com")
-				retryReq.Header.Set("Referer", "https://chzzk.naver.com/")
-
-				if retryResp, doErr := httpClient.Do(retryReq); doErr == nil {
-					defer retryResp.Body.Close()
-					if retryBytes, readErr := io.ReadAll(retryResp.Body); readErr == nil {
-						core.LogInfo("[Auth] 세션 자동 갱신 후 재요청 성공 (HTTP %d)", retryResp.StatusCode)
-						respBytes = retryBytes
-						resp.StatusCode = retryResp.StatusCode
-						contentType = retryResp.Header.Get("Content-Type")
-						if contentType == "" {
-							contentType = "application/json"
-						}
-					}
-				}
-			}
-		} else {
-			core.LogWarn("[Auth] 네이버 세션 자동 갱신 실패: %v", err)
-			core.InvalidateConfigCache()
-		}
-	}
-
-	// 200~299 정상 응답은 에러 로그를 남기지 않으며, 400 이상 비정상 응답만 도메인 에러 코드로 기록
-	if resp.StatusCode >= 400 {
-		var errCode string
-		switch resp.StatusCode {
-		case 401:
-			errCode = core.ErrApiUnauthorized
-		case 403:
-			errCode = core.ErrApiPermissionWait
-		case 500, 502, 503, 504:
-			errCode = core.ErrApiServerDown
-		default:
-			errCode = core.ErrApiOtherError
-		}
-		errSummary := strings.TrimSpace(string(respBytes))
-		if len(errSummary) > 120 {
-			errSummary = errSummary[:120] + "..."
-		}
-		core.LogError("[Proxy %s %s] [%s] 치지직 API 오류 (%d): %s", method, targetURL, errCode, resp.StatusCode, errSummary)
-	}
-
-	core.SetCachedApiResponse(method, targetURL, respBytes, resp.StatusCode, contentType)
-	sendBytes(w, respBytes, resp.StatusCode, contentType)
-}
-
-func proxyDispatch(w http.ResponseWriter, r *http.Request, method string) bool {
-	path := r.URL.Path
-	if strings.HasPrefix(path, "/unofficial/") {
-		target := strings.TrimPrefix(path, "/unofficial")
-		if r.URL.RawQuery != "" {
-			target += "?" + r.URL.RawQuery
-		}
-		var body []byte
-		if r.Body != nil {
-			body, _ = io.ReadAll(r.Body)
-		}
-		proxyUnofficialRequest(w, r, method, target, body, "")
-		return true
-	}
-	return false
-}
-
-
 
 // ============================================================
 //  시스템 트레이 및 앱 생명주기 관리

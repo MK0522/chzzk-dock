@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -1481,4 +1482,741 @@ func handleChzzkDropsMatchGet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respondOK(w, res)
+}
+
+// ============================================================
+//  [FEAT-01] 리모컨 · 파티 · 멤버 채널 열기 BFF 핸들러
+// ============================================================
+
+var (
+	openBrowserFn   = core.OpenBrowser
+	partyTokenRegex = regexp.MustCompile(`^[a-zA-Z0-9_-]{4,128}$`)
+)
+
+func extractChzzkMessage(data []byte, fallback string) string {
+	var errRes struct {
+		Message string `json:"message"`
+	}
+	if json.Unmarshal(data, &errRes) == nil && strings.TrimSpace(errRes.Message) != "" {
+		return errRes.Message
+	}
+	return fallback
+}
+
+func callChzzkChecked(w http.ResponseWriter, method, path string, bodyBytes []byte, fallbackErr string) (int, []byte, bool) {
+	status, data, err := callChzzk(method, path, bodyBytes, true)
+	if err != nil {
+		respondErr(w, http.StatusBadGateway, fallbackErr)
+		return status, data, false
+	}
+	if status >= 400 {
+		respondErr(w, status, extractChzzkMessage(data, fallbackErr))
+		return status, data, false
+	}
+	return status, data, true
+}
+
+func handleChzzkRemoteStateGet(w http.ResponseWriter, r *http.Request) {
+	cid, err := resolveChzzkChannelId(r)
+	if err != nil {
+		respondErr(w, http.StatusUnauthorized, err.Error())
+		return
+	}
+
+	var (
+		paused              bool
+		videoDonationActive = true
+		ttsVol              = 70
+		videoVol            = 70
+		chatAlertVol        = 70
+		videoAlertVol       = 70
+		missionAlertVol     = 70
+		unauthCount         int
+		mu                  sync.Mutex
+		wg                  sync.WaitGroup
+	)
+
+	fetchJSON := func(subPath string, fn func(content []byte)) {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			status, data, callErr := callChzzk("GET", fmt.Sprintf("/manage/v1/channels/%s/%s", cid, subPath), nil, true)
+			if status == http.StatusUnauthorized {
+				mu.Lock()
+				unauthCount++
+				mu.Unlock()
+				return
+			}
+			if callErr != nil || status != http.StatusOK {
+				return
+			}
+			var wrap struct {
+				Content json.RawMessage `json:"content"`
+			}
+			if json.Unmarshal(data, &wrap) == nil && len(wrap.Content) > 0 && string(wrap.Content) != "null" {
+				mu.Lock()
+				fn(wrap.Content)
+				mu.Unlock()
+			}
+		}()
+	}
+
+	fetchJSON("donations/pause-active", func(c []byte) {
+		var v struct {
+			Active bool `json:"active"`
+		}
+		if json.Unmarshal(c, &v) == nil {
+			paused = v.Active
+		}
+	})
+	fetchJSON("donations/chat-alert-setting", func(c []byte) {
+		var v struct {
+			TtsVolume   *int `json:"ttsVolume"`
+			AlertVolume *int `json:"alertVolume"`
+		}
+		if json.Unmarshal(c, &v) == nil {
+			if v.TtsVolume != nil {
+				ttsVol = *v.TtsVolume
+			}
+			if v.AlertVolume != nil {
+				chatAlertVol = *v.AlertVolume
+			}
+		}
+	})
+	fetchJSON("donations/video-alert-setting", func(c []byte) {
+		var v struct {
+			VideoVolume *int `json:"videoVolume"`
+			AlertVolume *int `json:"alertVolume"`
+		}
+		if json.Unmarshal(c, &v) == nil {
+			if v.VideoVolume != nil {
+				videoVol = *v.VideoVolume
+			}
+			if v.AlertVolume != nil {
+				videoAlertVol = *v.AlertVolume
+			}
+		}
+	})
+	fetchJSON("donations/mission-alert-setting", func(c []byte) {
+		var v struct {
+			AlertVolume *int `json:"alertVolume"`
+		}
+		if json.Unmarshal(c, &v) == nil && v.AlertVolume != nil {
+			missionAlertVol = *v.AlertVolume
+		}
+	})
+	fetchJSON("donations/video-setting", func(c []byte) {
+		var v struct {
+			DonationActive *bool `json:"donationActive"`
+		}
+		if json.Unmarshal(c, &v) == nil && v.DonationActive != nil {
+			videoDonationActive = *v.DonationActive
+		}
+	})
+
+	wg.Wait()
+	if unauthCount == 5 {
+		respondErr(w, http.StatusUnauthorized, "네이버 세션이 만료되었습니다.")
+		return
+	}
+
+	respondOK(w, map[string]any{
+		"paused":              paused,
+		"videoDonationActive": videoDonationActive,
+		"volumes": map[string]int{
+			"tts":          ttsVol,
+			"video":        videoVol,
+			"chatAlert":    chatAlertVol,
+			"videoAlert":   videoAlertVol,
+			"missionAlert": missionAlertVol,
+		},
+	})
+}
+
+func handleChzzkRemoteFeedsGet(w http.ResponseWriter, r *http.Request) {
+	cid, err := resolveChzzkChannelId(r)
+	if err != nil {
+		respondErr(w, http.StatusUnauthorized, err.Error())
+		return
+	}
+
+	size := 20
+	if rawSize := strings.TrimSpace(r.URL.Query().Get("size")); rawSize != "" {
+		if parsed, convErr := strconv.Atoi(rawSize); convErr == nil && parsed > 0 && parsed <= 100 {
+			size = parsed
+		}
+	}
+	typeFilters := strings.TrimSpace(r.URL.Query().Get("typeFilters"))
+
+	path := fmt.Sprintf("/manage/v1/channels/%s/news-feeds?size=%d", cid, size)
+	if typeFilters != "" {
+		path += "&typeFilters=" + url.QueryEscape(typeFilters)
+	}
+
+	_, data, ok := callChzzkChecked(w, "GET", path, nil, "알림 피드 조회 실패")
+	if !ok {
+		return
+	}
+
+	var raw struct {
+		Content json.RawMessage `json:"content"`
+	}
+	feeds := []json.RawMessage{}
+	if json.Unmarshal(data, &raw) == nil && len(raw.Content) > 0 && string(raw.Content) != "null" {
+		var paged struct {
+			Data []json.RawMessage `json:"data"`
+		}
+		if json.Unmarshal(raw.Content, &paged) == nil && paged.Data != nil {
+			feeds = paged.Data
+		} else {
+			var direct []json.RawMessage
+			if json.Unmarshal(raw.Content, &direct) == nil && direct != nil {
+				feeds = direct
+			}
+		}
+	}
+
+	respondOK(w, map[string]any{"feeds": feeds})
+}
+
+func handleChzzkRemotePausePut(w http.ResponseWriter, r *http.Request) {
+	cid, err := resolveChzzkChannelId(r)
+	if err != nil {
+		respondErr(w, http.StatusUnauthorized, err.Error())
+		return
+	}
+	var req struct {
+		Active bool `json:"active"`
+	}
+	if !bindJSON(w, r, &req) {
+		return
+	}
+
+	body, _ := json.Marshal(map[string]bool{"active": req.Active})
+	path := fmt.Sprintf("/manage/v1/channels/%s/donations/pause-active", cid)
+	if _, _, ok := callChzzkChecked(w, "PUT", path, body, "알림 정지/재개 변경 실패"); !ok {
+		return
+	}
+	respondOK(w, map[string]any{"paused": req.Active})
+}
+
+func handleChzzkRemoteVolumePatch(w http.ResponseWriter, r *http.Request) {
+	cid, err := resolveChzzkChannelId(r)
+	if err != nil {
+		respondErr(w, http.StatusUnauthorized, err.Error())
+		return
+	}
+	var req struct {
+		Target string `json:"target"`
+		Volume int    `json:"volume"`
+	}
+	if !bindJSON(w, r, &req) {
+		return
+	}
+
+	vol := req.Volume
+	if vol < 0 {
+		vol = 0
+	} else if vol > 100 {
+		vol = 100
+	}
+
+	target := strings.ToUpper(strings.TrimSpace(req.Target))
+	var endpoint, field string
+	var isChatAlert bool
+	switch target {
+	case "TTS":
+		endpoint, field, isChatAlert = "chat-alert-setting", "ttsVolume", true
+	case "CHAT":
+		endpoint, field, isChatAlert = "chat-alert-setting", "alertVolume", true
+	case "VIDEO":
+		endpoint, field = "video-alert-setting", "videoVolume"
+	case "VIDEO_ALERT":
+		endpoint, field = "video-alert-setting", "alertVolume"
+	case "MISSION":
+		endpoint, field = "mission-alert-setting", "alertVolume"
+	default:
+		respondErr(w, http.StatusBadRequest, "지원하지 않는 볼륨 대상입니다.")
+		return
+	}
+
+	path := fmt.Sprintf("/manage/v1/channels/%s/donations/%s", cid, endpoint)
+	_, getData, ok := callChzzkChecked(w, "GET", path, nil, "볼륨 설정 조회 실패")
+	if !ok {
+		return
+	}
+
+	var raw struct {
+		Content map[string]any `json:"content"`
+	}
+	if err := json.Unmarshal(getData, &raw); err != nil || raw.Content == nil {
+		respondErr(w, http.StatusBadGateway, "볼륨 설정 파싱 실패")
+		return
+	}
+
+	payload := raw.Content
+	payload[field] = vol
+	if isChatAlert {
+		if _, exists := payload["blockTtsSpeakerTypes"]; !exists {
+			if list, ok := payload["blockTtsList"]; ok && list != nil {
+				payload["blockTtsSpeakerTypes"] = list
+			} else {
+				payload["blockTtsSpeakerTypes"] = []string{}
+			}
+		}
+		delete(payload, "blockTtsList")
+	}
+
+	patchBody, _ := json.Marshal(payload)
+	if _, _, ok := callChzzkChecked(w, "PATCH", path, patchBody, "볼륨 설정 저장 실패"); !ok {
+		return
+	}
+	respondOK(w, map[string]any{"target": target, "volume": vol})
+}
+
+func handleChzzkRemoteCommandPost(w http.ResponseWriter, r *http.Request) {
+	cid, err := resolveChzzkChannelId(r)
+	if err != nil {
+		respondErr(w, http.StatusUnauthorized, err.Error())
+		return
+	}
+	var req struct {
+		Command    string `json:"command"`
+		DonationID string `json:"donationId"`
+		NewsFeedNo any    `json:"newsFeedNo"`
+	}
+	if !bindJSON(w, r, &req) {
+		return
+	}
+
+	cmd := strings.ToUpper(strings.TrimSpace(req.Command))
+	var subPath string
+	switch cmd {
+	case "DONATION_TTS_REPLAY", "SUBSCRIPTION_TTS_REPLAY":
+		subPath = "tts/replay-command"
+	case "SKIP", "PLAY", "STOP", "IGNORE":
+		subPath = "donations/command"
+	default:
+		respondErr(w, http.StatusBadRequest, "지원하지 않는 리모컨 명령입니다.")
+		return
+	}
+
+	payload := map[string]any{"command": cmd}
+	if strings.TrimSpace(req.DonationID) != "" {
+		payload["donationId"] = strings.TrimSpace(req.DonationID)
+	}
+	if req.NewsFeedNo != nil {
+		payload["newsFeedNo"] = req.NewsFeedNo
+	}
+
+	body, _ := json.Marshal(payload)
+	path := fmt.Sprintf("/manage/v1/channels/%s/%s", cid, subPath)
+	if _, _, ok := callChzzkChecked(w, "POST", path, body, "리모컨 명령 전송 실패"); !ok {
+		return
+	}
+	respondOK(w, map[string]any{"status": "ok", "command": cmd})
+}
+
+func handleChzzkRemoteAdPostponePost(w http.ResponseWriter, r *http.Request) {
+	cid, err := resolveChzzkChannelId(r)
+	if err != nil {
+		respondErr(w, http.StatusUnauthorized, err.Error())
+		return
+	}
+	path := fmt.Sprintf("/manage/v2/channels/%s/live-ad-schedule/postpone", cid)
+	if _, _, ok := callChzzkChecked(w, "POST", path, nil, "중간 광고 미루기 실패"); !ok {
+		return
+	}
+	respondOK(w, map[string]any{"status": "ok"})
+}
+
+func handleChzzkRemoteMissionSettlePut(outcome string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		cid, err := resolveChzzkChannelId(r)
+		if err != nil {
+			respondErr(w, http.StatusUnauthorized, err.Error())
+			return
+		}
+		missionID := strings.TrimSpace(r.URL.Query().Get("missionDonationId"))
+		if missionID == "" && r.Body != nil {
+			var req struct {
+				MissionDonationID string `json:"missionDonationId"`
+			}
+			if json.NewDecoder(r.Body).Decode(&req) == nil {
+				missionID = strings.TrimSpace(req.MissionDonationID)
+			}
+		}
+		if missionID == "" {
+			respondErr(w, http.StatusBadRequest, "미션 ID가 필요합니다.")
+			return
+		}
+
+		path := fmt.Sprintf("/manage/v1/channels/%s/donations/mission/%s?missionDonationId=%s", cid, outcome, url.QueryEscape(missionID))
+		if _, _, ok := callChzzkChecked(w, "PUT", path, nil, "미션 판정 처리 실패"); !ok {
+			return
+		}
+		respondOK(w, map[string]any{"status": "ok", "outcome": outcome})
+	}
+}
+
+type chzzkPartyMemberRaw struct {
+	PartyMemberNo   int64  `json:"partyMemberNo"`
+	Type            string `json:"type"`
+	ChannelID       string `json:"channelId"`
+	ChannelImageURL string `json:"channelImageUrl"`
+	ChannelName     string `json:"channelName"`
+	VerifiedMark    bool   `json:"verifiedMark"`
+}
+
+type CleanPartyMember struct {
+	PartyMemberNo   int64  `json:"partyMemberNo"`
+	ChannelID       string `json:"channelId"`
+	ChannelImageURL string `json:"channelImageUrl"`
+	ChannelName     string `json:"channelName"`
+	VerifiedMark    bool   `json:"verifiedMark"`
+	IsHost          bool   `json:"isHost"`
+	IsMe            bool   `json:"isMe"`
+}
+
+func extractInviteTokenFromContent(data []byte) string {
+	var raw struct {
+		Content json.RawMessage `json:"content"`
+	}
+	if json.Unmarshal(data, &raw) != nil || len(raw.Content) == 0 {
+		return ""
+	}
+	var obj struct {
+		Token string `json:"token"`
+	}
+	if json.Unmarshal(raw.Content, &obj) == nil && obj.Token != "" {
+		return obj.Token
+	}
+	var direct string
+	if json.Unmarshal(raw.Content, &direct) == nil {
+		return direct
+	}
+	return ""
+}
+
+func handleChzzkRemotePartyGet(w http.ResponseWriter, r *http.Request) {
+	cid, err := resolveChzzkChannelId(r)
+	if err != nil {
+		respondErr(w, http.StatusUnauthorized, err.Error())
+		return
+	}
+
+	path := fmt.Sprintf("/manage/v1/channels/%s/party", cid)
+	_, data, ok := callChzzkChecked(w, "GET", path, nil, "파티 상태 조회 실패")
+	if !ok {
+		return
+	}
+
+	var raw struct {
+		Content struct {
+			Participating bool `json:"participating"`
+			Info          *struct {
+				PartyNo     int64                 `json:"partyNo"`
+				PartyName   string                `json:"partyName"`
+				Status      string                `json:"status"`
+				IsHost      bool                  `json:"isHost"`
+				MemberCount int                   `json:"memberCount"`
+				Host        *chzzkPartyMemberRaw  `json:"host"`
+				Guests      []chzzkPartyMemberRaw `json:"guests"`
+			} `json:"info"`
+		} `json:"content"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		respondErr(w, http.StatusBadGateway, "파티 응답 파싱 실패")
+		return
+	}
+
+	if !raw.Content.Participating || raw.Content.Info == nil {
+		respondOK(w, map[string]any{
+			"participating": false,
+			"partyNo":       0,
+			"partyName":     "",
+			"status":        "",
+			"isHost":        false,
+			"memberCount":   0,
+			"inviteToken":   "",
+			"inviteUrl":     "",
+			"members":       []CleanPartyMember{},
+			"myChannelId":   cid,
+		})
+		return
+	}
+
+	info := raw.Content.Info
+	isHost := info.IsHost || (info.Host != nil && info.Host.ChannelID == cid)
+	members := make([]CleanPartyMember, 0, 1+len(info.Guests))
+	if info.Host != nil {
+		members = append(members, CleanPartyMember{
+			PartyMemberNo:   info.Host.PartyMemberNo,
+			ChannelID:       info.Host.ChannelID,
+			ChannelImageURL: info.Host.ChannelImageURL,
+			ChannelName:     info.Host.ChannelName,
+			VerifiedMark:    info.Host.VerifiedMark,
+			IsHost:          true,
+			IsMe:            info.Host.ChannelID == cid,
+		})
+	}
+	for _, g := range info.Guests {
+		members = append(members, CleanPartyMember{
+			PartyMemberNo:   g.PartyMemberNo,
+			ChannelID:       g.ChannelID,
+			ChannelImageURL: g.ChannelImageURL,
+			ChannelName:     g.ChannelName,
+			VerifiedMark:    g.VerifiedMark,
+			IsHost:          false,
+			IsMe:            g.ChannelID == cid,
+		})
+	}
+
+	memberCount := info.MemberCount
+	if memberCount <= 0 {
+		memberCount = len(members)
+	}
+
+	inviteToken := ""
+	inviteURL := ""
+	if isHost && info.PartyNo > 0 {
+		tokPath := fmt.Sprintf("/manage/v1/channels/%s/parties/%d/invitation/token", cid, info.PartyNo)
+		if tStatus, tData, tErr := callChzzk("GET", tokPath, nil, true); tErr == nil && tStatus == http.StatusOK {
+			inviteToken = extractInviteTokenFromContent(tData)
+			if inviteToken != "" {
+				inviteURL = "https://studio.chzzk.naver.com/party-invite/" + inviteToken
+			}
+		}
+	}
+
+	respondOK(w, map[string]any{
+		"participating": true,
+		"partyNo":       info.PartyNo,
+		"partyName":     info.PartyName,
+		"status":        info.Status,
+		"isHost":        isHost,
+		"memberCount":   memberCount,
+		"inviteToken":   inviteToken,
+		"inviteUrl":     inviteURL,
+		"members":       members,
+		"myChannelId":   cid,
+	})
+}
+
+func handleChzzkRemotePartyCreatePost(w http.ResponseWriter, r *http.Request) {
+	cid, err := resolveChzzkChannelId(r)
+	if err != nil {
+		respondErr(w, http.StatusUnauthorized, err.Error())
+		return
+	}
+	var req struct {
+		PartyName string `json:"partyName"`
+	}
+	if !bindJSON(w, r, &req) {
+		return
+	}
+	name := strings.TrimSpace(req.PartyName)
+	if name == "" {
+		respondErr(w, http.StatusBadRequest, "파티명을 입력해 주세요.")
+		return
+	}
+
+	path := fmt.Sprintf("/manage/v1/channels/%s/party?partyName=%s", cid, url.QueryEscape(name))
+	if _, _, ok := callChzzkChecked(w, "POST", path, []byte("{}"), "파티 생성 실패"); !ok {
+		return
+	}
+	respondOK(w, map[string]any{"status": "ok", "partyName": name})
+}
+
+func handleChzzkRemotePartyNamePut(w http.ResponseWriter, r *http.Request) {
+	cid, err := resolveChzzkChannelId(r)
+	if err != nil {
+		respondErr(w, http.StatusUnauthorized, err.Error())
+		return
+	}
+	var req struct {
+		PartyName string `json:"partyName"`
+	}
+	if !bindJSON(w, r, &req) {
+		return
+	}
+	name := strings.TrimSpace(req.PartyName)
+	if name == "" {
+		respondErr(w, http.StatusBadRequest, "변경할 파티명을 입력해 주세요.")
+		return
+	}
+
+	path := fmt.Sprintf("/manage/v1/channels/%s/party/name?partyName=%s", cid, url.QueryEscape(name))
+	if _, _, ok := callChzzkChecked(w, "PUT", path, []byte("{}"), "파티명 변경 실패"); !ok {
+		return
+	}
+	respondOK(w, map[string]any{"status": "ok", "partyName": name})
+}
+
+func handlePartyTokenRequest(w http.ResponseWriter, r *http.Request, method string) {
+	cid, err := resolveChzzkChannelId(r)
+	if err != nil {
+		respondErr(w, http.StatusUnauthorized, err.Error())
+		return
+	}
+	partyNo, convErr := strconv.ParseInt(strings.TrimSpace(r.URL.Query().Get("partyNo")), 10, 64)
+	if convErr != nil || partyNo <= 0 {
+		respondErr(w, http.StatusBadRequest, "유효한 파티 번호가 필요합니다.")
+		return
+	}
+
+	var body []byte
+	if method == http.MethodPatch {
+		body = []byte("{}")
+	}
+	path := fmt.Sprintf("/manage/v1/channels/%s/parties/%d/invitation/token", cid, partyNo)
+	_, data, ok := callChzzkChecked(w, method, path, body, "초대 링크 처리 실패")
+	if !ok {
+		return
+	}
+
+	token := extractInviteTokenFromContent(data)
+	inviteURL := ""
+	if token != "" {
+		inviteURL = "https://studio.chzzk.naver.com/party-invite/" + token
+	}
+	respondOK(w, map[string]any{"token": token, "inviteUrl": inviteURL})
+}
+
+func handleChzzkRemotePartyTokenGet(w http.ResponseWriter, r *http.Request) {
+	handlePartyTokenRequest(w, r, http.MethodGet)
+}
+
+func handleChzzkRemotePartyTokenPatch(w http.ResponseWriter, r *http.Request) {
+	handlePartyTokenRequest(w, r, http.MethodPatch)
+}
+
+func handleChzzkRemotePartyJoinPost(w http.ResponseWriter, r *http.Request) {
+	cid, err := resolveChzzkChannelId(r)
+	if err != nil {
+		respondErr(w, http.StatusUnauthorized, err.Error())
+		return
+	}
+	var req struct {
+		Token string `json:"token"`
+	}
+	if !bindJSON(w, r, &req) {
+		return
+	}
+	token := strings.TrimSpace(req.Token)
+	if !partyTokenRegex.MatchString(token) {
+		respondErr(w, http.StatusBadRequest, "유효한 파티 초대 코드가 아닙니다.")
+		return
+	}
+
+	partyTitle := ""
+	sumPath := fmt.Sprintf("/manage/v1/channels/%s/party/invitation/%s/summary", cid, url.PathEscape(token))
+	if sStatus, sData, sErr := callChzzk("GET", sumPath, nil, true); sErr == nil && sStatus == http.StatusOK {
+		var sum struct {
+			Content struct {
+				PartyName string `json:"partyName"`
+				PartyInfo *struct {
+					PartyName string `json:"partyName"`
+				} `json:"partyInfo"`
+			} `json:"content"`
+		}
+		if json.Unmarshal(sData, &sum) == nil {
+			if sum.Content.PartyInfo != nil && sum.Content.PartyInfo.PartyName != "" {
+				partyTitle = sum.Content.PartyInfo.PartyName
+			} else {
+				partyTitle = sum.Content.PartyName
+			}
+		}
+	}
+
+	acceptPath := fmt.Sprintf("/manage/v1/channels/%s/party/invitation/%s/accept", cid, url.PathEscape(token))
+	if _, _, ok := callChzzkChecked(w, "POST", acceptPath, []byte("{}"), "파티 합류 실패"); !ok {
+		return
+	}
+	respondOK(w, map[string]any{"status": "ok", "partyName": partyTitle})
+}
+
+func handleChzzkRemotePartyLeavePost(w http.ResponseWriter, r *http.Request) {
+	cid, err := resolveChzzkChannelId(r)
+	if err != nil {
+		respondErr(w, http.StatusUnauthorized, err.Error())
+		return
+	}
+	var req struct {
+		PartyNo int64 `json:"partyNo"`
+	}
+	if !bindJSON(w, r, &req) {
+		return
+	}
+	if req.PartyNo <= 0 {
+		respondErr(w, http.StatusBadRequest, "유효한 파티 번호가 필요합니다.")
+		return
+	}
+
+	path := fmt.Sprintf("/manage/v1/channels/%s/parties/%d/member/leave", cid, req.PartyNo)
+	if _, _, ok := callChzzkChecked(w, "POST", path, []byte("{}"), "파티 퇴장 실패"); !ok {
+		return
+	}
+	respondOK(w, map[string]any{"status": "ok"})
+}
+
+func handleChzzkRemotePartyEndPost(w http.ResponseWriter, r *http.Request) {
+	cid, err := resolveChzzkChannelId(r)
+	if err != nil {
+		respondErr(w, http.StatusUnauthorized, err.Error())
+		return
+	}
+	var req struct {
+		Status string `json:"status"`
+	}
+	if r.Body != nil {
+		_ = json.NewDecoder(r.Body).Decode(&req)
+	}
+
+	st := strings.ToUpper(strings.TrimSpace(req.Status))
+	if st == "WAITING" {
+		renewPath := fmt.Sprintf("/manage/v1/channels/%s/party/renew", cid)
+		if _, _, ok := callChzzkChecked(w, "POST", renewPath, []byte("{}"), "파티 종료 실패"); !ok {
+			return
+		}
+		respondOK(w, map[string]any{"status": "ok", "method": "renew"})
+		return
+	}
+
+	finishPath := fmt.Sprintf("/manage/v1/channels/%s/party/finish", cid)
+	status, data, callErr := callChzzk("PUT", finishPath, []byte("{}"), true)
+	if callErr != nil {
+		respondErr(w, http.StatusBadGateway, "파티 종료 실패")
+		return
+	}
+	if status == http.StatusOK {
+		respondOK(w, map[string]any{"status": "ok", "method": "finish"})
+		return
+	}
+	if status == http.StatusBadRequest || status == http.StatusNotFound || status == http.StatusConflict {
+		renewPath := fmt.Sprintf("/manage/v1/channels/%s/party/renew", cid)
+		if _, _, ok := callChzzkChecked(w, "POST", renewPath, []byte("{}"), extractChzzkMessage(data, "파티 종료 실패")); !ok {
+			return
+		}
+		respondOK(w, map[string]any{"status": "ok", "method": "renew"})
+		return
+	}
+
+	respondErr(w, status, extractChzzkMessage(data, "파티 종료 실패"))
+}
+
+func handleChzzkOpenChannelPost(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		ChannelID string `json:"channelId"`
+	}
+	if !bindJSON(w, r, &req) {
+		return
+	}
+	cid := strings.TrimSpace(req.ChannelID)
+	if !channelIdRegex.MatchString(cid) {
+		respondErr(w, http.StatusBadRequest, "유효한 채널 ID가 아닙니다.")
+		return
+	}
+	openBrowserFn("https://chzzk.naver.com/live/" + cid)
+	respondOK(w, map[string]any{"status": "ok"})
 }

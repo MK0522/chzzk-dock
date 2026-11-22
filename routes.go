@@ -151,6 +151,25 @@ func buildRouter() http.Handler {
 	wrap("POST /chzzkdock/snapshot", handleChzzkWatchPartySnapshotPost, true)
 	wrap("DELETE /chzzkdock/snapshot", handleChzzkWatchPartySnapshotDelete, true)
 
+	// 5.6. ChzzkDock 리모컨 & 파티 & 채널 열기 BFF 라우트
+	wrap("GET /chzzkdock/remote/state", handleChzzkRemoteStateGet, true)
+	wrap("GET /chzzkdock/remote/feeds", handleChzzkRemoteFeedsGet, true)
+	wrap("PUT /chzzkdock/remote/pause", handleChzzkRemotePausePut, true)
+	wrap("PATCH /chzzkdock/remote/volume", handleChzzkRemoteVolumePatch, true)
+	wrap("POST /chzzkdock/remote/command", handleChzzkRemoteCommandPost, true)
+	wrap("POST /chzzkdock/remote/ad/postpone", handleChzzkRemoteAdPostponePost, true)
+	wrap("PUT /chzzkdock/remote/mission/succeed", handleChzzkRemoteMissionSettlePut("succeed"), true)
+	wrap("PUT /chzzkdock/remote/mission/fail", handleChzzkRemoteMissionSettlePut("fail"), true)
+	wrap("GET /chzzkdock/remote/party", handleChzzkRemotePartyGet, true)
+	wrap("POST /chzzkdock/remote/party", handleChzzkRemotePartyCreatePost, true)
+	wrap("PUT /chzzkdock/remote/party/name", handleChzzkRemotePartyNamePut, true)
+	wrap("GET /chzzkdock/remote/party/token", handleChzzkRemotePartyTokenGet, true)
+	wrap("PATCH /chzzkdock/remote/party/token", handleChzzkRemotePartyTokenPatch, true)
+	wrap("POST /chzzkdock/remote/party/join", handleChzzkRemotePartyJoinPost, true)
+	wrap("POST /chzzkdock/remote/party/leave", handleChzzkRemotePartyLeavePost, true)
+	wrap("POST /chzzkdock/remote/party/end", handleChzzkRemotePartyEndPost, true)
+	wrap("POST /chzzkdock/open-channel", handleChzzkOpenChannelPost, true)
+
 	// 6. 정적 자산 & 공개 문서 (API Auth 불필요)
 	wrap("GET /guide-image/1", handleGuideImage1, false)
 	wrap("GET /guide-image/2", handleGuideImage2, false)
@@ -164,25 +183,6 @@ func buildRouter() http.Handler {
 	wrap("GET /{$}", handleIndexHtml, false)
 	wrap("GET /index.html", handleIndexHtml, false)
 	wrap("GET /ui/", handleStaticUI, false)
-
-	// 7. 치지직 비공식 API 프록시 라우트 (C. 영역 - 기존 프록시 핸들러와 100% 호환 보존)
-	proxyHandler := func(w http.ResponseWriter, r *http.Request) {
-		if !core.CheckSecurity(w, r) {
-			return
-		}
-		setCORSHeaders(w, r)
-		if r.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusOK)
-			return
-		}
-		if !core.CheckApiAuth(w, r) {
-			return
-		}
-		if !proxyDispatch(w, r, r.Method) {
-			respondErr(w, http.StatusNotFound, "Not Found")
-		}
-	}
-	mux.HandleFunc("/unofficial/", proxyHandler)
 
 	return mux
 }
@@ -881,6 +881,7 @@ func handleAppSettingsGet(w http.ResponseWriter, r *http.Request) {
 		"fallback_reason":        portFallbackReason,
 		"default_browser":        core.GetDefaultBrowserName(),
 		"font_scale":             st.FontScale,
+		"remote_filter_colors":   st.RemoteFilterColors,
 		"show_viewer_count":      st.IsShowViewerCount(),
 		"popup_on_start":         st.IsPopupOnStart(),
 		"notify_on_shutdown":     st.IsNotifyOnShutdown(),
@@ -940,12 +941,40 @@ func handleAppSettingsPut(w http.ResponseWriter, r *http.Request) {
 	if v, ok := patch["skip_script_version"].(float64); ok {
 		st.SkipScriptVersion = int(v)
 	}
+	if rawColors, exists := patch["remote_filter_colors"]; exists {
+		st.RemoteFilterColors = sanitizeRemoteFilterColors(rawColors)
+	}
 
 	if err := core.SaveSettings(st); err != nil {
 		respondErr(w, http.StatusInternalServerError, "설정 저장에 실패했습니다: "+err.Error())
 		return
 	}
 	respondOK(w, map[string]any{"code": 200, "message": "설정이 성공적으로 저장되었습니다.", "settings": st})
+}
+
+var (
+	hexColorPattern       = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
+	validRemoteFilterKeys = map[string]bool{"FOLLOW": true, "SUB": true, "DONATION": true, "AD": true, "SHOP": true}
+)
+
+func sanitizeRemoteFilterColors(raw any) map[string]string {
+	m, ok := raw.(map[string]any)
+	if !ok || len(m) == 0 {
+		return nil
+	}
+	cleaned := make(map[string]string, len(m))
+	for k, v := range m {
+		if !validRemoteFilterKeys[k] {
+			continue
+		}
+		if s, ok := v.(string); ok && hexColorPattern.MatchString(s) {
+			cleaned[k] = strings.ToUpper(s)
+		}
+	}
+	if len(cleaned) == 0 {
+		return nil
+	}
+	return cleaned
 }
 
 // --- [OBS 연동 & 업데이트 & 텔레메트리 핸들러] ---

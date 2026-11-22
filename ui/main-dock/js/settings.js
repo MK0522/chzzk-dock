@@ -1,38 +1,41 @@
 // ui/main-dock/js/settings.js
 
     function setFontScale(scale, save = true) {
+      let num = Number(scale);
+      if (!isFinite(num) || num <= 0) num = 1.2;
+      num = Math.min(4.0, Math.max(0.5, Math.round(num * 100) / 100));
+
       if (document.body) {
-        document.body.style.zoom = String(scale);
+        document.body.style.zoom = String(num);
+      }
+      const pinScale = Math.max(0.5, 1 + (num - 1) * 0.5);
+      if (document.documentElement) {
+        document.documentElement.style.setProperty('--chzzk-pin-scale', String(Math.round(pinScale * 1000) / 1000));
+      }
+      if (typeof window.__updatePinScale === 'function') {
+        window.__updatePinScale(num);
       }
 
-      const scales = [1.0, 1.2, 1.35];
-      scales.forEach(s => {
-        const idKey = Math.round(s * 100);
-        const btn = document.getElementById(`btn-scale-${idKey}`);
-        if (btn) {
-          if (Math.abs(s - scale) < 0.01) {
-            btn.className = 'py-1 text-[11px] font-bold rounded text-[#00FFA3] bg-[#161F2E] border border-[#00FFA3]/40 transition-all text-center cursor-pointer';
-          } else {
-            btn.className = 'py-1 text-[11px] font-medium rounded text-slate-400 hover:text-slate-200 transition-all text-center cursor-pointer';
-          }
-        }
-      });
-
+      const pct = Math.round(num * 100);
+      const inputEl = document.getElementById('input-font-scale-pct');
+      const sliderEl = document.getElementById('slider-font-scale');
       const label = document.getElementById('font-scale-current-label');
+      if (inputEl) inputEl.value = String(pct);
+      if (sliderEl) sliderEl.value = String(Math.min(400, Math.max(50, Math.round(pct / 10) * 10)));
       if (label) {
-        if (scale === 1.0) label.textContent = '100% (보통)';
-        else if (scale === 1.2) label.textContent = '120% (크게)';
-        else if (scale === 1.35) label.textContent = '135% (아주 크게)';
+        if (pct === 100) label.textContent = '100% (보통)';
+        else if (pct === 120) label.textContent = '120% (기본)';
+        else label.textContent = `${pct}%`;
       }
 
       if (save) {
         apiFetch('/app-settings', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ font_scale: scale })
+          body: JSON.stringify({ font_scale: num })
         }).then(res => {
           if (res.ok) {
-            showToast(`독 화면 크기 ${Math.round(scale * 100)}% 적용 완료`, 'success');
+            showToast(`독 화면 크기 ${pct}% 적용 완료`, 'success');
           } else {
             showToast('독 화면 크기 저장 실패', 'error');
           }
@@ -40,6 +43,35 @@
           showToast('독 화면 크기 저장 오류', 'error', err ? err.message : '');
         });
       }
+    }
+
+    function onFontScaleSliderInput(rawPct) {
+      const pct = Math.min(400, Math.max(50, Math.round(Number(rawPct) || 120)));
+      const inputEl = document.getElementById('input-font-scale-pct');
+      const label = document.getElementById('font-scale-current-label');
+      if (inputEl) inputEl.value = String(pct);
+      if (label) label.textContent = `${pct}%`;
+    }
+
+    function commitFontScalePct(rawPct) {
+      let pct = Number(rawPct);
+      if (!isFinite(pct) || pct <= 0) {
+        const curZoom = Number(document.body?.style?.zoom) || 1.2;
+        pct = Math.round(curZoom * 100);
+      }
+      pct = Math.min(400, Math.max(50, Math.round(pct)));
+      setFontScale(pct / 100, true);
+    }
+
+    function toggleObsScriptGuide() {
+      const box = document.getElementById('obs-script-guide-box');
+      const btn = document.getElementById('btn-obs-script-guide-toggle');
+      const arrow = document.getElementById('obs-script-guide-arrow');
+      if (!box) return;
+      const opening = box.classList.contains('hidden');
+      box.classList.toggle('hidden', !opening);
+      if (btn) btn.setAttribute('aria-expanded', opening ? 'true' : 'false');
+      if (arrow) arrow.textContent = opening ? '▾' : '▸';
     }
 
 
@@ -326,6 +358,9 @@
       // 2. 폰트/화면 배율
       if (typeof data.font_scale === 'number') {
         setFontScale(data.font_scale, false);
+      }
+      if (typeof applyRemoteFilterChipColors === 'function') {
+        applyRemoteFilterChipColors(data.remote_filter_colors || {});
       }
 
       // 3. 실시간 시청자 수

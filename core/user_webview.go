@@ -729,7 +729,7 @@ func makeFloatingToolbarScript(storageKey string, alignRight bool, enableReload 
         '#chzzk-floating-toolbar {',
         '  position: fixed !important;',
         '  display: flex !important;',
-        '  gap: 5px !important;',
+        '  gap: calc(5px * var(--chzzk-pin-scale, 1)) !important;',
         '  align-items: center !important;',
         '  z-index: 9999999 !important;',
         '  user-select: none !important;',
@@ -737,13 +737,13 @@ func makeFloatingToolbarScript(storageKey string, alignRight bool, enableReload 
         '  touch-action: none !important;',
         '}',
         '#chzzk-floating-toolbar button {',
-        '  width: 28px !important;',
-        '  height: 28px !important;',
-        '  border-radius: 7px !important;',
+        '  width: calc(28px * var(--chzzk-pin-scale, 1)) !important;',
+        '  height: calc(28px * var(--chzzk-pin-scale, 1)) !important;',
+        '  border-radius: calc(7px * var(--chzzk-pin-scale, 1)) !important;',
         '  background: #161F2E !important;',
         '  border: 1.5px solid #334155 !important;',
         '  color: #94A3B8 !important;',
-        '  font-size: 13px !important;',
+        '  font-size: calc(13px * var(--chzzk-pin-scale, 1)) !important;',
         '  cursor: grab !important;',
         '  display: flex !important;',
         '  align-items: center !important;',
@@ -893,6 +893,17 @@ func makeFloatingToolbarScript(storageKey string, alignRight bool, enableReload 
     }
     window.addEventListener('resize', fitToolbar);
     fitToolbar();
+
+    window.__updatePinScale = function(scale) {
+      var s = parseFloat(scale);
+      if (!isFinite(s) || s <= 0) {
+        s = parseFloat(document.body && document.body.style.zoom) || 1.0;
+      }
+      var pinScale = Math.max(0.5, 1 + (s - 1) * 0.5);
+      document.documentElement.style.setProperty('--chzzk-pin-scale', String(Math.round(pinScale * 1000) / 1000));
+      fitToolbar();
+    };
+    window.__updatePinScale();
 
     window.__updateTopmostUI = function(isTopmost) {
       var b = document.getElementById('chzzk-floating-pin-btn');

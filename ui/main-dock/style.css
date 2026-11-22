@@ -205,7 +205,12 @@
 }
 
 /* 설정창 내비게이션 탭 버튼 */
+.settings-nav-container {
+  position: relative;
+}
 .settings-nav-btn {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   gap: 7px;
@@ -214,17 +219,14 @@
   text-align: left;
   font-size: 11.5px;
   cursor: pointer;
-  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: color 0.15s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.15s;
   border: 1px solid transparent;
   user-select: none;
   white-space: nowrap;
 }
 .settings-nav-btn.active {
-  background: #161F2E;
   color: #00FFA3;
-  border-color: rgba(0, 255, 163, 0.35);
   font-weight: 700;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
 }
 .settings-nav-btn:not(.active) {
   color: #94A3B8;
@@ -232,8 +234,7 @@
 }
 .settings-nav-btn:not(.active):hover {
   color: #F1F5F9;
-  background: #111722;
-  border-color: rgba(255, 255, 255, 0.05);
+  background: rgba(17, 23, 34, 0.7);
 }
 
 @media (max-width: 440px) {
@@ -253,4 +254,258 @@
     padding: 5px 8px !important;
     font-size: 11px !important;
   }
+}
+
+/* ============================================================
+   공통 물방울 슬라이딩 알약 탭 (Liquid Droplet Sliding Pill Tabs)
+   ============================================================ */
+.liquid-tab-group {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  background: #080B10;
+  border: 1px solid #1E2738;
+  border-radius: 9999px;
+  padding: 2px;
+  gap: 1px;
+}
+.liquid-tab-group.liquid-full {
+  display: flex;
+  width: 100%;
+}
+.liquid-tab-group.liquid-full .liquid-tab-btn {
+  flex: 1;
+}
+.liquid-pill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, rgba(0, 255, 163, 0.22), rgba(0, 210, 135, 0.12));
+  border: 1px solid rgba(0, 255, 163, 0.52);
+  box-shadow: 0 0 10px rgba(0, 255, 163, 0.16), inset 0 1px 2px rgba(255, 255, 255, 0.16);
+  transition: transform 0.38s cubic-bezier(0.34, 1.56, 0.64, 1),
+              width 0.32s cubic-bezier(0.34, 1.45, 0.64, 1),
+              height 0.32s cubic-bezier(0.34, 1.45, 0.64, 1);
+  pointer-events: none;
+  z-index: 0;
+}
+.liquid-tab-group.liquid-amber .liquid-pill {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.22), rgba(147, 51, 234, 0.18));
+  border-color: rgba(251, 191, 36, 0.5);
+  box-shadow: 0 0 10px rgba(251, 191, 36, 0.14), inset 0 1px 2px rgba(255, 255, 255, 0.14);
+}
+.liquid-tab-group--rect .liquid-pill {
+  border-radius: 8px;
+}
+.liquid-tab-btn {
+  position: relative;
+  z-index: 1;
+  padding: 3.5px 7px;
+  border-radius: 9999px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #94A3B8;
+  cursor: pointer;
+  transition: color 0.18s ease;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 1px solid transparent;
+  background: transparent;
+  user-select: none;
+}
+.liquid-tab-btn.active {
+  color: #00FFA3;
+  font-weight: 700;
+}
+.liquid-tab-group.liquid-amber .liquid-tab-btn.active {
+  color: #FCD34D;
+}
+.liquid-tab-btn:hover:not(.active) {
+  color: #E2E8F0;
+}
+
+/* ============================================================
+   파티 버튼 참가 중 활성 글로우
+   ============================================================ */
+@keyframes partyGlow {
+  0%, 100% { box-shadow: 0 0 8px rgba(0, 255, 163, 0.25); }
+  50% { box-shadow: 0 0 14px rgba(0, 255, 163, 0.5); }
+}
+.party-btn-participating {
+  background: rgba(0, 255, 163, 0.14) !important;
+  border-color: #00FFA3 !important;
+  color: #00FFA3 !important;
+  animation: partyGlow 2.2s infinite ease-in-out;
+}
+.party-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: #00FFA3;
+  animation: pulse 1.6s infinite;
+  flex-shrink: 0;
+}
+
+/* ============================================================
+   리모컨 공식 창 제목 버튼 & 인라인 필터 & 우측 엣지 볼륨 서랍
+   ============================================================ */
+.remote-official-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 7px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  transition: all 0.18s ease;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.remote-official-btn:hover {
+  background: rgba(0, 255, 163, 0.09);
+  border-color: rgba(0, 255, 163, 0.45);
+  box-shadow: 0 0 12px rgba(0, 255, 163, 0.12);
+}
+.remote-official-btn .ext-arrow {
+  color: #94A3B8;
+  transition: transform 0.18s ease, color 0.18s ease;
+}
+.remote-official-btn:hover .ext-arrow {
+  transform: translate(1.5px, -1.5px);
+  color: #00FFA3;
+}
+
+.remote-filter-chip {
+  padding: 4px 2px;
+  border-radius: 7px;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-align: center;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid #1E2738;
+  background: #0D1119;
+  color: #64748B;
+  user-select: none;
+}
+.remote-filter-chip.on {
+  background: var(--chip-bg, rgba(0, 255, 163, 0.12));
+  border-color: var(--chip-border, rgba(0, 255, 163, 0.45));
+  color: var(--chip-fg, #00FFA3);
+}
+.remote-filter-chip:hover:not(.on) {
+  color: #CBD5E1;
+  border-color: #2E3B52;
+}
+
+.vol-edge-zone {
+  position: absolute;
+  right: 0;
+  top: 52%;
+  transform: translateY(-50%);
+  width: 34px;
+  height: 104px;
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  pointer-events: auto;
+}
+.vol-peek-handle {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 48px;
+  padding: 0 10px;
+  border-radius: 14px 0 0 14px;
+  background: linear-gradient(180deg, #251C4D, #181236);
+  border: 1px solid rgba(124, 92, 255, 0.55);
+  border-right: none;
+  box-shadow: -4px 4px 16px rgba(0, 0, 0, 0.65);
+  color: #E2D9FF;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transform: translateX(46px);
+  transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1),
+              background 0.2s,
+              box-shadow 0.2s,
+              border-color 0.2s;
+}
+.vol-edge-zone:hover .vol-peek-handle,
+.vol-peek-handle:focus-visible {
+  transform: translateX(0);
+  background: linear-gradient(180deg, #5C3BFF, #4628D8);
+  border-color: #9E8BFF;
+  box-shadow: -6px 6px 22px rgba(92, 59, 255, 0.45);
+  color: #FFFFFF;
+}
+
+.vol-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(4, 6, 12, 0.68);
+  backdrop-filter: blur(2.5px);
+  -webkit-backdrop-filter: blur(2.5px);
+  z-index: 35;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.24s ease;
+}
+.vol-backdrop.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.vol-slide-drawer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 82%;
+  max-width: 310px;
+  background: #121724;
+  border-left: 1px solid rgba(124, 92, 255, 0.45);
+  box-shadow: -14px 0 36px rgba(0, 0, 0, 0.9);
+  z-index: 40;
+  transform: translateX(100%);
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  display: flex;
+  flex-direction: column;
+}
+.vol-slide-drawer.open {
+  transform: translateX(0);
+}
+
+.vol-range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 9999px;
+  background: #1E2738;
+  outline: none;
+}
+.vol-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #7C5CFF;
+  cursor: pointer;
+  border: 2px solid #121724;
+}
+.vol-range:disabled {
+  opacity: 0.35;
+}
+.vol-range:disabled::-webkit-slider-thumb {
+  background: #64748B;
+  cursor: not-allowed;
 }

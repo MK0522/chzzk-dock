@@ -43,6 +43,7 @@ type AppSettings struct {
 	EnableBetaUpdates    *bool             `json:"enable_beta_updates,omitempty"`    // 테스트(Beta) 버전 업데이트 수신 여부 (기본값: false)
 	AutoCheckUpdate      *bool             `json:"auto_check_update,omitempty"`      // 앱 시작 시 업데이트 자동 확인 여부 (기본값: true)
 	FontScale            float64            `json:"font_scale"`                       // 독 화면/폰트 배율 (기본값: 1.2)
+	RemoteFilterColors   map[string]string  `json:"remote_filter_colors,omitempty"`   // 리모컨 필터 칩 커스텀 포인트 색상 (키: FOLLOW/SUB/DONATION/AD/SHOP)
 	ShowViewerCount      *bool              `json:"show_viewer_count,omitempty"`      // 상단 실시간 시청자 수 표시 여부 (기본값: true)
 	SkipUpdateVersion    string             `json:"skip_update_version,omitempty"`    // 건너뛴 업데이트 버전 태그
 	SkipScriptVersion    int                `json:"skip_script_version,omitempty"`    // 건너뛴 OBS Lua 스크립트 버전 번호
@@ -152,6 +153,10 @@ func (s *AppSettings) SetExternalBrowserGuard(val bool) {
 func (s *AppSettings) SetFontScale(val float64) {
 	if val <= 0 {
 		val = 1.2
+	} else if val < 0.5 {
+		val = 0.5
+	} else if val > 4.0 {
+		val = 4.0
 	}
 	s.FontScale = val
 }

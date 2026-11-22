@@ -847,6 +847,15 @@ async function initConnection() {
           popoverDonations.classList.add('hidden');
         }
       }
+
+      // 4. 파티 팝오버
+      const popoverParty = document.getElementById('popover-party');
+      const btnParty = document.getElementById('btn-party-popover');
+      if (popoverParty && !popoverParty.classList.contains('hidden')) {
+        if (!popoverParty.contains(e.target) && (!btnParty || !btnParty.contains(e.target))) {
+          popoverParty.classList.add('hidden');
+        }
+      }
     });
 
     let lastLiveCheckTime = 0;
@@ -923,13 +932,21 @@ async function initConnection() {
       const urlsPanel = document.getElementById('urls-panel');
       if (urlsPanel && urlsPanel.classList.contains('open')) urlsPanel.classList.remove('open');
       const remotePanel = document.getElementById('remote-panel');
-      if (remotePanel && remotePanel.classList.contains('open')) remotePanel.classList.remove('open');
+      if (remotePanel && remotePanel.classList.contains('open')) {
+        remotePanel.classList.remove('open');
+        if (typeof closeRemoteVolumeDrawer === 'function') closeRemoteVolumeDrawer();
+        if (typeof stopRemotePolling === 'function') stopRemotePolling();
+      }
       const panel = document.getElementById('settings-panel');
       if (panel) {
         panel.classList.toggle('open');
         if (panel.classList.contains('open')) {
           if (typeof checkObsScriptStatus === 'function') checkObsScriptStatus();
           if (typeof loadAllDockSettings === 'function') loadAllDockSettings();
+          requestAnimationFrame(() => {
+            const active = document.querySelector('#settings-liquid-nav .settings-nav-btn.active');
+            if (typeof moveLiquidPill === 'function' && active) moveLiquidPill('settings-liquid-nav', active, false);
+          });
         }
       }
       updatePanelScrollLock();
@@ -950,6 +967,9 @@ async function initConnection() {
           if (content) content.classList.add('hidden');
         }
       });
+      if (typeof moveLiquidPill === 'function') {
+        moveLiquidPill('settings-liquid-nav', document.getElementById(`tab-btn-${tabName}`), true);
+      }
     }
 
 
@@ -963,37 +983,69 @@ async function initConnection() {
     }
 
 
-    async function reloadWatchPartiesOnly() {
+    let lastWatchPartyRefreshMs = 0;
+
+    function validateAndFallbackWatchParty(parties, showWarn = true) {
+      const select = document.getElementById('select-watch-party');
+      if (!select || !select.value) return false;
+      const selectedNo = String(select.value);
+      const found = Array.isArray(parties)
+        ? parties.find(p => String(p.watchPartyNo) === selectedNo)
+        : null;
+      if (!found || found.selectable === false) {
+        select.value = '';
+        releaseWatchPartyLock(false);
+        checkBroadcastStateDirty();
+        if (showWarn) {
+          showToast(
+            '같이보기 사용 불가 안내',
+            'warn',
+            '선택했던 같이보기가 종료되었거나 변경되어 "사용 안 함"으로 전환되었습니다.'
+          );
+        }
+        return true;
+      }
+      return false;
+    }
+
+    async function reloadWatchPartiesOnly(silent = false) {
+      const isSilent = silent === true;
       const icon = document.getElementById('wp-reload-icon');
       if (icon) icon.classList.add('animate-spin');
       try {
         if (!userChannelId) await resolveChannelId();
         if (!userChannelId) {
-          showToast('로그인 필요', 'warn', '치지직 로그인을 먼저 확인해 주세요.');
-          return;
+          if (!isSilent) showToast('로그인 필요', 'warn', '치지직 로그인을 먼저 확인해 주세요.');
+          return null;
         }
         const wpRes = await apiFetch('/chzzkdock/watch-parties');
+        lastWatchPartyRefreshMs = Date.now();
         if (wpRes.ok) {
           const wpData = await wpRes.json();
           const list = wpData.watchParties || wpData.content?.watchParties || [];
           if (Array.isArray(list)) {
             availableWatchParties = list;
             renderWatchPartyOptions(availableWatchParties);
+            const didFallback = validateAndFallbackWatchParty(availableWatchParties, true);
             const curVal = document.getElementById('select-watch-party')?.value;
-            if (curVal) {
+            if (!didFallback && curVal) {
               const wp = availableWatchParties.find(p => String(p.watchPartyNo) === String(curVal));
               if (wp) applyWatchPartyLock(wp, false);
             }
-            showToast('같이보기 목록 갱신', 'success', `${availableWatchParties.length}개의 방송이 조회되었습니다.`);
+            if (!isSilent && !didFallback) {
+              showToast('같이보기 목록 갱신', 'success', `${availableWatchParties.length}개의 방송이 조회되었습니다.`);
+            }
+            return availableWatchParties;
           }
-        } else {
+        } else if (!isSilent) {
           showToast('같이보기 목록 갱신 실패', 'error');
         }
       } catch (e) {
-        showToast('통신 오류', 'error', e.message);
+        if (!isSilent) showToast('통신 오류', 'error', e.message);
       } finally {
         if (icon) setTimeout(() => icon.classList.remove('animate-spin'), 350);
       }
+      return null;
     }
 
 
@@ -1589,9 +1641,20 @@ async function initConnection() {
           checkBroadcastStateDirty();
         });
       });
-      document.getElementById('select-watch-party')?.addEventListener('change', (e) => {
-        onWatchPartyChange(e.target.value);
-      });
+      const selectWp = document.getElementById('select-watch-party');
+      if (selectWp) {
+        const triggerWpAutoRefresh = () => {
+          if (userChannelId && Date.now() - lastWatchPartyRefreshMs > 5000) {
+            lastWatchPartyRefreshMs = Date.now();
+            reloadWatchPartiesOnly(true);
+          }
+        };
+        selectWp.addEventListener('mousedown', triggerWpAutoRefresh);
+        selectWp.addEventListener('focus', triggerWpAutoRefresh);
+        selectWp.addEventListener('change', (e) => {
+          onWatchPartyChange(e.target.value);
+        });
+      }
 
       // 태그 인라인 입력 이벤트 리스너 (한글 IME 조합 및 좌표 이탈 완벽 대응)
       const tagInput = document.getElementById('tag-inline-input');
@@ -1920,6 +1983,7 @@ async function initConnection() {
         let loaded = false;
 
         // 0. 같이보기(Watch Party) 목록 조회 (BFF)
+        let watchPartiesFetchOk = false;
         try {
           const wpRes = await apiFetch('/chzzkdock/watch-parties');
           if (wpRes.ok) {
@@ -1927,6 +1991,7 @@ async function initConnection() {
             const list = wpData.watchParties || wpData.content?.watchParties || [];
             if (Array.isArray(list)) {
               availableWatchParties = list;
+              watchPartiesFetchOk = true;
               renderWatchPartyOptions(availableWatchParties);
             }
           }
@@ -1995,6 +2060,9 @@ async function initConnection() {
                 applyWatchPartyLock(wpItem, false);
                 if (content.watchParty.donationBoardInfo && content.watchParty.donationBoardInfo.channelDonationBoardMessage) {
                   currentDonationBoardMessage = content.watchParty.donationBoardInfo.channelDonationBoardMessage;
+                }
+                if (watchPartiesFetchOk) {
+                  validateAndFallbackWatchParty(availableWatchParties, !silent);
                 }
               } else {
                 currentLiveSetting.watchPartyNo = null;
@@ -2083,6 +2151,9 @@ async function initConnection() {
           btnWebview.onclick = handleLogout;
         }
         updateSavedBroadcastBaseline();
+        if (typeof refreshPartyStatus === 'function') {
+          refreshPartyStatus(false);
+        }
       } else {
         if (!silent) showToast('설정 불러오기 실패', 'error', '네이버 로그인 쿠키 상태를 확인해 주세요.');
       }
@@ -2166,16 +2237,26 @@ async function initConnection() {
         const targetOverseas = document.getElementById('toggle-overseas')?.checked ?? true;
         const targetKrOnly = !targetOverseas;
         const targetReplay = document.querySelector('input[name="replayPublishType"]:checked')?.value || 'MANUAL';
-        const targetWpNo = document.getElementById('select-watch-party')?.value || '';
-        const isWp = !!targetWpNo;
+        let targetWpNo = document.getElementById('select-watch-party')?.value || '';
+        let isWp = !!targetWpNo;
 
-        // 선택 불가 같이보기 캠페인 가드
-        if (isWp && activeWatchParty && activeWatchParty.selectable === false) {
-          showToast('선택 불가 같이보기', 'error', '현재 선택할 수 없는 같이보기 캠페인입니다.');
-          btn.disabled = false;
-          saveText.textContent = '적용';
-          spinner.style.display = 'none';
-          return;
+        // 저장 직전 같이보기 최신 상태 검증 및 변경/종료 시 자동 해제("사용 안 함")
+        if (isWp) {
+          const freshList = await reloadWatchPartiesOnly(true);
+          if (freshList) {
+            targetWpNo = document.getElementById('select-watch-party')?.value || '';
+            isWp = !!targetWpNo;
+            if (!isWp) {
+              saveText.textContent = '적용';
+              return;
+            }
+            activeWatchParty = freshList.find(p => String(p.watchPartyNo) === String(targetWpNo)) || activeWatchParty;
+          }
+          if (activeWatchParty && activeWatchParty.selectable === false) {
+            validateAndFallbackWatchParty(availableWatchParties, true);
+            saveText.textContent = '적용';
+            return;
+          }
         }
 
         // 같이보기+(RS) 선택 시 필수인 채팅 후원 자동 ON 동기화
@@ -2256,6 +2337,12 @@ async function initConnection() {
             }
           } catch (e) {}
           showToast('방송 정보 저장 실패', 'error', errorMsg);
+          if (isWp) {
+            const freshAfterErr = await reloadWatchPartiesOnly(true);
+            if (freshAfterErr) {
+              validateAndFallbackWatchParty(freshAfterErr, true);
+            }
+          }
         }
       } catch (err) {
         showToast('방송 정보 저장 오류', 'error', err.message);

@@ -87,9 +87,9 @@
             </div>
           </div>
         </div>
-        <!-- 실시간 시청자 수 -->
-        <span id="header-viewer-count" class="hidden text-[10.5px] text-[#00FFA3] font-bold items-center gap-1 bg-[#00FFA3]/10 border border-[#00FFA3]/25 px-1.5 py-0.5 rounded-md flex-shrink-0 cursor-default" title="실시간 시청자 수 (10초 주기 실시간 반영)">
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        <!-- 실시간 시청자 수 (테두리/박스 제거, 깔끔한 숫자 배치) -->
+        <span id="header-viewer-count" class="hidden text-[11.5px] text-[#00FFA3] font-bold items-center gap-1 ml-1 flex-shrink-0 cursor-default" title="실시간 시청자 수 (10초 주기 실시간 반영)">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
           <span id="viewer-count-val" class="tabular-nums">0</span>
         </span>
       </div>
@@ -106,13 +106,13 @@
       </div>
     </div>
 
-    <!-- ===== 빠른 액션 패널 버튼 4종 & 팝오버 컨테이너 ===== -->
+    <!-- ===== 빠른 액션 패널 버튼 4종 (후원 -> 채팅모드 -> 채팅창 -> 리모컨) ===== -->
     <div class="relative">
       <div class="grid grid-cols-4 gap-1 animate-slide-up" style="animation-delay: 0.04s">
-        <!-- 1. 채팅창 -->
-        <button id="btn-quick-chat" onclick="openChatWebview()" class="flex items-center justify-center gap-1 py-1.5 px-0.5 rounded-lg bg-[#121721] border border-[#1E2738] hover:border-[#00FFA3]/60 hover:bg-[#00FFA3]/5 text-[11px] font-bold text-slate-200 hover:text-[#00FFA3] transition-all cursor-pointer shadow-sm group" title="치지직 실시간 채팅창 독립 웹뷰 열기">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400 group-hover:text-[#00FFA3] transition-colors"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
-          <span>채팅창</span>
+        <!-- 1. 후원 (팝오버) -->
+        <button id="btn-quick-donations" onclick="toggleDonationsPopover()" class="flex items-center justify-center gap-1 py-1.5 px-0.5 rounded-lg bg-[#121721] border border-[#1E2738] hover:border-[#00FFA3]/60 hover:bg-[#00FFA3]/5 text-[11px] font-bold text-slate-200 hover:text-[#00FFA3] transition-all cursor-pointer shadow-sm group" title="후원 제어 및 후원 수익 요약">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400 group-hover:text-[#00FFA3] transition-colors"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/></svg>
+          <span>후원</span>
         </button>
 
         <!-- 2. 채팅모드 (팝오버) -->
@@ -121,14 +121,14 @@
           <span>채팅모드</span>
         </button>
 
-        <!-- 3. 후원 (팝오버) -->
-        <button id="btn-quick-donations" onclick="toggleDonationsPopover()" class="flex items-center justify-center gap-1 py-1.5 px-0.5 rounded-lg bg-[#121721] border border-[#1E2738] hover:border-[#00FFA3]/60 hover:bg-[#00FFA3]/5 text-[11px] font-bold text-slate-200 hover:text-[#00FFA3] transition-all cursor-pointer shadow-sm group" title="후원 제어 및 후원 수익 요약">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400 group-hover:text-[#00FFA3] transition-colors"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/></svg>
-          <span>후원</span>
+        <!-- 3. 채팅창 -->
+        <button id="btn-quick-chat" onclick="openChatWebview()" class="flex items-center justify-center gap-1 py-1.5 px-0.5 rounded-lg bg-[#121721] border border-[#1E2738] hover:border-[#00FFA3]/60 hover:bg-[#00FFA3]/5 text-[11px] font-bold text-slate-200 hover:text-[#00FFA3] transition-all cursor-pointer shadow-sm group" title="치지직 실시간 채팅창 독립 웹뷰 열기">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400 group-hover:text-[#00FFA3] transition-colors"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+          <span>채팅창</span>
         </button>
 
         <!-- 4. 리모컨 -->
-        <button id="btn-quick-remote" onclick="toggleRemotePanel()" class="flex items-center justify-center gap-1 py-1.5 px-0.5 rounded-lg bg-[#121721] border border-[#1E2738] hover:border-[#00FFA3]/60 hover:bg-[#00FFA3]/5 text-[11px] font-bold text-slate-200 hover:text-[#00FFA3] transition-all cursor-pointer shadow-sm group" title="치지직 공식 리모컨 및 미디어 제어">
+        <button id="btn-quick-remote" onclick="toggleRemotePanel()" class="flex items-center justify-center gap-1 py-1.5 px-0.5 rounded-lg bg-[#121721] border border-[#1E2738] hover:border-[#00FFA3]/60 hover:bg-[#00FFA3]/5 text-[11px] font-bold text-slate-200 hover:text-[#00FFA3] transition-all cursor-pointer shadow-sm group" title="치지직 리모컨 패널 열기">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400 group-hover:text-[#00FFA3] transition-colors"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
           <span>리모컨</span>
         </button>
@@ -233,15 +233,14 @@
 
       <!-- [팝오버 2] 후원 & 수익 요약 팝오버 -->
       <div id="popover-donations" class="absolute left-0 right-0 top-full mt-1.5 bg-[#181524] border border-[#3E2E55] rounded-xl shadow-[0_20px_45px_rgba(0,0,0,0.95)] z-40 p-2.5 space-y-2 hidden max-h-[420px] overflow-y-auto ring-1 ring-amber-400/20">
-        <!-- 팝오버 헤더 및 탭 전환: 2-Way 세그먼트 알약 탭 (골드/퍼플 톤) -->
+        <!-- 팝오버 헤더 및 탭 전환: 물방울 2-Way 세그먼트 알약 탭 -->
         <div class="flex items-center justify-between gap-1.5 pb-1.5 border-b border-[#2C213D]">
-          <div class="flex-1 flex items-center bg-[#0F0D17] p-0.5 rounded-lg border border-[#2C213D]">
-            <button type="button" id="donations-popover-tab-settings" onclick="switchDonationsPopoverTab('settings')"
-              class="flex-1 py-1 px-1 rounded-md text-[10.5px] font-bold transition-all flex items-center justify-center gap-1 bg-[#251B38] text-amber-300 border border-amber-400/40 shadow-sm cursor-pointer select-none">
+          <div id="donations-liquid-tabs" class="flex-1 liquid-tab-group liquid-full liquid-amber !bg-[#0F0D17] !border-[#2C213D]">
+            <div class="liquid-pill"></div>
+            <button type="button" id="donations-popover-tab-settings" onclick="switchDonationsPopoverTab('settings')" class="liquid-tab-btn active !py-1">
               <span>⭐</span> <span>후원 제어</span>
             </button>
-            <button type="button" id="donations-popover-tab-revenue" onclick="switchDonationsPopoverTab('revenue')"
-              class="flex-1 py-1 px-1 rounded-md text-[10.5px] font-medium transition-all flex items-center justify-center gap-1 text-slate-400 hover:text-slate-200 border border-transparent cursor-pointer select-none">
+            <button type="button" id="donations-popover-tab-revenue" onclick="switchDonationsPopoverTab('revenue')" class="liquid-tab-btn !py-1">
               <span>🪙</span> <span>수익 요약</span>
             </button>
           </div>
@@ -381,10 +380,9 @@
     <!-- ===== 통합 방송 설정 카드 (단일 블록) ===== -->
     <div id="card-broadcast" class="section-card !p-2 space-y-1.5 shadow-lg border border-[#1E2738] animate-slide-up" style="animation-delay: 0.08s">
       
-      <!-- [FEAT-06-03] 방송 정보 프리셋 바 (초슬림 1열) -->
-      <!-- [FEAT-06-03 & FEAT-06-06] 썸네일 & 방송 정보 프리셋 바 (초슬림 1열) -->
-      <div id="preset-toolbar-wrapper" class="flex items-center justify-between pb-1.5 border-b border-[#1E2738]/70 text-xs">
-        <!-- 좌측: 썸네일 관리 버튼 -->
+      <!-- 썸네일(좌) & 파티(우) 1열 바 + 파티 팝오버 -->
+      <div id="preset-toolbar-wrapper" class="relative flex items-center justify-between pb-1.5 border-b border-[#1E2738]/70 text-xs">
+        <!-- 좌측 끝: 썸네일 관리 버튼 -->
         <button type="button" id="btn-thumbnail" onclick="openThumbnailModal()" class="flex items-center gap-1.5 px-2 py-0.5 rounded bg-[#121721] hover:bg-[#161F2E] border border-[#243044] hover:border-[#00FFA3]/50 text-slate-200 hover:text-white transition-all cursor-pointer leading-none group" title="방송 미리보기 썸네일 관리 (등록, 변경, 크롭, 삭제)">
           <span class="text-[11px] font-bold flex items-center gap-1 leading-none transition-colors">
             <span>🖼️</span> 썸네일
@@ -395,15 +393,109 @@
           </span>
         </button>
 
-        <!-- 우측: 프리셋 관리 버튼 -->
-        <button type="button" onclick="openPresetLoadModal()" class="flex items-center gap-1.5 px-2 py-0.5 rounded bg-[#121721] hover:bg-[#161F2E] border border-[#243044] hover:border-[#00FFA3]/50 text-slate-200 hover:text-white transition-all cursor-pointer leading-none group" title="방송 프리셋 관리 (불러오기, 새로 저장, 덮어쓰기)">
-          <span class="text-[11px] font-bold text-slate-100 group-hover:text-[#00FFA3] flex items-center gap-1 leading-none transition-colors">
-            <span>📋</span> 프리셋
+        <!-- 우측 끝: 파티 관리 버튼 (참가 중일 때 초록 글로우 강조) -->
+        <button type="button" id="btn-party-popover" onclick="togglePartyPopover()" class="flex items-center gap-1.5 px-2 py-0.5 rounded bg-[#121721] hover:bg-[#161F2E] border border-[#243044] hover:border-[#00FFA3]/50 text-slate-200 hover:text-white transition-all cursor-pointer leading-none group" title="치지직 합방 파티 만들기 및 참가">
+          <span id="party-btn-live-dot" class="hidden party-live-dot animate-pulse"></span>
+          <span class="text-[11px] font-bold flex items-center gap-1 leading-none">
+            <span>🎉</span> <span>파티</span>
           </span>
-          <span id="preset-slot-count-badge" class="text-[9.5px] px-1.5 py-0.2 rounded bg-[#161F2E] text-slate-400 group-hover:text-slate-300 font-mono border border-[#243044] leading-none">
-            0/10
-          </span>
+          <span id="party-btn-count-badge" class="hidden text-[9.5px] px-1.5 py-0.2 rounded bg-[#00FFA3] text-[#080A0D] font-mono font-extrabold leading-none">0</span>
         </button>
+
+        <!-- [팝오버 3] 합방 파티 관리 팝오버 -->
+        <div id="popover-party" class="hidden absolute left-0 right-0 top-full mt-1.5 bg-[#0F1522] border border-[#2B3E5E] rounded-xl shadow-[0_20px_45px_rgba(0,0,0,0.95)] z-40 p-2.5 space-y-2 ring-1 ring-[#00FFA3]/20 text-xs">
+          <!-- Step 1: 미참여 선택지 (만들기 / 참가하기 2버튼만 제공) -->
+          <div id="party-step-choose" class="space-y-1.5">
+            <div class="flex items-center justify-end">
+              <button type="button" onclick="togglePartyPopover()" class="text-slate-400 hover:text-white px-1 leading-none cursor-pointer" title="닫기">✕</button>
+            </div>
+            <div class="grid grid-cols-2 gap-2 pb-0.5">
+              <button type="button" onclick="showPartySubView('create')" class="py-3 px-2 rounded-xl bg-[#5C3BFF]/20 hover:bg-[#5C3BFF]/35 border border-[#5C3BFF]/50 text-white font-bold flex flex-col items-center gap-1 cursor-pointer transition-colors">
+                <span class="text-base">🎉</span><span>파티 만들기</span>
+              </button>
+              <button type="button" onclick="showPartySubView('join')" class="py-3 px-2 rounded-xl bg-[#00FFA3]/12 hover:bg-[#00FFA3]/22 border border-[#00FFA3]/40 text-[#00FFA3] font-bold flex flex-col items-center gap-1 cursor-pointer transition-colors">
+                <span class="text-base">🤝</span><span>파티 참가하기</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Step 2A: 파티 생성 입력 폼 -->
+          <div id="party-step-create" class="hidden space-y-2">
+            <div class="flex items-center justify-between">
+              <button type="button" onclick="showPartySubView('choose')" class="text-[11px] text-slate-400 hover:text-white cursor-pointer">← 뒤로</button>
+              <button type="button" onclick="togglePartyPopover()" class="text-slate-400 hover:text-white px-1 leading-none cursor-pointer">✕</button>
+            </div>
+            <div class="space-y-1">
+              <div class="flex items-center justify-between text-[10.5px]">
+                <label class="text-slate-300 font-medium">파티명</label>
+                <span id="party-create-len" class="text-slate-400 font-mono text-[10px]">0/60</span>
+              </div>
+              <input type="text" id="input-party-create-name" maxlength="60" placeholder="파티명을 입력하세요" oninput="document.getElementById('party-create-len').textContent=this.value.length+'/60'" class="chzzk-input text-xs" autocomplete="off" />
+            </div>
+            <button type="button" onclick="createPartySubmit()" class="w-full py-1.5 rounded-lg bg-[#5C3BFF] hover:bg-[#6E50FF] text-white text-xs font-bold cursor-pointer transition-colors">
+              🎉 파티 생성하기
+            </button>
+          </div>
+
+          <!-- Step 2B: 초대 링크 참가 입력 폼 -->
+          <div id="party-step-join" class="hidden space-y-2">
+            <div class="flex items-center justify-between">
+              <button type="button" onclick="showPartySubView('choose')" class="text-[11px] text-slate-400 hover:text-white cursor-pointer">← 뒤로</button>
+              <button type="button" onclick="togglePartyPopover()" class="text-slate-400 hover:text-white px-1 leading-none cursor-pointer">✕</button>
+            </div>
+            <div class="flex gap-1.5">
+              <input type="text" id="input-party-join-link" placeholder="studio.chzzk.naver.com/party-invite/..." class="chzzk-input flex-1 font-mono text-[10.5px]" autocomplete="off" />
+              <button type="button" onclick="pastePartyInviteClipboard()" class="px-2 rounded-md bg-[#161F2E] hover:bg-[#202B3D] border border-[#2B3E5E] text-slate-200 text-[10.5px] font-bold flex-shrink-0 cursor-pointer">
+                📋 붙여넣기
+              </button>
+            </div>
+            <button type="button" onclick="joinPartyByInviteLink('input-party-join-link')" class="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold cursor-pointer transition-colors">
+              🤝 파티 참가하기
+            </button>
+          </div>
+
+          <!-- Step 3: 파티 참여 중 화면 (파티명 직접 노출 + 숫자 인원 + 참여자 클릭 시 방송 열기) -->
+          <div id="party-step-active" class="hidden space-y-2">
+            <div class="flex items-center justify-between gap-2 pb-1.5 border-b border-[#1E2B40]">
+              <div class="flex items-center gap-1.5 min-w-0">
+                <span id="party-active-name-title" class="font-bold text-white truncate">파티명</span>
+                <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#161F2E] text-[#00FFA3] text-[10.5px] font-mono font-bold flex-shrink-0" title="현재 참여 인원">
+                  👥 <span id="party-member-count">1</span>
+                </span>
+              </div>
+              <div class="flex items-center gap-1 flex-shrink-0">
+                <button type="button" onclick="refreshPartyStatus(true)" class="p-1 rounded bg-[#161F2E] hover:bg-[#202B3D] text-slate-400 hover:text-[#00FFA3] cursor-pointer" title="파티 정보 새로고침">
+                  <svg id="party-refresh-icon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+                </button>
+                <button type="button" onclick="togglePartyPopover()" class="text-slate-400 hover:text-white px-1 leading-none cursor-pointer" title="닫기">✕</button>
+              </div>
+            </div>
+
+            <!-- 방장 전용: 파티명 변경 & 초대 링크 관리 -->
+            <div id="party-host-controls" class="space-y-1.5">
+              <div class="flex gap-1">
+                <input type="text" id="input-party-edit-name" maxlength="60" placeholder="파티명" class="chzzk-input flex-1 text-xs" autocomplete="off" />
+                <button type="button" id="btn-party-rename" onclick="renamePartySubmit()" class="px-2.5 rounded-md bg-[#161F2E] hover:bg-[#202B3D] border border-[#243044] text-slate-200 text-[11px] font-bold flex-shrink-0 cursor-pointer">
+                  변경
+                </button>
+              </div>
+              <div class="flex gap-1">
+                <input type="password" id="field-party-invite-url" readonly class="chzzk-input flex-1 font-mono text-[10px] select-all" placeholder="초대 링크 불러오는 중..." />
+                <button type="button" onclick="togglePartyLinkMask(this)" class="px-1.5 rounded-md bg-[#161F2E] border border-[#243044] text-slate-300 text-xs cursor-pointer" title="보기/숨기기">👁️</button>
+                <button type="button" onclick="copyPartyInviteUrl()" class="px-2 rounded-md bg-[#161F2E] border border-[#243044] text-slate-200 text-[10.5px] font-bold flex-shrink-0 cursor-pointer">복사</button>
+                <button type="button" id="btn-party-reissue-token" onclick="reissuePartyInviteToken()" class="px-2 rounded-md bg-[#00FFA3]/15 hover:bg-[#00FFA3]/25 border border-[#00FFA3]/40 text-[#00FFA3] text-[10.5px] font-bold flex-shrink-0 cursor-pointer" title="새 초대 링크 발급">🔄 재발급</button>
+              </div>
+            </div>
+
+            <!-- 참여자 목록 (방장만 👑 방장 표시, 나 테두리 강조, 클릭 시 방송 열기) -->
+            <div id="party-member-list" class="bg-[#080B12] rounded-lg border border-[#1E2738] p-1.5 space-y-1 max-h-[140px] overflow-y-auto"></div>
+
+            <!-- 종료 / 나가기 단일 버튼 -->
+            <button type="button" id="btn-party-exit" class="w-full py-1.5 rounded-lg bg-rose-950/60 hover:bg-rose-900/70 border border-rose-700/60 text-rose-300 text-[11.5px] font-bold cursor-pointer transition-colors">
+              파티 종료
+            </button>
+          </div>
+        </div>
       </div>
 
       <!-- 방송 제목 -->
@@ -536,17 +628,16 @@
         </div>
       </div>
 
-      <!-- 구분선 및 방송 옵션 2-Way 세그먼트 알약 탭 -->
+      <!-- 구분선 및 방송 옵션 물방울 2-Way 세그먼트 알약 탭 -->
       <div class="border-t border-[#1E2738] pt-1.5 space-y-1.5">
-        <!-- 2-Way Segmented Pill Tab Header -->
-        <div class="flex items-center bg-[#0B0F15] p-0.5 rounded-lg border border-[#1E2738]">
-          <button type="button" id="tab-btn-replay" onclick="switchStreamOptionTab('replay')"
-            class="flex-1 py-1 px-1 rounded-md text-[10.5px] font-bold transition-all flex items-center justify-center gap-1 bg-[#1A2436] text-[#00FFA3] border border-[#00FFA3]/40 shadow-sm cursor-pointer select-none">
+        <!-- 2-Way Liquid Droplet Segmented Pill Tab Header -->
+        <div id="stream-option-liquid-tabs" class="liquid-tab-group liquid-full">
+          <div class="liquid-pill"></div>
+          <button type="button" id="tab-btn-replay" onclick="switchStreamOptionTab('replay')" class="liquid-tab-btn active !py-1">
             <span>📺</span> <span>다시보기</span>
             <span id="dot-dirty-tab-replay" class="dot-dirty" style="display:none;" title="다시보기 설정 변경됨"></span>
           </button>
-          <button type="button" id="tab-btn-stream" onclick="switchStreamOptionTab('stream')"
-            class="flex-1 py-1 px-1 rounded-md text-[10.5px] font-medium transition-all flex items-center justify-center gap-1 text-slate-400 hover:text-slate-200 border border-transparent cursor-pointer select-none">
+          <button type="button" id="tab-btn-stream" onclick="switchStreamOptionTab('stream')" class="liquid-tab-btn !py-1">
             <span>⚙️</span> <span>방송 옵션</span>
             <span id="dot-dirty-tab-stream" class="dot-dirty" style="display:none;" title="방송 세부 옵션 변경됨"></span>
           </button>
@@ -621,7 +712,7 @@
 
     </div>
 
-    <!-- ===== Load & Save Action (UI 하단 종료점) ===== -->
+    <!-- ===== Load & Save & Preset Action (UI 하단 종료점) ===== -->
     <div class="flex items-center gap-1.5 animate-slide-up pt-0.5 pb-0" style="animation-delay: 0.1s">
       <button id="btn-load-settings" onclick="if (checkLoginGuard('방송 설정 불러오기')) loadCurrentSettings()" class="px-2.5 py-1.5 rounded-lg bg-[#161F2E] border border-[#1E2738] hover:border-[#00FFA3]/50 text-slate-300 hover:text-[#00FFA3] transition-all text-[11.5px] font-medium flex items-center justify-center gap-1.5 cursor-pointer flex-shrink-0" title="치지직 현재 방송 설정 다시 불러오기 (수정 취소/동기화)">
         <svg id="load-spinner" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
@@ -630,6 +721,11 @@
       <button id="btn-save" class="save-btn flex-1 !w-auto !py-1.5 text-xs font-bold" onclick="saveAll()">
         <span id="save-text">적용</span>
         <svg id="save-spinner" class="animate-spin ml-1.5 inline-block" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="display:none;"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round"/></svg>
+      </button>
+      <button type="button" onclick="openPresetLoadModal()" class="px-2.5 py-1.5 rounded-lg bg-[#121721] hover:bg-[#161F2E] border border-[#243044] hover:border-[#00FFA3]/50 text-slate-200 hover:text-[#00FFA3] transition-all text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer flex-shrink-0" title="방송 프리셋 관리 (불러오기, 새로 저장, 덮어쓰기)">
+        <span>📋</span>
+        <span>프리셋</span>
+        <span id="preset-slot-count-badge" class="text-[9.5px] font-mono text-[#00FFA3]">0/10</span>
       </button>
     </div>
   </div>
@@ -810,257 +906,188 @@
   </div>
 
   <!-- ===== CHZZK REMOTE CONTROL PANEL ===== -->
-  <div id="remote-panel" class="settings-panel px-2.5 py-3">
-    <!-- Panel Header -->
-    <div class="flex items-center justify-between mb-2.5 border-b border-chzzk-border pb-2">
-      <div class="flex items-center gap-1.5 min-w-0">
-        <span class="text-base">🎮</span>
-        <span class="text-xs font-bold text-white truncate">치지직 방송 리모컨</span>
-      </div>
-      <div class="flex items-center gap-1.5 flex-shrink-0">
-        <!-- 공식 리모컨 독립 창 원클릭 열기 -->
-        <button type="button" onclick="openRemoteWebview()" class="px-2 py-1 text-[10px] font-bold rounded-md text-slate-300 hover:text-white bg-[#161F2E] hover:bg-[#202B3D] border border-[#233147] transition-all cursor-pointer inline-flex items-center gap-1 shadow-sm" title="치지직 스튜디오 공식 리모컨을 WebView2 독립 창으로 엽니다 (항상 위/크기조절 지원)">
-          <span>공식 리모컨</span>
-          <span class="text-[9px] text-[#00FFA3]">↗</span>
-        </button>
-        <button onclick="toggleRemotePanel()" class="w-6 h-6 rounded-md bg-chzzk-card border border-chzzk-border flex items-center justify-center hover:border-chzzk-muted transition-colors" title="리모컨 닫기">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5A6577" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+  <div id="remote-panel" class="settings-panel !px-2.5 !py-2.5 !flex flex-col gap-2 !overflow-hidden">
+    <!-- 1행 통합 헤더: 클릭 가능한 공식 리모컨 버튼(좌) + 물방울 탭(우) + 닫기 -->
+    <div class="flex items-center justify-between gap-1 pb-2 border-b border-chzzk-border flex-shrink-0">
+      <button type="button" onclick="openRemoteWebview()" class="remote-official-btn" title="공식 리모컨 열기">
+        <span class="text-xs">🎮</span>
+        <span class="text-[11.5px] font-bold text-white">치지직 리모컨</span>
+        <svg class="ext-arrow" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"/><path d="M7 7h10v10"/></svg>
+      </button>
+      <div class="flex items-center gap-1 min-w-0">
+        <div id="remote-liquid-tabs" class="liquid-tab-group">
+          <div class="liquid-pill"></div>
+          <button type="button" id="remote-tab-btn-all" onclick="switchRemoteTab('all')" class="liquid-tab-btn active">전체</button>
+          <button type="button" id="remote-tab-btn-video" onclick="switchRemoteTab('video')" class="liquid-tab-btn">영상</button>
+          <button type="button" id="remote-tab-btn-mission" onclick="switchRemoteTab('mission')" class="liquid-tab-btn">미션</button>
+          <button type="button" id="remote-tab-btn-party" onclick="switchRemoteTab('party')" class="liquid-tab-btn">파티 후원</button>
+        </div>
+        <button type="button" onclick="toggleRemotePanel()" class="w-6 h-6 rounded-md bg-chzzk-card border border-chzzk-border flex items-center justify-center hover:border-chzzk-muted transition-colors flex-shrink-0 cursor-pointer" title="리모컨 닫기">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#5A6577" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>
     </div>
 
-    <!-- Navigation Tabs: [전체] vs [영상 후원] vs [미션 후원] vs [파티] (치지직 공식 리모컨 1:1 규격) -->
-    <div class="flex items-center justify-between border-b border-[#1E2738] mb-2 px-1">
-      <div class="flex items-center gap-3 text-xs">
-        <button id="remote-tab-btn-all" onclick="switchRemoteTab('all')" class="pb-2 font-bold text-[#00FFA3] border-b-2 border-[#00FFA3] transition-all cursor-pointer">
-          전체
-        </button>
-        <button id="remote-tab-btn-video" onclick="switchRemoteTab('video')" class="pb-2 font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent transition-all cursor-pointer">
-          영상 후원
-        </button>
-        <button id="remote-tab-btn-mission" onclick="switchRemoteTab('mission')" class="pb-2 font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent transition-all cursor-pointer">
-          미션 후원
-        </button>
-        <button id="remote-tab-btn-party" onclick="switchRemoteTab('party')" class="pb-2 font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent transition-all cursor-pointer">
-          파티
-        </button>
+    <!-- 공식 5종 피드 인라인 컬러 On/Off 필터 (전체 탭 전용, 좌우 5등분 · 우클릭 색상 변경) -->
+    <div id="remote-filter-bar" class="grid grid-cols-5 gap-1 flex-shrink-0">
+      <button type="button" id="feed-filter-follow" onclick="toggleRemoteFilterChip('FOLLOW')" oncontextmenu="openFilterColorPopover(event, 'FOLLOW')" class="remote-filter-chip on" title="좌클릭: 필터 On/Off · 우클릭: 색상 변경">팔로우</button>
+      <button type="button" id="feed-filter-sub" onclick="toggleRemoteFilterChip('SUB')" oncontextmenu="openFilterColorPopover(event, 'SUB')" class="remote-filter-chip on" title="좌클릭: 필터 On/Off · 우클릭: 색상 변경">구독</button>
+      <button type="button" id="feed-filter-donation" onclick="toggleRemoteFilterChip('DONATION')" oncontextmenu="openFilterColorPopover(event, 'DONATION')" class="remote-filter-chip on" title="좌클릭: 필터 On/Off · 우클릭: 색상 변경">후원</button>
+      <button type="button" id="feed-filter-ad" onclick="toggleRemoteFilterChip('AD')" oncontextmenu="openFilterColorPopover(event, 'AD')" class="remote-filter-chip on" title="좌클릭: 필터 On/Off · 우클릭: 색상 변경">광고</button>
+      <button type="button" id="feed-filter-shop" onclick="toggleRemoteFilterChip('SHOP')" oncontextmenu="openFilterColorPopover(event, 'SHOP')" class="remote-filter-chip on" title="좌클릭: 필터 On/Off · 우클릭: 색상 변경">상품 구매</button>
+    </div>
+
+    <!-- 필터 칩 우클릭 색상 커스텀 팝오버 -->
+    <div id="filter-color-popover" class="hidden flex-shrink-0 p-2 rounded-lg bg-[#0D131C] border border-[#243044] shadow-xl space-y-2">
+      <div class="flex items-center justify-between">
+        <span class="text-[11px] font-bold text-slate-200"><span id="filter-color-target-label" class="text-[#00FFA3]">팔로우</span> 포인트 색상</span>
+        <button type="button" onclick="closeFilterColorPopover()" class="text-slate-400 hover:text-white text-xs px-1 cursor-pointer" title="닫기">✕</button>
       </div>
-      <button type="button" onclick="fetchNewsFeed()" class="text-slate-400 hover:text-[#00FFA3] p-1 pb-2 transition-colors cursor-pointer" title="피드 새로고침">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+      <div class="flex items-center justify-between gap-1.5">
+        <div class="flex items-center gap-1.5">
+          <button type="button" onclick="setFilterChipColor(null, '#00FFA3')" class="w-4 h-4 rounded-full bg-[#00FFA3] border border-white/25 cursor-pointer hover:scale-110 transition-transform" title="기본 그린 (#00FFA3)"></button>
+          <button type="button" onclick="setFilterChipColor(null, '#38BDF8')" class="w-4 h-4 rounded-full bg-[#38BDF8] border border-white/25 cursor-pointer hover:scale-110 transition-transform" title="스카이 (#38BDF8)"></button>
+          <button type="button" onclick="setFilterChipColor(null, '#A78BFA')" class="w-4 h-4 rounded-full bg-[#A78BFA] border border-white/25 cursor-pointer hover:scale-110 transition-transform" title="퍼플 (#A78BFA)"></button>
+          <button type="button" onclick="setFilterChipColor(null, '#F472B6')" class="w-4 h-4 rounded-full bg-[#F472B6] border border-white/25 cursor-pointer hover:scale-110 transition-transform" title="핑크 (#F472B6)"></button>
+          <button type="button" onclick="setFilterChipColor(null, '#FBBF24')" class="w-4 h-4 rounded-full bg-[#FBBF24] border border-white/25 cursor-pointer hover:scale-110 transition-transform" title="앰버 (#FBBF24)"></button>
+          <button type="button" onclick="setFilterChipColor(null, '#FB7185')" class="w-4 h-4 rounded-full bg-[#FB7185] border border-white/25 cursor-pointer hover:scale-110 transition-transform" title="코랄 (#FB7185)"></button>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <input type="color" id="filter-color-picker" value="#00FFA3" oninput="previewFilterChipColor(this.value)" onchange="setFilterChipColor(null, this.value)" class="w-6 h-5 p-0 bg-transparent border border-[#243044] rounded cursor-pointer" title="직접 색상 선택" />
+          <button type="button" onclick="resetFilterChipColor(false)" class="px-1.5 py-0.5 rounded bg-[#161F2E] hover:bg-[#1E2A3D] border border-[#243044] text-[10px] font-bold text-slate-300 hover:text-white cursor-pointer">기본값</button>
+          <button type="button" onclick="resetFilterChipColor(true)" class="px-1.5 py-0.5 rounded bg-[#161F2E] hover:bg-rose-950/60 border border-[#243044] hover:border-rose-500/40 text-[10px] font-bold text-slate-400 hover:text-rose-300 cursor-pointer">전체 초기화</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 스크롤 가능한 중앙 피드/미션 영역 -->
+    <div id="remote-scroll-body" class="flex-1 min-h-0 overflow-y-auto pr-1.5 space-y-2">
+      <!-- 실시간 알림 피드 (전체 / 영상 / 파티 후원 공통 출력) -->
+      <div id="remote-tab-content-feed" class="space-y-1.5">
+        <div id="remote-feed-list" class="space-y-1.5">
+          <div class="text-center py-8 text-[11px] text-slate-400 bg-[#090D13] rounded-lg border border-[#1A2333]/60">
+            최근 방송 알림 내역이 없습니다
+          </div>
+        </div>
+      </div>
+
+      <!-- 미션 후원 전용 목록 & 판정 -->
+      <div id="remote-tab-content-mission" class="space-y-2.5 hidden">
+        <div class="flex items-center justify-between pb-1 border-b border-[#1E2738]/50">
+          <span class="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+            <span>🎯</span> 미션 목록
+          </span>
+          <div id="mission-sort-group" class="liquid-tab-group">
+            <div class="liquid-pill"></div>
+            <button type="button" id="mission-sort-latest" onclick="setMissionSort('LATEST')" class="liquid-tab-btn active !px-2 !py-0.5 !text-[10px]">최신순</button>
+            <button type="button" id="mission-sort-amount" onclick="setMissionSort('AMOUNT')" class="liquid-tab-btn !px-2 !py-0.5 !text-[10px]">금액순</button>
+          </div>
+        </div>
+
+        <!-- 진행 중인 미션 -->
+        <div class="space-y-1.5">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-bold text-[#00FFA3] flex items-center gap-1">
+              <span>⚡</span> 진행 중인 미션
+            </span>
+            <span id="remote-mission-active-count" class="text-[9.5px] px-1.5 py-0.2 rounded font-bold bg-emerald-950/80 text-[#00FFA3] border border-emerald-800/50">0건</span>
+          </div>
+          <div id="remote-mission-active-list" class="space-y-1.5">
+            <div class="text-center py-4 text-[10.5px] text-slate-400 bg-[#090D13] rounded-lg border border-[#1A2333]/60">
+              현재 진행 중인 미션이 없습니다
+            </div>
+          </div>
+        </div>
+
+        <!-- 완료된 미션 -->
+        <div class="space-y-1.5 pt-1 border-t border-[#1E2738]/60">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-bold text-slate-300 flex items-center gap-1">
+              <span>🏁</span> 완료된 미션
+            </span>
+            <span id="remote-mission-completed-count" class="text-[9.5px] px-1.5 py-0.2 rounded font-bold bg-[#161F2E] text-slate-400 border border-[#1E2738]">0건</span>
+          </div>
+          <div id="remote-mission-completed-list" class="space-y-1.5">
+            <div class="text-center py-4 text-[10.5px] text-slate-500 bg-[#090D13] rounded-lg border border-[#1A2333]/60">
+              완료된 미션 내역이 없습니다
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 하단 고정 제어 2버튼 ([⏭️ TTS 넘기기], [⏸️ 알림 정지]) -->
+    <div class="grid grid-cols-2 gap-2 pt-1.5 border-t border-[#1E2738] flex-shrink-0">
+      <button type="button" onclick="skipTTS()" class="py-2 px-2 rounded-xl bg-[#5C3BFF] hover:bg-[#6E50FF] text-white font-bold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-md">
+        <span>⏭️</span> <span>TTS 넘기기</span>
+      </button>
+      <button type="button" onclick="togglePauseAlert()" id="btn-remote-pause-alert" class="py-2 px-2 rounded-xl bg-[#1E1936] hover:bg-[#28214A] border border-[#5C3BFF]/40 text-[#C4B5FD] font-bold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5">
+        <span id="icon-remote-pause">⏸️</span> <span id="text-remote-pause">알림 정지</span>
       </button>
     </div>
 
-    <!-- ===== TAB 1: 실시간 피드 (전체 / 영상 후원) ===== -->
-    <div id="remote-tab-content-feed" class="space-y-2">
-      <!-- 실시간 알림 피드 리스트 (치지직 스튜디오 공식 피드 규격) -->
-      <div id="remote-feed-list" class="space-y-1.5 max-h-[260px] overflow-y-auto pr-0.5">
-        <div class="text-center py-8 text-[11px] text-slate-400 bg-[#090D13] rounded-lg border border-[#1A2333]/60">
-          최근 방송 후원 알림 내역이 없습니다
-        </div>
-      </div>
+    <!-- 우측 엣지 피킹 볼륨 핸들 (호버 시 볼록 돌출) -->
+    <div class="vol-edge-zone" title="볼륨 설정 열기">
+      <button type="button" onclick="openRemoteVolumeDrawer()" class="vol-peek-handle" aria-label="볼륨 설정 열기">
+        <span>🔊</span><span>볼륨</span>
+      </button>
     </div>
 
-    <!-- ===== TAB 2: 미션 후원 ===== -->
-    <div id="remote-tab-content-mission" class="space-y-2.5" style="display:none;">
-      <!-- 정렬 옵션 및 헤더 -->
-      <div class="flex items-center justify-between pb-1 border-b border-[#1E2738]/50">
-        <span class="text-xs font-bold text-slate-200 flex items-center gap-1.5">
-          <span>🎯</span> 미션 목록
-        </span>
-        <div class="flex items-center gap-1 bg-[#090D13] p-0.5 rounded-md border border-[#1E2738]">
-          <button type="button" id="mission-sort-latest" onclick="setMissionSort('LATEST')" class="px-2 py-0.5 rounded text-[10px] font-bold bg-[#161F2E] text-[#00FFA3] border border-[#00FFA3]/40 transition-all cursor-pointer">
-            최신순
-          </button>
-          <button type="button" id="mission-sort-amount" onclick="setMissionSort('AMOUNT')" class="px-2 py-0.5 rounded text-[10px] font-medium text-slate-400 hover:text-slate-200 transition-all cursor-pointer">
-            금액순
-          </button>
+    <!-- 2-Layer 볼륨 슬라이드 오버레이 (어두운 백드롭 + 우측 서랍) -->
+    <div id="remote-vol-backdrop" class="vol-backdrop" onclick="closeRemoteVolumeDrawer()"></div>
+    <div id="remote-vol-drawer" class="vol-slide-drawer p-3.5 justify-between overflow-y-auto">
+      <div class="space-y-3">
+        <div class="flex items-center justify-between pb-2.5 border-b border-[#242D42]">
+          <span class="text-xs font-bold text-white flex items-center gap-1.5"><span>🔊</span> 볼륨 설정</span>
+          <button type="button" onclick="closeRemoteVolumeDrawer()" class="w-6 h-6 rounded-md bg-[#1A2233] hover:bg-[#253048] text-slate-300 text-xs flex items-center justify-center cursor-pointer" title="볼륨 닫기">✕</button>
         </div>
-      </div>
 
-      <!-- 진행 중인 미션 -->
-      <div class="space-y-1.5">
-        <div class="flex items-center justify-between">
-          <span class="text-[11px] font-bold text-[#00FFA3] flex items-center gap-1">
-            <span>⚡</span> 진행 중인 미션
-          </span>
-          <span id="remote-mission-active-count" class="text-[9.5px] px-1.5 py-0.2 rounded font-bold bg-emerald-950/80 text-[#00FFA3] border border-emerald-800/50">
-            0건
-          </span>
+        <!-- 후원 볼륨 -->
+        <div class="p-2.5 rounded-lg bg-[#0B0F18] border border-[#1E2738] space-y-2.5 text-[11px]">
+          <div class="text-[10.5px] font-bold text-slate-400">후원 볼륨</div>
+          <div class="space-y-1">
+            <div class="flex items-center justify-between">
+              <span class="text-slate-200">채팅 후원 TTS</span>
+              <span id="remote-tts-vol-label" class="font-mono text-[#A78BFA] font-bold">70%</span>
+            </div>
+            <input type="range" id="remote-tts-volume" min="0" max="100" value="70" oninput="onTTSVolumeChange(this.value)" class="vol-range w-full" />
+          </div>
+          <div id="remote-video-vol-row" class="space-y-1 transition-opacity">
+            <div class="flex items-center justify-between">
+              <span id="remote-video-vol-title" class="text-slate-200">영상 후원 볼륨</span>
+              <span id="remote-video-vol-label" class="font-mono text-[#A78BFA] font-bold">70%</span>
+            </div>
+            <input type="range" id="remote-video-volume" min="0" max="100" value="70" oninput="onVideoVolumeChange(this.value)" class="vol-range w-full" />
+          </div>
         </div>
-        <div id="remote-mission-active-list" class="space-y-2 max-h-[120px] overflow-y-auto pr-0.5">
-          <div class="text-center py-4 text-[10.5px] text-slate-400 bg-[#090D13] rounded-lg border border-[#1A2333]/60">
-            현재 진행 중인 미션이 없습니다
+
+        <!-- 알림음 볼륨 -->
+        <div class="p-2.5 rounded-lg bg-[#0B0F18] border border-[#1E2738] space-y-2.5 text-[11px]">
+          <div class="text-[10.5px] font-bold text-slate-400">🔔 알림음 볼륨</div>
+          <div class="space-y-1">
+            <div class="flex items-center justify-between">
+              <span class="text-slate-200">채팅후원</span>
+              <span id="remote-alert-chat-label" class="font-mono text-[#A78BFA] font-bold">70%</span>
+            </div>
+            <input type="range" id="remote-alert-chat-vol" min="0" max="100" value="70" oninput="onAlertVolumeChange('chat', this.value)" class="vol-range w-full" />
+          </div>
+          <div class="space-y-1">
+            <div class="flex items-center justify-between">
+              <span class="text-slate-200">영상후원</span>
+              <span id="remote-alert-video-label" class="font-mono text-[#A78BFA] font-bold">70%</span>
+            </div>
+            <input type="range" id="remote-alert-video-vol" min="0" max="100" value="70" oninput="onAlertVolumeChange('video', this.value)" class="vol-range w-full" />
+          </div>
+          <div class="space-y-1">
+            <div class="flex items-center justify-between">
+              <span class="text-slate-200">미션후원</span>
+              <span id="remote-alert-mission-label" class="font-mono text-[#A78BFA] font-bold">70%</span>
+            </div>
+            <input type="range" id="remote-alert-mission-vol" min="0" max="100" value="70" oninput="onAlertVolumeChange('mission', this.value)" class="vol-range w-full" />
           </div>
         </div>
       </div>
-
-      <!-- 완료된 미션 -->
-      <div class="space-y-1.5 pt-1 border-t border-[#1E2738]/60">
-        <div class="flex items-center justify-between">
-          <span class="text-[11px] font-bold text-slate-300 flex items-center gap-1">
-            <span>🏁</span> 완료된 미션
-          </span>
-          <span id="remote-mission-completed-count" class="text-[9.5px] px-1.5 py-0.2 rounded font-bold bg-[#161F2E] text-slate-400 border border-[#1E2738]">
-            0건
-          </span>
-        </div>
-        <div id="remote-mission-completed-list" class="space-y-2 max-h-[100px] overflow-y-auto pr-0.5">
-          <div class="text-center py-4 text-[10.5px] text-slate-500 bg-[#090D13] rounded-lg border border-[#1A2333]/60">
-            완료된 미션 내역이 없습니다
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ===== TAB 3: 파티 후원 ===== -->
-    <div id="remote-tab-content-party" class="space-y-2.5" style="display:none;">
-      <!-- 파티 미생성 상태 -->
-      <div id="party-view-create" class="section-card space-y-2 p-2.5 border border-[#1E2738]">
-        <div class="flex items-center justify-between border-b border-[#1E2738] pb-1.5">
-          <span class="text-xs font-bold text-slate-100 flex items-center gap-1.5">
-            <span>🎉</span> 파티 설정
-          </span>
-          <span class="text-[10px] px-2 py-0.5 rounded font-bold bg-[#161F2E] text-slate-400 border border-[#1E2738]">
-            파티 없음
-          </span>
-        </div>
-
-        <div class="space-y-1">
-          <div class="flex items-center justify-between">
-            <label class="text-[11px] text-slate-300 font-medium">파티명</label>
-            <span id="party-create-len" class="text-[10px] text-slate-400 font-mono">0/60</span>
-          </div>
-          <input type="text" id="input-party-create-name" maxlength="60" placeholder="파티명 입력" oninput="document.getElementById('party-create-len').textContent=this.value.length+'/60'" class="w-full bg-[#090D13] border border-[#1E2738] rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:border-[#5C3BFF] outline-none" autocomplete="off" />
-        </div>
-
-        <button type="button" onclick="createPartySubmit()" class="w-full py-2 rounded-lg bg-[#5C3BFF] hover:bg-[#6E50FF] text-white font-bold text-xs shadow-md transition-colors cursor-pointer flex items-center justify-center gap-1.5">
-          <span>🎉</span> <span>파티 만들기</span>
-        </button>
-
-        <div class="relative flex py-1 items-center">
-          <div class="flex-grow border-t border-[#1E2738]"></div>
-          <span class="flex-shrink mx-2 text-[9.5px] text-slate-500 font-medium">또는 초대 링크 합류</span>
-          <div class="flex-grow border-t border-[#1E2738]"></div>
-        </div>
-
-        <div class="flex items-center gap-1.5">
-          <input type="text" id="input-party-join-link" placeholder="초대 링크 붙여넣기" class="flex-1 bg-[#090D13] border border-[#1E2738] rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:border-emerald-500 outline-none placeholder:text-slate-500 font-mono text-[10.5px]" autocomplete="off" />
-          <button type="button" onclick="joinPartyByInviteLink('input-party-join-link')" class="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-colors cursor-pointer flex-shrink-0">
-            합류
-          </button>
-        </div>
-      </div>
-
-      <!-- 파티 활성화 상태 -->
-      <div id="party-view-manage" class="section-card space-y-2 p-2.5 border border-[#1E2738]" style="display:none;">
-        <div class="flex items-center justify-between border-b border-[#1E2738] pb-1.5">
-          <div class="flex items-center gap-1.5">
-            <span class="text-xs font-bold text-slate-100">🎉 파티</span>
-            <span id="party-role-badge" class="text-[9px] px-1.5 py-0.2 rounded font-bold bg-[#161F2E] text-[#9E8BFF] border border-[#5C3BFF]/30">👑 방장</span>
-          </div>
-          <div class="flex items-center gap-1.5">
-            <span id="party-active-cheese" class="font-mono text-[#00FFA3] font-bold text-xs">0 치즈</span>
-            <span id="party-status-badge" class="text-[10px] px-2 py-0.5 rounded font-bold bg-emerald-950/80 text-[#00FFA3] border border-emerald-800/60">진행 중</span>
-          </div>
-        </div>
-
-        <div class="space-y-1">
-          <div class="flex items-center gap-1.5">
-            <input type="text" id="input-party-edit-name" maxlength="60" class="flex-1 bg-[#090D13] border border-[#1E2738] rounded-lg px-2 py-1 text-xs text-slate-200 focus:border-[#5C3BFF] outline-none" autocomplete="off" />
-            <button type="button" id="btn-party-rename" onclick="renamePartySubmit()" class="px-2.5 py-1 rounded-lg bg-[#5C3BFF]/20 hover:bg-[#5C3BFF] hover:text-white border border-[#5C3BFF]/40 text-[#9E8BFF] text-xs font-bold transition-all cursor-pointer">저장</button>
-          </div>
-        </div>
-
-        <div class="flex items-center gap-1">
-          <input type="password" id="field-party-invite-url" readonly class="flex-1 bg-[#090D13] border border-[#1E2738] rounded-lg px-2 py-1 text-[10px] font-mono text-slate-300 select-all" placeholder="초대 링크" />
-          <button type="button" onclick="togglePartyLinkMask()" class="px-2 py-1 bg-[#161F2E] border border-[#1E2738] rounded-lg text-slate-300 text-xs">👁️</button>
-          <button type="button" onclick="copyPartyInviteUrl()" class="px-2 py-1 bg-[#5C3BFF]/20 border border-[#5C3BFF]/30 rounded-lg text-[#9E8BFF] text-xs font-bold">복사</button>
-        </div>
-
-        <div class="space-y-1">
-          <div class="flex items-center justify-between text-[11px] text-slate-300">
-            <span>참여자 (<span id="party-member-count" class="font-bold text-[#5C3BFF]">1</span>명)</span>
-            <button type="button" onclick="refreshPartyStatus(true)" class="text-slate-400 hover:text-white p-0.5 cursor-pointer">🔄</button>
-          </div>
-          <div id="party-member-list" class="space-y-1 max-h-[100px] overflow-y-auto"></div>
-        </div>
-
-        <div id="party-host-actions" class="grid grid-cols-2 gap-2 pt-1 border-t border-[#1E2738]">
-          <button type="button" onclick="renewPartySubmit()" class="py-1.5 rounded-lg bg-[#5C3BFF]/20 border border-[#5C3BFF]/50 text-[#9E8BFF] text-xs font-bold">새로 만들기</button>
-          <button type="button" onclick="finishPartySubmit()" class="py-1.5 rounded-lg bg-rose-950/40 border border-rose-800/50 text-rose-300 text-xs font-bold">파티 종료</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- ===== 공식 리모컨 규격 볼륨 및 제어 영역 (후원 볼륨 & 알림음 볼륨 & 하단 2버튼) ===== -->
-    <div class="mt-3 pt-2.5 border-t border-[#1E2738] space-y-2.5">
-      <!-- 후원 볼륨 그룹 (공식 규격) -->
-      <div class="p-2.5 rounded-lg bg-[#0A0E15] border border-[#1A2333] space-y-2">
-        <div class="flex items-center justify-between text-xs font-bold text-slate-200">
-          <span class="flex items-center gap-1.5">
-            <span>🔊</span> 후원 볼륨
-          </span>
-        </div>
-        <!-- 채팅 후원 TTS -->
-        <div class="space-y-1">
-          <div class="flex items-center justify-between text-[11px]">
-            <span class="text-slate-300">채팅 후원 TTS</span>
-            <span id="remote-tts-vol-label" class="font-mono text-[#5C3BFF] font-bold text-[10.5px]">70%</span>
-          </div>
-          <input type="range" id="remote-tts-volume" min="0" max="100" value="70" oninput="onTTSVolumeChange(this.value)" class="w-full accent-[#5C3BFF] cursor-pointer h-1.5 bg-[#1E2738] rounded-lg" />
-        </div>
-        <!-- 영상 후원 볼륨 -->
-        <div class="space-y-1">
-          <div class="flex items-center justify-between text-[11px]">
-            <span class="text-slate-300">영상 후원 볼륨</span>
-            <span id="remote-video-vol-label" class="font-mono text-[#5C3BFF] font-bold text-[10.5px]">70%</span>
-          </div>
-          <input type="range" id="remote-video-volume" min="0" max="100" value="70" oninput="onVideoVolumeChange(this.value)" class="w-full accent-[#5C3BFF] cursor-pointer h-1.5 bg-[#1E2738] rounded-lg" />
-        </div>
-      </div>
-
-      <!-- 알림음 볼륨 설정 그룹 (공식 규격) -->
-      <div class="p-2.5 rounded-lg bg-[#0A0E15] border border-[#1A2333] space-y-2">
-        <div class="flex items-center justify-between text-xs font-bold text-slate-200">
-          <span class="flex items-center gap-1.5">
-            <span>🔔</span> 알림음 볼륨 설정
-          </span>
-        </div>
-        <!-- 채팅후원 알림음 -->
-        <div class="space-y-1">
-          <div class="flex items-center justify-between text-[11px]">
-            <span class="text-slate-300">채팅후원</span>
-            <span id="remote-alert-chat-label" class="font-mono text-[#5C3BFF] font-bold text-[10.5px]">70%</span>
-          </div>
-          <input type="range" id="remote-alert-chat-vol" min="0" max="100" value="70" oninput="onAlertVolumeChange('chat', this.value)" class="w-full accent-[#5C3BFF] cursor-pointer h-1.5 bg-[#1E2738] rounded-lg" />
-        </div>
-        <!-- 영상후원 알림음 -->
-        <div class="space-y-1">
-          <div class="flex items-center justify-between text-[11px]">
-            <span class="text-slate-300">영상후원</span>
-            <span id="remote-alert-video-label" class="font-mono text-[#5C3BFF] font-bold text-[10.5px]">70%</span>
-          </div>
-          <input type="range" id="remote-alert-video-vol" min="0" max="100" value="70" oninput="onAlertVolumeChange('video', this.value)" class="w-full accent-[#5C3BFF] cursor-pointer h-1.5 bg-[#1E2738] rounded-lg" />
-        </div>
-        <!-- 미션후원 알림음 -->
-        <div class="space-y-1">
-          <div class="flex items-center justify-between text-[11px]">
-            <span class="text-slate-300">미션후원</span>
-            <span id="remote-alert-mission-label" class="font-mono text-[#5C3BFF] font-bold text-[10.5px]">70%</span>
-          </div>
-          <input type="range" id="remote-alert-mission-vol" min="0" max="100" value="70" oninput="onAlertVolumeChange('mission', this.value)" class="w-full accent-[#5C3BFF] cursor-pointer h-1.5 bg-[#1E2738] rounded-lg" />
-        </div>
-      </div>
-
-      <!-- 공식 리모컨 하단 2버튼 ([⏭️ TTS 넘기기], [⏸️ 알림 정지]) -->
-      <div class="grid grid-cols-2 gap-2 pt-1">
-        <button type="button" onclick="skipTTS()" class="py-2.5 px-2 rounded-xl bg-[#5C3BFF] hover:bg-[#6E50FF] text-white font-bold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-md">
-          <span>⏭️</span> <span>TTS 넘기기</span>
-        </button>
-        <button type="button" onclick="togglePauseAlert()" id="btn-remote-pause-alert" class="py-2.5 px-2 rounded-xl bg-[#1E1936] hover:bg-[#28214A] border border-[#5C3BFF]/40 text-[#C4B5FD] font-bold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5">
-          <span id="icon-remote-pause">⏸️</span> <span id="text-remote-pause">알림 정지</span>
-        </button>
-      </div>
+      <div class="text-[10px] text-slate-400 text-center pt-2 border-t border-[#1E2738]">바깥 영역 클릭 시 닫힙니다</div>
     </div>
   </div>
 
@@ -1080,7 +1107,8 @@
     <!-- Navigation Bar & Tab Content Layout -->
     <div class="settings-layout-box flex gap-2.5 flex-1 min-h-0">
       <!-- Left Sidebar Navigation -->
-      <nav class="settings-nav-container w-28 flex-shrink-0 flex flex-col gap-1 border-r border-[#1E2738]/80 pr-2 select-none">
+      <nav id="settings-liquid-nav" class="settings-nav-container liquid-tab-group--rect w-28 flex-shrink-0 flex flex-col gap-1 border-r border-[#1E2738]/80 pr-2 select-none">
+        <div class="liquid-pill"></div>
         <button type="button" onclick="switchSettingsTab('login')" id="tab-btn-login" class="settings-nav-btn active">
           <span class="text-sm">🔐</span>
           <span>로그인</span>
@@ -1244,16 +1272,20 @@
               </div>
             </div>
 
-            <!-- OBS 스크립트 1회 등록 가이드 박스 -->
-            <div id="obs-script-guide-box" class="mt-2 pt-2 border-t border-[#1E2738]/80 text-[10px] text-slate-400 leading-relaxed">
-              <div class="font-semibold text-slate-200 flex items-center gap-1 mb-1">
-                <span class="text-emerald-400">💡</span> <span>OBS 스크립트 등록 순서 (최초 1회)</span>
+            <!-- OBS 스크립트 1회 등록 가이드 (적용 방법 아코디언) -->
+            <div class="mt-2 pt-1.5 border-t border-[#1E2738]/80">
+              <button type="button" id="btn-obs-script-guide-toggle" onclick="toggleObsScriptGuide()" aria-expanded="false" class="w-full flex items-center justify-between text-[11px] font-semibold text-slate-300 hover:text-[#00FFA3] transition-colors cursor-pointer py-0.5">
+                <span class="flex items-center gap-1"><span>💡</span><span>적용 방법</span></span>
+                <span id="obs-script-guide-arrow" class="text-[10px] text-slate-400 transition-transform duration-150">▸</span>
+              </button>
+              <div id="obs-script-guide-box" class="hidden mt-1.5 pt-1.5 border-t border-[#1E2738]/60 text-[10px] text-slate-400 leading-relaxed">
+                <div class="font-semibold text-slate-200 mb-1">OBS 스크립트 등록 순서 (최초 1회)</div>
+                <ol class="list-decimal list-inside space-y-1 text-slate-300">
+                  <li>OBS 상단 메뉴 <span class="text-[#00FFA3] font-semibold">[도구]</span> ➔ <span class="text-[#00FFA3] font-semibold">[스크립트]</span> 클릭</li>
+                  <li><span class="text-white font-bold">[+]</span> 버튼 클릭 후 <code class="text-slate-300 bg-slate-800 px-1 py-0.5 rounded">chzzk_dock_launcher.lua</code> 추가</li>
+                  <li>스크립트 선택 후 옵션 설정 완료</li>
+                </ol>
               </div>
-              <ol class="list-decimal list-inside space-y-1 text-slate-300">
-                <li>OBS 상단 메뉴 <span class="text-[#00FFA3] font-semibold">[도구]</span> ➔ <span class="text-[#00FFA3] font-semibold">[스크립트]</span> 클릭</li>
-                <li><span class="text-white font-bold">[+]</span> 버튼 클릭 후 <code class="text-slate-300 bg-slate-800 px-1 py-0.5 rounded">chzzk_dock_launcher.lua</code> 추가</li>
-                <li>스크립트 선택 후 옵션 설정 완료</li>
-              </ol>
             </div>
           </div>
 
@@ -1310,21 +1342,44 @@
         <div id="tab-content-ui" class="space-y-2.5 hidden">
           <!-- 화면 배율 및 UI 표시 설정 카드 -->
           <div class="section-card p-2.5 bg-chzzk-card/70 border border-chzzk-border space-y-2.5">
-            <div class="space-y-1.5">
-              <div class="flex items-center justify-between">
-                <span class="text-xs font-bold text-slate-100">🔤 독 화면 크기</span>
-                <span id="font-scale-current-label" class="text-[10px] text-chzzk-muted font-medium">120% (크게)</span>
+            <div class="space-y-2">
+              <div class="flex items-center justify-between gap-2">
+                <div>
+                  <span class="text-xs font-bold text-slate-100">🔤 독 화면 크기</span>
+                  <span id="font-scale-current-label" class="ml-1.5 text-[10px] text-chzzk-muted font-medium">120%</span>
+                </div>
+                <div class="flex items-center gap-1">
+                  <input id="input-font-scale-pct" type="number" min="50" max="400" step="1" value="120"
+                    aria-label="독 화면 크기 백분율"
+                    onchange="commitFontScalePct(this.value)"
+                    onkeydown="if(event.key==='Enter'){this.blur();}"
+                    class="chzzk-input w-16 py-0.5 px-1.5 text-[11px] font-bold text-center text-[#00FFA3] font-mono" />
+                  <span class="text-[11px] text-slate-400 font-bold">%</span>
+                </div>
               </div>
-              <div class="grid grid-cols-3 gap-1 p-0.5 bg-[#0B0F15] rounded-lg border border-[#1E2738]">
-                <button id="btn-scale-100" onclick="setFontScale(1.0, true)" class="py-1 text-[11px] font-medium rounded text-slate-400 hover:text-slate-200 transition-all text-center cursor-pointer">
-                  보통 (100%)
-                </button>
-                <button id="btn-scale-120" onclick="setFontScale(1.2, true)" class="py-1 text-[11px] font-bold rounded text-[#00FFA3] bg-[#161F2E] border border-[#00FFA3]/40 transition-all text-center cursor-pointer">
-                  크게 (120%)
-                </button>
-                <button id="btn-scale-135" onclick="setFontScale(1.35, true)" class="py-1 text-[11px] font-medium rounded text-slate-400 hover:text-slate-200 transition-all text-center cursor-pointer">
-                  아주 크게 (135%)
-                </button>
+              <div class="space-y-1">
+                <input id="slider-font-scale" type="range" min="50" max="400" step="10" value="120" list="font-scale-ticks"
+                  aria-label="독 화면 크기 슬라이더"
+                  oninput="onFontScaleSliderInput(this.value)"
+                  onchange="commitFontScalePct(this.value)"
+                  class="w-full h-1.5 bg-[#0B0F15] rounded-lg cursor-pointer accent-[#00FFA3]" />
+                <datalist id="font-scale-ticks">
+                  <option value="50"></option>
+                  <option value="100"></option>
+                  <option value="150"></option>
+                  <option value="200"></option>
+                  <option value="250"></option>
+                  <option value="300"></option>
+                  <option value="350"></option>
+                  <option value="400"></option>
+                </datalist>
+                <div class="flex items-center justify-between text-[9px] text-slate-500 font-mono px-0.5">
+                  <span>50%</span>
+                  <span>100%</span>
+                  <span>200%</span>
+                  <span>300%</span>
+                  <span>400%</span>
+                </div>
               </div>
             </div>
 
