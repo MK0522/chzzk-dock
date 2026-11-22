@@ -59,7 +59,7 @@ async function handleSessionExpired() {
   }
   if (btnWebview) {
     btnWebview.innerHTML = "🔑 네이버 로그인 시작";
-    btnWebview.className = "save-btn text-xs py-2 bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-950/40 transition-colors cursor-pointer";
+    btnWebview.className = "save-btn text-xs py-2 !border-0 transition-colors cursor-pointer";
     btnWebview.onclick = (typeof startWebviewLogin === 'function') ? startWebviewLogin : null;
   }
   if (inputAut) inputAut.className = "chzzk-input border-amber-500/60 bg-amber-950/20 text-amber-300";
@@ -189,8 +189,11 @@ function showNoticeModal({
   message = '',
   submessage = '',
   html = '',
+  checkboxLabel = '',
+  checkboxChecked = false,
   icon = 'ℹ️',
   buttons = null,
+  onConfirm = null,
   onDismiss = null
 } = {}) {
   confirmModalDismissHandler = typeof onDismiss === 'function' ? onDismiss : null;
@@ -206,7 +209,18 @@ function showNoticeModal({
   if (elIcon) elIcon.textContent = icon;
   if (elMsg) { elMsg.textContent = message; elMsg.classList.toggle('hidden', !message); }
   if (elSub) { elSub.textContent = submessage; elSub.classList.toggle('hidden', !submessage); }
-  if (elCustom) { elCustom.innerHTML = html; elCustom.classList.toggle('hidden', !html); }
+  if (elCustom) {
+    let customHtml = html || '';
+    if (checkboxLabel) {
+      customHtml += `
+        <label class="mt-2.5 pt-2 border-t border-[#1E2738]/70 flex items-center gap-2 text-[11px] text-slate-300 cursor-pointer select-none">
+          <input id="confirm-modal-checkbox" type="checkbox" class="chzzk-checkbox-input" ${checkboxChecked ? 'checked' : ''} />
+          <span>${escapeHtml(checkboxLabel)}</span>
+        </label>`;
+    }
+    elCustom.innerHTML = customHtml;
+    elCustom.classList.toggle('hidden', !customHtml);
+  }
 
   if (btnContainer) {
     btnContainer.innerHTML = '';
@@ -214,7 +228,11 @@ function showNoticeModal({
       {
         text: '확인',
         className: 'px-3.5 py-1.5 rounded-lg bg-[#00FFA3] hover:bg-[#00E591] text-black text-xs font-bold transition-all cursor-pointer',
-        onClick: () => window.__resolveConfirmModal(true)
+        onClick: () => {
+          const checked = Boolean(document.getElementById('confirm-modal-checkbox')?.checked);
+          window.__resolveConfirmModal(true);
+          if (typeof onConfirm === 'function') onConfirm(checked);
+        }
       }
     ];
     list.forEach(b => {
@@ -284,5 +302,31 @@ window.__resolveConfirmModal = function(val) {
 window.__closeConfirmModal = function() {
   window.__resolveConfirmModal(false);
 };
+
+function openGuideImageModal(src, title) {
+  const modal = document.getElementById('modal-guide-image');
+  const img = document.getElementById('guide-image-modal-img');
+  const titleEl = document.getElementById('guide-image-modal-title');
+  if (!modal || !img) return;
+  img.src = src || '';
+  if (titleEl) titleEl.textContent = title || '참고 이미지';
+  modal.classList.remove('hidden');
+}
+
+function closeGuideImageModal() {
+  const modal = document.getElementById('modal-guide-image');
+  const img = document.getElementById('guide-image-modal-img');
+  if (modal) modal.classList.add('hidden');
+  if (img) img.src = '';
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    const guideModal = document.getElementById('modal-guide-image');
+    if (guideModal && !guideModal.classList.contains('hidden')) {
+      closeGuideImageModal();
+    }
+  }
+});
 
 

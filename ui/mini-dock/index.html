@@ -6,6 +6,8 @@
   <title>CHZZK 미니 퀵 컨트롤러 독</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+  <link rel="stylesheet" href="/ui/shared/theme.css" />
+  <script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('chzzk_theme_mode')==='light'?'light':'dark');}catch(_){}</script>
   <script src="/ui/shared/api.js"></script>
   <script>
     tailwind.config = {
@@ -416,8 +418,29 @@
       } catch (e) {}
     }
 
+    function syncMiniDockTheme(mode) {
+      const m = (mode === 'light') ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', m);
+      try { localStorage.setItem('chzzk_theme_mode', m); } catch (_) {}
+    }
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'chzzk_theme_mode' && e.newValue) syncMiniDockTheme(e.newValue);
+    });
+    async function loadMiniDockTheme() {
+      try {
+        const res = await apiFetch('/app-settings');
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.theme_mode) syncMiniDockTheme(data.theme_mode);
+        }
+      } catch (_) {}
+    }
+
     // 초기 로드
-    window.addEventListener('DOMContentLoaded', () => fetchAllStatus());
+    window.addEventListener('DOMContentLoaded', () => {
+      loadMiniDockTheme();
+      fetchAllStatus();
+    });
   </script>
 </body>
 </html>

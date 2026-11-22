@@ -180,6 +180,27 @@
   border-color: rgba(0, 255, 163, 0.3);
 }
 
+/* 공통 아이콘 새로고침 버튼 (채팅모드/후원/파티/URL 공용) */
+.icon-refresh-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #161F2E;
+  border: 1px solid #243044;
+  color: #94A3B8;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+}
+.icon-refresh-btn:hover {
+  background: #1E2A3D;
+  border-color: rgba(0, 255, 163, 0.5);
+  color: #00FFA3;
+}
+
 /* 슬라이딩 설정 패널 */
 .settings-panel {
   position: fixed;
@@ -266,8 +287,10 @@
   background: #080B10;
   border: 1px solid #1E2738;
   border-radius: 9999px;
-  padding: 2px;
-  gap: 1px;
+  padding: 3px;
+  gap: 2px;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 .liquid-tab-group.liquid-full {
   display: flex;
@@ -278,15 +301,17 @@
 }
 .liquid-pill {
   position: absolute;
-  top: 0;
-  left: 0;
+  top: 3px;
+  left: 3px;
+  box-sizing: border-box;
   border-radius: 9999px;
   background: linear-gradient(135deg, rgba(0, 255, 163, 0.22), rgba(0, 210, 135, 0.12));
   border: 1px solid rgba(0, 255, 163, 0.52);
   box-shadow: 0 0 10px rgba(0, 255, 163, 0.16), inset 0 1px 2px rgba(255, 255, 255, 0.16);
-  transition: transform 0.38s cubic-bezier(0.34, 1.56, 0.64, 1),
-              width 0.32s cubic-bezier(0.34, 1.45, 0.64, 1),
-              height 0.32s cubic-bezier(0.34, 1.45, 0.64, 1);
+  transition: left 0.34s cubic-bezier(0.34, 1.45, 0.64, 1),
+              top 0.34s cubic-bezier(0.34, 1.45, 0.64, 1),
+              width 0.3s cubic-bezier(0.34, 1.4, 0.64, 1),
+              height 0.3s cubic-bezier(0.34, 1.4, 0.64, 1);
   pointer-events: none;
   z-index: 0;
 }
@@ -301,7 +326,7 @@
 .liquid-tab-btn {
   position: relative;
   z-index: 1;
-  padding: 3.5px 7px;
+  padding: 4px 7px;
   border-radius: 9999px;
   font-size: 10.5px;
   font-weight: 600;
@@ -313,9 +338,11 @@
   align-items: center;
   justify-content: center;
   gap: 4px;
-  border: 1px solid transparent;
+  border: none;
+  margin: 0;
   background: transparent;
   user-select: none;
+  box-sizing: border-box;
 }
 .liquid-tab-btn.active {
   color: #00FFA3;
@@ -326,6 +353,9 @@
 }
 .liquid-tab-btn:hover:not(.active) {
   color: #E2E8F0;
+}
+.liquid-tab-group .liquid-tab-btn.border-dirty {
+  border: none !important;
 }
 
 /* ============================================================
@@ -404,48 +434,84 @@
   border-color: #2E3B52;
 }
 
-.vol-edge-zone {
-  position: absolute;
-  right: 0;
-  top: 52%;
-  transform: translateY(-50%);
-  width: 34px;
-  height: 104px;
-  z-index: 25;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  pointer-events: auto;
+/* 필터 우클릭 색상 -> 피드 메시지 박스 동기화 */
+.remote-feed-card[data-custom-colored="true"] {
+  background: var(--msg-bg) !important;
+  border-color: var(--msg-border) !important;
 }
-.vol-peek-handle {
-  display: flex;
+.remote-feed-card[data-custom-colored="true"] .msg-tag-accent {
+  color: var(--msg-fg) !important;
+}
+.remote-feed-card[data-custom-colored="true"] .msg-badge-accent {
+  background: var(--msg-badge-bg) !important;
+  border-color: var(--msg-border) !important;
+  color: var(--msg-fg) !important;
+}
+
+/* 썸네일 등록됨 호버 미리보기 툴팁 */
+.thumb-tooltip-card {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-4px);
+  transition: opacity 0.16s ease, transform 0.16s ease, visibility 0.16s;
+  pointer-events: none;
+}
+.thumb-hover-wrap[data-has-thumb="true"]:hover .thumb-tooltip-card {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+/* 드래그 가능 · 고시인성 좌/우 스냅 볼륨 핸들 */
+.vol-drag-handle {
+  position: absolute;
+  z-index: 28;
+  display: inline-flex;
   align-items: center;
   gap: 5px;
-  height: 48px;
-  padding: 0 10px;
-  border-radius: 14px 0 0 14px;
-  background: linear-gradient(180deg, #251C4D, #181236);
-  border: 1px solid rgba(124, 92, 255, 0.55);
-  border-right: none;
-  box-shadow: -4px 4px 16px rgba(0, 0, 0, 0.65);
-  color: #E2D9FF;
+  height: 40px;
+  padding: 0 9px;
+  background: #162235;
+  border: 1.5px solid rgba(0, 255, 163, 0.72);
+  color: #00FFA3;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.55), 0 0 10px rgba(0, 255, 163, 0.16);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 800;
   white-space: nowrap;
-  cursor: pointer;
-  transform: translateX(46px);
-  transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1),
-              background 0.2s,
-              box-shadow 0.2s,
-              border-color 0.2s;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+  transition: transform 0.22s cubic-bezier(0.34, 1.4, 0.64, 1),
+              background 0.18s,
+              box-shadow 0.18s,
+              border-color 0.18s;
 }
-.vol-edge-zone:hover .vol-peek-handle,
-.vol-peek-handle:focus-visible {
+.vol-drag-handle:active {
+  cursor: grabbing;
+}
+.vol-drag-handle[data-side="right"] {
+  right: 0;
+  left: auto;
+  border-right: none;
+  border-radius: 12px 0 0 12px;
+  transform: translateX(30px);
+}
+.vol-drag-handle[data-side="left"] {
+  left: 0;
+  right: auto;
+  border-left: none;
+  border-radius: 0 12px 12px 0;
+  flex-direction: row-reverse;
+  transform: translateX(-30px);
+}
+.vol-drag-handle[data-side="right"]:hover,
+.vol-drag-handle[data-side="left"]:hover,
+.vol-drag-handle:focus-visible,
+.vol-drag-handle.is-dragging {
   transform: translateX(0);
-  background: linear-gradient(180deg, #5C3BFF, #4628D8);
-  border-color: #9E8BFF;
-  box-shadow: -6px 6px 22px rgba(92, 59, 255, 0.45);
-  color: #FFFFFF;
+  background: #1D2E48;
+  border-color: #00FFA3;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.65), 0 0 14px rgba(0, 255, 163, 0.28);
 }
 
 .vol-backdrop {
@@ -467,21 +533,41 @@
 .vol-slide-drawer {
   position: absolute;
   top: 0;
-  right: 0;
   bottom: 0;
   width: 82%;
   max-width: 310px;
   background: #121724;
-  border-left: 1px solid rgba(124, 92, 255, 0.45);
-  box-shadow: -14px 0 36px rgba(0, 0, 0, 0.9);
   z-index: 40;
-  transform: translateX(100%);
-  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), visibility 0.3s;
   display: flex;
   flex-direction: column;
+  /* 닫힘 상태에서 그림자 누출 및 클릭 차단 */
+  box-shadow: none;
+  visibility: hidden;
+  pointer-events: none;
+}
+.vol-slide-drawer[data-side="right"] {
+  right: 0;
+  left: auto;
+  border-left: 1px solid rgba(124, 92, 255, 0.45);
+  transform: translateX(100%);
+}
+.vol-slide-drawer[data-side="left"] {
+  left: 0;
+  right: auto;
+  border-right: 1px solid rgba(124, 92, 255, 0.45);
+  transform: translateX(-100%);
 }
 .vol-slide-drawer.open {
   transform: translateX(0);
+  visibility: visible;
+  pointer-events: auto;
+}
+.vol-slide-drawer[data-side="right"].open {
+  box-shadow: -14px 0 36px rgba(0, 0, 0, 0.9);
+}
+.vol-slide-drawer[data-side="left"].open {
+  box-shadow: 14px 0 36px rgba(0, 0, 0, 0.9);
 }
 
 .vol-range {

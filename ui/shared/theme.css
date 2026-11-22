@@ -363,3 +363,487 @@ input:-webkit-autofill:active {
 
 /* 동작 줄이기 */
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; } }
+
+/* ============================================================
+   라이트 모드 테마 오버라이드 (html[data-theme="light"])
+   - 3단계 표면 계층: #F3F5F8(바닥) -> #FFFFFF(카드) -> #F8FAFC(입력/우물)
+   - 브랜드 듀얼 토큰: CTA 채움 #00FFA3+#052E1C, 텍스트/테두리 #009E66 / #007A4E
+   - WCAG AA/AAA 슬레이트 위계: #0F172A -> #334155 -> #64748B
+   ============================================================ */
+html[data-theme="light"] {
+  color-scheme: light;
+}
+html[data-theme="light"],
+html[data-theme="light"] body,
+html[data-theme="light"] #dock-wrapper,
+html[data-theme="light"] .settings-panel {
+  background-color: #F3F5F8 !important;
+  color: #0F172A !important;
+}
+html[data-theme="light"] * {
+  scrollbar-color: #CBD5E1 transparent;
+}
+html[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+}
+html[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
+  background: #009E66;
+}
+
+/* L1 카드 표면 (정확 클래스 매칭으로 hover: 오적용 방지) */
+html[data-theme="light"] .section-card,
+html[data-theme="light"] [class~="bg-[#121721]"],
+html[data-theme="light"] [class~="bg-[#0E131A]"],
+html[data-theme="light"] [class~="bg-[#0E131C]"],
+html[data-theme="light"] [class~="bg-[#0B1017]"],
+html[data-theme="light"] [class~="bg-[#161B22]"],
+html[data-theme="light"] [class~="bg-[#161B24]"],
+html[data-theme="light"] [class~="bg-[#181D26]"],
+html[data-theme="light"] [class*="bg-chzzk-card"],
+html[data-theme="light"] .bg-obsCard,
+html[data-theme="light"] .mini-card {
+  background-color: #FFFFFF !important;
+  border-color: #E2E8F0 !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+html[data-theme="light"] .section-card:hover {
+  border-color: #CBD5E1 !important;
+}
+
+/* L2 입력/우물/도움말/라이선스 전문 표면 */
+html[data-theme="light"] .chzzk-input,
+html[data-theme="light"] .chzzk-select,
+html[data-theme="light"] [class~="bg-[#0B0F15]"],
+html[data-theme="light"] [class~="bg-[#0B0F15]/40"],
+html[data-theme="light"] [class~="bg-[#090D13]"],
+html[data-theme="light"] [class~="bg-[#0B0F18]"],
+html[data-theme="light"] [class~="bg-[#080A0D]"],
+html[data-theme="light"] [class~="bg-[#080B10]"],
+html[data-theme="light"] [class~="bg-[#080B12]"],
+html[data-theme="light"] [class~="bg-[#05080C]"],
+html[data-theme="light"] [class~="bg-[#05080C]/70"],
+html[data-theme="light"] [class~="bg-[#05080C]/80"],
+html[data-theme="light"] [class~="bg-[#06090e]"],
+html[data-theme="light"] [class~="bg-[#070A0F]"],
+html[data-theme="light"] [class~="bg-[#0a0d13]"],
+html[data-theme="light"] [class~="bg-[#0A0D14]"],
+html[data-theme="light"] [class~="bg-[#0A101A]"],
+html[data-theme="light"] [class~="bg-[#0C1118]"],
+html[data-theme="light"] [class~="bg-[#0D1119]"],
+html[data-theme="light"] [class~="bg-[#0D1219]"],
+html[data-theme="light"] [class~="bg-[#0D131B]"],
+html[data-theme="light"] [class~="!bg-[#0D131B]"],
+html[data-theme="light"] [class~="bg-[#0E1522]"],
+html[data-theme="light"] [class~="bg-[#0F0D17]"],
+html[data-theme="light"] [class~="bg-[#101620]"],
+html[data-theme="light"] [class~="bg-[#141517]"],
+html[data-theme="light"] [class~="bg-[#141C2B]"],
+html[data-theme="light"] [class~="bg-[#141E2E]"],
+html[data-theme="light"] [class~="bg-zinc-950/90"],
+html[data-theme="light"] .bg-obsBg,
+html[data-theme="light"] .bg-obsBorderSubtle {
+  background-color: #F8FAFC !important;
+  border-color: #CBD5E1 !important;
+  color: #0F172A !important;
+}
+html[data-theme="light"] .chzzk-input:focus,
+html[data-theme="light"] .chzzk-select:focus {
+  background-color: #FFFFFF !important;
+  border-color: #009E66 !important;
+  box-shadow: 0 0 0 2px rgba(0, 158, 102, 0.16) !important;
+}
+html[data-theme="light"] .chzzk-input::placeholder {
+  color: #94A3B8 !important;
+}
+html[data-theme="light"] input[type="range"] {
+  color-scheme: light;
+  background-color: #E2E8F0 !important;
+  accent-color: #00A86B !important;
+}
+
+/* 보조 버튼 표면 (정확 클래스 매칭 + 호버 분리) */
+html[data-theme="light"] .sub-btn,
+html[data-theme="light"] .mini-btn,
+html[data-theme="light"] [class~="bg-[#161F2E]"],
+html[data-theme="light"] [class~="bg-[#161F2E]/60"],
+html[data-theme="light"] [class~="bg-[#162134]"],
+html[data-theme="light"] [class~="bg-[#1A2233]"],
+html[data-theme="light"] [class~="bg-[#1A2436]"],
+html[data-theme="light"] [class~="bg-[#1B2535]"],
+html[data-theme="light"] [class~="bg-[#1C1C26]"],
+html[data-theme="light"] [class~="bg-[#111722]"],
+html[data-theme="light"] [class~="bg-[#1E2636]"],
+html[data-theme="light"] [class~="bg-[#1E2738]"],
+html[data-theme="light"] [class~="bg-[#1E293B]"],
+html[data-theme="light"] [class~="bg-[#1F1418]"],
+html[data-theme="light"] [class~="bg-[#1F2937]"],
+html[data-theme="light"] [class~="bg-slate-800"],
+html[data-theme="light"] [class~="bg-slate-800/80"],
+html[data-theme="light"] [class~="bg-gray-800"],
+html[data-theme="light"] [class~="bg-gray-900"],
+html[data-theme="light"] [class~="bg-zinc-800"],
+html[data-theme="light"] [class~="bg-zinc-900/80"] {
+  background-color: #F1F5F9 !important;
+  border-color: #CBD5E1 !important;
+  color: #334155 !important;
+}
+html[data-theme="light"] .sub-btn:hover,
+html[data-theme="light"] .mini-btn:hover,
+html[data-theme="light"] [class*="hover:bg-[#131A24]"]:hover,
+html[data-theme="light"] [class*="hover:bg-[#141C2B]"]:hover,
+html[data-theme="light"] [class*="hover:bg-[#161F2E]"]:hover,
+html[data-theme="light"] [class*="hover:bg-[#1C283C]"]:hover,
+html[data-theme="light"] [class*="hover:bg-[#1E2738]"]:hover,
+html[data-theme="light"] [class*="hover:bg-[#1E293B]"]:hover,
+html[data-theme="light"] [class*="hover:bg-[#1E2A3D]"]:hover,
+html[data-theme="light"] [class*="hover:bg-[#1E2D47]"]:hover,
+html[data-theme="light"] [class*="hover:bg-[#202B3D]"]:hover,
+html[data-theme="light"] [class*="hover:bg-[#202C3F]"]:hover,
+html[data-theme="light"] [class*="hover:bg-[#253048]"]:hover,
+html[data-theme="light"] [class*="hover:bg-[#253247]"]:hover,
+html[data-theme="light"] [class*="hover:bg-[#282837]"]:hover,
+html[data-theme="light"] [class*="hover:bg-[#2C3B52]"]:hover,
+html[data-theme="light"] [class*="hover:bg-[#2D3748]"]:hover,
+html[data-theme="light"] [class*="hover:bg-slate-800"]:hover,
+html[data-theme="light"] [class~="bg-[#161F2E]"]:hover,
+html[data-theme="light"] [class~="bg-[#162134]"]:hover,
+html[data-theme="light"] [class~="bg-[#1A2233]"]:hover,
+html[data-theme="light"] [class~="bg-[#1B2535]"]:hover,
+html[data-theme="light"] [class~="bg-slate-800"]:hover {
+  background-color: #E2E8F0 !important;
+  color: #0F172A !important;
+}
+
+/* 리모컨 알림 정지(#1E1936) & 보라 보조 버튼 */
+html[data-theme="light"] [class~="bg-[#1E1936]"] {
+  background-color: #EEF2FF !important;
+  border-color: #C7D2FE !important;
+  color: #4338CA !important;
+}
+html[data-theme="light"] [class~="bg-[#1E1936]"]:hover,
+html[data-theme="light"] [class*="hover:bg-[#28214A]"]:hover {
+  background-color: #E0E7FF !important;
+  color: #3730A3 !important;
+}
+
+/* 시맨틱 어두운 배지(-950/-900) 라이트 모드 파스텔 변환 */
+html[data-theme="light"] [class*="bg-emerald-950"] {
+  background-color: #ECFDF5 !important;
+  border-color: #6EE7B7 !important;
+  color: #065F46 !important;
+}
+html[data-theme="light"] [class*="bg-sky-950"],
+html[data-theme="light"] [class*="bg-blue-950"] {
+  background-color: #EFF6FF !important;
+  border-color: #93C5FD !important;
+  color: #1D4ED8 !important;
+}
+html[data-theme="light"] [class*="bg-purple-950"] {
+  background-color: #F3E8FF !important;
+  border-color: #D8B4FE !important;
+  color: #6B21A8 !important;
+}
+html[data-theme="light"] [class*="bg-amber-950"],
+html[data-theme="light"] [class*="bg-orange-950"] {
+  background-color: #FFFBEB !important;
+  border-color: #FCD34D !important;
+  color: #92400E !important;
+}
+html[data-theme="light"] [class*="bg-rose-950"],
+html[data-theme="light"] [class*="bg-rose-900"],
+html[data-theme="light"] [class*="bg-red-950"] {
+  background-color: #FFF1F2 !important;
+  border-color: #FDA4AF !important;
+  color: #BE123C !important;
+}
+html[data-theme="light"] [class*="bg-rose-950"]:hover,
+html[data-theme="light"] [class*="bg-rose-900"]:hover {
+  background-color: #FFE4E6 !important;
+  color: #9F1239 !important;
+}
+
+/* L3 플로팅 팝오버 · 모달 · 볼륨 서랍 */
+html[data-theme="light"] .category-dropdown,
+html[data-theme="light"] [class~="bg-[#0F1522]"],
+html[data-theme="light"] [class~="bg-[#0F1726]"],
+html[data-theme="light"] [class~="bg-[#151D28]"],
+html[data-theme="light"] [class~="bg-[#0D131C]"],
+html[data-theme="light"] [class~="bg-[#111116]"],
+html[data-theme="light"] [class~="bg-[#181524]"],
+html[data-theme="light"] #channel-popover-menu,
+html[data-theme="light"] #drops-reward-tooltip,
+html[data-theme="light"] #thumbnail-hover-popover,
+html[data-theme="light"] .vol-slide-drawer {
+  background-color: #FFFFFF !important;
+  border-color: #CBD5E1 !important;
+  box-shadow: 0 14px 32px -4px rgba(15, 23, 42, 0.16) !important;
+}
+html[data-theme="light"] .category-item {
+  color: #334155 !important;
+}
+html[data-theme="light"] .category-item:hover,
+html[data-theme="light"] .category-item.highlighted {
+  background-color: #E6F9F1 !important;
+  color: #007A4E !important;
+  border-left-color: #009E66 !important;
+}
+
+/* 경계선 일괄 보정 */
+html[data-theme="light"] [class*="border-[#1E2738]"],
+html[data-theme="light"] [class*="border-[#1E2636]"],
+html[data-theme="light"] [class*="border-[#1A2333]"],
+html[data-theme="light"] [class*="border-[#1E2B40]"],
+html[data-theme="light"] [class*="border-[#243044]"],
+html[data-theme="light"] [class*="border-[#262635]"],
+html[data-theme="light"] [class*="border-[#273852]"],
+html[data-theme="light"] [class*="border-[#2B3E5E]"],
+html[data-theme="light"] [class*="border-[#2C213D]"],
+html[data-theme="light"] [class*="border-[#2E3F58]"],
+html[data-theme="light"] [class*="border-[#242D42]"],
+html[data-theme="light"] [class*="border-[#3E2E55]"],
+html[data-theme="light"] [class*="border-gray-700"],
+html[data-theme="light"] [class*="border-gray-800"],
+html[data-theme="light"] [class*="border-chzzk-border"],
+html[data-theme="light"] .border-obsBorder,
+html[data-theme="light"] .border-obsBorderSubtle {
+  border-color: #CBD5E1 !important;
+}
+
+/* 4단계 타이포그래피 위계 (솔리드 유색 CTA 내부 흰 글씨는 제외) */
+html[data-theme="light"] .text-white,
+html[data-theme="light"] .text-slate-100,
+html[data-theme="light"] .text-obsText {
+  color: #0F172A !important;
+}
+html[data-theme="light"] .text-slate-200,
+html[data-theme="light"] .text-slate-300,
+html[data-theme="light"] .text-zinc-300,
+html[data-theme="light"] .text-gray-200,
+html[data-theme="light"] .text-gray-300 {
+  color: #334155 !important;
+}
+html[data-theme="light"] .text-slate-400,
+html[data-theme="light"] .text-slate-500,
+html[data-theme="light"] .text-gray-400,
+html[data-theme="light"] .text-chzzk-muted,
+html[data-theme="light"] .text-obsMuted {
+  color: #64748B !important;
+}
+html[data-theme="light"] button[class*="bg-[#5C3BFF]"]:not([class*="bg-[#5C3BFF]/"]),
+html[data-theme="light"] button[class*="bg-[#5C3BFF]"]:not([class*="bg-[#5C3BFF]/"]) *,
+html[data-theme="light"] button[class*="bg-emerald-6"],
+html[data-theme="light"] button[class*="bg-red-5"],
+html[data-theme="light"] button[class*="bg-rose-6"] {
+  color: #FFFFFF !important;
+}
+html[data-theme="light"] button[class*="bg-[#5C3BFF]/"] {
+  background-color: rgba(92, 59, 255, 0.11) !important;
+  border-color: rgba(92, 59, 255, 0.42) !important;
+  color: #4338CA !important;
+}
+html[data-theme="light"] button[class*="bg-[#5C3BFF]/"]:hover {
+  background-color: rgba(92, 59, 255, 0.18) !important;
+}
+
+/* 라이트 모드 앰버/퍼플 텍스트 가독성 보정 (WCAG AA) */
+html[data-theme="light"] [class*="text-amber-2"],
+html[data-theme="light"] [class*="text-amber-3"],
+html[data-theme="light"] [class*="text-amber-4"] {
+  color: #B45309 !important;
+}
+html[data-theme="light"] [class*="text-purple-3"],
+html[data-theme="light"] [class*="text-purple-4"],
+html[data-theme="light"] [class*="text-[#C4B5FD]"],
+html[data-theme="light"] [class*="text-[#A594FF]"] {
+  color: #5B21B6 !important;
+}
+html[data-theme="light"] [class*="text-emerald-3"],
+html[data-theme="light"] [class*="text-emerald-4"] {
+  color: #047857 !important;
+}
+html[data-theme="light"] [class*="text-sky-3"],
+html[data-theme="light"] [class*="text-sky-4"] {
+  color: #0369A1 !important;
+}
+html[data-theme="light"] [class*="text-rose-3"],
+html[data-theme="light"] [class*="text-rose-4"] {
+  color: #BE123C !important;
+}
+
+/* 치지직 브랜드 그린 듀얼 토큰 (AA 4.52:1+ 보장) */
+html[data-theme="light"] [class*="text-[#00FFA3]"],
+html[data-theme="light"] .text-obsAccent {
+  color: #007A4E !important;
+}
+html[data-theme="light"] .save-btn,
+html[data-theme="light"] button[class*="bg-[#00FFA3]"] {
+  color: #052E1C !important;
+}
+html[data-theme="light"] #header-channel-name {
+  background-color: rgba(0, 158, 102, 0.10) !important;
+  border-color: rgba(0, 158, 102, 0.38) !important;
+  color: #065F46 !important;
+}
+
+/* 라디오 · 체크박스 · 스위치 · 물방울 탭 */
+html[data-theme="light"] .chzzk-radio,
+html[data-theme="light"] .chzzk-checkbox-input {
+  background: #FFFFFF !important;
+  border-color: #94A3B8 !important;
+}
+html[data-theme="light"] .chzzk-radio:checked {
+  border-color: #009E66 !important;
+}
+html[data-theme="light"] .chzzk-radio:checked::before {
+  background: #009E66 !important;
+}
+html[data-theme="light"] .chzzk-checkbox-input:checked {
+  background: #00FFA3 !important;
+  border-color: #009E66 !important;
+}
+html[data-theme="light"] .chzzk-checkbox-input:checked::before {
+  border-color: #052E1C !important;
+}
+html[data-theme="light"] .toggle-slider {
+  background-color: #CBD5E1 !important;
+  border-color: #CBD5E1 !important;
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.08) !important;
+}
+html[data-theme="light"] .toggle-switch:hover .toggle-slider {
+  border-color: #94A3B8 !important;
+}
+html[data-theme="light"] .toggle-slider::before {
+  background-color: #FFFFFF !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.22) !important;
+}
+html[data-theme="light"] .toggle-switch input:checked + .toggle-slider {
+  background-color: #00B874 !important;
+  border-color: #009E66 !important;
+  box-shadow: none !important;
+}
+html[data-theme="light"] .toggle-switch input:checked + .toggle-slider::before {
+  background-color: #FFFFFF !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.25) !important;
+}
+
+html[data-theme="light"] .liquid-tab-group {
+  background: #E9EEF4 !important;
+  border-color: #CBD5E1 !important;
+}
+html[data-theme="light"] .liquid-pill {
+  background: #FFFFFF !important;
+  border-color: rgba(0, 158, 102, 0.45) !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.10) !important;
+}
+html[data-theme="light"] .liquid-tab-group.liquid-amber .liquid-pill {
+  border-color: rgba(217, 119, 6, 0.48) !important;
+}
+html[data-theme="light"] .liquid-tab-btn,
+html[data-theme="light"] .settings-nav-btn {
+  color: #64748B !important;
+}
+html[data-theme="light"] .settings-nav-btn:not(.active):hover {
+  background: #E2E8F0 !important;
+  color: #0F172A !important;
+}
+html[data-theme="light"] .liquid-tab-btn.active,
+html[data-theme="light"] .settings-nav-btn.active {
+  color: #007A4E !important;
+}
+html[data-theme="light"] .liquid-tab-group.liquid-amber .liquid-tab-btn.active {
+  color: #B45309 !important;
+}
+
+/* 리모컨 필터 칩 & 볼륨 핸들 & 파티 버튼 */
+html[data-theme="light"] .remote-filter-chip:not(.on) {
+  background: #F1F5F9 !important;
+  border-color: #CBD5E1 !important;
+  color: #64748B !important;
+}
+html[data-theme="light"] .remote-filter-chip.on {
+  background: var(--chip-bg, rgba(0, 184, 116, 0.13)) !important;
+  border-color: var(--chip-border, rgba(0, 158, 102, 0.48)) !important;
+  color: var(--chip-fg, #007A4E) !important;
+}
+html[data-theme="light"] .vol-drag-handle {
+  background: #FFFFFF !important;
+  border-color: #009E66 !important;
+  color: #007A4E !important;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.14) !important;
+}
+html[data-theme="light"] .vol-drag-handle:hover,
+html[data-theme="light"] .vol-drag-handle.is-dragging {
+  background: #E6F9F1 !important;
+}
+html[data-theme="light"] .vol-range {
+  background: #CBD5E1 !important;
+}
+html[data-theme="light"] .party-btn-participating {
+  background: rgba(0, 184, 116, 0.14) !important;
+  border-color: #009E66 !important;
+  color: #007A4E !important;
+}
+html[data-theme="light"] .remote-official-btn {
+  background: #FFFFFF !important;
+  border-color: #CBD5E1 !important;
+  color: #0F172A !important;
+}
+html[data-theme="light"] .icon-refresh-btn {
+  background-color: #FFFFFF !important;
+  border-color: #CBD5E1 !important;
+  color: #475569 !important;
+}
+html[data-theme="light"] .icon-refresh-btn:hover {
+  background-color: #F1F5F9 !important;
+  border-color: #009E66 !important;
+  color: #007A4E !important;
+}
+html[data-theme="light"] .tag-chip {
+  background-color: #E6F9F1 !important;
+  border-color: rgba(0, 158, 102, 0.42) !important;
+  color: #065F46 !important;
+}
+html[data-theme="light"] .tag-chip button {
+  color: #047857 !important;
+}
+html[data-theme="light"] .tag-chip button:hover {
+  color: #BE123C !important;
+}
+
+/* 라이트 모드 토스트 4종 (고대비 파스텔 표면 + 딥 컬러 텍스트) */
+html[data-theme="light"] .toast {
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.14) !important;
+}
+html[data-theme="light"] .toast.success {
+  background: rgba(236, 253, 245, 0.98) !important;
+  color: #065F46 !important;
+  border: 1px solid #34D399 !important;
+}
+html[data-theme="light"] .toast.info {
+  background: rgba(239, 246, 255, 0.98) !important;
+  color: #1E40AF !important;
+  border: 1px solid #60A5FA !important;
+}
+html[data-theme="light"] .toast.warn {
+  background: rgba(255, 251, 235, 0.98) !important;
+  color: #92400E !important;
+  border: 1px solid #FBBF24 !important;
+}
+html[data-theme="light"] .toast.error {
+  background: rgba(255, 241, 242, 0.98) !important;
+  color: #9F1239 !important;
+  border: 1px solid #FB7185 !important;
+}
+
+/* 플로팅 핀 툴바 라이트 모드 */
+html[data-theme="light"] #chzzk-floating-toolbar button:not(.is-active) {
+  background: #FFFFFF !important;
+  border-color: #CBD5E1 !important;
+  color: #334155 !important;
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.14) !important;
+}
+html[data-theme="light"] #chzzk-floating-toolbar button.is-active {
+  background: #00FFA3 !important;
+  border-color: #009E66 !important;
+  color: #052E1C !important;
+}

@@ -74,6 +74,46 @@
       if (arrow) arrow.textContent = opening ? '▾' : '▸';
     }
 
+    var currentThemeMode = 'dark';
+
+    function setThemeMode(mode, save = true) {
+      const normalized = (mode === 'light') ? 'light' : 'dark';
+      currentThemeMode = normalized;
+      if (document.documentElement) {
+        document.documentElement.setAttribute('data-theme', normalized);
+      }
+      try {
+        localStorage.setItem('chzzk_theme_mode', normalized);
+      } catch (_) {}
+
+      const iconEl = document.getElementById('theme-toggle-icon');
+      const textEl = document.getElementById('theme-toggle-text');
+      const hdrIcon = document.getElementById('header-theme-icon');
+      if (iconEl) iconEl.textContent = normalized === 'light' ? '☀️' : '🌙';
+      if (textEl) textEl.textContent = normalized === 'light' ? '라이트 모드' : '다크 모드';
+      if (hdrIcon) hdrIcon.textContent = normalized === 'light' ? '☀️' : '🌙';
+
+      if (save && typeof saveAppSettingField === 'function') {
+        saveAppSettingField('theme_mode', normalized, normalized === 'light' ? '라이트 모드가 적용되었습니다.' : '다크 모드가 적용되었습니다.');
+      }
+    }
+
+    function toggleThemeMode() {
+      setThemeMode(currentThemeMode === 'light' ? 'dark' : 'light', true);
+    }
+
+    try {
+      setThemeMode(localStorage.getItem('chzzk_theme_mode') || 'dark', false);
+    } catch (_) {
+      setThemeMode('dark', false);
+    }
+
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'chzzk_theme_mode' && e.newValue) {
+        setThemeMode(e.newValue, false);
+      }
+    });
+
 
     // ===== Broadcast Settings Dirty State (설정 변경 감지 및 테두리 하이라이트) =====
     let savedBroadcastBaseline = null;
@@ -355,12 +395,20 @@
       }
       updatePortClearButton();
 
-      // 2. 폰트/화면 배율
+      // 2. 폰트/화면 배율 & 테마 & 필터 커스텀 색상
       if (typeof data.font_scale === 'number') {
         setFontScale(data.font_scale, false);
       }
+      if (typeof data.theme_mode === 'string') {
+        setThemeMode(data.theme_mode, false);
+      }
       if (typeof applyRemoteFilterChipColors === 'function') {
         applyRemoteFilterChipColors(data.remote_filter_colors || {});
+      }
+      if (typeof dismissedWatchPartyNotices !== 'undefined') {
+        dismissedWatchPartyNotices = (data.dismissed_watch_party_notices && typeof data.dismissed_watch_party_notices === 'object')
+          ? { ...data.dismissed_watch_party_notices }
+          : {};
       }
 
       // 3. 실시간 시청자 수

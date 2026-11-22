@@ -71,7 +71,7 @@ function applyBootstrapState(content) {
     }
     if (btnWebview) {
       btnWebview.innerHTML = "🚪 로그아웃";
-      btnWebview.className = "save-btn text-xs py-2 bg-rose-900/60 hover:bg-rose-800 text-rose-200 border border-rose-600/60 transition-colors cursor-pointer";
+      btnWebview.className = "w-full py-2 px-3 rounded-lg text-xs font-bold bg-rose-950/60 hover:bg-rose-900/70 text-rose-300 border border-rose-500/35 transition-colors cursor-pointer";
       btnWebview.onclick = handleLogout;
     }
     if (inputAut) inputAut.className = "chzzk-input border-emerald-500/40 bg-emerald-950/10 text-emerald-300";
@@ -198,11 +198,17 @@ async function initConnection() {
 
 
     function updateThumbnailToolbarButton() {
+      const wrap = document.getElementById('thumbnail-toolbar-wrap');
       const btn = document.getElementById('btn-thumbnail');
       const label = document.getElementById('thumbnail-status-label');
+      const hoverImg = document.getElementById('thumbnail-hover-img');
       if (!btn || !label) return;
 
-      const hasThumb = !!currentLiveSetting.defaultThumbnailImageUrl;
+      const thumbUrl = currentLiveSetting.defaultThumbnailImageUrl || '';
+      const hasThumb = !!thumbUrl;
+      if (wrap) wrap.setAttribute('data-has-thumb', hasThumb ? 'true' : 'false');
+      if (hoverImg) hoverImg.src = hasThumb ? thumbUrl : '';
+
       if (hasThumb) {
         btn.classList.remove('bg-[#121721]', 'border-[#243044]', 'text-slate-200');
         btn.classList.add('bg-[#00FFA3]/10', 'border-[#00FFA3]/60', 'text-[#00FFA3]');
@@ -211,7 +217,7 @@ async function initConnection() {
       } else {
         btn.classList.remove('bg-[#00FFA3]/10', 'border-[#00FFA3]/60', 'text-[#00FFA3]');
         btn.classList.add('bg-[#121721]', 'border-[#243044]', 'text-slate-200');
-        label.textContent = '미등록';
+        label.textContent = '없음';
         label.className = 'text-[9.5px] px-1.5 py-0.2 rounded bg-[#161F2E] text-slate-400 font-mono border border-[#243044] leading-none';
       }
     }
@@ -688,12 +694,12 @@ async function initConnection() {
             </div>
             <div class="flex items-center gap-1 flex-shrink-0" onclick="event.stopPropagation()">
               ${s.channel_id ? `
-              <button type="button" onclick="openExternalUrl('https://chzzk.naver.com/live/${encodeURIComponent(s.channel_id)}', '${escapeHtml(s.channel_name || '채널')}');" class="w-6 h-6 rounded flex items-center justify-center text-slate-300 hover:text-[#00FFA3] hover:bg-[#202C3F] transition-colors cursor-pointer" title="방송 바로가기 (브라우저)">
-                <span class="text-xs">🌐</span>
+              <button type="button" onclick="openExternalUrl('https://chzzk.naver.com/live/${encodeURIComponent(s.channel_id)}', '${escapeHtml(s.channel_name || '채널')}');" class="w-6 h-6 rounded-md bg-[#161F2E] hover:bg-[#202C3F] border border-[#26374D] hover:border-[#00FFA3]/50 flex items-center justify-center text-slate-300 hover:text-[#00FFA3] transition-colors cursor-pointer" title="방송 바로가기 (브라우저)">
+                <span class="text-xs leading-none">🌐</span>
               </button>
               ` : ''}
-              <button type="button" onclick="removeAccountSession(${s.index})" class="w-6 h-6 rounded flex items-center justify-center text-slate-400 hover:text-rose-400 hover:bg-[#202C3F] transition-colors cursor-pointer" title="계정 연동 해제">
-                <span class="text-xs">🗑️</span>
+              <button type="button" onclick="removeAccountSession(${s.index})" class="w-6 h-6 rounded-md bg-[#161F2E] hover:bg-rose-950/60 border border-[#26374D] hover:border-rose-500/50 flex items-center justify-center text-slate-400 hover:text-rose-400 transition-colors cursor-pointer" title="계정 연동 해제">
+                <span class="text-xs leading-none">🗑️</span>
               </button>
             </div>
           </div>
@@ -1093,21 +1099,54 @@ async function initConnection() {
     }
 
 
-    function openWatchPartyRestartModal() {
-      showNoticeModal({
+    var dismissedWatchPartyNotices = {};
+    const WATCH_PARTY_NOTICE_DEFINITIONS = [
+      {
+        index: '0',
+        shouldShow: (wp) => Boolean(wp && wp.hasLiveRestartTrigger),
         icon: '🔄',
         title: '같이보기 송출 재정비 안내',
         message: '이 같이보기는 원활한 방송을 위해 자동으로 송출 장비를 재설정합니다.\n\n• 송출 프로그램(OBS/Prism 등)의 [설정 > 고급 > 자동으로 다시 연결] 옵션을 반드시 켜주세요.\n• 같이보기 on/off 시 송출이 잠시 끊겼다가 자동 재시작되며 안내 화면이 노출됩니다.\n• 채팅과 후원 참여 내역은 모두 유지됩니다.\n• 다시보기는 분할된 영상으로 저장됩니다.'
-      });
-    }
-
-
-    function openWatchPartyMidRollModal() {
-      showNoticeModal({
+      },
+      {
+        index: '1',
+        shouldShow: (wp) => Boolean(wp && wp.midRollAdIntegrationControl),
         icon: '📢',
         title: '안내',
         message: '선택하신 같이보기는 중간광고를 직접 제어할 수 없으며, 콘텐츠 흐름에 따라 적절한 시점에 중간광고가 재생됩니다.'
-      });
+      }
+    ];
+
+    function showWatchPartyNoticesFor(wp) {
+      const pending = WATCH_PARTY_NOTICE_DEFINITIONS.filter(def => def.shouldShow(wp) && !dismissedWatchPartyNotices[def.index]);
+      if (pending.length === 0) return;
+
+      let cursor = 0;
+      function showNext() {
+        if (cursor >= pending.length) return;
+        const def = pending[cursor++];
+        const saveIfDismissed = (checked) => {
+          if (checked) {
+            dismissedWatchPartyNotices[def.index] = true;
+            if (typeof saveAppSettingField === 'function') {
+              saveAppSettingField('dismissed_watch_party_notices', dismissedWatchPartyNotices);
+            }
+          }
+          setTimeout(showNext, 0);
+        };
+        showNoticeModal({
+          icon: def.icon,
+          title: def.title,
+          message: def.message,
+          checkboxLabel: '다시 보지 않음',
+          onConfirm: saveIfDismissed,
+          onDismiss: () => {
+            const checked = Boolean(document.getElementById('confirm-modal-checkbox')?.checked);
+            saveIfDismissed(checked);
+          }
+        });
+      }
+      showNext();
     }
 
 
@@ -1500,12 +1539,7 @@ async function initConnection() {
         const wp = availableWatchParties.find(p => String(p.watchPartyNo) === String(val));
         if (wp) {
           applyWatchPartyLock(wp, true);
-          if (wp.hasLiveRestartTrigger) {
-            openWatchPartyRestartModal();
-          }
-          if (wp.midRollAdIntegrationControl) {
-            openWatchPartyMidRollModal();
-          }
+          showWatchPartyNoticesFor(wp);
         }
       }
       checkBroadcastStateDirty();
@@ -2147,7 +2181,7 @@ async function initConnection() {
         if (badgeB) { badgeB.textContent = "✅ 등록됨"; badgeB.className = "text-[9px] px-1.5 py-0.5 rounded font-bold bg-emerald-950 text-[#00FFA3] border border-emerald-800/60"; }
         if (btnWebview) {
           btnWebview.innerHTML = "🚪 로그아웃";
-          btnWebview.className = "save-btn text-xs py-2 bg-rose-900/60 hover:bg-rose-800 text-rose-200 border border-rose-600/60 transition-colors cursor-pointer";
+          btnWebview.className = "w-full py-2 px-3 rounded-lg text-xs font-bold bg-rose-950/60 hover:bg-rose-900/70 text-rose-300 border border-rose-500/35 transition-colors cursor-pointer";
           btnWebview.onclick = handleLogout;
         }
         updateSavedBroadcastBaseline();

@@ -881,7 +881,9 @@ func handleAppSettingsGet(w http.ResponseWriter, r *http.Request) {
 		"fallback_reason":        portFallbackReason,
 		"default_browser":        core.GetDefaultBrowserName(),
 		"font_scale":             st.FontScale,
-		"remote_filter_colors":   st.RemoteFilterColors,
+		"theme_mode":                    st.GetThemeMode(),
+		"remote_filter_colors":          st.RemoteFilterColors,
+		"dismissed_watch_party_notices": st.DismissedWatchPartyNotices,
 		"show_viewer_count":      st.IsShowViewerCount(),
 		"popup_on_start":         st.IsPopupOnStart(),
 		"notify_on_shutdown":     st.IsNotifyOnShutdown(),
@@ -904,6 +906,9 @@ func handleAppSettingsPut(w http.ResponseWriter, r *http.Request) {
 
 	if v, ok := patch["font_scale"].(float64); ok && v > 0 {
 		st.SetFontScale(v)
+	}
+	if v, ok := patch["theme_mode"].(string); ok {
+		st.SetThemeMode(v)
 	}
 	if v, ok := patch["show_viewer_count"].(bool); ok {
 		st.SetShowViewerCount(v)
@@ -944,6 +949,9 @@ func handleAppSettingsPut(w http.ResponseWriter, r *http.Request) {
 	if rawColors, exists := patch["remote_filter_colors"]; exists {
 		st.RemoteFilterColors = sanitizeRemoteFilterColors(rawColors)
 	}
+	if rawDismissed, exists := patch["dismissed_watch_party_notices"]; exists {
+		st.DismissedWatchPartyNotices = sanitizeDismissedNotices(rawDismissed)
+	}
 
 	if err := core.SaveSettings(st); err != nil {
 		respondErr(w, http.StatusInternalServerError, "설정 저장에 실패했습니다: "+err.Error())
@@ -969,6 +977,28 @@ func sanitizeRemoteFilterColors(raw any) map[string]string {
 		}
 		if s, ok := v.(string); ok && hexColorPattern.MatchString(s) {
 			cleaned[k] = strings.ToUpper(s)
+		}
+	}
+	if len(cleaned) == 0 {
+		return nil
+	}
+	return cleaned
+}
+
+var validNoticeIndexPattern = regexp.MustCompile(`^[0-9a-zA-Z_-]{1,16}$`)
+
+func sanitizeDismissedNotices(raw any) map[string]bool {
+	m, ok := raw.(map[string]any)
+	if !ok || len(m) == 0 {
+		return nil
+	}
+	cleaned := make(map[string]bool, len(m))
+	for k, v := range m {
+		if !validNoticeIndexPattern.MatchString(k) {
+			continue
+		}
+		if b, ok := v.(bool); ok && b {
+			cleaned[k] = true
 		}
 	}
 	if len(cleaned) == 0 {

@@ -66,9 +66,11 @@ function moveLiquidPill(groupOrId, activeBtn, animate = true) {
   if (!pill) return;
   if (!activeBtn.offsetWidth || !activeBtn.offsetHeight) return;
   if (!animate) pill.style.transition = 'none';
+  pill.style.transform = 'none';
+  pill.style.left = `${activeBtn.offsetLeft}px`;
+  pill.style.top = `${activeBtn.offsetTop}px`;
   pill.style.width = `${activeBtn.offsetWidth}px`;
   pill.style.height = `${activeBtn.offsetHeight}px`;
-  pill.style.transform = `translate(${activeBtn.offsetLeft}px, ${activeBtn.offsetTop}px)`;
   if (!animate) {
     void pill.offsetWidth;
     pill.style.transition = '';
@@ -355,12 +357,12 @@ function applyRemoteVolumesUI(vols, videoDonationActive = true) {
   const vidSlider = document.getElementById('remote-video-volume');
   const vidRow = document.getElementById('remote-video-vol-row');
   const vidTitle = document.getElementById('remote-video-vol-title');
-  const vidLbl = document.getElementById('remote-video-vol-label');
+  const vidOffBadge = document.getElementById('remote-video-off-badge');
   const enabled = videoDonationActive !== false;
-  if (vidSlider) vidSlider.disabled = !enabled;
-  if (vidRow) vidRow.classList.toggle('opacity-45', !enabled);
-  if (vidTitle) vidTitle.textContent = enabled ? '영상 후원 볼륨' : '영상 (영도 꺼짐)';
-  if (!enabled && vidLbl) vidLbl.textContent = '비활성';
+  if (vidSlider) vidSlider.disabled = false;
+  if (vidRow) vidRow.classList.remove('opacity-45');
+  if (vidTitle) vidTitle.textContent = '영상 후원 볼륨';
+  if (vidOffBadge) vidOffBadge.classList.toggle('hidden', enabled);
 }
 
 async function loadRemoteState() {
@@ -563,6 +565,38 @@ function applyRemoteFilterChipColors(colorsMap) {
     const btn = document.getElementById(`feed-filter-${k.toLowerCase()}`);
     setChipCssColorVars(btn, customFilterColors[k] || '');
   });
+  applyRemoteFilterColorsToFeedCards();
+}
+
+function getFeedCategoryKey(fType) {
+  const upper = String(fType || '').toUpperCase();
+  if (upper === 'LIVE_AD' || upper === 'MIDROLL_AD' || upper.includes('AD')) return 'AD';
+  if (upper === 'FOLLOW' || upper === 'FOLLOW_CHANNEL') return 'FOLLOW';
+  if (upper === 'STREAMER_SHOP_PURCHASE') return 'SHOP';
+  if (upper === 'SUBSCRIPTION' || upper === 'GIFT' || upper === 'SUBSCRIPTION_GIFT') return 'SUB';
+  return 'DONATION';
+}
+
+function applyRemoteFilterColorsToFeedCards(previewKey = null, previewHex = null) {
+  const cards = document.querySelectorAll('#remote-feed-list .remote-feed-card');
+  cards.forEach(card => {
+    const cat = card.dataset.feedCat;
+    const hex = (previewKey && cat === previewKey) ? previewHex : customFilterColors[cat];
+    if (typeof hex === 'string' && /^#[0-9a-fA-F]{6}$/.test(hex)) {
+      const upper = hex.toUpperCase();
+      card.style.setProperty('--msg-bg', hexToRgba(upper, 0.10));
+      card.style.setProperty('--msg-border', hexToRgba(upper, 0.48));
+      card.style.setProperty('--msg-badge-bg', hexToRgba(upper, 0.16));
+      card.style.setProperty('--msg-fg', upper);
+      card.setAttribute('data-custom-colored', 'true');
+    } else {
+      card.style.removeProperty('--msg-bg');
+      card.style.removeProperty('--msg-border');
+      card.style.removeProperty('--msg-badge-bg');
+      card.style.removeProperty('--msg-fg');
+      card.removeAttribute('data-custom-colored');
+    }
+  });
 }
 
 function openFilterColorPopover(ev, key) {
@@ -597,6 +631,7 @@ function previewFilterChipColor(hex) {
   if (!activeFilterColorKey || !/^#[0-9a-fA-F]{6}$/.test(hex || '')) return;
   const btn = document.getElementById(`feed-filter-${activeFilterColorKey.toLowerCase()}`);
   setChipCssColorVars(btn, hex);
+  applyRemoteFilterColorsToFeedCards(activeFilterColorKey, hex);
   const label = document.getElementById('filter-color-target-label');
   if (label) label.style.color = hex;
 }
@@ -803,6 +838,7 @@ function renderRemoteFeed(items) {
   container.innerHTML = list.map(item => {
     const ex = parseExtraJson(item);
     const fType = item.newsFeedType || '';
+    const feedCat = getFeedCategoryKey(fType);
     const itemTime = item.createdDate || item.createTime || item.donationTime || ex.createdDate;
     const timeStr = formatTimeAgo(itemTime);
     const safeNewsFeedNo = item.newsFeedNo != null ? item.newsFeedNo : null;
@@ -815,10 +851,10 @@ function renderRemoteFeed(items) {
     if (fType === 'LIVE_AD' || fType === 'MIDROLL_AD' || fType.includes('AD')) {
       const adTitle = bodyText || '5분 뒤 중간 광고가 시작됩니다.';
       return `
-        <div class="p-2.5 rounded-lg bg-[#090D13] border border-[#1A2333] hover:border-[#1E2738] transition-colors text-xs space-y-1.5">
+        <div class="remote-feed-card p-2.5 rounded-lg bg-[#090D13] border border-[#1A2333] hover:border-[#1E2738] transition-colors text-xs space-y-1.5" data-feed-cat="${feedCat}">
           <div class="flex items-center justify-between gap-2">
             <div class="flex items-center gap-1.5 min-w-0">
-              <span class="px-1.5 py-0.5 rounded bg-[#161F2E] text-slate-300 border border-[#243044] text-[9px] font-black flex-shrink-0">AD</span>
+              <span class="msg-badge-accent px-1.5 py-0.5 rounded bg-[#161F2E] text-slate-300 border border-[#243044] text-[9px] font-black flex-shrink-0">AD</span>
               <span class="font-bold text-slate-100 truncate text-[11.5px]">${escapeHtml(adTitle)}</span>
             </div>
             ${timeStr ? `<span class="text-[10px] text-slate-400 font-medium flex-shrink-0">${timeStr}</span>` : ''}
@@ -834,10 +870,10 @@ function renderRemoteFeed(items) {
 
     if (fType === 'FOLLOW' || fType === 'FOLLOW_CHANNEL') {
       return `
-        <div class="p-2 rounded-lg bg-[#090D13] border border-[#1A2333] text-xs flex items-center justify-between gap-2">
+        <div class="remote-feed-card p-2 rounded-lg bg-[#090D13] border border-[#1A2333] text-xs flex items-center justify-between gap-2" data-feed-cat="${feedCat}">
           <div class="flex items-center gap-1.5 min-w-0">
             <span>❤️</span>
-            <span class="font-bold text-slate-200 truncate max-w-[140px]">${escapeHtml(nickname)}</span>
+            <span class="msg-tag-accent font-bold text-slate-200 truncate max-w-[140px]">${escapeHtml(nickname)}</span>
             <span class="text-slate-300 text-[11px] truncate">님이 팔로우했습니다.</span>
           </div>
           ${timeStr ? `<span class="text-[10px] text-slate-400 font-medium flex-shrink-0">${timeStr}</span>` : ''}
@@ -846,12 +882,12 @@ function renderRemoteFeed(items) {
 
     if (fType === 'STREAMER_SHOP_PURCHASE') {
       return `
-        <div class="p-2 rounded-lg bg-[#090D13] border border-[#1A2333] text-xs space-y-1">
+        <div class="remote-feed-card p-2 rounded-lg bg-[#090D13] border border-[#1A2333] text-xs space-y-1" data-feed-cat="${feedCat}">
           <div class="flex items-center justify-between gap-2">
             <div class="flex items-center gap-1.5 min-w-0">
               <span>🛍️</span>
               <span class="font-bold text-slate-200 truncate">${escapeHtml(nickname)}</span>
-              <span class="text-[9.5px] px-1 rounded bg-[#161F2E] text-emerald-300 font-medium">상품구매</span>
+              <span class="msg-badge-accent text-[9.5px] px-1 rounded bg-[#161F2E] border border-[#243044] text-emerald-300 font-medium">상품구매</span>
             </div>
             ${timeStr ? `<span class="text-[10px] text-slate-400 flex-shrink-0">${timeStr}</span>` : ''}
           </div>
@@ -865,15 +901,15 @@ function renderRemoteFeed(items) {
     const isChatTTS = !isVideo && (fType === 'DONATION' || fType === 'DONATION_CHAT_CURRENCY' || isSub) && item.donationId;
 
     return `
-      <div class="p-2 rounded-lg bg-[#090D13] border border-[#1A2333] hover:border-[#1E2738] transition-colors text-xs space-y-1.5">
+      <div class="remote-feed-card p-2 rounded-lg bg-[#090D13] border border-[#1A2333] hover:border-[#1E2738] transition-colors text-xs space-y-1.5" data-feed-cat="${feedCat}">
         <div class="flex items-center justify-between gap-2">
           <div class="flex items-center gap-1.5 min-w-0">
             <span>${meta.icon}</span>
             <span class="font-bold text-slate-200 truncate max-w-[120px]">${escapeHtml(nickname)}</span>
-            <span class="text-[9.5px] px-1 py-0.2 rounded font-medium bg-[#161F2E] ${meta.color}">${meta.label}</span>
+            <span class="msg-badge-accent text-[9.5px] px-1 py-0.2 rounded border border-transparent font-medium bg-[#161F2E] ${meta.color}">${meta.label}</span>
           </div>
           <div class="flex items-center gap-2 flex-shrink-0">
-            ${amountStr ? `<span class="font-mono font-bold text-[#00FFA3] text-[11px]">${amountStr}</span>` : ''}
+            ${amountStr ? `<span class="msg-tag-accent font-mono font-bold text-[#00FFA3] text-[11px]">${amountStr}</span>` : ''}
             ${timeStr ? `<span class="text-[10px] text-slate-400 font-medium">${timeStr}</span>` : ''}
           </div>
         </div>
@@ -889,6 +925,7 @@ function renderRemoteFeed(items) {
           </div>` : ''}
       </div>`;
   }).join('');
+  applyRemoteFilterColorsToFeedCards();
 }
 
 function setMissionSort(sortType) {
@@ -1059,6 +1096,16 @@ function togglePartyPopover() {
 }
 
 function showPartySubView(step) {
+  const pop = document.getElementById('popover-party');
+  if (pop) {
+    if (step === 'choose') {
+      pop.classList.remove('left-0', 'p-2.5');
+      pop.classList.add('w-[86px]', 'p-1.5');
+    } else {
+      pop.classList.remove('w-[86px]', 'p-1.5');
+      pop.classList.add('left-0', 'p-2.5');
+    }
+  }
   ['choose', 'create', 'join', 'active'].forEach(s => {
     document.getElementById(`party-step-${s}`)?.classList.toggle('hidden', s !== step);
   });
@@ -1084,11 +1131,11 @@ async function pastePartyInviteClipboard() {
 
 function updatePartyToolbarButtonUI(data) {
   const btn = document.getElementById('btn-party-popover');
-  const dot = document.getElementById('party-btn-live-dot');
+  const labelText = document.getElementById('party-btn-text');
   const badge = document.getElementById('party-btn-count-badge');
   const active = !!(data && data.participating);
   if (btn) btn.classList.toggle('party-btn-participating', active);
-  if (dot) dot.classList.toggle('hidden', !active);
+  if (labelText) labelText.textContent = active ? '파티 진행중' : '파티';
   if (badge) {
     badge.classList.toggle('hidden', !active);
     if (active) badge.textContent = String(data.memberCount || (data.members ? data.members.length : 1));
@@ -1159,7 +1206,7 @@ function renderActivePartyView(data) {
               <span class="w-5 h-5 rounded-full border ${avatarClass} flex items-center justify-center text-[9px] font-bold flex-shrink-0">${badgeText}</span>
               <span class="text-[11.5px] ${m.isMe ? 'font-bold text-[#00FFA3]' : 'font-medium text-slate-200'} truncate">${escapeHtml(name)}</span>
             </div>
-            ${m.isHost ? '<span class="text-[10px] px-1.5 py-0.2 rounded bg-[#5C3BFF]/25 text-[#C4B5FD] font-bold flex-shrink-0">👑 방장</span>' : ''}
+            ${m.isHost ? '<span class="text-[10px] px-1.5 py-0.2 rounded bg-[#5C3BFF]/25 text-[#C4B5FD] font-bold flex-shrink-0">👑 호스트</span>' : ''}
           </button>`;
       }).join('');
     }
@@ -2353,6 +2400,75 @@ function syncAllVisibleLiquidPills() {
   });
 }
 
+function initRemoteVolumeHandleDrag() {
+  const panel = document.getElementById('remote-panel');
+  const handle = document.getElementById('remote-vol-handle');
+  const drawer = document.getElementById('remote-vol-drawer');
+  if (!panel || !handle || !drawer) return;
+
+  function applySide(side, topPct) {
+    const cleanSide = (side === 'left') ? 'left' : 'right';
+    handle.dataset.side = cleanSide;
+    drawer.dataset.side = cleanSide;
+    if (typeof topPct === 'number' && isFinite(topPct)) {
+      handle.style.top = `${Math.max(12, Math.min(82, topPct))}%`;
+    }
+  }
+
+  try {
+    const saved = JSON.parse(localStorage.getItem('chzzk_remote_vol_pos') || 'null');
+    if (saved) applySide(saved.side, saved.topPct);
+  } catch (_) {}
+
+  let dragging = false;
+  let startX = 0;
+  let startY = 0;
+  let moved = false;
+
+  handle.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    dragging = true;
+    moved = false;
+    startX = e.clientX;
+    startY = e.clientY;
+    handle.classList.add('is-dragging');
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!dragging) return;
+    if (Math.abs(e.clientX - startX) > 4 || Math.abs(e.clientY - startY) > 4) {
+      moved = true;
+    }
+    if (!moved) return;
+
+    const rect = panel.getBoundingClientRect();
+    const minY = 52;
+    const maxY = Math.max(minY + 10, panel.clientHeight - handle.offsetHeight - 58);
+    const clampedPx = Math.max(minY, Math.min(maxY, e.clientY - rect.top - handle.offsetHeight / 2));
+    const topPct = rect.height > 0 ? (clampedPx / rect.height) * 100 : 52;
+    const nextSide = (e.clientX - rect.left) < rect.width / 2 ? 'left' : 'right';
+    applySide(nextSide, topPct);
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false;
+    handle.classList.remove('is-dragging');
+    if (!moved) {
+      openRemoteVolumeDrawer();
+      return;
+    }
+    const topPct = parseFloat(handle.style.top) || 52;
+    try {
+      localStorage.setItem('chzzk_remote_vol_pos', JSON.stringify({
+        side: handle.dataset.side || 'right',
+        topPct: Math.round(topPct * 10) / 10
+      }));
+    } catch (_) {}
+  });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   const elMainDock = document.getElementById('field-main-dock-url');
   if (elMainDock) elMainDock.value = `${window.location.origin}/`;
@@ -2360,8 +2476,12 @@ document.addEventListener('DOMContentLoaded', () => {
   if (elMini) elMini.value = `${window.location.origin}/mini`;
   const elStats = document.getElementById('field-stats-dock-url');
   if (elStats) elStats.value = `${window.location.origin}/stats`;
+  initRemoteVolumeHandleDrag();
   requestAnimationFrame(syncAllVisibleLiquidPills);
 });
 
 window.addEventListener('resize', syncAllVisibleLiquidPills);
+if (document.fonts && document.fonts.ready) {
+  document.fonts.ready.then(syncAllVisibleLiquidPills).catch(() => {});
+}
 

@@ -9,6 +9,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/ui/shared/theme.css" />
+  <script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('chzzk_theme_mode')==='light'?'light':'dark');}catch(_){}</script>
   <script src="/ui/shared/api.js"></script>
   <script>
     tailwind.config = {
@@ -863,6 +865,18 @@
         }, 350);
       }
     }
+
+    function syncStatsDockTheme(mode) {
+      const m = (mode === 'light') ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', m);
+      try { localStorage.setItem('chzzk_theme_mode', m); } catch (_) {}
+    }
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'chzzk_theme_mode' && e.newValue) syncStatsDockTheme(e.newValue);
+    });
+    apiFetch('/app-settings').then(r => r.ok ? r.json() : null).then(d => {
+      if (d && d.theme_mode) syncStatsDockTheme(d.theme_mode);
+    }).catch(() => {});
 
     // 기동 시 연결
     connectOBS();
