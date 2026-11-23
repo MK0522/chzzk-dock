@@ -20,9 +20,7 @@ async function fetchSessionBootstrap() {
 }
 
 function applyBootstrapState(content) {
-  const text = document.getElementById('header-status-text');
   const badgeA = document.getElementById('badge-method-a');
-  const badgeB = document.getElementById('badge-method-b');
   const inputAut = document.getElementById('cookie-nid-aut');
   const inputSes = document.getElementById('cookie-nid-ses');
   const btnWebview = document.getElementById('btn-webview-login');
@@ -61,14 +59,7 @@ function applyBootstrapState(content) {
     checkLiveStatus();
     if (typeof checkChannelMonetization === 'function') checkChannelMonetization();
 
-    if (text) { text.textContent = '연동됨'; text.className = 'font-medium text-[#00FFA3]'; }
     if (badgeA) { badgeA.textContent = "● 쿠키 연동됨"; badgeA.className = "text-[9px] px-1.5 py-0.5 rounded font-bold bg-emerald-950 text-[#00FFA3] border border-emerald-800/60"; }
-    if (badgeB) { badgeB.textContent = "● 등록됨"; badgeB.className = "text-[9px] px-1.5 py-0.5 rounded font-bold bg-emerald-950 text-[#00FFA3] border border-emerald-800/60"; }
-    const groupLoginBadge = document.getElementById('group-login-badge');
-    if (groupLoginBadge) {
-      groupLoginBadge.textContent = "연동됨";
-      groupLoginBadge.className = "text-[9px] px-1.5 py-0.5 rounded font-bold bg-emerald-950 text-[#00FFA3] border border-emerald-800/60";
-    }
     if (btnWebview) {
       btnWebview.innerHTML = "🚪 로그아웃";
       btnWebview.className = "w-full py-2 px-3 rounded-lg text-xs font-bold bg-rose-950/60 hover:bg-rose-900/70 text-rose-300 border border-rose-500/35 transition-colors cursor-pointer";
@@ -92,9 +83,7 @@ async function updateConnectionStatus() {
     return await fetchSessionBootstrap();
   } catch (e) {
     if (!userChannelId) {
-      const text = document.getElementById('header-status-text');
       const elChannelName = document.getElementById('header-channel-name');
-      if (text) { text.textContent = '오류'; text.className = 'font-medium text-[#FF4D6A]'; }
       if (elChannelName) elChannelName.style.display = 'none';
       setBroadcastFormLocked(true);
     }
@@ -517,17 +506,14 @@ async function initConnection() {
     function setSaveButtonDirty(isDirty) {
       const btn = document.getElementById('btn-save');
       const saveText = document.getElementById('save-text');
-      const btnRevert = document.getElementById('btn-revert');
       if (!btn) return;
 
       if (isDirty) {
         btn.classList.add('is-dirty');
         if (saveText) saveText.textContent = '변경사항 적용';
-        if (btnRevert) btnRevert.disabled = false;
       } else {
         btn.classList.remove('is-dirty');
         if (saveText) saveText.textContent = '적용';
-        if (btnRevert) btnRevert.disabled = true;
       }
     }
 
@@ -2171,14 +2157,10 @@ async function initConnection() {
       if (loaded) {
         if (!silent) showToast('현재 방송 설정을 불러왔습니다', 'success');
         // 설정 로드 성공 시 헤더 상태도 '연동됨(초록불)'으로 확정
-        const text = document.getElementById('header-status-text');
         const badgeA = document.getElementById('badge-method-a');
-        const badgeB = document.getElementById('badge-method-b');
         const btnWebview = document.getElementById('btn-webview-login');
 
-        if (text) { text.textContent = '연동됨'; text.className = 'font-medium text-[#00FFA3]'; }
         if (badgeA) { badgeA.textContent = "✅ 쿠키 연동됨"; badgeA.className = "text-[9px] px-1.5 py-0.5 rounded font-bold bg-emerald-950 text-[#00FFA3] border border-emerald-800/60"; }
-        if (badgeB) { badgeB.textContent = "✅ 등록됨"; badgeB.className = "text-[9px] px-1.5 py-0.5 rounded font-bold bg-emerald-950 text-[#00FFA3] border border-emerald-800/60"; }
         if (btnWebview) {
           btnWebview.innerHTML = "🚪 로그아웃";
           btnWebview.className = "w-full py-2 px-3 rounded-lg text-xs font-bold bg-rose-950/60 hover:bg-rose-900/70 text-rose-300 border border-rose-500/35 transition-colors cursor-pointer";

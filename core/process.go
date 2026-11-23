@@ -592,12 +592,6 @@ func CheckScriptStatusWithVersion(scriptsDir string, latestScript []byte) (insta
 	return installed, needsUpdate, installedVer, latestVer
 }
 
-// CheckScriptStatus: 대상 scripts 디렉터리에 스크립트 설치 여부 및 최신 내용 일치 여부(업데이트 필요 여부)를 검사합니다.
-func CheckScriptStatus(scriptsDir string, latestScript []byte) (installed bool, needsUpdate bool) {
-	installed, needsUpdate, _, _ = CheckScriptStatusWithVersion(scriptsDir, latestScript)
-	return installed, needsUpdate
-}
-
 // InstallLauncherScriptToObs: 지정된(또는 자동 감지된) OBS scripts 폴더에 스크립트를 추가합니다.
 func InstallLauncherScriptToObs(customDir string, scriptData []byte) (string, error) {
 	var targetDir string

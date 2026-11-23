@@ -101,6 +101,7 @@ func buildRouter() http.Handler {
 	wrap("POST /save-port", handleSavePort, true)
 	wrap("GET /app-settings", handleAppSettingsGet, true)
 	wrap("PUT /app-settings", handleAppSettingsPut, true)
+	wrap("GET /events/theme", handleThemeEvents, false)
 
 	// 5. OBS 연동 & 업데이트 & 텔레메트리 라우트
 	wrap("GET /obs-script-status", handleObsScriptStatus, true)
@@ -895,6 +896,72 @@ func handleAppSettingsGet(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+var (
+	themeSubsMu sync.Mutex
+	themeSubs   = make(map[chan string]struct{})
+)
+
+func broadcastTheme(mode string) {
+	themeSubsMu.Lock()
+	for ch := range themeSubs {
+		select {
+		case ch <- mode:
+		default:
+		}
+	}
+	themeSubsMu.Unlock()
+}
+
+// handleThemeEvents: GET /events/theme (WebView2 팝업 <-> OBS CEF 간 실시간 테마 동기화 SSE)
+func handleThemeEvents(w http.ResponseWriter, r *http.Request) {
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
+		return
+	}
+	_ = http.NewResponseController(w).SetWriteDeadline(time.Time{})
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+
+	ch := make(chan string, 4)
+	themeSubsMu.Lock()
+	themeSubs[ch] = struct{}{}
+	themeSubsMu.Unlock()
+	defer func() {
+		themeSubsMu.Lock()
+		delete(themeSubs, ch)
+		themeSubsMu.Unlock()
+	}()
+
+	current := core.LoadSettings().GetThemeMode()
+	if _, err := fmt.Fprintf(w, "event: theme\ndata: %s\n\n", current); err != nil {
+		return
+	}
+	flusher.Flush()
+
+	keepAlive := time.NewTicker(30 * time.Second)
+	defer keepAlive.Stop()
+
+	for {
+		select {
+		case <-r.Context().Done():
+			return
+		case mode := <-ch:
+			if _, err := fmt.Fprintf(w, "event: theme\ndata: %s\n\n", mode); err != nil {
+				return
+			}
+			flusher.Flush()
+		case <-keepAlive.C:
+			if _, err := fmt.Fprint(w, ": ping\n\n"); err != nil {
+				return
+			}
+			flusher.Flush()
+		}
+	}
+}
+
 // handleAppSettingsPut: PUT /app-settings
 // 부분 설정(JSON map)을 기존 설정에 안전하게 머지하고 %LOCALAPPDATA%\ChzzkObsDock\settings.json에 즉시 디스크 영속화
 func handleAppSettingsPut(w http.ResponseWriter, r *http.Request) {
@@ -903,12 +970,14 @@ func handleAppSettingsPut(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	st := core.LoadSettings()
+	themeUpdated := false
 
 	if v, ok := patch["font_scale"].(float64); ok && v > 0 {
 		st.SetFontScale(v)
 	}
 	if v, ok := patch["theme_mode"].(string); ok {
 		st.SetThemeMode(v)
+		themeUpdated = true
 	}
 	if v, ok := patch["show_viewer_count"].(bool); ok {
 		st.SetShowViewerCount(v)
@@ -956,6 +1025,9 @@ func handleAppSettingsPut(w http.ResponseWriter, r *http.Request) {
 	if err := core.SaveSettings(st); err != nil {
 		respondErr(w, http.StatusInternalServerError, "설정 저장에 실패했습니다: "+err.Error())
 		return
+	}
+	if themeUpdated {
+		broadcastTheme(st.GetThemeMode())
 	}
 	respondOK(w, map[string]any{"code": 200, "message": "설정이 성공적으로 저장되었습니다.", "settings": st})
 }

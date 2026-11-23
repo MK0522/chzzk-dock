@@ -21,7 +21,6 @@ var isRevenuePrivate = true;
 var revenueCache = {};
 var cachedNewsFeeds = [];
 var currentPartyInfo = null;
-var cachedPartyInviteToken = '';
 var cachedSubscriptionSetting = null;
 var isRemoteAlertPaused = false;
 var activeRemoteTab = 'all';
@@ -163,6 +162,27 @@ async function refreshDonationsAndRevenue(silent = false) {
   }
 }
 
+function applyChatModeUI(chat) {
+  currentChatModeState = {
+    chatEmojiMode: !!chat.emojiOnly,
+    chatSlowModeSec: Number(chat.slowSec) || 0
+  };
+  const elEmoji = document.getElementById('toggle-emoji-mode');
+  const elSlow = document.getElementById('select-slow-mode');
+  const elSlowStatus = document.getElementById('slow-mode-status');
+  if (elEmoji) elEmoji.checked = currentChatModeState.chatEmojiMode;
+  if (elSlow) elSlow.value = String(currentChatModeState.chatSlowModeSec);
+  if (elSlowStatus) {
+    if (currentChatModeState.chatSlowModeSec > 0) {
+      elSlowStatus.textContent = formatSlowSec(currentChatModeState.chatSlowModeSec);
+      elSlowStatus.className = 'text-[10px] text-[#00FFA3] font-bold font-mono';
+    } else {
+      elSlowStatus.textContent = 'OFF';
+      elSlowStatus.className = 'text-[10px] text-slate-400 font-mono font-semibold';
+    }
+  }
+}
+
 async function fetchChatSettingsOnly() {
   const icon = document.getElementById('chatmode-refresh-icon');
   if (icon) icon.classList.add('animate-spin');
@@ -170,24 +190,7 @@ async function fetchChatSettingsOnly() {
     const modeRes = await chzzkApi.getChatMode();
     if (modeRes.ok) {
       const chat = await modeRes.json();
-      currentChatModeState = {
-        chatEmojiMode: !!chat.emojiOnly,
-        chatSlowModeSec: Number(chat.slowSec) || 0
-      };
-      const elEmoji = document.getElementById('toggle-emoji-mode');
-      const elSlow = document.getElementById('select-slow-mode');
-      const elSlowStatus = document.getElementById('slow-mode-status');
-      if (elEmoji) elEmoji.checked = currentChatModeState.chatEmojiMode;
-      if (elSlow) elSlow.value = String(currentChatModeState.chatSlowModeSec);
-      if (elSlowStatus) {
-        if (currentChatModeState.chatSlowModeSec > 0) {
-          elSlowStatus.textContent = formatSlowSec(currentChatModeState.chatSlowModeSec);
-          elSlowStatus.className = 'text-[10px] text-[#00FFA3] font-bold font-mono';
-        } else {
-          elSlowStatus.textContent = 'OFF';
-          elSlowStatus.className = 'text-[10px] text-slate-400 font-mono font-semibold';
-        }
-      }
+      applyChatModeUI(chat);
     }
   } catch (e) {
     console.warn('채팅 모드 조회 오류:', e);
@@ -1180,7 +1183,6 @@ function renderActivePartyView(data) {
     if (inviteInput) {
       inviteInput.value = data.inviteUrl || (data.inviteToken ? `https://studio.chzzk.naver.com/party-invite/${data.inviteToken}` : '');
     }
-    cachedPartyInviteToken = data.inviteToken || '';
   }
 
   if (listEl) {
@@ -1311,7 +1313,6 @@ async function leavePartySubmit() {
     if (res.ok) {
       showToast('🚪 파티 퇴장 완료', 'info');
       currentPartyInfo = null;
-      cachedPartyInviteToken = '';
       showPartySubView('choose');
       await refreshPartyStatus(false);
     } else {
@@ -1359,7 +1360,6 @@ async function reissuePartyInviteToken() {
     const res = await chzzkApi.reissuePartyToken(partyNo);
     if (res.ok) {
       const data = await res.json();
-      cachedPartyInviteToken = data.token || '';
       const input = document.getElementById('field-party-invite-url');
       if (input && data.inviteUrl) input.value = data.inviteUrl;
       showToast('🔄 초대 링크 재발급 완료', 'success');
@@ -1440,7 +1440,6 @@ async function endPartySubmit() {
     if (res.ok) {
       showToast('⏹️ 파티 종료 완료', 'info');
       currentPartyInfo = null;
-      cachedPartyInviteToken = '';
       showPartySubView('choose');
       await refreshPartyStatus(false);
     } else {
@@ -1578,11 +1577,9 @@ async function loadAllDonationSettings() {
 
     if (details.chat) {
       const d = details.chat;
-      const chatActive = document.getElementById('dsetting-chat-active');
       const chatMin = document.getElementById('dsetting-chat-min-amount');
       const chatExposure = document.getElementById('dsetting-chat-exposure');
       const chatEnvelope = document.getElementById('dsetting-chat-envelope');
-      if (chatActive) chatActive.checked = d.donationActive !== false;
       const minVal = d.minCurrencyPayAmount || d.chatMinCurrencyPayAmount || 1000;
       if (chatMin) chatMin.value = Number(minVal).toLocaleString();
       if (chatExposure) chatExposure.checked = Number(d.exposureDonationAmount) > 0;
@@ -1591,7 +1588,6 @@ async function loadAllDonationSettings() {
 
     if (details.video) {
       const d = details.video;
-      const vidActive = document.getElementById('dsetting-video-active');
       const vidMin = document.getElementById('dsetting-video-min-cheese');
       const vidSec = document.getElementById('dsetting-video-sec-cheese');
       const vidDur = document.getElementById('dsetting-video-max-duration');
@@ -1599,7 +1595,6 @@ async function loadAllDonationSettings() {
       const vidTitle = document.getElementById('dsetting-video-title');
       const vidSpam = document.getElementById('dsetting-video-spam');
 
-      if (vidActive) vidActive.checked = d.donationActive !== false;
       if (vidMin) vidMin.value = Number(d.minCurrencyPayAmount || 1000).toLocaleString();
       if (vidSec) vidSec.value = d.payAmountPerSecond || 30;
       if (vidDur) vidDur.value = d.maxDurationLength || 60;
@@ -1627,14 +1622,12 @@ async function loadAllDonationSettings() {
     if (details.subscription) {
       const d = details.subscription;
       cachedSubscriptionSetting = d;
-      const subAlertActive = document.getElementById('dsetting-sub-alert-active');
       const subAlertVol = document.getElementById('dsetting-sub-alert-vol');
       const subAlertVolLbl = document.getElementById('dsetting-sub-alert-vol-label');
       const subTtsActive = document.getElementById('dsetting-sub-tts-active');
       const subTtsVol = document.getElementById('dsetting-sub-tts-vol');
       const subTtsVolLbl = document.getElementById('dsetting-sub-tts-vol-label');
 
-      if (subAlertActive) subAlertActive.checked = d.alertActive !== false;
       if (subAlertVol) {
         subAlertVol.value = d.alertVolume != null ? d.alertVolume : 70;
         if (subAlertVolLbl) subAlertVolLbl.textContent = subAlertVol.value + '%';
@@ -1657,7 +1650,7 @@ async function saveChatDonationCondition() {
   const isChatActive = document.getElementById('toggle-chat-donation') ? document.getElementById('toggle-chat-donation').checked : (currentDonationState.chatDonationActive !== false);
 
   try {
-    await apiFetch('/chzzkdock/donations/details/chat', {
+    const res = await apiFetch('/chzzkdock/donations/details/chat', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1667,6 +1660,11 @@ async function saveChatDonationCondition() {
     });
     const existingToasts = document.querySelectorAll('#toast-container .toast');
     existingToasts.forEach(t => t.remove());
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      showToast('후원 조건 설정 저장 실패', 'error', errData.message || `서버 응답 오류 (HTTP ${res.status})`);
+      return;
+    }
     showToast('💾 후원 조건 설정 저장', 'success', `최소 후원 금액: ${minVal.toLocaleString()} 치즈`);
   } catch (e) {
     showToast('오류 발생', 'error', e.message);
@@ -1675,25 +1673,34 @@ async function saveChatDonationCondition() {
 
 async function toggleChatExposure(checked) {
   if (!userChannelId) return;
+  const el = document.getElementById('dsetting-chat-exposure');
   try {
-    await apiFetch('/chzzkdock/donations/details/chat', {
+    const res = await apiFetch('/chzzkdock/donations/details/chat', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ exposureDonationAmount: checked ? 1000 : 0 })
     });
     const existingToasts = document.querySelectorAll('#toast-container .toast');
     existingToasts.forEach(t => t.remove());
+    if (!res.ok) {
+      if (el) el.checked = !checked;
+      const errData = await res.json().catch(() => ({}));
+      showToast('후원 금액 표시 설정 실패', 'error', errData.message || `서버 응답 오류 (HTTP ${res.status})`);
+      return;
+    }
     showToast('후원 금액 표시 설정', 'info', checked ? '채팅창에 후원 금액을 표시합니다.' : '채팅창 후원 금액을 숨깁니다.');
   } catch (e) {
+    if (el) el.checked = !checked;
     showToast('오류 발생', 'error', e.message);
   }
 }
 
 async function toggleEnvelope(checked) {
   if (!userChannelId) return;
+  const el = document.getElementById('dsetting-chat-envelope');
   const isChatActive = document.getElementById('toggle-chat-donation') ? document.getElementById('toggle-chat-donation').checked : (currentDonationState.chatDonationActive !== false);
   try {
-    await apiFetch('/chzzkdock/donations/details/chat', {
+    const res = await apiFetch('/chzzkdock/donations/details/chat', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1703,8 +1710,15 @@ async function toggleEnvelope(checked) {
     });
     const existingToasts = document.querySelectorAll('#toast-container .toast');
     existingToasts.forEach(t => t.remove());
+    if (!res.ok) {
+      if (el) el.checked = !checked;
+      const errData = await res.json().catch(() => ({}));
+      showToast('고액 후원 봉투 설정 실패', 'error', errData.message || `서버 응답 오류 (HTTP ${res.status})`);
+      return;
+    }
     showToast('고액 후원 봉투', 'info', checked ? '고액 후원 봉투 기능을 허용합니다.' : '고액 후원 봉투 기능을 차단합니다.');
   } catch (e) {
+    if (el) el.checked = !checked;
     showToast('오류 발생', 'error', e.message);
   }
 }
@@ -1720,7 +1734,7 @@ async function saveVideoDonationSetting() {
   const isVideoActive = document.getElementById('toggle-video-donation') ? document.getElementById('toggle-video-donation').checked : (currentDonationState.videoDonationActive !== false);
 
   try {
-    await apiFetch('/chzzkdock/donations/details/video', {
+    const res = await apiFetch('/chzzkdock/donations/details/video', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1735,6 +1749,11 @@ async function saveVideoDonationSetting() {
     });
     const existingToasts = document.querySelectorAll('#toast-container .toast');
     existingToasts.forEach(t => t.remove());
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      showToast('영상 후원 설정 저장 실패', 'error', errData.message || `서버 응답 오류 (HTTP ${res.status})`);
+      return;
+    }
     showToast('💾 영상 후원 설정 저장 완료', 'success', '영상 후원 규칙이 성공적으로 반영되었습니다.');
   } catch (e) {
     showToast('오류 발생', 'error', e.message);
@@ -1809,10 +1828,15 @@ async function toggleSubAlertActive(checked) {
 
 async function saveSubscriptionSetting() {
   if (!userChannelId) return;
-  const alertActive = !!document.getElementById('dsetting-sub-alert-active')?.checked;
-  const alertVol = Number(document.getElementById('dsetting-sub-alert-vol')?.value) || 70;
+  const mainSubToggle = document.getElementById('toggle-sub-alert');
+  const alertActive = mainSubToggle ? !!mainSubToggle.checked : (cachedSubscriptionSetting?.alertActive !== false);
+  const rawAlertVol = document.getElementById('dsetting-sub-alert-vol')?.value;
+  const parsedAlertVol = Number(rawAlertVol);
+  const alertVol = (rawAlertVol !== undefined && rawAlertVol !== '' && Number.isFinite(parsedAlertVol)) ? parsedAlertVol : 70;
   const ttsActive = !!document.getElementById('dsetting-sub-tts-active')?.checked;
-  const ttsVol = Number(document.getElementById('dsetting-sub-tts-vol')?.value) || 70;
+  const rawTtsVol = document.getElementById('dsetting-sub-tts-vol')?.value;
+  const parsedTtsVol = Number(rawTtsVol);
+  const ttsVol = (rawTtsVol !== undefined && rawTtsVol !== '' && Number.isFinite(parsedTtsVol)) ? parsedTtsVol : 70;
 
   const payload = Object.assign({}, cachedSubscriptionSetting || {}, {
     alertActive,
@@ -1843,9 +1867,6 @@ async function saveSubscriptionSetting() {
 }
 
 async function fetchDonationsAndChatMode(silent = false) {
-  const iconBottom = document.getElementById('icon-refresh-bottom');
-  if (iconBottom) iconBottom.classList.add('animate-spin');
-
   try {
     let loaded = false;
 
@@ -1875,24 +1896,7 @@ async function fetchDonationsAndChatMode(silent = false) {
 
     if (chatRes.ok) {
       const chat = await chatRes.json();
-      currentChatModeState = {
-        chatEmojiMode: !!chat.emojiOnly,
-        chatSlowModeSec: Number(chat.slowSec) || 0
-      };
-      const elEmoji = document.getElementById('toggle-emoji-mode');
-      const elSlow = document.getElementById('select-slow-mode');
-      const elSlowStatus = document.getElementById('slow-mode-status');
-      if (elEmoji) elEmoji.checked = currentChatModeState.chatEmojiMode;
-      if (elSlow) elSlow.value = String(currentChatModeState.chatSlowModeSec);
-      if (elSlowStatus) {
-        if (currentChatModeState.chatSlowModeSec > 0) {
-          elSlowStatus.textContent = formatSlowSec(currentChatModeState.chatSlowModeSec);
-          elSlowStatus.className = 'text-[10px] text-[#00FFA3] font-bold font-mono';
-        } else {
-          elSlowStatus.textContent = 'OFF';
-          elSlowStatus.className = 'text-[10px] text-slate-400 font-mono font-semibold';
-        }
-      }
+      applyChatModeUI(chat);
       loaded = true;
     }
 
@@ -1905,8 +1909,6 @@ async function fetchDonationsAndChatMode(silent = false) {
     updateDonationDetailButtonsState();
   } catch (e) {
     if (!silent) showToast('통신 오류', 'error', e.message);
-  } finally {
-    if (iconBottom) setTimeout(() => iconBottom.classList.remove('animate-spin'), 350);
   }
 }
 
@@ -2059,13 +2061,8 @@ async function applyChatRuleInstant() {
 
 function onChatGroupChange(val, skipApi = false) {
   const opts = document.getElementById('follower-options');
-  const placeholder = document.getElementById('follower-options-placeholder');
-  if (val === 'FOLLOWER') {
-    if (opts) opts.style.display = 'flex';
-    if (placeholder) placeholder.style.display = 'none';
-  } else {
-    if (opts) opts.style.display = 'none';
-    if (placeholder) placeholder.style.display = 'none';
+  if (opts) {
+    opts.style.display = val === 'FOLLOWER' ? 'flex' : 'none';
   }
   if (!skipApi) {
     applyChatRuleInstant();

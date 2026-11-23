@@ -10,6 +10,7 @@
       }
       const pinScale = Math.max(0.5, 1 + (num - 1) * 0.5);
       if (document.documentElement) {
+        document.documentElement.style.setProperty('--chzzk-zoom', String(num));
         document.documentElement.style.setProperty('--chzzk-pin-scale', String(Math.round(pinScale * 1000) / 1000));
       }
       if (typeof window.__updatePinScale === 'function') {
@@ -113,6 +114,15 @@
         setThemeMode(e.newValue, false);
       }
     });
+
+    if (typeof EventSource !== 'undefined') {
+      try {
+        const themeEs = new EventSource('/events/theme');
+        themeEs.addEventListener('theme', (e) => {
+          if (e && e.data) setThemeMode(e.data, false);
+        });
+      } catch (_) {}
+    }
 
 
     // ===== Broadcast Settings Dirty State (설정 변경 감지 및 테두리 하이라이트) =====
@@ -648,6 +658,17 @@
       if (modal) modal.classList.add('hidden');
       activeCropDrag = null;
     }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      const confirmModal = document.getElementById('modal-custom-confirm');
+      if (confirmModal && !confirmModal.classList.contains('hidden')) return;
+      const thumbModal = document.getElementById('modal-thumbnail');
+      if (thumbModal && !thumbModal.classList.contains('hidden')) {
+        e.preventDefault();
+        closeThumbnailModal();
+      }
+    });
 
 
     function triggerThumbnailFileInput() {

@@ -334,6 +334,19 @@ func getSettingsFilePath() string {
 	return filepath.Join(localAppData, "ChzzkObsDock", "settings.json")
 }
 
+func normalizeAppSettings(s *AppSettings) {
+	if s.WatchdogDisabled || s.WatchdogTimeoutSec < 0 {
+		s.WatchdogDisabled = true
+		s.WatchdogTimeoutSec = -1
+	} else if s.WatchdogTimeoutSec == 0 {
+		s.WatchdogDisabled = false
+		s.WatchdogTimeoutSec = 0
+	}
+	if s.HttpPort < 1024 || s.HttpPort > 65535 {
+		s.HttpPort = 8081
+	}
+}
+
 // LoadSettings: %LOCALAPPDATA%\ChzzkObsDock\settings.json 에서 설정을 로드합니다.
 func LoadSettings() AppSettings {
 	settingsMu.Lock()
@@ -357,16 +370,7 @@ func LoadSettings() AppSettings {
 		defPop := false
 		cachedSettings = AppSettings{WatchdogTimeoutSec: 60, HttpPort: 8081, PopupOnStart: &defPop}
 	} else {
-		if s.WatchdogDisabled || s.WatchdogTimeoutSec < 0 {
-			s.WatchdogDisabled = true
-			s.WatchdogTimeoutSec = -1
-		} else if s.WatchdogTimeoutSec == 0 {
-			s.WatchdogDisabled = false
-			s.WatchdogTimeoutSec = 0
-		}
-		if s.HttpPort < 1024 || s.HttpPort > 65535 {
-			s.HttpPort = 8081
-		}
+		normalizeAppSettings(&s)
 		if s.PopupOnStart == nil {
 			defPop := false
 			s.PopupOnStart = &defPop
@@ -392,16 +396,7 @@ func SaveSettings(s AppSettings) error {
 	if s.SchemaVersion == 0 {
 		s.SchemaVersion = 1
 	}
-	if s.WatchdogDisabled || s.WatchdogTimeoutSec < 0 {
-		s.WatchdogDisabled = true
-		s.WatchdogTimeoutSec = -1
-	} else if s.WatchdogTimeoutSec == 0 {
-		s.WatchdogDisabled = false
-		s.WatchdogTimeoutSec = 0
-	}
-	if s.HttpPort < 1024 || s.HttpPort > 65535 {
-		s.HttpPort = 8081
-	}
+	normalizeAppSettings(&s)
 
 	filePath := getSettingsFilePath()
 	dir := filepath.Dir(filePath)
@@ -450,13 +445,6 @@ func SetPopupOnStartSetting(val bool) error {
 // GetNotifyOnShutdown: 자동 종료 시 Windows 알림 표시 여부 조회 (기본값 true)
 func GetNotifyOnShutdown() bool {
 	return LoadSettings().IsNotifyOnShutdown()
-}
-
-// SetNotifyOnShutdownSetting: 자동 종료 시 Windows 알림 표시 여부 설정 저장
-func SetNotifyOnShutdownSetting(val bool) error {
-	st := LoadSettings()
-	st.SetNotifyOnShutdown(val)
-	return SaveSettings(st)
 }
 
 // IsPreRelease: 태그/버전 문자열에 접미사(-Beta, -RC 등) 또는 알파벳/기호가 붙어있는지 검사 (화이트리스트: 순수 vX.Y.Z만 정식 버전)

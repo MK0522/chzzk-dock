@@ -626,8 +626,8 @@ html[data-theme="light"] .text-slate-400,
 html[data-theme="light"] .text-slate-500,
 html[data-theme="light"] .text-gray-400,
 html[data-theme="light"] .text-chzzk-muted,
-html[data-theme="light"] .text-obsMuted {
-  color: #64748B !important;
+html[data-theme="light"] [class*="text-obsMuted"] {
+  color: #475569 !important;
 }
 html[data-theme="light"] button[class*="bg-[#5C3BFF]"]:not([class*="bg-[#5C3BFF]/"]),
 html[data-theme="light"] button[class*="bg-[#5C3BFF]"]:not([class*="bg-[#5C3BFF]/"]) *,
@@ -666,13 +666,14 @@ html[data-theme="light"] [class*="text-sky-4"] {
   color: #0369A1 !important;
 }
 html[data-theme="light"] [class*="text-rose-3"],
-html[data-theme="light"] [class*="text-rose-4"] {
+html[data-theme="light"] [class*="text-rose-4"],
+html[data-theme="light"] .text-rose-500 {
   color: #BE123C !important;
 }
 
 /* 치지직 브랜드 그린 듀얼 토큰 (AA 4.52:1+ 보장) */
 html[data-theme="light"] [class*="text-[#00FFA3]"],
-html[data-theme="light"] .text-obsAccent {
+html[data-theme="light"] [class*="text-obsAccent"] {
   color: #007A4E !important;
 }
 html[data-theme="light"] .save-btn,
@@ -846,4 +847,71 @@ html[data-theme="light"] #chzzk-floating-toolbar button.is-active {
   background: #00FFA3 !important;
   border-color: #009E66 !important;
   color: #052E1C !important;
+}
+
+/* 통계 독(Stats) 라이트 모드 시인성 & 대비 보정 (WCAG AA) */
+html[data-theme="light"] [class*="bg-obsBg/"] {
+  background-color: #F1F3F5 !important;
+}
+html[data-theme="light"] [class*="hover:bg-obsRowHover"]:hover {
+  background-color: #F1F5F9 !important;
+}
+html[data-theme="light"] .stats-accordion > summary {
+  background-color: #ECFDF5 !important;
+  border-left: 3px solid #009E66 !important;
+  color: #065F46 !important;
+}
+html[data-theme="light"] .stats-accordion > summary:hover {
+  background-color: #D1FAE5 !important;
+  color: #047857 !important;
+}
+html[data-theme="light"] .stats-accordion > summary .stats-toggle-pill {
+  background-color: #FFFFFF !important;
+  border: 1px solid #A7F3D0 !important;
+  color: #047857 !important;
+}
+html[data-theme="light"] .stats-table thead tr,
+html[data-theme="light"] .stats-table thead th {
+  background-color: #F1F3F5 !important;
+  color: #334155 !important;
+}
+html[data-theme="light"] #badge-stream-status.is-live {
+  background-color: #ECFDF5 !important;
+  border-color: #34D399 !important;
+  color: #007A4E !important;
+  box-shadow: none !important;
+}
+html[data-theme="light"] #badge-record-status.is-live {
+  background-color: #FFF1F2 !important;
+  border-color: #FB7185 !important;
+  color: #BE123C !important;
+  box-shadow: none !important;
+}
+
+/* 미니 독 라이트 모드 테두리 & 하단 상태 라벨 배경 */
+html[data-theme="light"] .mini-frame.state-idle {
+  border-color: #CBD5E1 !important;
+}
+html[data-theme="light"] .mini-frame.state-loading {
+  border-color: #D97706 !important;
+}
+html[data-theme="light"] .mini-frame.state-error {
+  border-color: #E11D48 !important;
+  box-shadow: 0 0 8px rgba(225, 29, 72, 0.16) !important;
+}
+html[data-theme="light"] .mini-frame.state-connected {
+  border-color: #009E66 !important;
+  box-shadow: 0 0 8px rgba(0, 158, 102, 0.18) !important;
+}
+html[data-theme="light"] .mini-frame-label {
+  background-color: #F3F5F8 !important;
+}
+html[data-theme="light"] .mini-frame.state-loading .mini-frame-label {
+  color: #B45309 !important;
+}
+html[data-theme="light"] .mini-frame.state-error .mini-frame-label {
+  color: #BE123C !important;
+}
+html[data-theme="light"] .mini-frame.state-connected .mini-frame-label {
+  color: #007A4E !important;
 }

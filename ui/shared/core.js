@@ -41,22 +41,12 @@ async function handleSessionExpired() {
   if (popoverMenu) popoverMenu.classList.add('hidden');
   if (typeof liveCheckTimeout !== 'undefined') clearTimeout(liveCheckTimeout);
 
-  const text = document.getElementById('header-status-text');
   const badgeA = document.getElementById('badge-method-a');
-  const badgeB = document.getElementById('badge-method-b');
-  const groupLoginBadge = document.getElementById('group-login-badge');
   const btnWebview = document.getElementById('btn-webview-login');
   const inputAut = document.getElementById('cookie-nid-aut');
   const inputSes = document.getElementById('cookie-nid-ses');
 
-  if (text) { text.textContent = '로그인 필요'; text.className = 'font-medium text-[#FF4D6A]'; }
   if (badgeA) { badgeA.textContent = "⚠️ 로그인 필요"; badgeA.className = "text-[9px] px-1.5 py-0.5 rounded font-bold bg-amber-950 text-amber-400 border border-amber-800/60"; }
-  if (badgeB) { badgeB.textContent = "⚠️ 미연동"; badgeB.className = "text-[9px] px-1.5 py-0.5 rounded font-bold bg-amber-950 text-amber-400 border border-amber-800/60"; }
-  
-  if (groupLoginBadge) {
-    groupLoginBadge.textContent = "로그인 필요";
-    groupLoginBadge.className = "text-[9px] px-1.5 py-0.5 rounded font-bold bg-amber-950 text-amber-400 border border-amber-800/60";
-  }
   if (btnWebview) {
     btnWebview.innerHTML = "🔑 네이버 로그인 시작";
     btnWebview.className = "save-btn text-xs py-2 !border-0 transition-colors cursor-pointer";

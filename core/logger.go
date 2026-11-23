@@ -151,11 +151,6 @@ func LogError(format string, args ...interface{}) {
 	appLogger.Log(LevelError, format, args...)
 }
 
-// GetLogsText: 현재까지의 로그 텍스트 취득
-func GetLogsText() string {
-	return appLogger.GetLogsText()
-}
-
 // ViewLogsInNotepad: 메모리에 저장된 로그를 임시 파일로 작성 후 메모장(notepad.exe)으로 열람
 func ViewLogsInNotepad() error {
 	logText := appLogger.GetLogsText()
@@ -283,17 +278,4 @@ func SaveLogsWithDialog() (string, error) {
 	}
 
 	return targetPath, nil
-}
-
-// SaveLogsToFile: 지정된 경로에 로그 텍스트를 즉시 파일로 저장
-func SaveLogsToFile(targetPath string) error {
-	logText := appLogger.GetLogsText()
-	return os.WriteFile(targetPath, []byte(logText), 0644)
-}
-
-// ClearLogs: 메모리 로그 초기화 (테스트용)
-func ClearLogs() {
-	appLogger.mu.Lock()
-	defer appLogger.mu.Unlock()
-	appLogger.entries = appLogger.entries[:0]
 }

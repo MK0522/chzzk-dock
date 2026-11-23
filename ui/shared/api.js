@@ -45,8 +45,6 @@ async function apiFetch(url, options = {}) {
  * 각 버튼/토글마다 개별 엔드포인트로 1:1 매핑되어 경량화된 단일 요청을 전송합니다.
  */
 const chzzkApi = {
-  fetch: apiFetch,
-
   // --- [1. 실시간 채팅 모드] (단일 토글 / 셀렉트 분리) ---
   getChatMode: () => apiFetch('/chzzkdock/chat-mode'),
   setEmojiMode: (enabled) => apiFetch('/chzzkdock/chat-mode/emoji', {
@@ -60,22 +58,6 @@ const chzzkApi = {
 
   // --- [2. 후원 제어 4종] (각 스위치마다 독립 엔드포인트 전송) ---
   getDonations: () => apiFetch('/chzzkdock/donations'),
-  toggleDonationChat: (enabled) => apiFetch('/chzzkdock/donations/chat', {
-    method: 'PUT',
-    body: JSON.stringify({ enabled: !!enabled })
-  }),
-  toggleDonationVideo: (enabled) => apiFetch('/chzzkdock/donations/video', {
-    method: 'PUT',
-    body: JSON.stringify({ enabled: !!enabled })
-  }),
-  toggleDonationMission: (enabled) => apiFetch('/chzzkdock/donations/mission', {
-    method: 'PUT',
-    body: JSON.stringify({ enabled: !!enabled })
-  }),
-  toggleDonationSubscription: (enabled) => apiFetch('/chzzkdock/donations/subscription', {
-    method: 'PUT',
-    body: JSON.stringify({ enabled: !!enabled })
-  }),
   // 범용 후원 토글 디스패처
   toggleDonation: (target, enabled) => {
     const t = target === 'sub' ? 'subscription' : target.toLowerCase();
@@ -88,12 +70,10 @@ const chzzkApi = {
   // --- [3. 윈도우 웹뷰 제어 & 시스템 기능] ---
   openChatWebview: (channelId = '') => apiFetch(`/chat-webview?channelId=${encodeURIComponent(channelId || '')}`),
   openRemoteWebview: (channelId = '') => apiFetch(`/remote-webview?channelId=${encodeURIComponent(channelId || '')}`),
-  openBrowser: (url) => apiFetch(`/open-browser?url=${encodeURIComponent(url)}`),
   openFolder: (path) => apiFetch(`/api/open-folder?path=${encodeURIComponent(path)}`),
   getDiskTotal: (drive = 'C') => apiFetch(`/api/disk-total?drive=${encodeURIComponent(drive)}`),
 
   // --- [4. 방송 설정 & 치지직 상태] ---
-  getUserStatus: () => apiFetch('/chzzkdock/user-status'),
   getLiveStatus: (channelId = '') => apiFetch(`/chzzkdock/live-status${channelId ? '?channelId=' + encodeURIComponent(channelId) : ''}`),
   getBroadcast: () => apiFetch('/chzzkdock/broadcast'),
   saveBroadcast: (payload) => apiFetch('/chzzkdock/broadcast', {
@@ -101,21 +81,8 @@ const chzzkApi = {
     body: JSON.stringify(payload)
   }),
   getChatRule: () => apiFetch('/chzzkdock/chat-rule'),
-  saveChatRule: (payload) => apiFetch('/chzzkdock/chat-rule', {
-    method: 'PUT',
-    body: JSON.stringify(payload)
-  }),
 
-  // --- [5. 앱 설정 & 인증 세션] ---
-  getConfig: () => apiFetch('/config'),
-  getSessions: () => apiFetch('/sessions'),
-  getAppSettings: () => apiFetch('/app-settings'),
-  saveAppSettings: (patch) => apiFetch('/app-settings', {
-    method: 'PUT',
-    body: JSON.stringify(patch)
-  }),
-
-  // --- [6. 리모컨 & 파티 관리] ---
+  // --- [5. 리모컨 & 파티 관리] ---
   getRemoteState: () => apiFetch('/chzzkdock/remote/state'),
   getRemoteFeeds: (typeFilters = '', size = 20) => apiFetch(
     `/chzzkdock/remote/feeds?size=${encodeURIComponent(size)}${typeFilters ? '&typeFilters=' + encodeURIComponent(typeFilters) : ''}`
@@ -149,7 +116,6 @@ const chzzkApi = {
     method: 'PUT',
     body: JSON.stringify({ partyName })
   }),
-  getPartyToken: (partyNo) => apiFetch(`/chzzkdock/remote/party/token?partyNo=${encodeURIComponent(partyNo)}`),
   reissuePartyToken: (partyNo) => apiFetch(`/chzzkdock/remote/party/token?partyNo=${encodeURIComponent(partyNo)}`, {
     method: 'PATCH'
   }),

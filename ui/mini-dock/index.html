@@ -4,27 +4,42 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CHZZK 미니 퀵 컨트롤러 독</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    window.__loadTailwindFallback = function() {
+      if (document.getElementById('chzzk-tailwind-fallback')) return;
+      var link = document.createElement('link');
+      link.id = 'chzzk-tailwind-fallback';
+      link.rel = 'stylesheet';
+      link.href = '/ui/shared/tailwind-fallback.css';
+      var themeLink = document.querySelector('link[href*="/ui/shared/theme.css"]');
+      document.head.insertBefore(link, themeLink || document.head.firstChild);
+    };
+  </script>
+  <script src="https://cdn.tailwindcss.com" onerror="window.__loadTailwindFallback()"></script>
   <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
   <link rel="stylesheet" href="/ui/shared/theme.css" />
   <script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('chzzk_theme_mode')==='light'?'light':'dark');}catch(_){}</script>
   <script src="/ui/shared/api.js"></script>
   <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          fontFamily: { sans: ['Pretendard', 'system-ui', 'sans-serif'] },
-          colors: {
-            chzzk: {
-              green: '#00FFA3', dark: '#080A0D', card: '#121721',
-              border: '#1E2636', input: '#0B0F15', hover: '#1A2233',
-              accent: '#00E59B', danger: '#FF4D6A', warn: '#FFB84D'
+    if (typeof tailwind !== 'undefined') {
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            fontFamily: { sans: ['Pretendard', 'system-ui', 'sans-serif'] },
+            colors: {
+              chzzk: {
+                green: '#00FFA3', dark: '#080A0D', card: '#121721',
+                border: '#1E2636', input: '#0B0F15', hover: '#1A2233',
+                accent: '#00E59B', danger: '#FF4D6A', warn: '#FFB84D'
+              }
             }
           }
         }
-      }
-    };
+      };
+    } else {
+      window.__loadTailwindFallback();
+    }
   </script>
   <style>
     * { box-sizing: border-box; user-select: none; -webkit-user-select: none; }
@@ -150,10 +165,64 @@
     #mini-toast.success { background: #0E1916; color: #00FFA3; border: 1px solid rgba(0, 255, 163, 0.4); }
     #mini-toast.warn { background: #1C1810; color: #FFB84D; border: 1px solid rgba(255, 184, 77, 0.4); }
     #mini-toast.error { background: #1C1014; color: #FF4D6A; border: 1px solid rgba(255, 77, 106, 0.4); }
+
+    /* 연결 상태 테두리 & 하단 선 끊김(Cutout) 상태 라벨 */
+    .mini-frame {
+      position: relative;
+      border: 1.5px solid rgba(148, 163, 184, 0.22);
+      border-radius: 10px;
+      padding: 5px 7px 9px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      transition: border-color 0.25s ease, box-shadow 0.25s ease;
+      min-width: max-content;
+    }
+    .mini-frame.state-idle {
+      border-color: rgba(148, 163, 184, 0.22);
+    }
+    .mini-frame.state-loading {
+      border-color: rgba(245, 158, 11, 0.72);
+    }
+    .mini-frame.state-error {
+      border-color: #F43F5E;
+      box-shadow: 0 0 8px rgba(244, 63, 94, 0.22);
+    }
+    .mini-frame.state-connected {
+      border-color: #00FFA3;
+      box-shadow: 0 0 8px rgba(0, 255, 163, 0.22);
+    }
+    .mini-frame-label {
+      position: absolute;
+      bottom: -7px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 0 7px;
+      font-size: 9.5px;
+      font-weight: 700;
+      line-height: 12px;
+      letter-spacing: -0.01em;
+      white-space: nowrap;
+      background: #080A0D;
+      border-radius: 4px;
+      pointer-events: none;
+    }
+    .mini-frame.state-idle .mini-frame-label {
+      display: none;
+    }
+    .mini-frame.state-loading .mini-frame-label { color: #FBBF24; }
+    .mini-frame.state-error .mini-frame-label { color: #FB7185; }
+    .mini-frame.state-connected .mini-frame-label { color: #00FFA3; }
+    .mini-controls-dim {
+      opacity: 0.55;
+      transition: opacity 0.2s ease;
+    }
   </style>
 </head>
-<body class="flex flex-col justify-center px-1.5 py-1 gap-1 overflow-x-auto overflow-y-hidden select-none">
+<body class="flex flex-col justify-center px-1.5 pt-1 pb-2.5 overflow-x-auto overflow-y-hidden select-none">
 
+  <div id="mini-frame" class="mini-frame state-idle">
+    <div id="mini-controls-rows" class="flex flex-col gap-1">
   <!-- [1열] 새로고침 + 이모티콘 전용 + 저속 모드 + 채팅창 열기 -->
   <div class="flex items-center gap-1.5 flex-shrink-0">
     <button onclick="fetchAllStatus()" class="w-6 h-6 rounded-md bg-[#121721] border border-[#1E2738] hover:border-[#00FFA3]/50 text-slate-400 hover:text-[#00FFA3] flex items-center justify-center transition-all cursor-pointer shrink-0" title="상태 즉시 동기화">
@@ -238,6 +307,9 @@
       </span>
     </label>
   </div>
+    </div>
+    <span id="mini-status-label" class="mini-frame-label" role="status" aria-live="polite"></span>
+  </div>
 
   <!-- 토스트 안내바 -->
   <div id="mini-toast" role="status" aria-live="polite"></div>
@@ -257,6 +329,40 @@
     let statusRetryTimer = null;
     let statusRequestPending = null;
     let settingsChangesPending = 0;
+    let miniConnectFadeTimer = null;
+    let hasMiniSyncedOnce = false;
+
+    function setMiniConnectionState(state, text = '') {
+      const frame = document.getElementById('mini-frame');
+      const label = document.getElementById('mini-status-label');
+      const rows = document.getElementById('mini-controls-rows');
+      if (miniConnectFadeTimer !== null) {
+        clearTimeout(miniConnectFadeTimer);
+        miniConnectFadeTimer = null;
+      }
+      if (frame) {
+        frame.className = `mini-frame state-${state}`;
+      }
+      if (label) {
+        label.textContent = text;
+      }
+      if (rows && rows.classList) {
+        if (!hasMiniSyncedOnce && (state === 'error' || state === 'loading')) {
+          rows.classList.add('mini-controls-dim');
+        } else {
+          rows.classList.remove('mini-controls-dim');
+        }
+      }
+      if (state === 'connected') {
+        miniConnectFadeTimer = setTimeout(() => {
+          miniConnectFadeTimer = null;
+          const f = document.getElementById('mini-frame');
+          const l = document.getElementById('mini-status-label');
+          if (f) f.className = 'mini-frame state-idle';
+          if (l) l.textContent = '';
+        }, 2000);
+      }
+    }
 
     function beginSettingsChange() {
       settingsChangesPending++;
@@ -290,6 +396,9 @@
       }
       const syncIcon = document.getElementById('sync-icon');
       if (syncIcon) syncIcon.classList.add('animate-spin');
+      if (!hasMiniSyncedOnce || isRetry) {
+        setMiniConnectionState('loading', isRetry ? '재연결 중...' : '연결 확인 중...');
+      }
 
       try {
         const [chatRes, donRes] = await Promise.all([
@@ -301,12 +410,14 @@
 
         if (chatRes.status === 401 || donRes.status === 401) {
           if (!isRetry) showToast('로그인 필요 (메인 독 확인)', 'warn');
+          setMiniConnectionState('error', '로그인 필요 (메인 독 확인)');
           scheduleStatusRetry();
           return;
         }
 
         if (!chatRes.ok || !donRes.ok) {
           if (!isRetry) showToast('상태 조회 실패. 10초 후 다시 확인합니다.', 'error');
+          setMiniConnectionState('error', '연결 끊김 · 10초 후 재시도');
           scheduleStatusRetry();
           return;
         }
@@ -317,10 +428,13 @@
         if (elEmoji) elEmoji.checked = !!chat.emojiOnly;
         if (elSlow) elSlow.value = String(chat.slowSec || 0);
         syncDonationUI(don);
+        hasMiniSyncedOnce = true;
+        setMiniConnectionState('connected', isRetry ? '연결 복구됨' : '연결됨');
         showToast(isRetry ? '상태 동기화 복구' : '동기화 완료', 'success');
       } catch (e) {
         if (statusRequestPending !== request) return;
         if (!isRetry) showToast('상태 조회 실패. 10초 후 다시 확인합니다.', 'error');
+        setMiniConnectionState('error', '연결 끊김 · 10초 후 재시도');
         scheduleStatusRetry();
       } finally {
         if (statusRequestPending === request) {
@@ -426,6 +540,14 @@
     window.addEventListener('storage', (e) => {
       if (e.key === 'chzzk_theme_mode' && e.newValue) syncMiniDockTheme(e.newValue);
     });
+    if (typeof EventSource !== 'undefined') {
+      try {
+        const themeEs = new EventSource('/events/theme');
+        themeEs.addEventListener('theme', (e) => {
+          if (e && e.data) syncMiniDockTheme(e.data);
+        });
+      } catch (_) {}
+    }
     async function loadMiniDockTheme() {
       try {
         const res = await apiFetch('/app-settings');
@@ -438,6 +560,9 @@
 
     // 초기 로드
     window.addEventListener('DOMContentLoaded', () => {
+      if (typeof tailwind === 'undefined' && typeof window.__loadTailwindFallback === 'function') {
+        window.__loadTailwindFallback();
+      }
       loadMiniDockTheme();
       fetchAllStatus();
     });

@@ -45,16 +45,13 @@ const (
 
 var (
 	procGetWindowRect          = user32.NewProc("GetWindowRect")
-	procGetClientRect          = user32.NewProc("GetClientRect")
 	procFindWindowW            = user32.NewProc("FindWindowW")
 	procGetSystemMetrics       = user32.NewProc("GetSystemMetrics")
 	procBringWindowToTop       = user32.NewProc("BringWindowToTop")
-	procAdjustWindowRectEx     = user32.NewProc("AdjustWindowRectEx")
 	procGetSystemMenu          = user32.NewProc("GetSystemMenu")
 	procCheckMenuItem          = user32.NewProc("CheckMenuItem")
 	procSetWindowTextW         = user32.NewProc("SetWindowTextW")
 	procRegisterWindowMessageW = user32.NewProc("RegisterWindowMessageW")
-	procIsWindowVisible        = user32.NewProc("IsWindowVisible")
 	procMonitorFromRect        = user32.NewProc("MonitorFromRect")
 	procGetMonitorInfoW        = user32.NewProc("GetMonitorInfoW")
 
@@ -886,7 +883,7 @@ func makeFloatingToolbarScript(storageKey string, alignRight bool, enableReload 
 
     function fitToolbar() {
       var left = desiredPos ? desiredPos.left : (%t ? window.innerWidth - bar.offsetWidth - 14 : 14);
-      var top = desiredPos ? desiredPos.top : 10;
+      var top = desiredPos ? desiredPos.top : window.innerHeight - bar.offsetHeight - 14;
       bar.style.left = Math.max(0, Math.min(left, window.innerWidth - bar.offsetWidth)) + 'px';
       bar.style.top = Math.max(0, Math.min(top, window.innerHeight - bar.offsetHeight)) + 'px';
       bar.style.right = 'auto';

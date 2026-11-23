@@ -4,7 +4,18 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>OBS 실시간 방송 통계 대시보드 (Stream Stats Dock)</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    window.__loadTailwindFallback = function() {
+      if (document.getElementById('chzzk-tailwind-fallback')) return;
+      var link = document.createElement('link');
+      link.id = 'chzzk-tailwind-fallback';
+      link.rel = 'stylesheet';
+      link.href = '/ui/shared/tailwind-fallback.css';
+      var themeLink = document.querySelector('link[href*="/ui/shared/theme.css"]');
+      document.head.insertBefore(link, themeLink || document.head.firstChild);
+    };
+  </script>
+  <script src="https://cdn.tailwindcss.com" onerror="window.__loadTailwindFallback()"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -13,26 +24,33 @@
   <script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('chzzk_theme_mode')==='light'?'light':'dark');}catch(_){}</script>
   <script src="/ui/shared/api.js"></script>
   <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            obsBg: '#0D1117',
-            obsCard: '#161B22',
-            obsBorder: '#30363D',
-            obsBorderSubtle: '#21262D',
-            obsAccent: '#00FFA3',
-            obsText: '#E6EDF3',
-            obsMuted: '#8B949E',
-            obsRowHover: '#1C2129',
-          },
-          fontFamily: {
-            sans: ['Pretendard', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
-            mono: ['"JetBrains Mono"', 'monospace'],
+    if (typeof tailwind !== 'undefined') {
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              obsBg: '#0D1117',
+              obsCard: '#161B22',
+              obsBorder: '#30363D',
+              obsBorderSubtle: '#21262D',
+              obsAccent: '#00FFA3',
+              obsText: '#E6EDF3',
+              obsMuted: '#8B949E',
+              obsRowHover: '#1C2129',
+            },
+            fontFamily: {
+              sans: ['Pretendard', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+              mono: ['"JetBrains Mono"', 'monospace'],
+            }
           }
         }
-      }
+      };
+    } else {
+      window.__loadTailwindFallback();
     }
+    window.addEventListener('DOMContentLoaded', function() {
+      if (typeof tailwind === 'undefined') window.__loadTailwindFallback();
+    });
   </script>
   <style>
     body {
@@ -75,7 +93,7 @@
       <h1 class="text-[13.5px] font-bold tracking-tight text-white">
         통계 (Stats)
       </h1>
-      <span id="stats-connection" role="status" class="text-[10px] text-obsMuted">OBS 연결 끊김</span>
+      <span id="stats-connection" role="status" class="text-[10px] text-obsMuted inline-flex items-center gap-1">OBS 연결 중...</span>
     </div>
 
     <!-- 우측 단위 전환, 초기화 컨트롤 -->
@@ -101,7 +119,7 @@
   </header>
 
   <!-- METRIC SECTION (상단: 3분할 통합 박스 [시스템/렌더링/저장], 하단: 방송/녹화 아코디언) -->
-  <main class="space-y-2.5">
+  <main id="stats-main" class="space-y-2.5 transition-opacity duration-200">
     
     <!-- 1. 상단: 통합 박스 (3영역 분할) -->
     <section class="bg-obsCard border border-obsBorder rounded-lg p-3 shadow-sm grid grid-cols-3 divide-x divide-obsBorderSubtle gap-3 items-center">
@@ -111,7 +129,7 @@
         <div class="flex items-center justify-between text-xs">
           <span class="text-obsMuted font-medium">CPU 이용률</span>
           <div class="mono-num font-semibold text-white tracking-tight">
-            <span id="val-cpu">0.00</span> <span class="text-xs font-normal text-obsMuted">%</span>
+            <span id="val-cpu">—</span> <span class="text-xs font-normal text-obsMuted">%</span>
           </div>
         </div>
 
@@ -119,7 +137,7 @@
         <div class="flex items-center justify-between text-xs">
           <span class="text-obsMuted font-medium">메모리 사용량</span>
           <div class="mono-num font-semibold text-white tracking-tight">
-            <span id="val-mem">0.0</span> <span id="label-mem-unit" class="text-xs font-normal text-obsMuted">MB</span>
+            <span id="val-mem">—</span> <span id="label-mem-unit" class="text-xs font-normal text-obsMuted">MB</span>
           </div>
         </div>
 
@@ -127,7 +145,7 @@
         <div class="flex items-center justify-between text-xs">
           <span class="text-obsMuted font-medium">FPS</span>
           <div class="mono-num font-bold text-obsAccent text-[14.5px] tracking-tight flex items-baseline gap-1">
-            <span id="val-fps">00.00</span> <span id="label-fps-unit" class="text-[11px] font-normal text-obsAccent/80">fps</span>
+            <span id="val-fps">—</span> <span id="label-fps-unit" class="text-[11px] font-normal text-obsAccent/80">fps</span>
           </div>
         </div>
       </div>
@@ -138,10 +156,10 @@
         <div class="flex items-center justify-between text-xs">
           <span class="text-obsMuted font-medium">인코딩 지연 손실</span>
           <div class="mono-num text-xs font-semibold">
-            <span id="val-enc-drop" class="text-obsAccent">0</span>
+            <span id="val-enc-drop" class="text-obsAccent">—</span>
             <span class="text-obsMuted"> / </span>
-            <span id="val-enc-total" class="text-obsMuted">0</span>
-            <span id="val-enc-pct" class="text-obsAccent font-medium ml-0.5">(0.0%)</span>
+            <span id="val-enc-total" class="text-obsMuted">—</span>
+            <span id="val-enc-pct" class="text-obsAccent font-medium ml-0.5">(—)</span>
           </div>
         </div>
 
@@ -149,10 +167,10 @@
         <div class="flex items-center justify-between text-xs">
           <span class="text-obsMuted font-medium">렌더링 지연 손실</span>
           <div class="mono-num text-xs font-semibold">
-            <span id="val-rnd-drop" class="text-obsAccent">0</span>
+            <span id="val-rnd-drop" class="text-obsAccent">—</span>
             <span class="text-obsMuted"> / </span>
-            <span id="val-rnd-total" class="text-obsMuted">0</span>
-            <span id="val-rnd-pct" class="text-obsAccent font-medium ml-0.5">(0.0%)</span>
+            <span id="val-rnd-total" class="text-obsMuted">—</span>
+            <span id="val-rnd-pct" class="text-obsAccent font-medium ml-0.5">(—)</span>
           </div>
         </div>
 
@@ -160,7 +178,7 @@
         <div class="flex items-center justify-between text-xs">
           <span class="text-obsMuted font-medium">프레임 평균 렌더링 시간</span>
           <div class="mono-num font-semibold text-white tracking-tight">
-            <span id="val-render-time">0.0</span> <span class="text-xs font-normal text-obsMuted">ms</span>
+            <span id="val-render-time">—</span> <span class="text-xs font-normal text-obsMuted">ms</span>
           </div>
         </div>
       </div>
@@ -192,12 +210,12 @@
     </section>
 
     <!-- 2. 하단: [방송/녹화 아코디언 패널] (기본 접힘, 클릭 시 확장) -->
-    <details class="group bg-obsCard border border-obsBorder rounded-lg overflow-hidden shadow-sm">
+    <details class="stats-accordion group bg-obsCard border border-obsBorder rounded-lg overflow-hidden shadow-sm">
       <summary class="flex items-center justify-between px-3.5 py-2 text-xs font-semibold text-obsMuted hover:text-white cursor-pointer select-none bg-obsBg/40 hover:bg-obsRowHover transition-colors list-none">
         <div class="flex items-center gap-2">
           <span>방송 / 녹화 상세</span>
         </div>
-        <div class="flex items-center gap-1.5 text-obsMuted text-[11px]">
+        <div class="stats-toggle-pill flex items-center gap-1.5 text-obsMuted text-[11px] px-2 py-0.5 rounded-full">
           <span class="text-[10px] font-normal group-open:hidden">펼치기</span>
           <span class="text-[10px] font-normal hidden group-open:inline">접기</span>
           <svg class="w-3.5 h-3.5 transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -207,7 +225,7 @@
       </summary>
 
       <div class="w-full overflow-x-auto border-t border-obsBorderSubtle">
-        <table class="w-full min-w-[560px] text-left border-collapse">
+        <table class="stats-table w-full min-w-[560px] text-left border-collapse">
           <thead>
             <tr class="text-[11px] font-medium text-obsMuted border-b border-obsBorderSubtle/80 bg-obsBg/40">
               <th class="py-1.5 px-3.5 w-20 text-left font-medium">출력</th>
@@ -227,19 +245,19 @@
                 </span>
               </td>
               <td class="py-2.5 px-3.5 mono-num text-obsMuted" title="네트워크 손실 프레임 (손실 / 전체)">
-                <span id="val-net-drop" class="text-obsAccent font-semibold">0</span>
+                <span id="val-net-drop" class="text-obsAccent font-semibold">—</span>
                 <span class="text-obsMuted"> / </span>
-                <span id="val-net-total" class="text-obsMuted">0</span>
-                <span id="val-net-pct" class="text-obsAccent font-medium ml-0.5">(0.0%)</span>
+                <span id="val-net-total" class="text-obsMuted">—</span>
+                <span id="val-net-pct" class="text-obsAccent font-medium ml-0.5">(—)</span>
               </td>
               <td class="py-2.5 px-3.5 mono-num text-right font-medium" title="방송 누적 시간">
-                <span id="stream-time" class="text-obsAccent/90 font-semibold">00:00:00</span>
+                <span id="stream-time" class="text-obsAccent/90 font-semibold">—</span>
               </td>
               <td class="py-2.5 px-3.5 mono-num text-right font-medium" title="데이터 출력 합계">
-                <span id="stream-data" class="text-white font-semibold">0.0</span> <span id="stream-unit" class="text-[11px] font-normal text-obsMuted">MB</span>
+                <span id="stream-data" class="text-white font-semibold">—</span> <span id="stream-unit" class="text-[11px] font-normal text-obsMuted">MB</span>
               </td>
               <td class="py-2.5 px-3.5 mono-num text-right font-bold text-obsAccent" title="실시간 방송 비트레이트">
-                <span id="val-stream-bitrate">0</span> <span class="text-[11px] font-normal text-obsAccent/80">kb/s</span>
+                <span id="val-stream-bitrate">—</span> <span class="text-[11px] font-normal text-obsAccent/80">kb/s</span>
               </td>
             </tr>
 
@@ -255,14 +273,14 @@
                 -
               </td>
               <td class="py-2.5 px-3.5 mono-num text-right font-medium" title="녹화 누적 시간">
-                <span id="val-record-time" class="text-rose-400/90 font-semibold">00:00:00</span>
+                <span id="val-record-time" class="text-rose-400/90 font-semibold">—</span>
               </td>
               <td class="py-2.5 px-3.5 mono-num text-right font-medium" title="녹화 파일 용량">
-                <span id="rec-data" class="text-white font-semibold">0.0</span> <span id="rec-unit" class="text-[11px] font-normal text-obsMuted/70">MB</span>
+                <span id="rec-data" class="text-white font-semibold">—</span> <span id="rec-unit" class="text-[11px] font-normal text-obsMuted/70">MB</span>
               </td>
               <!-- 녹화 실시간 비트레이트 -->
               <td class="py-2.5 px-3.5 mono-num text-right font-bold text-rose-400" title="실시간 녹화 비트레이트">
-                <span id="val-record-bitrate">0</span> <span id="label-rec-bitrate-unit" class="text-[11px] font-normal text-rose-400/80">kb/s</span>
+                <span id="val-record-bitrate">—</span> <span id="label-rec-bitrate-unit" class="text-[11px] font-normal text-rose-400/80">kb/s</span>
               </td>
             </tr>
           </tbody>
@@ -301,6 +319,40 @@
     }
 
     let expectedNextPoll = 0;
+    let reconnectAttempts = 0;
+    const MAX_LOADING_RETRIES = 3;
+    let hasEverConnected = false;
+    let hasReceivedStats = false;
+
+    function setStatsConnectionUI(state, attempt = 0) {
+      const connEl = document.getElementById('stats-connection');
+      const mainEl = document.getElementById('stats-main');
+      const spinnerSvg = '<svg class="w-3 h-3 animate-spin shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>';
+      if (state === 'connected') {
+        if (connEl) {
+          connEl.className = 'text-[10px] text-obsMuted inline-flex items-center gap-1';
+          connEl.innerHTML = '';
+        }
+        if (mainEl) mainEl.classList.remove('opacity-65');
+      } else if (state === 'connecting' || state === 'retrying') {
+        if (connEl) {
+          connEl.className = 'text-[10px] text-amber-400 inline-flex items-center gap-1 font-medium';
+          const label = state === 'retrying'
+            ? `OBS 재연결 중... (${attempt}/${MAX_LOADING_RETRIES})`
+            : 'OBS 연결 중...';
+          connEl.innerHTML = spinnerSvg + `<span>${label}</span>`;
+        }
+        if (mainEl) mainEl.classList.remove('opacity-65');
+      } else {
+        if (connEl) {
+          connEl.className = 'text-[10px] text-rose-400 inline-flex items-center gap-1 font-medium';
+          connEl.textContent = hasReceivedStats ? 'OBS 연결 끊김 (마지막 수신)' : 'OBS 연결 끊김';
+        }
+        updateStreamState(false);
+        updateRecordState(false);
+        if (mainEl) mainEl.classList.add('opacity-65');
+      }
+    }
 
     function connectOBS() {
       if (ws) {
@@ -308,6 +360,9 @@
       }
       isConnected = false;
       expectedNextPoll = 0;
+      if (!hasEverConnected && reconnectAttempts === 0) {
+        setStatsConnectionUI('connecting');
+      }
       try {
         ws = new WebSocket(WS_URL);
 
@@ -322,7 +377,9 @@
               await handleHello(msg.d);
             } else if (msg.op === 2) {
               isConnected = true;
-              document.getElementById('stats-connection').textContent = '';
+              hasEverConnected = true;
+              reconnectAttempts = 0;
+              setStatsConnectionUI('connected');
               expectedNextPoll = performance.now() + POLL_INTERVAL;
               sendReq('GetVideoSettings');
               sendReq('GetRecordDirectory');
@@ -336,10 +393,15 @@
         };
 
         ws.onclose = () => {
-          document.getElementById('stats-connection').textContent = 'OBS 연결 끊김';
           isConnected = false;
           expectedNextPoll = 0;
           clearTimeout(pollTimer);
+          reconnectAttempts++;
+          if (reconnectAttempts <= MAX_LOADING_RETRIES) {
+            setStatsConnectionUI('retrying', reconnectAttempts);
+          } else {
+            setStatsConnectionUI('disconnected');
+          }
           setTimeout(connectOBS, 2000);
         };
 
@@ -347,6 +409,12 @@
           if (ws) ws.close();
         };
       } catch (err) {
+        reconnectAttempts++;
+        if (reconnectAttempts <= MAX_LOADING_RETRIES) {
+          setStatsConnectionUI('retrying', reconnectAttempts);
+        } else {
+          setStatsConnectionUI('disconnected');
+        }
         setTimeout(connectOBS, 2000);
       }
     }
@@ -725,6 +793,7 @@
         sTotal
       );
 
+      hasReceivedStats = true;
       rawStreamBytes = d.outputBytes || 0;
       updateBytesDisplay();
     }
@@ -762,6 +831,7 @@
       // 녹화 누적 시간 (초 단위 정수까지만 표기: 00:00:00.000 -> 00:00:00)
       const rawRecTime = d.outputTimecode || '00:00:00';
       const cleanRecTime = rawRecTime.split('.')[0] || '00:00:00';
+      hasReceivedStats = true;
       document.getElementById('val-record-time').textContent = cleanRecTime;
       rawRecordBytes = d.outputBytes || 0;
       updateBytesDisplay();
@@ -788,7 +858,7 @@
       const badge = document.getElementById('badge-stream-status');
       if (!badge) return;
       if (active) {
-        badge.className = 'inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-bold bg-[#00FFA3]/15 text-[#00FFA3] border border-[#00FFA3]/60 shadow-[0_0_8px_rgba(0,255,163,0.25)] tracking-wide transition-colors';
+        badge.className = 'is-live inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-bold bg-[#00FFA3]/15 text-[#00FFA3] border border-[#00FFA3]/60 shadow-[0_0_8px_rgba(0,255,163,0.25)] tracking-wide transition-colors';
         badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-[#00FFA3] dot-pulse shrink-0"></span><span>방송</span>';
       } else {
         badge.className = 'inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium bg-zinc-900/80 text-zinc-500 border border-zinc-700/50 shadow-inner tracking-wide transition-colors';
@@ -800,7 +870,7 @@
       const badge = document.getElementById('badge-record-status');
       if (!badge) return;
       if (active) {
-        badge.className = 'inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-bold bg-rose-500/15 text-rose-300 border border-rose-500/60 shadow-[0_0_8px_rgba(244,63,94,0.3)] tracking-wide transition-colors';
+        badge.className = 'is-live inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-bold bg-rose-500/15 text-rose-300 border border-rose-500/60 shadow-[0_0_8px_rgba(244,63,94,0.3)] tracking-wide transition-colors';
         badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-rose-500 dot-pulse shrink-0"></span><span>녹화</span>';
       } else {
         badge.className = 'inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium bg-zinc-900/80 text-zinc-500 border border-zinc-700/50 shadow-inner tracking-wide transition-colors';
@@ -815,7 +885,7 @@
       const inactiveCls = 'px-1.5 py-0.5 rounded text-obsMuted hover:text-obsText transition-all cursor-pointer';
       document.getElementById('btn-mb').className = unit === 'MB' ? activeCls : inactiveCls;
       document.getElementById('btn-gb').className = unit === 'GB' ? activeCls : inactiveCls;
-      updateBytesDisplay();
+      if (hasReceivedStats) updateBytesDisplay();
     }
 
     function updateBytesDisplay() {
@@ -874,6 +944,14 @@
     window.addEventListener('storage', (e) => {
       if (e.key === 'chzzk_theme_mode' && e.newValue) syncStatsDockTheme(e.newValue);
     });
+    if (typeof EventSource !== 'undefined') {
+      try {
+        const themeEs = new EventSource('/events/theme');
+        themeEs.addEventListener('theme', (e) => {
+          if (e && e.data) syncStatsDockTheme(e.data);
+        });
+      } catch (_) {}
+    }
     apiFetch('/app-settings').then(r => r.ok ? r.json() : null).then(d => {
       if (d && d.theme_mode) syncStatsDockTheme(d.theme_mode);
     }).catch(() => {});

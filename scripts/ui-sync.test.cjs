@@ -16,6 +16,7 @@ function harness(file, api = {}) {
   class Socket { static OPEN = 1; constructor() { this.readyState = 1; sockets.push(this); } close() {} send() {} }
   const context = { document, console, performance: { now: () => now }, WebSocket: Socket,
     window: { addEventListener(name, fn) { listeners[name] = fn; } }, chzzkApi: api,
+    apiFetch: async () => ({ ok: false, status: 500, json: async () => ({}) }),
     setTimeout(fn, ms) { timers.set(++seq, { fn, ms }); return seq; }, clearTimeout(id) { timers.delete(id); }
   };
   vm.createContext(context); vm.runInContext(script(file), context);
