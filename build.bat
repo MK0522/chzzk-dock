@@ -13,6 +13,23 @@ echo [*] Dependencies tidy...
 call go mod tidy
 if errorlevel 1 goto :fail
 
+REM 1.5 Build static Tailwind CSS when Tailwind CLI or npx is available
+where tailwindcss.exe >nul 2>&1
+if not errorlevel 1 (
+    echo [*] Compiling static Tailwind CSS via tailwindcss.exe...
+    call tailwindcss.exe -i ui\shared\tailwind.input.css -o ui\shared\tailwind.css --minify
+    if errorlevel 1 goto :fail
+) else (
+    where npx.cmd >nul 2>&1
+    if not errorlevel 1 (
+        echo [*] Compiling static Tailwind CSS via npx tailwindcss...
+        call npx.cmd --yes tailwindcss@3.4.17 -i ui\shared\tailwind.input.css -o ui\shared\tailwind.css --minify
+        if errorlevel 1 echo [WARNING] Tailwind CSS rebuild skipped ^(using committed ui\shared\tailwind.css^).
+    ) else (
+        echo [*] Using committed static ui\shared\tailwind.css
+    )
+)
+
 REM 2. Generate Windows PE Resource
 echo [*] Generating Windows PE Resource (Icon and Manifest)...
 del /f /q resource_windows_amd64.syso rsrc_*.syso >nul 2>&1

@@ -4,54 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>OBS 실시간 방송 통계 대시보드 (Stream Stats Dock)</title>
-  <script>
-    window.__loadTailwindFallback = function() {
-      if (document.getElementById('chzzk-tailwind-fallback')) return;
-      var link = document.createElement('link');
-      link.id = 'chzzk-tailwind-fallback';
-      link.rel = 'stylesheet';
-      link.href = '/ui/shared/tailwind-fallback.css';
-      var themeLink = document.querySelector('link[href*="/ui/shared/theme.css"]');
-      document.head.insertBefore(link, themeLink || document.head.firstChild);
-    };
-  </script>
-  <script src="https://cdn.tailwindcss.com" onerror="window.__loadTailwindFallback()"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/ui/shared/tailwind.css" />
   <link rel="stylesheet" href="/ui/shared/theme.css" />
   <script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('chzzk_theme_mode')==='light'?'light':'dark');}catch(_){}</script>
   <script src="/ui/shared/api.js"></script>
-  <script>
-    if (typeof tailwind !== 'undefined') {
-      tailwind.config = {
-        theme: {
-          extend: {
-            colors: {
-              obsBg: '#0D1117',
-              obsCard: '#161B22',
-              obsBorder: '#30363D',
-              obsBorderSubtle: '#21262D',
-              obsAccent: '#00FFA3',
-              obsText: '#E6EDF3',
-              obsMuted: '#8B949E',
-              obsRowHover: '#1C2129',
-            },
-            fontFamily: {
-              sans: ['Pretendard', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
-              mono: ['"JetBrains Mono"', 'monospace'],
-            }
-          }
-        }
-      };
-    } else {
-      window.__loadTailwindFallback();
-    }
-    window.addEventListener('DOMContentLoaded', function() {
-      if (typeof tailwind === 'undefined') window.__loadTailwindFallback();
-    });
-  </script>
   <style>
     body {
       background-color: #0D1117;

@@ -93,6 +93,9 @@
       if (iconEl) iconEl.textContent = normalized === 'light' ? '☀️' : '🌙';
       if (textEl) textEl.textContent = normalized === 'light' ? '라이트 모드' : '다크 모드';
       if (hdrIcon) hdrIcon.textContent = normalized === 'light' ? '☀️' : '🌙';
+      if (typeof refreshRemoteFilterChipContrast === 'function') {
+        refreshRemoteFilterChipContrast();
+      }
 
       if (save && typeof saveAppSettingField === 'function') {
         saveAppSettingField('theme_mode', normalized, normalized === 'light' ? '라이트 모드가 적용되었습니다.' : '다크 모드가 적용되었습니다.');

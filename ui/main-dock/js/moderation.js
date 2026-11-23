@@ -562,13 +562,137 @@ function hexToRgba(hex, alpha) {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
+function parseHexRgb(hex) {
+  const clean = String(hex || '').replace('#', '');
+  if (clean.length !== 6) return [0, 255, 163];
+  return [
+    parseInt(clean.slice(0, 2), 16),
+    parseInt(clean.slice(2, 4), 16),
+    parseInt(clean.slice(4, 6), 16)
+  ];
+}
+
+function rgbToHex(r, g, b) {
+  const toHex = (n) => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, '0');
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
+}
+
+function rgbToHsl(r, g, b) {
+  const rn = r / 255, gn = g / 255, bn = b / 255;
+  const max = Math.max(rn, gn, bn), min = Math.min(rn, gn, bn);
+  let h = 0, s = 0;
+  const l = (max + min) / 2;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case rn: h = (gn - bn) / d + (gn < bn ? 6 : 0); break;
+      case gn: h = (bn - rn) / d + 2; break;
+      case bn: h = (rn - gn) / d + 4; break;
+    }
+    h *= 60;
+  }
+  return [h, s, l];
+}
+
+function hslToRgb(h, s, l) {
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const hp = (h % 360) / 60;
+  const x = c * (1 - Math.abs((hp % 2) - 1));
+  let r1 = 0, g1 = 0, b1 = 0;
+  if (hp >= 0 && hp < 1) { r1 = c; g1 = x; }
+  else if (hp < 2) { r1 = x; g1 = c; }
+  else if (hp < 3) { g1 = c; b1 = x; }
+  else if (hp < 4) { g1 = x; b1 = c; }
+  else if (hp < 5) { r1 = x; b1 = c; }
+  else { r1 = c; b1 = x; }
+  const m = l - c / 2;
+  return [Math.round((r1 + m) * 255), Math.round((g1 + m) * 255), Math.round((b1 + m) * 255)];
+}
+
+function relativeLuminance(rgb) {
+  const lin = rgb.map((v) => {
+    const c = v / 255;
+    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2];
+}
+
+function contrastRatio(rgbA, rgbB) {
+  const l1 = relativeLuminance(rgbA);
+  const l2 = relativeLuminance(rgbB);
+  return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+}
+
+function blendAlphaOver(fgRgb, alpha, baseRgb) {
+  return [
+    Math.round(fgRgb[0] * alpha + baseRgb[0] * (1 - alpha)),
+    Math.round(fgRgb[1] * alpha + baseRgb[1] * (1 - alpha)),
+    Math.round(fgRgb[2] * alpha + baseRgb[2] * (1 - alpha))
+  ];
+}
+
+// 방법 A: 선택한 색조(Hue)·채도는 유지하면서 현재 테마 배경에서 WCAG AA(>=4.5:1)를 만족하도록 명도만 자동 보정
+function getAccessibleFilterFgColor(hex, tintAlpha = 0.13, surfaceKind = 'chip') {
+  const upper = String(hex || '').toUpperCase();
+  if (!/^#[0-9A-F]{6}$/.test(upper)) return upper;
+
+  const isLight = typeof document !== 'undefined' && document.documentElement?.getAttribute?.('data-theme') === 'light';
+  const rawRgb = parseHexRgb(upper);
+
+  let baseRgb;
+  if (isLight) {
+    baseRgb = surfaceKind === 'card' ? [255, 255, 255] : [248, 250, 252];
+  } else {
+    baseRgb = surfaceKind === 'card' ? [9, 13, 19] : [13, 17, 25];
+  }
+  const effectiveBg = tintAlpha > 0 ? blendAlphaOver(rawRgb, tintAlpha, baseRgb) : baseRgb;
+
+  if (contrastRatio(rawRgb, effectiveBg) >= 4.5) {
+    return upper;
+  }
+
+  const [h, s, origL] = rgbToHsl(rawRgb[0], rawRgb[1], rawRgb[2]);
+  const bgLum = relativeLuminance(effectiveBg);
+  const targetRatio = 4.65;
+
+  let lo = bgLum > 0.5 ? 0 : origL;
+  let hi = bgLum > 0.5 ? origL : 1;
+  let bestRgb = bgLum > 0.5 ? [15, 23, 42] : [248, 250, 252];
+
+  for (let i = 0; i < 16; i++) {
+    const mid = (lo + hi) / 2;
+    const candidate = hslToRgb(h, s, mid);
+    const passes = contrastRatio(candidate, effectiveBg) >= targetRatio;
+    if (bgLum > 0.5) {
+      // 라이트 배경: 가능한 원래 색 밝기에 가까운 가장 높은 명도를 찾음
+      if (passes) {
+        bestRgb = candidate;
+        lo = mid;
+      } else {
+        hi = mid;
+      }
+    } else {
+      // 다크 배경: 가능한 원래 색 밝기에 가까운 가장 낮은 명도를 찾음
+      if (passes) {
+        bestRgb = candidate;
+        hi = mid;
+      } else {
+        lo = mid;
+      }
+    }
+  }
+  return rgbToHex(bestRgb[0], bestRgb[1], bestRgb[2]);
+}
+
 function setChipCssColorVars(btn, hex) {
   if (!btn) return;
   if (typeof hex === 'string' && /^#[0-9a-fA-F]{6}$/.test(hex)) {
     const upper = hex.toUpperCase();
+    const fgHex = getAccessibleFilterFgColor(upper, 0.13, 'chip');
     btn.style.setProperty('--chip-bg', hexToRgba(upper, 0.13));
     btn.style.setProperty('--chip-border', hexToRgba(upper, 0.48));
-    btn.style.setProperty('--chip-fg', upper);
+    btn.style.setProperty('--chip-fg', fgHex);
   } else {
     btn.style.removeProperty('--chip-bg');
     btn.style.removeProperty('--chip-border');
@@ -592,6 +716,17 @@ function applyRemoteFilterChipColors(colorsMap) {
     setChipCssColorVars(btn, customFilterColors[k] || '');
   });
   applyRemoteFilterColorsToFeedCards();
+  if (activeFilterColorKey) {
+    const label = document.getElementById('filter-color-target-label');
+    if (label) {
+      const curColor = customFilterColors[activeFilterColorKey] || '#00FFA3';
+      label.style.color = getAccessibleFilterFgColor(curColor, 0, 'popover');
+    }
+  }
+}
+
+function refreshRemoteFilterChipContrast() {
+  applyRemoteFilterChipColors(customFilterColors);
 }
 
 function getFeedCategoryKey(fType) {
@@ -610,10 +745,11 @@ function applyRemoteFilterColorsToFeedCards(previewKey = null, previewHex = null
     const hex = (previewKey && cat === previewKey) ? previewHex : customFilterColors[cat];
     if (typeof hex === 'string' && /^#[0-9a-fA-F]{6}$/.test(hex)) {
       const upper = hex.toUpperCase();
+      const fgHex = getAccessibleFilterFgColor(upper, 0.16, 'card');
       card.style.setProperty('--msg-bg', hexToRgba(upper, 0.10));
       card.style.setProperty('--msg-border', hexToRgba(upper, 0.48));
       card.style.setProperty('--msg-badge-bg', hexToRgba(upper, 0.16));
-      card.style.setProperty('--msg-fg', upper);
+      card.style.setProperty('--msg-fg', fgHex);
       card.setAttribute('data-custom-colored', 'true');
     } else {
       card.style.removeProperty('--msg-bg');
@@ -638,7 +774,7 @@ function openFilterColorPopover(ev, key) {
   const curColor = customFilterColors[key] || '#00FFA3';
   if (label) {
     label.textContent = REMOTE_FILTER_LABELS[key];
-    label.style.color = curColor;
+    label.style.color = getAccessibleFilterFgColor(curColor, 0, 'popover');
   }
   if (picker) picker.value = curColor;
   if (pop) pop.classList.remove('hidden');
@@ -659,7 +795,7 @@ function previewFilterChipColor(hex) {
   setChipCssColorVars(btn, hex);
   applyRemoteFilterColorsToFeedCards(activeFilterColorKey, hex);
   const label = document.getElementById('filter-color-target-label');
-  if (label) label.style.color = hex;
+  if (label) label.style.color = getAccessibleFilterFgColor(hex, 0, 'popover');
 }
 
 function setFilterChipColor(key, hex) {
@@ -671,7 +807,7 @@ function setFilterChipColor(key, hex) {
   applyRemoteFilterChipColors(customFilterColors);
   const label = document.getElementById('filter-color-target-label');
   const picker = document.getElementById('filter-color-picker');
-  if (label) label.style.color = upper;
+  if (label) label.style.color = getAccessibleFilterFgColor(upper, 0, 'popover');
   if (picker) picker.value = upper;
   if (typeof saveAppSettingField === 'function') {
     saveAppSettingField('remote_filter_colors', customFilterColors);

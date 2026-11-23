@@ -4,43 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CHZZK 미니 퀵 컨트롤러 독</title>
-  <script>
-    window.__loadTailwindFallback = function() {
-      if (document.getElementById('chzzk-tailwind-fallback')) return;
-      var link = document.createElement('link');
-      link.id = 'chzzk-tailwind-fallback';
-      link.rel = 'stylesheet';
-      link.href = '/ui/shared/tailwind-fallback.css';
-      var themeLink = document.querySelector('link[href*="/ui/shared/theme.css"]');
-      document.head.insertBefore(link, themeLink || document.head.firstChild);
-    };
-  </script>
-  <script src="https://cdn.tailwindcss.com" onerror="window.__loadTailwindFallback()"></script>
   <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+  <link rel="stylesheet" href="/ui/shared/tailwind.css" />
   <link rel="stylesheet" href="/ui/shared/theme.css" />
   <script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('chzzk_theme_mode')==='light'?'light':'dark');}catch(_){}</script>
   <script src="/ui/shared/api.js"></script>
-  <script>
-    if (typeof tailwind !== 'undefined') {
-      tailwind.config = {
-        darkMode: 'class',
-        theme: {
-          extend: {
-            fontFamily: { sans: ['Pretendard', 'system-ui', 'sans-serif'] },
-            colors: {
-              chzzk: {
-                green: '#00FFA3', dark: '#080A0D', card: '#121721',
-                border: '#1E2636', input: '#0B0F15', hover: '#1A2233',
-                accent: '#00E59B', danger: '#FF4D6A', warn: '#FFB84D'
-              }
-            }
-          }
-        }
-      };
-    } else {
-      window.__loadTailwindFallback();
-    }
-  </script>
   <style>
     * { box-sizing: border-box; }
     html, body {
@@ -564,9 +532,6 @@
 
     // 초기 로드
     window.addEventListener('DOMContentLoaded', () => {
-      if (typeof tailwind === 'undefined' && typeof window.__loadTailwindFallback === 'function') {
-        window.__loadTailwindFallback();
-      }
       loadMiniDockTheme();
       fetchAllStatus();
     });
