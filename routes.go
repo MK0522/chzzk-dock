@@ -113,6 +113,7 @@ func buildRouter() http.Handler {
 	wrap("POST /execute-update", handleExecuteUpdate, true)
 	wrap("GET /api/disk-total", handleDiskTotal, true)
 	wrap("GET /api/open-folder", handleOpenFolder, true)
+	wrap("GET /api/obs-bitrate-target", handleObsBitrateTarget, true)
 	wrap("POST /client-log", handleClientLog, true)
 
 	// 5.5. ChzzkDock BFF (Backend-For-Frontend) 신설 라우트
@@ -1080,6 +1081,11 @@ func sanitizeDismissedNotices(raw any) map[string]bool {
 }
 
 // --- [OBS 연동 & 업데이트 & 텔레메트리 핸들러] ---
+
+func handleObsBitrateTarget(w http.ResponseWriter, r *http.Request) {
+	profile := r.URL.Query().Get("profile")
+	respondOK(w, core.GetObsBitrateTargets(profile))
+}
 
 var (
 	detectObsScriptsDir = core.DetectObsScriptsDir

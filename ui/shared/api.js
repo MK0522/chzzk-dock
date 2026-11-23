@@ -72,6 +72,7 @@ const chzzkApi = {
   openRemoteWebview: (channelId = '') => apiFetch(`/remote-webview?channelId=${encodeURIComponent(channelId || '')}`),
   openFolder: (path) => apiFetch(`/api/open-folder?path=${encodeURIComponent(path)}`),
   getDiskTotal: (drive = 'C') => apiFetch(`/api/disk-total?drive=${encodeURIComponent(drive)}`),
+  getObsBitrateTarget: (profile = '') => apiFetch(`/api/obs-bitrate-target?profile=${encodeURIComponent(profile)}`),
 
   // --- [4. 방송 설정 & 치지직 상태] ---
   getLiveStatus: (channelId = '') => apiFetch(`/chzzkdock/live-status${channelId ? '?channelId=' + encodeURIComponent(channelId) : ''}`),

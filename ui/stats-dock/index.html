@@ -259,8 +259,8 @@
               <td class="py-2.5 px-3.5 mono-num text-right font-medium" title="데이터 출력 합계">
                 <span id="stream-data" class="text-white font-semibold">—</span> <span id="stream-unit" class="text-[11px] font-normal text-obsMuted">MB</span>
               </td>
-              <td class="py-2.5 px-3.5 mono-num text-right font-bold text-obsAccent" title="실시간 방송 비트레이트">
-                <span id="val-stream-bitrate">—</span> <span class="text-[11px] font-normal text-obsAccent/80">kb/s</span>
+              <td class="py-2.5 px-3.5 mono-num text-right font-bold" title="실시간 방송 비트레이트">
+                <span id="val-stream-bitrate" class="text-white">—</span> <span id="label-stream-bitrate-unit" class="text-[11px] font-normal text-obsMuted">kb/s</span>
               </td>
             </tr>
 
@@ -282,8 +282,8 @@
                 <span id="rec-data" class="text-white font-semibold">—</span> <span id="rec-unit" class="text-[11px] font-normal text-obsMuted/70">MB</span>
               </td>
               <!-- 녹화 실시간 비트레이트 -->
-              <td class="py-2.5 px-3.5 mono-num text-right font-bold text-rose-400" title="실시간 녹화 비트레이트">
-                <span id="val-record-bitrate">—</span> <span id="label-rec-bitrate-unit" class="text-[11px] font-normal text-rose-400/80">kb/s</span>
+              <td class="py-2.5 px-3.5 mono-num text-right font-bold" title="실시간 녹화 비트레이트">
+                <span id="val-record-bitrate" class="text-white">—</span> <span id="label-rec-bitrate-unit" class="text-[11px] font-normal text-obsMuted">kb/s</span>
               </td>
             </tr>
           </tbody>
@@ -386,6 +386,7 @@
               expectedNextPoll = performance.now() + POLL_INTERVAL;
               sendReq('GetVideoSettings');
               sendReq('GetRecordDirectory');
+              sendReq('GetProfileList');
               schedulePoll();
             } else {
               handleMessage(msg);
@@ -688,6 +689,8 @@
           if (data.fpsNumerator && data.fpsDenominator) {
             targetFps = Math.round(data.fpsNumerator / data.fpsDenominator) || 60;
           }
+        } else if (id.startsWith('GetProfileList')) {
+          fetchObsBitrateTarget(data.currentProfileName);
         }
       } else if (msg.op === 5 && msg.d?.eventType) {
         if (msg.d.eventType === 'StreamStateChanged') {
@@ -697,7 +700,80 @@
           sendReq('GetRecordDirectory');
         } else if (msg.d.eventType === 'CurrentProfileChanged') {
           sendReq('GetRecordDirectory');
+          sendReq('GetProfileList');
         }
+      }
+    }
+
+    let obsBitrateTarget = {
+      stream: { targetKbps: 0, fixed: false },
+      record: { targetKbps: 0, fixed: false }
+    };
+    let lastStreamActive = false;
+    let lastRecordActive = false;
+    let lastStreamKbps = 0;
+    let lastRecordKbps = 0;
+
+    async function fetchObsBitrateTarget(profileName) {
+      if (!profileName || typeof chzzkApi?.getObsBitrateTarget !== 'function') return;
+      try {
+        const res = await chzzkApi.getObsBitrateTarget(profileName);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data && data.stream && data.record) {
+          obsBitrateTarget = data;
+          applyBitrateColor(
+            document.getElementById('val-stream-bitrate'),
+            document.getElementById('label-stream-bitrate-unit'),
+            lastStreamKbps,
+            lastStreamActive,
+            obsBitrateTarget.stream
+          );
+          applyBitrateColor(
+            document.getElementById('val-record-bitrate'),
+            document.getElementById('label-rec-bitrate-unit'),
+            lastRecordKbps,
+            lastRecordActive,
+            obsBitrateTarget.record
+          );
+        }
+      } catch (_) {}
+    }
+
+    function lerpRGB(c1, c2, t) {
+      const r = Math.round(c1[0] + (c2[0] - c1[0]) * t);
+      const g = Math.round(c1[1] + (c2[1] - c1[1]) * t);
+      const b = Math.round(c1[2] + (c2[2] - c1[2]) * t);
+      return `rgb(${r}, ${g}, ${b})`;
+    }
+
+    // 목표 비트레이트 대비 0%(빨강) -> 50%(노랑) -> 100%(초록) 연속 그라데이션 (CQP 등 비고정 모드는 데이터 크기와 동일 색상)
+    function applyBitrateColor(valEl, unitEl, kbps, isActive, targetCfg) {
+      if (!valEl) return;
+      if (!isActive || !targetCfg || !targetCfg.fixed || targetCfg.targetKbps <= 0) {
+        valEl.style.color = '';
+        valEl.className = 'text-white font-bold';
+        if (unitEl) {
+          unitEl.style.color = '';
+          unitEl.className = 'text-[11px] font-normal text-obsMuted';
+        }
+        return;
+      }
+
+      const ratio = Math.max(0, Math.min(1, kbps / targetCfg.targetKbps));
+      const isLight = typeof document !== 'undefined' && document.documentElement?.getAttribute?.('data-theme') === 'light';
+      const cRed = isLight ? [190, 18, 60] : [244, 63, 94];
+      const cYellow = isLight ? [180, 83, 9] : [251, 191, 36];
+      const cGreen = isLight ? [0, 122, 78] : [0, 255, 163];
+      const color = ratio <= 0.5
+        ? lerpRGB(cRed, cYellow, ratio / 0.5)
+        : lerpRGB(cYellow, cGreen, (ratio - 0.5) / 0.5);
+
+      valEl.className = 'font-bold';
+      valEl.style.color = color;
+      if (unitEl) {
+        unitEl.className = 'text-[11px] font-normal';
+        unitEl.style.color = color;
       }
     }
 
@@ -778,12 +854,43 @@
       }
     }
 
+    const streamBitrateState = { lastBytes: 0, lastTime: 0, kbps: 0 };
+    const recordBitrateState = { lastBytes: 0, lastTime: 0, kbps: 0 };
+
+    // 실시간 비트레이트 산출 (OBS v5 outputBytes 델타 연산 공통 헬퍼)
+    function calcBitrateDelta(state, currentBytes, isActive) {
+      if (!isActive || currentBytes <= 0) {
+        state.lastBytes = 0;
+        state.lastTime = 0;
+        state.kbps = 0;
+        return 0;
+      }
+      const now = performance.now();
+      if (state.lastTime > 0 && currentBytes > state.lastBytes) {
+        const deltaSec = (now - state.lastTime) / 1000;
+        if (deltaSec >= 0.4) {
+          state.kbps = Math.round(((currentBytes - state.lastBytes) * 8) / (deltaSec * 1000));
+          state.lastBytes = currentBytes;
+          state.lastTime = now;
+        }
+      } else if (state.lastTime === 0) {
+        state.lastBytes = currentBytes;
+        state.lastTime = now;
+      }
+      return state.kbps;
+    }
+
     // 2. 스트리밍 출력
     function renderStream(d) {
       updateStreamState(d.outputActive);
 
-      const kbps = d.outputKbitsPerSec || 0;
-      document.getElementById('val-stream-bitrate').textContent = kbps.toLocaleString();
+      const kbps = d.outputKbitsPerSec > 0 ? d.outputKbitsPerSec : calcBitrateDelta(streamBitrateState, d.outputBytes, d.outputActive);
+      lastStreamActive = !!d.outputActive;
+      lastStreamKbps = kbps;
+      const streamBitrateEl = document.getElementById('val-stream-bitrate');
+      const streamBitrateUnitEl = document.getElementById('label-stream-bitrate-unit');
+      if (streamBitrateEl) streamBitrateEl.textContent = kbps.toLocaleString();
+      applyBitrateColor(streamBitrateEl, streamBitrateUnitEl, kbps, lastStreamActive, obsBitrateTarget.stream);
 
       // 방송 누적 시간 (시간 앞, 초 단위 정수까지만 표기: 00:00:00.000 -> 00:00:00)
       const rawStreamTime = d.outputTimecode || '00:00:00';
@@ -816,33 +923,6 @@
       updateBytesDisplay();
     }
 
-    let lastRecordBytes = 0;
-    let lastRecordTime = 0;
-    let currentRecordBitrate = 0;
-
-    // 녹화 실시간 비트레이트 산출 (OBS v5 미제공 보완용 델타 연산)
-    function calcRecordBitrate(currentBytes, isActive) {
-      if (!isActive || currentBytes <= 0) {
-        lastRecordBytes = 0;
-        lastRecordTime = 0;
-        currentRecordBitrate = 0;
-        return 0;
-      }
-      const now = performance.now();
-      if (lastRecordTime > 0 && currentBytes > lastRecordBytes) {
-        const deltaSec = (now - lastRecordTime) / 1000;
-        if (deltaSec >= 0.4) {
-          currentRecordBitrate = Math.round(((currentBytes - lastRecordBytes) * 8) / (deltaSec * 1000));
-          lastRecordBytes = currentBytes;
-          lastRecordTime = now;
-        }
-      } else if (lastRecordTime === 0) {
-        lastRecordBytes = currentBytes;
-        lastRecordTime = now;
-      }
-      return currentRecordBitrate;
-    }
-
     // 3. 녹화 출력 (시간 앞, 용량 뒤, 실시간 비트레이트 지원)
     function renderRecord(d) {
       updateRecordState(d.outputActive);
@@ -857,7 +937,9 @@
       // 녹화 실시간 비트레이트
       const recBitrateEl = document.getElementById('val-record-bitrate');
       const recBitrateUnitEl = document.getElementById('label-rec-bitrate-unit');
-      const kbps = calcRecordBitrate(d.outputBytes, d.outputActive);
+      const kbps = calcBitrateDelta(recordBitrateState, d.outputBytes, d.outputActive);
+      lastRecordActive = !!d.outputActive;
+      lastRecordKbps = kbps;
       if (d.outputActive && kbps > 0) {
         if (recBitrateEl) recBitrateEl.textContent = kbps.toLocaleString();
         if (recBitrateUnitEl) recBitrateUnitEl.style.display = 'inline';
@@ -865,6 +947,7 @@
         if (recBitrateEl) recBitrateEl.textContent = '-';
         if (recBitrateUnitEl) recBitrateUnitEl.style.display = 'none';
       }
+      applyBitrateColor(recBitrateEl, recBitrateUnitEl, kbps, lastRecordActive && kbps > 0, obsBitrateTarget.record);
 
       // 녹화 시에만 실시간 비트레이트 기반 남은 녹화 가능 시간(추정) 노출
       updateEstimatedRecordTime(d.outputActive, kbps);
@@ -958,6 +1041,20 @@
       const m = (mode === 'light') ? 'light' : 'dark';
       document.documentElement.setAttribute('data-theme', m);
       try { localStorage.setItem('chzzk_theme_mode', m); } catch (_) {}
+      applyBitrateColor(
+        document.getElementById('val-stream-bitrate'),
+        document.getElementById('label-stream-bitrate-unit'),
+        lastStreamKbps,
+        lastStreamActive,
+        obsBitrateTarget.stream
+      );
+      applyBitrateColor(
+        document.getElementById('val-record-bitrate'),
+        document.getElementById('label-rec-bitrate-unit'),
+        lastRecordKbps,
+        lastRecordActive && lastRecordKbps > 0,
+        obsBitrateTarget.record
+      );
     }
     window.addEventListener('storage', (e) => {
       if (e.key === 'chzzk_theme_mode' && e.newValue) syncStatsDockTheme(e.newValue);
