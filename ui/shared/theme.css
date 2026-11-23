@@ -760,6 +760,12 @@ html[data-theme="light"] .liquid-tab-btn,
 html[data-theme="light"] .settings-nav-btn {
   color: #64748B !important;
 }
+html[data-theme="light"] .settings-nav-container {
+  border-color: #CBD5E1 !important;
+}
+html[data-theme="light"] .settings-nav-divider {
+  background: #CBD5E1 !important;
+}
 html[data-theme="light"] .settings-nav-btn:not(.active):hover {
   background: #E2E8F0 !important;
   color: #0F172A !important;
@@ -873,10 +879,30 @@ html[data-theme="light"] [class*="bg-obsBg/"] {
 html[data-theme="light"] [class*="hover:bg-obsRowHover"]:hover {
   background-color: #F1F5F9 !important;
 }
-html[data-theme="light"] #box-disk-bar {
-  background-color: #E2E8F0 !important;
+html[data-theme="light"] #stats-title-badge {
+  background-color: #FFFFFF !important;
   border-color: #CBD5E1 !important;
-  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.08) !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05) !important;
+}
+html[data-theme="light"] #label-disk-total {
+  background-color: #FFFFFF !important;
+  border-color: #CBD5E1 !important;
+  color: #0F172A !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05) !important;
+}
+html[data-theme="light"] #box-disk-bar {
+  background-color: #F8FAFC !important;
+  border-color: #CBD5E1 !important;
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.05) !important;
+}
+html[data-theme="light"] #bar-disk-used.from-emerald-500 {
+  background: linear-gradient(90deg, #6EE7B7 0%, #5EEAD4 55%, #67E8F9 100%) !important;
+}
+html[data-theme="light"] #bar-disk-used.bg-amber-400 {
+  background: #FCD34D !important;
+}
+html[data-theme="light"] #bar-disk-used.bg-rose-500 {
+  background: #FDA4AF !important;
 }
 html[data-theme="light"] #label-disk-pct {
   color: #0F172A !important;

@@ -697,9 +697,6 @@ document.addEventListener('click', (e) => {
   if (pop.contains(e.target) || e.target.closest('.remote-filter-chip')) return;
   closeFilterColorPopover();
 });
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') closeFilterColorPopover();
-});
 
 function switchRemoteTab(tab) {
   activeRemoteTab = tab;

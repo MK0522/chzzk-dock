@@ -677,17 +677,6 @@
       activeCropDrag = null;
     }
 
-    document.addEventListener('keydown', (e) => {
-      if (e.key !== 'Escape') return;
-      const confirmModal = document.getElementById('modal-custom-confirm');
-      if (confirmModal && !confirmModal.classList.contains('hidden')) return;
-      const thumbModal = document.getElementById('modal-thumbnail');
-      if (thumbModal && !thumbModal.classList.contains('hidden')) {
-        e.preventDefault();
-        closeThumbnailModal();
-      }
-    });
-
 
     function triggerThumbnailFileInput() {
       const input = document.getElementById('thumbnail-file-input');

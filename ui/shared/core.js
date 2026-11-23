@@ -313,11 +313,108 @@ function closeGuideImageModal() {
   if (img) img.src = '';
 }
 
+function closeTopmostOverlayOnEsc() {
+  const isShown = (id) => {
+    const el = document.getElementById(id);
+    return el && !el.classList.contains('hidden');
+  };
+
+  if (isShown('modal-guide-image')) {
+    closeGuideImageModal();
+    return true;
+  }
+  if (isShown('modal-custom-confirm')) {
+    if (typeof window.__resolveConfirmModal === 'function') window.__resolveConfirmModal(false);
+    return true;
+  }
+  if (isShown('modal-updater')) {
+    if (typeof closeUpdateModal === 'function') closeUpdateModal();
+    return true;
+  }
+  if (isShown('modal-donation-board')) {
+    if (typeof closeDonationBoardModal === 'function') closeDonationBoardModal();
+    return true;
+  }
+
+  const dsettingTypes = ['chat', 'video', 'mission', 'sub'];
+  for (const t of dsettingTypes) {
+    if (isShown(`modal-dsetting-${t}`)) {
+      if (typeof closeDonationModal === 'function') closeDonationModal(t);
+      return true;
+    }
+  }
+
+  if (isShown('modal-thumbnail')) {
+    if (typeof closeThumbnailModal === 'function') closeThumbnailModal();
+    return true;
+  }
+  if (isShown('modal-preset-load')) {
+    if (typeof closePresetLoadModal === 'function') closePresetLoadModal();
+    return true;
+  }
+  if (isShown('modal-preset-save')) {
+    if (typeof closePresetSaveModal === 'function') closePresetSaveModal();
+    return true;
+  }
+
+  if (isShown('filter-color-popover')) {
+    if (typeof closeFilterColorPopover === 'function') closeFilterColorPopover();
+    return true;
+  }
+
+  const volDrawer = document.getElementById('remote-vol-drawer');
+  if (volDrawer && volDrawer.classList.contains('open')) {
+    if (typeof closeRemoteVolumeDrawer === 'function') closeRemoteVolumeDrawer();
+    return true;
+  }
+
+  const popoverIds = ['channel-popover-menu', 'popover-chatmode', 'popover-donations', 'popover-party'];
+  if (popoverIds.some(isShown)) {
+    if (typeof closeAllPopovers === 'function') {
+      closeAllPopovers();
+    } else {
+      popoverIds.forEach(id => document.getElementById(id)?.classList.add('hidden'));
+    }
+    return true;
+  }
+
+  const catDropdown = document.getElementById('category-dropdown');
+  if (catDropdown && catDropdown.style.display && catDropdown.style.display !== 'none') {
+    catDropdown.style.display = 'none';
+    return true;
+  }
+
+  const tagInlineBox = document.getElementById('tag-inline-box');
+  if (tagInlineBox && tagInlineBox.style.display && tagInlineBox.style.display !== 'none') {
+    if (typeof closeTagInput === 'function') closeTagInput();
+    return true;
+  }
+
+  const settingsPanel = document.getElementById('settings-panel');
+  if (settingsPanel && settingsPanel.classList.contains('open')) {
+    if (typeof toggleSettings === 'function') toggleSettings();
+    return true;
+  }
+
+  const urlsPanel = document.getElementById('urls-panel');
+  if (urlsPanel && urlsPanel.classList.contains('open')) {
+    if (typeof toggleUrlsPanel === 'function') toggleUrlsPanel();
+    return true;
+  }
+
+  const remotePanel = document.getElementById('remote-panel');
+  if (remotePanel && remotePanel.classList.contains('open')) {
+    if (typeof toggleRemotePanel === 'function') toggleRemotePanel();
+    return true;
+  }
+
+  return false;
+}
+
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') {
-    const guideModal = document.getElementById('modal-guide-image');
-    if (guideModal && !guideModal.classList.contains('hidden')) {
-      closeGuideImageModal();
+  if (e.key === 'Escape' && !e.isComposing) {
+    if (closeTopmostOverlayOnEsc()) {
+      e.preventDefault();
     }
   }
 });
