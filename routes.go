@@ -217,6 +217,7 @@ type SessionView struct {
 	ChannelID       string `json:"channel_id"`
 	ChannelName     string `json:"channel_name"`
 	ProfileImageURL string `json:"profile_image_url"`
+	FollowerCount   *int   `json:"follower_count,omitempty"`
 	Expired         bool   `json:"expired"`
 }
 
@@ -236,6 +237,12 @@ func buildSessionViews(cfg core.Config) []SessionView {
 				v.ChannelID = cid
 				v.ChannelName = cname
 				v.ProfileImageURL = avatar
+				if cid != "" {
+					if profile, err := fetchChannelProfileFromChzzk(cid); err == nil && profile != nil {
+						fc := profile.FollowerCount
+						v.FollowerCount = &fc
+					}
+				}
 			}
 			views[idx] = v
 		}(i, sess)

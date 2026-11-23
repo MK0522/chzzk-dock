@@ -83,6 +83,9 @@ function closeAllPopovers(exceptId = '') {
   ALL_POPOVER_IDS.forEach(id => {
     if (id !== exceptId) document.getElementById(id)?.classList.add('hidden');
   });
+  if (exceptId !== 'channel-popover-menu' && typeof stopChannelPopoverPolling === 'function') {
+    stopChannelPopoverPolling();
+  }
 }
 
 function toggleChatModePopover() {

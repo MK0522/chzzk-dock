@@ -38,7 +38,10 @@ async function handleSessionExpired() {
   if (headerAvatarImg) { headerAvatarImg.src = ''; headerAvatarImg.classList.add('hidden'); }
   if (headerLiveSvg) headerLiveSvg.classList.remove('hidden');
   if (headerLiveIcon) headerLiveIcon.style.border = 'none';
-  if (popoverMenu) popoverMenu.classList.add('hidden');
+  if (popoverMenu) {
+    popoverMenu.classList.add('hidden');
+    if (typeof stopChannelPopoverPolling === 'function') stopChannelPopoverPolling();
+  }
   if (typeof liveCheckTimeout !== 'undefined') clearTimeout(liveCheckTimeout);
 
   const badgeA = document.getElementById('badge-method-a');

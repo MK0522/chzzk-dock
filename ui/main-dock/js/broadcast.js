@@ -623,15 +623,39 @@ async function initConnection() {
     }
 
 
+    let channelPopoverPollTimer = null;
+    let channelSessionsFetchInFlight = false;
+
+    function stopChannelPopoverPolling() {
+      if (channelPopoverPollTimer) {
+        clearInterval(channelPopoverPollTimer);
+        channelPopoverPollTimer = null;
+      }
+    }
+
+    function startChannelPopoverPolling() {
+      stopChannelPopoverPolling();
+      channelPopoverPollTimer = setInterval(() => {
+        const menu = document.getElementById('channel-popover-menu');
+        if (!menu || menu.classList.contains('hidden')) {
+          stopChannelPopoverPolling();
+          return;
+        }
+        renderChannelPopoverList(true);
+      }, 10000);
+    }
+
     function toggleChannelMenu() {
       const menu = document.getElementById('channel-popover-menu');
       if (!menu) return;
       const isHidden = menu.classList.contains('hidden');
       if (isHidden) {
-        renderChannelPopoverList();
         menu.classList.remove('hidden');
+        renderChannelPopoverList();
+        startChannelPopoverPolling();
       } else {
         menu.classList.add('hidden');
+        stopChannelPopoverPolling();
       }
     }
 
@@ -665,6 +689,10 @@ async function initConnection() {
           ? 'border-[#00FFA3]/40 bg-[#161F2E]'
           : 'border-[#2E3F58] bg-[#0E131C] hover:border-slate-500 hover:bg-[#161F2E]';
 
+        const followerText = (typeof s.follower_count === 'number')
+          ? `팔로워 ${s.follower_count.toLocaleString()}`
+          : '';
+
         return `
           <div class="flex items-center justify-between p-1.5 rounded-lg border ${cardBorderClass} transition-colors group cursor-pointer" onclick="handleSessionCardClick(${s.index}, ${isExp}, ${isActive})">
             <div class="flex items-center gap-2 min-w-0 pr-1 flex-1">
@@ -675,7 +703,11 @@ async function initConnection() {
                   ${activeBadge}
                   ${expiredBadge}
                 </div>
-                <div class="text-[9px] text-slate-400 font-mono truncate">${escapeHtml(s.channel_id || (isExp ? '재로그인 필요' : ''))}</div>
+                <div class="flex items-center gap-1.5 text-[10px] text-slate-400 min-w-0">
+                  ${followerText ? `<span class="text-[#00FFA3] font-semibold tabular-nums shrink-0">${followerText}</span>` : ''}
+                  ${followerText && s.channel_id ? '<span class="text-slate-600 shrink-0">·</span>' : ''}
+                  <span class="text-[9px] font-mono truncate">${escapeHtml(s.channel_id || (isExp ? '재로그인 필요' : ''))}</span>
+                </div>
               </div>
             </div>
             <div class="flex items-center gap-1 flex-shrink-0" onclick="event.stopPropagation()">
@@ -699,12 +731,16 @@ async function initConnection() {
       if (!listContainer) return;
 
       // SWR: 캐시가 존재하면 로딩 문구 없이 즉시 이전 데이터 렌더링 (깜빡임 원천 차단)
-      if (cachedSessions && cachedSessions.length > 0) {
-        renderSessionItems(cachedSessions);
-      } else {
-        listContainer.innerHTML = '<div class="p-2 text-center text-[10px] text-slate-400">계정 목록 불러오는 중...</div>';
+      if (!silent) {
+        if (cachedSessions && cachedSessions.length > 0) {
+          renderSessionItems(cachedSessions);
+        } else {
+          listContainer.innerHTML = '<div class="p-2 text-center text-[10px] text-slate-400">계정 목록 불러오는 중...</div>';
+        }
       }
 
+      if (channelSessionsFetchInFlight) return;
+      channelSessionsFetchInFlight = true;
       try {
         const res = await apiFetch('/sessions');
         if (!res.ok) throw new Error('세션 목록 조회 실패');
@@ -712,9 +748,11 @@ async function initConnection() {
         cachedSessions = data.sessions || [];
         renderSessionItems(cachedSessions);
       } catch (e) {
-        if (!cachedSessions) {
+        if (!silent && !cachedSessions) {
           listContainer.innerHTML = '<div class="p-2 text-center text-[10px] text-rose-400">계정 목록 불러오기 실패</div>';
         }
+      } finally {
+        channelSessionsFetchInFlight = false;
       }
     }
 
@@ -819,6 +857,7 @@ async function initConnection() {
       if (popoverChannel && !popoverChannel.classList.contains('hidden')) {
         if (!popoverChannel.contains(e.target) && !channelBtn.contains(e.target)) {
           popoverChannel.classList.add('hidden');
+          stopChannelPopoverPolling();
         }
       }
 
