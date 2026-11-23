@@ -633,7 +633,8 @@
 
     // 0%(빨강) -> 50%(노랑) -> 100%(초록) 연속 그라데이션 (FPS / 비트레이트 공통)
     function getHealthGradientColor(ratio) {
-      const clamped = Math.max(0, Math.min(1, ratio));
+      const safe = Number.isFinite(ratio) ? ratio : 1;
+      const clamped = Math.max(0, Math.min(1, safe));
       const isLight = typeof document !== 'undefined' && document.documentElement?.getAttribute?.('data-theme') === 'light';
       const cRed = isLight ? [190, 18, 60] : [244, 63, 94];
       const cYellow = isLight ? [180, 83, 9] : [251, 191, 36];
