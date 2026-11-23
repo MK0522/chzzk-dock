@@ -3,6 +3,19 @@
 //  ui/shared/api.js
 // ============================================================
 
+// 빈 공간 우클릭 시 기본 브라우저 컨텍스트 메뉴 차단 (드래그 선택 텍스트 복사 및 입력창 복사/붙여넣기 우클릭은 허용)
+if (typeof window !== 'undefined' && typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+  document.addEventListener('contextmenu', (e) => {
+    const target = e.target;
+    const isEditable = target && typeof target.closest === 'function' && target.closest('input, textarea, [contenteditable="true"]');
+    const hasSelection = typeof window.getSelection === 'function' && window.getSelection().toString().trim().length > 0;
+    if (isEditable || hasSelection) {
+      return;
+    }
+    e.preventDefault();
+  });
+}
+
 /**
  * Core Unified API Fetch
  * - 'X-Requested-With': 'ChzzkDock' 보안 헤더 기본 주입

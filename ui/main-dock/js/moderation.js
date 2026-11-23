@@ -190,10 +190,30 @@ async function fetchChatSettingsOnly() {
   const icon = document.getElementById('chatmode-refresh-icon');
   if (icon) icon.classList.add('animate-spin');
   try {
-    const modeRes = await chzzkApi.getChatMode();
-    if (modeRes.ok) {
+    const [modeRes, ruleRes] = await Promise.all([
+      chzzkApi.getChatMode(),
+      chzzkApi.getChatRule().catch(() => null)
+    ]);
+    if (modeRes && modeRes.ok) {
       const chat = await modeRes.json();
       applyChatModeUI(chat);
+    }
+    if (ruleRes && ruleRes.ok) {
+      const ruleData = await ruleRes.json();
+      const chatContent = ruleData.content || ruleData;
+      if (chatContent) {
+        if (chatContent.chatAvailableGroup && typeof setSelectedChatGroup === 'function') {
+          setSelectedChatGroup(chatContent.chatAvailableGroup);
+        }
+        const elMin = document.getElementById('min-follower-minute');
+        if (elMin && chatContent.minFollowerMinute !== undefined) {
+          elMin.value = chatContent.minFollowerMinute;
+        }
+        const elSubEx = document.getElementById('toggle-sub-exception');
+        if (elSubEx && chatContent.allowSubscriberInFollowerMode !== undefined) {
+          elSubEx.checked = chatContent.allowSubscriberInFollowerMode;
+        }
+      }
     }
   } catch (e) {
     console.warn('채팅 모드 조회 오류:', e);
@@ -1562,7 +1582,7 @@ async function openDonationModal(type) {
   const modal = document.getElementById(`modal-dsetting-${type}`);
   if (!modal) return;
   modal.classList.remove('hidden');
-  loadAllDonationSettings();
+  await loadAllDonationSettings();
 }
 
 function closeDonationModal(type) {
@@ -1580,6 +1600,11 @@ async function loadAllDonationSettings() {
 
     if (details.chat) {
       const d = details.chat;
+      if (typeof d.donationActive === 'boolean') {
+        currentDonationState.chatDonationActive = d.donationActive;
+        const elChatToggle = document.getElementById('toggle-chat-donation');
+        if (elChatToggle) elChatToggle.checked = d.donationActive;
+      }
       const chatMin = document.getElementById('dsetting-chat-min-amount');
       const chatExposure = document.getElementById('dsetting-chat-exposure');
       const chatEnvelope = document.getElementById('dsetting-chat-envelope');
@@ -1591,6 +1616,11 @@ async function loadAllDonationSettings() {
 
     if (details.video) {
       const d = details.video;
+      if (typeof d.donationActive === 'boolean') {
+        currentDonationState.videoDonationActive = d.donationActive;
+        const elVidToggle = document.getElementById('toggle-video-donation');
+        if (elVidToggle) elVidToggle.checked = d.donationActive;
+      }
       const vidMin = document.getElementById('dsetting-video-min-cheese');
       const vidSec = document.getElementById('dsetting-video-sec-cheese');
       const vidDur = document.getElementById('dsetting-video-max-duration');
@@ -1611,6 +1641,11 @@ async function loadAllDonationSettings() {
 
     if (details.mission) {
       const d = details.mission;
+      if (typeof d.donationActive === 'boolean') {
+        currentDonationState.missionDonationActive = d.donationActive;
+        const elMisToggle = document.getElementById('toggle-mission-donation');
+        if (elMisToggle) elMisToggle.checked = d.donationActive;
+      }
       const misActive = document.getElementById('dsetting-mission-active');
       const misMin = document.getElementById('dsetting-mission-min-amount');
       const misFail = document.getElementById('dsetting-mission-fail-rate');
@@ -1625,6 +1660,10 @@ async function loadAllDonationSettings() {
     if (details.subscription) {
       const d = details.subscription;
       cachedSubscriptionSetting = d;
+      if (typeof d.alertActive === 'boolean') {
+        const elSubToggle = document.getElementById('toggle-sub-alert');
+        if (elSubToggle) elSubToggle.checked = d.alertActive;
+      }
       const subAlertVol = document.getElementById('dsetting-sub-alert-vol');
       const subAlertVolLbl = document.getElementById('dsetting-sub-alert-vol-label');
       const subTtsActive = document.getElementById('dsetting-sub-tts-active');
@@ -1641,6 +1680,7 @@ async function loadAllDonationSettings() {
         if (subTtsVolLbl) subTtsVolLbl.textContent = subTtsVol.value + '%';
       }
     }
+    updateDonationDetailButtonsState();
   } catch (e) {
     console.error('loadAllDonationSettings failed:', e);
   }

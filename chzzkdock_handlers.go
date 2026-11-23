@@ -445,9 +445,23 @@ func handleChzzkDonationDetailChatPut(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// 2) 일반 채팅 후원 조건 저장
+	// 2) 일반 채팅 후원 조건 저장 (치지직 실시간 설정 조회 후 병합하여 부분 수정 시 기존 필드 보존)
 	chatPath := fmt.Sprintf("/manage/v1/channels/%s/donations/chat-setting", cid)
-	chatPayload, _ := json.Marshal(body)
+	mergedChat := make(map[string]any)
+	if getStatus, getData, getErr := callChzzk("GET", chatPath, nil, true); getErr == nil && getStatus == http.StatusOK {
+		var raw struct {
+			Content map[string]any `json:"content"`
+		}
+		if json.Unmarshal(getData, &raw) == nil && raw.Content != nil {
+			for k, v := range raw.Content {
+				mergedChat[k] = v
+			}
+		}
+	}
+	for k, v := range body {
+		mergedChat[k] = v
+	}
+	chatPayload, _ := json.Marshal(mergedChat)
 	status, data, err := callChzzk("PUT", chatPath, chatPayload, true)
 	if err != nil || status != http.StatusOK {
 		respondErr(w, http.StatusBadGateway, "채팅 후원 조건 저장 실패")
@@ -536,7 +550,21 @@ func handleChzzkDonationDetailSubscriptionPatch(w http.ResponseWriter, r *http.R
 	}
 
 	subPath := fmt.Sprintf("/manage/v1/channels/%s/donations/subscription-alert-setting", cid)
-	payload, _ := json.Marshal(body)
+	mergedSub := make(map[string]any)
+	if getStatus, getData, getErr := callChzzk("GET", subPath, nil, true); getErr == nil && getStatus == http.StatusOK {
+		var raw struct {
+			Content map[string]any `json:"content"`
+		}
+		if json.Unmarshal(getData, &raw) == nil && raw.Content != nil {
+			for k, v := range raw.Content {
+				mergedSub[k] = v
+			}
+		}
+	}
+	for k, v := range body {
+		mergedSub[k] = v
+	}
+	payload, _ := json.Marshal(mergedSub)
 	status, data, err := callChzzk("PATCH", subPath, payload, true)
 	if err != nil || status != http.StatusOK {
 		respondErr(w, http.StatusBadGateway, "구독 알림 설정 저장 실패")

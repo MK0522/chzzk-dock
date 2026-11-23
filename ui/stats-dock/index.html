@@ -63,6 +63,52 @@
     .mono-num {
       font-family: 'JetBrains Mono', monospace;
       font-variant-numeric: tabular-nums;
+      user-select: text;
+      -webkit-user-select: text;
+    }
+    .stats-detail-toggle-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 2px 9px;
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 600;
+      border: 1px solid #30363D;
+      background-color: #161B22;
+      color: #8B949E;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .stats-detail-toggle-btn:hover {
+      border-color: #484F58;
+      color: #E6EDF3;
+    }
+    .stats-detail-toggle-btn .toggle-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 9999px;
+      border: 1px solid #6E7681;
+      background-color: transparent;
+      transition: all 0.15s ease;
+    }
+    .stats-detail-toggle-btn.is-active-stream {
+      background-color: rgba(0, 255, 163, 0.14);
+      border-color: rgba(0, 255, 163, 0.55);
+      color: #00FFA3;
+    }
+    .stats-detail-toggle-btn.is-active-stream .toggle-dot {
+      background-color: #00FFA3;
+      border-color: #00FFA3;
+    }
+    .stats-detail-toggle-btn.is-active-record {
+      background-color: rgba(251, 113, 133, 0.16);
+      border-color: rgba(251, 113, 133, 0.55);
+      color: #FB7185;
+    }
+    .stats-detail-toggle-btn.is-active-record .toggle-dot {
+      background-color: #FB7185;
+      border-color: #FB7185;
     }
     ::-webkit-scrollbar { width: 5px; height: 5px; }
     ::-webkit-scrollbar-track { background: #0D1117; }
@@ -211,22 +257,25 @@
       </div>
     </section>
 
-    <!-- 2. 하단: [방송/녹화 아코디언 패널] (기본 접힘, 클릭 시 확장) -->
-    <details class="stats-accordion group bg-obsCard border border-obsBorder rounded-lg overflow-hidden shadow-sm">
-      <summary class="flex items-center justify-between px-3.5 py-2 text-xs font-semibold text-obsMuted hover:text-white cursor-pointer select-none bg-obsBg/40 hover:bg-obsRowHover transition-colors list-none">
+    <!-- 2. 하단: [방송 / 녹화 상세 패널] (방송, 녹화 버튼으로 각각 활성화하여 표시) -->
+    <section class="stats-accordion bg-obsCard border border-obsBorder rounded-lg overflow-hidden shadow-sm">
+      <div class="stats-detail-header flex items-center justify-between px-3.5 py-2 text-xs font-semibold text-obsMuted select-none bg-obsBg/40 transition-colors">
         <div class="flex items-center gap-2">
           <span>방송 / 녹화 상세</span>
         </div>
-        <div class="stats-toggle-pill flex items-center gap-1.5 text-obsMuted text-[11px] px-2 py-0.5 rounded-full">
-          <span class="text-[10px] font-normal group-open:hidden">펼치기</span>
-          <span class="text-[10px] font-normal hidden group-open:inline">접기</span>
-          <svg class="w-3.5 h-3.5 transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="6 9 12 15 18 9"></polyline>
-          </svg>
+        <div class="flex items-center gap-1.5">
+          <button type="button" id="btn-toggle-stream-detail" onclick="toggleOutputDetailRow('stream')" aria-pressed="false" class="stats-detail-toggle-btn" title="방송 상세 통계 표시/숨기기">
+            <span class="toggle-dot"></span>
+            <span>방송</span>
+          </button>
+          <button type="button" id="btn-toggle-record-detail" onclick="toggleOutputDetailRow('record')" aria-pressed="false" class="stats-detail-toggle-btn" title="녹화 상세 통계 표시/숨기기">
+            <span class="toggle-dot"></span>
+            <span>녹화</span>
+          </button>
         </div>
-      </summary>
+      </div>
 
-      <div class="w-full overflow-x-auto border-t border-obsBorderSubtle">
+      <div id="box-output-details-table" class="w-full overflow-x-auto border-t border-obsBorderSubtle hidden">
         <table class="stats-table w-full min-w-[560px] text-left border-collapse">
           <thead>
             <tr class="text-[11px] font-medium text-obsMuted border-b border-obsBorderSubtle/80 bg-obsBg/40">
@@ -239,7 +288,7 @@
           </thead>
           <tbody class="divide-y divide-obsBorderSubtle/60 text-xs">
             <!-- Row 1: 방송 -->
-            <tr class="hover:bg-obsRowHover/60 transition-colors">
+            <tr id="row-stream-detail" class="hover:bg-obsRowHover/60 transition-colors hidden">
               <td class="py-2.5 px-3.5 w-20">
                 <span id="badge-stream-status" class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium bg-zinc-900/80 text-zinc-500 border border-zinc-700/50 shadow-inner tracking-wide transition-colors">
                   <span class="w-1.5 h-1.5 rounded-full border border-zinc-600 bg-transparent shrink-0"></span>
@@ -265,7 +314,7 @@
             </tr>
 
             <!-- Row 2: 녹화 -->
-            <tr class="hover:bg-obsRowHover/60 transition-colors text-obsMuted">
+            <tr id="row-record-detail" class="hover:bg-obsRowHover/60 transition-colors text-obsMuted hidden">
               <td class="py-2.5 px-3.5 w-20">
                 <span id="badge-record-status" class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium bg-zinc-900/80 text-zinc-500 border border-zinc-700/50 shadow-inner tracking-wide transition-colors">
                   <span class="w-1.5 h-1.5 rounded-full border border-zinc-600 bg-transparent shrink-0"></span>
@@ -289,7 +338,7 @@
           </tbody>
         </table>
       </div>
-    </details>
+    </section>
 
   </main>
 
@@ -306,6 +355,56 @@
 
     let rawStreamBytes = 0;
     let rawRecordBytes = 0;
+
+    let outputDetailVisible = { stream: false, record: false };
+
+    function applyOutputDetailVisibility() {
+      const box = document.getElementById('box-output-details-table');
+      const rowStream = document.getElementById('row-stream-detail');
+      const rowRecord = document.getElementById('row-record-detail');
+      const btnStream = document.getElementById('btn-toggle-stream-detail');
+      const btnRecord = document.getElementById('btn-toggle-record-detail');
+
+      if (rowStream) {
+        if (outputDetailVisible.stream) rowStream.classList.remove('hidden');
+        else rowStream.classList.add('hidden');
+      }
+      if (rowRecord) {
+        if (outputDetailVisible.record) rowRecord.classList.remove('hidden');
+        else rowRecord.classList.add('hidden');
+      }
+      if (box) {
+        if (outputDetailVisible.stream || outputDetailVisible.record) box.classList.remove('hidden');
+        else box.classList.add('hidden');
+      }
+      if (btnStream) {
+        if (outputDetailVisible.stream) btnStream.classList.add('is-active-stream');
+        else btnStream.classList.remove('is-active-stream');
+        if (btnStream.setAttribute) btnStream.setAttribute('aria-pressed', outputDetailVisible.stream ? 'true' : 'false');
+      }
+      if (btnRecord) {
+        if (outputDetailVisible.record) btnRecord.classList.add('is-active-record');
+        else btnRecord.classList.remove('is-active-record');
+        if (btnRecord.setAttribute) btnRecord.setAttribute('aria-pressed', outputDetailVisible.record ? 'true' : 'false');
+      }
+    }
+
+    function toggleOutputDetailRow(type) {
+      if (type !== 'stream' && type !== 'record') return;
+      outputDetailVisible[type] = !outputDetailVisible[type];
+      try {
+        localStorage.setItem('chzzk_stats_detail_' + type, outputDetailVisible[type] ? '1' : '0');
+      } catch (_) {}
+      applyOutputDetailVisibility();
+    }
+
+    (function initOutputDetailVisibility() {
+      try {
+        outputDetailVisible.stream = localStorage.getItem('chzzk_stats_detail_stream') === '1';
+        outputDetailVisible.record = localStorage.getItem('chzzk_stats_detail_record') === '1';
+      } catch (_) {}
+      applyOutputDetailVisibility();
+    })();
 
     async function handleHello(d) {
       const identifyData = {

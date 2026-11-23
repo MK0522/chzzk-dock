@@ -607,29 +607,47 @@
     let cropDragStart = { mouseX: 0, mouseY: 0, panX: 0, panY: 0, boxW: 0, boxH: 0 };
 
 
-    function openThumbnailModal() {
+    async function openThumbnailModal() {
       if (!checkLoginGuard('방송 썸네일 관리')) return;
 
       const modal = document.getElementById('modal-thumbnail');
       if (!modal) return;
 
-      const currentThumb = currentLiveSetting.defaultThumbnailImageUrl;
-      if (currentThumb) {
-        // 기존 등록된 치지직 썸네일이 있는 경우: 즉시 크롭 뷰로 로드 (치지직은 16:9 고정)
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        img.onload = () => {
-          startThumbnailCrop(img, 'chzzk_thumbnail');
-        };
-        img.onerror = () => {
+      const loadThumbToCrop = (url) => {
+        if (url) {
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = () => {
+            startThumbnailCrop(img, 'chzzk_thumbnail');
+          };
+          img.onerror = () => {
+            resetThumbnailModalToEmpty();
+          };
+          img.src = url;
+        } else {
           resetThumbnailModalToEmpty();
-        };
-        img.src = currentThumb;
-      } else {
-        resetThumbnailModalToEmpty();
-      }
+        }
+      };
 
+      loadThumbToCrop(currentLiveSetting.defaultThumbnailImageUrl);
       modal.classList.remove('hidden');
+
+      try {
+        const res = await chzzkApi.getBroadcast();
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.content) {
+            const latestThumb = data.content.defaultThumbnailImageUrl || null;
+            if (latestThumb !== currentLiveSetting.defaultThumbnailImageUrl) {
+              currentLiveSetting.defaultThumbnailImageUrl = latestThumb;
+              updateThumbnailPreviewUI();
+              if (!modal.classList.contains('hidden')) {
+                loadThumbToCrop(latestThumb);
+              }
+            }
+          }
+        }
+      } catch (_) {}
     }
 
 
@@ -1079,10 +1097,14 @@
 
     // ── 1. 프리셋 불러오기 모달 제어 ──
 
-    function openPresetLoadModal() {
+    async function openPresetLoadModal() {
       const modal = document.getElementById('modal-preset-load');
       const slotEl = document.getElementById('load-modal-slot-count');
       if (!modal) return;
+
+      try {
+        await loadBroadcastPresets();
+      } catch (_) {}
 
       if (slotEl) {
         slotEl.textContent = `${broadcastPresets.length} / ${MAX_PRESET_SLOTS}`;
@@ -1324,11 +1346,15 @@
 
     // ── 2. 프리셋 저장/덮어쓰기 모달 제어 ──
 
-    function openPresetSaveModal(presetIdToOverwrite = null) {
+    async function openPresetSaveModal(presetIdToOverwrite = null) {
       closePresetLoadModal();
       const modal = document.getElementById('modal-preset-save');
       const slotEl = document.getElementById('save-modal-slot-count');
       if (!modal) return;
+
+      try {
+        await loadBroadcastPresets();
+      } catch (_) {}
 
       if (slotEl) {
         slotEl.textContent = `${broadcastPresets.length} / ${MAX_PRESET_SLOTS}`;

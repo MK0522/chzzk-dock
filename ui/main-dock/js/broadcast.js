@@ -1198,11 +1198,26 @@ async function initConnection() {
     }
 
 
-    function openDonationBoardModal() {
-      if (!activeWatchParty || !activeWatchParty.donationBoardInfo) return;
+    async function openDonationBoardModal() {
       const modal = document.getElementById('modal-donation-board');
       const input = document.getElementById('input-board-message');
       const presetsBox = document.getElementById('board-preset-chips');
+
+      try {
+        const res = await chzzkApi.getBroadcast();
+        if (res.ok) {
+          const liveData = await res.json();
+          const content = liveData.content || liveData;
+          if (content && content.watchParty) {
+            activeWatchParty = content.watchParty;
+            if (content.watchParty.donationBoardInfo) {
+              currentDonationBoardMessage = content.watchParty.donationBoardInfo.message || '';
+            }
+          }
+        }
+      } catch (_) {}
+
+      if (!activeWatchParty || !activeWatchParty.donationBoardInfo) return;
 
       if (input) {
         input.value = currentDonationBoardMessage;
