@@ -151,6 +151,10 @@ func LogError(format string, args ...interface{}) {
 	appLogger.Log(LevelError, format, args...)
 }
 
+func GetLogsText() string {
+	return appLogger.GetLogsText()
+}
+
 // ViewLogsInNotepad: 메모리에 저장된 로그를 임시 파일로 작성 후 메모장(notepad.exe)으로 열람
 func ViewLogsInNotepad() error {
 	logText := appLogger.GetLogsText()
