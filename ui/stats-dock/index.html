@@ -156,6 +156,7 @@
         <div class="flex items-center justify-between text-xs">
           <span class="text-obsMuted font-medium">인코딩 지연 손실</span>
           <div class="mono-num text-xs font-semibold">
+            <span id="badge-enc-loss" class="hidden"></span>
             <span id="val-enc-drop" class="text-obsAccent">—</span>
             <span class="text-obsMuted"> / </span>
             <span id="val-enc-total" class="text-obsMuted">—</span>
@@ -167,6 +168,7 @@
         <div class="flex items-center justify-between text-xs">
           <span class="text-obsMuted font-medium">렌더링 지연 손실</span>
           <div class="mono-num text-xs font-semibold">
+            <span id="badge-rnd-loss" class="hidden"></span>
             <span id="val-rnd-drop" class="text-obsAccent">—</span>
             <span class="text-obsMuted"> / </span>
             <span id="val-rnd-total" class="text-obsMuted">—</span>
@@ -245,6 +247,7 @@
                 </span>
               </td>
               <td class="py-2.5 px-3.5 mono-num text-obsMuted" title="네트워크 손실 프레임 (손실 / 전체)">
+                <span id="badge-net-loss" class="hidden"></span>
                 <span id="val-net-drop" class="text-obsAccent font-semibold">—</span>
                 <span class="text-obsMuted"> / </span>
                 <span id="val-net-total" class="text-obsMuted">—</span>
@@ -535,7 +538,7 @@
     }
 
     // OBS 손실률 공식 기준 색상 적용 (< 1.0% 정상, 1.0% ~ 4.9% 경고 노랑, >= 5.0% 위험 빨강)
-    function applyLossThreshold(dropEl, pctEl, dropCount, totalCount) {
+    function applyLossThreshold(dropEl, pctEl, dropCount, totalCount, badgeEl) {
       const pct = totalCount > 0 ? (dropCount / totalCount) * 100 : 0;
       const pctStr = `(${pct.toFixed(1)}%)`;
       if (dropEl) dropEl.textContent = dropCount.toLocaleString();
@@ -544,12 +547,24 @@
       if (pct >= 5.0) {
         if (dropEl) dropEl.className = 'text-rose-500 font-bold';
         if (pctEl) pctEl.className = 'text-rose-500 font-bold ml-0.5';
+        if (badgeEl) {
+          badgeEl.textContent = '위험';
+          badgeEl.className = 'inline-block px-1 py-0 mr-1 rounded text-[10px] font-bold bg-rose-950/80 text-rose-300 border border-rose-500/50 align-middle';
+        }
       } else if (pct >= 1.0) {
         if (dropEl) dropEl.className = 'text-amber-400 font-semibold';
         if (pctEl) pctEl.className = 'text-amber-400 font-semibold ml-0.5';
+        if (badgeEl) {
+          badgeEl.textContent = '경고';
+          badgeEl.className = 'inline-block px-1 py-0 mr-1 rounded text-[10px] font-bold bg-amber-950/80 text-amber-300 border border-amber-500/50 align-middle';
+        }
       } else {
         if (dropEl) dropEl.className = 'text-obsText font-semibold';
         if (pctEl) pctEl.className = 'text-obsMuted font-normal ml-0.5';
+        if (badgeEl) {
+          badgeEl.textContent = '';
+          badgeEl.className = 'hidden';
+        }
       }
     }
 
@@ -734,7 +749,8 @@
         document.getElementById('val-enc-drop'),
         document.getElementById('val-enc-pct'),
         eDrop,
-        eTotal
+        eTotal,
+        document.getElementById('badge-enc-loss')
       );
 
       // FPS
@@ -749,7 +765,8 @@
         document.getElementById('val-rnd-drop'),
         document.getElementById('val-rnd-pct'),
         rDrop,
-        rTotal
+        rTotal,
+        document.getElementById('badge-rnd-loss')
       );
 
       // OBS 제공 남은 디스크 용량 (MB 단위 -> Bytes 변환 및 게이지 렌더링)
@@ -790,7 +807,8 @@
         document.getElementById('val-net-drop'),
         document.getElementById('val-net-pct'),
         sDrop,
-        sTotal
+        sTotal,
+        document.getElementById('badge-net-loss')
       );
 
       hasReceivedStats = true;
@@ -918,13 +936,13 @@
 
       // 2. 인코딩, 렌더링, 네트워크 손실 UI만 즉시 0 리셋 (CPU, 메모리, FPS, 저장 공간 등은 실시간 상태 유지)
       document.getElementById('val-enc-total').textContent = '0';
-      applyLossThreshold(document.getElementById('val-enc-drop'), document.getElementById('val-enc-pct'), 0, 0);
+      applyLossThreshold(document.getElementById('val-enc-drop'), document.getElementById('val-enc-pct'), 0, 0, document.getElementById('badge-enc-loss'));
 
       document.getElementById('val-rnd-total').textContent = '0';
-      applyLossThreshold(document.getElementById('val-rnd-drop'), document.getElementById('val-rnd-pct'), 0, 0);
+      applyLossThreshold(document.getElementById('val-rnd-drop'), document.getElementById('val-rnd-pct'), 0, 0, document.getElementById('badge-rnd-loss'));
 
       document.getElementById('val-net-total').textContent = '0';
-      applyLossThreshold(document.getElementById('val-net-drop'), document.getElementById('val-net-pct'), 0, 0);
+      applyLossThreshold(document.getElementById('val-net-drop'), document.getElementById('val-net-pct'), 0, 0, document.getElementById('badge-net-loss'));
 
       // 3. 버튼 시각 피드백 (플래시 애니메이션)
       const btn = document.getElementById('btn-reset-stats');
