@@ -1,0 +1,195 @@
+.overlay-manager, .overlay-settings-page {
+  color-scheme: dark;
+  --surface: #0e131a;
+  --menu: #121721;
+  --control: #161f2e;
+  --input: #0b0f15;
+  --edge: #243044;
+  --menu-edge: #2e3f58;
+  --ink: #e2e8f0;
+  --muted: #a0aec0;
+  --accent: #00ffa3;
+  --accent-soft: #122c28;
+  --error: #ffafbc;
+  --mode-edit: #ffd29b;
+  --mode-edit-bg: #30231b;
+  --mode-edit-edge: #805932;
+  --mode-interact: #bfdcff;
+  --mode-interact-bg: #182c47;
+  --mode-interact-edge: #3c6597;
+  font: 14px/1.45 Pretendard, system-ui, sans-serif;
+}
+
+html[data-theme="light"] :is(.overlay-manager, .overlay-settings-page) {
+  color-scheme: light;
+  --surface: #fff;
+  --menu: #f8fafc;
+  --control: #eaf0f7;
+  --input: #fff;
+  --edge: #ced9e6;
+  --menu-edge: #b9c9db;
+  --ink: #172438;
+  --muted: #4a5c74;
+  --accent: #007352;
+  --accent-soft: #dff5eb;
+  --error: #a11d40;
+  --mode-edit: #7a3c00;
+  --mode-edit-bg: #fff0de;
+  --mode-edit-edge: #d2a370;
+  --mode-interact: #194d89;
+  --mode-interact-bg: #e6efff;
+  --mode-interact-edge: #a4bde4;
+}
+
+.overlay-manager, .overlay-manager * { box-sizing: border-box; }
+.overlay-settings-page { color: var(--ink); }
+.overlay-settings-page main { max-width: 760px; margin-inline: auto; padding: 18px 14px; }
+.overlay-settings-page :is(h1, h2, p) { margin: 0; }
+.overlay-settings-page :is(h1) { font-size: 21px; }
+.overlay-settings-page :is(h2) { font-size: 14px; }
+.overlay-settings-page :is(header) { margin: 12px 0; }
+.overlay-settings-page :is(.back) { color: var(--muted); font-size: 12px; text-decoration: none; }
+.overlay-settings-page :is(.back:hover) { color: var(--accent); }
+
+.overlay-manager :is(button, input, textarea) { font: inherit; color: inherit; }
+.overlay-manager button {
+  padding: 5px 9px;
+  border: 1px solid var(--edge);
+  border-radius: 7px;
+  background: var(--menu);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.overlay-manager :is(button:hover:not(:disabled), button[aria-expanded="true"]) {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.overlay-manager button:disabled { opacity: .45; cursor: default; }
+.overlay-manager :where(button, input, textarea, summary, a):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.overlay-manager button.primary {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: var(--accent);
+  font-weight: 700;
+}
+
+.overlay-manager .mode-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  margin-bottom: 10px;
+  padding: 4px;
+  background: var(--surface);
+  border: 1px solid var(--edge);
+  border-radius: 9px;
+}
+.overlay-manager .mode-tabs button { display: flex; align-items: center; justify-content: center; gap: 5px; background: transparent; border-color: transparent; color: var(--muted); }
+.overlay-manager .mode-tabs [data-mode="1"][aria-pressed="true"] {
+  color: var(--mode-edit); background: var(--mode-edit-bg); border-color: var(--mode-edit-edge);
+}
+.overlay-manager .mode-tabs [data-mode="2"][aria-pressed="true"] {
+  color: var(--mode-interact); background: var(--mode-interact-bg); border-color: var(--mode-interact-edge);
+}
+.overlay-manager .mode-tabs [data-mode="0"][aria-pressed="true"] {
+  color: var(--accent); background: var(--accent-soft); border-color: var(--accent);
+}
+
+.overlay-manager .source-panel { background: var(--surface); border: 1px solid var(--edge); border-radius: 10px; overflow: hidden; }
+.overlay-manager .source-panel h2 { padding: 8px 10px; border-bottom: 1px solid var(--edge); }
+.overlay-manager #layers { min-height: 96px; max-height: 320px; overflow: auto; background: var(--input); }
+.overlay-manager .source-row { display: grid; grid-template-columns: 34px minmax(0, 1fr); align-items: stretch; min-height: 31px; }
+.overlay-manager .source-row[data-selected="true"] { background: var(--accent-soft); }
+.overlay-manager .source-row:not([data-selected="true"]):hover { background: var(--control); }
+.overlay-manager .source-row button { background: transparent; border: 0; border-radius: 0; padding: 4px 7px; }
+.overlay-manager .source-row button:focus-visible { outline-offset: -2px; }
+.overlay-manager .source-name { text-align: left; overflow: hidden; text-overflow: ellipsis; }
+.overlay-manager .source-row[data-visible="false"] .source-name { color: var(--muted); }
+.overlay-manager .visibility { display: grid; place-items: center; }
+.overlay-manager .eye { width: 13px; height: 9px; border: 1.5px solid currentColor; border-radius: 70% 24%; transform: rotate(35deg); position: relative; }
+.overlay-manager .eye::before { content: ''; position: absolute; inset: 1px 3px; border-radius: 50%; background: currentColor; }
+.overlay-manager .visibility[aria-pressed="false"] { color: var(--muted); }
+.overlay-manager .visibility[aria-pressed="false"] .eye::after {
+  content: ''; position: absolute; top: 3px; left: -3px; width: 17px; height: 1px; background: currentColor; transform: rotate(30deg);
+}
+.overlay-manager :is(.source-tools, .actions) { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.overlay-manager .source-tools { padding: 6px; border-top: 1px solid var(--edge); }
+.overlay-manager .tool-spacer { flex: 1; }
+
+.overlay-manager #overlay-editor {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  padding: 12px;
+  width: min(360px, calc(100% - 16px));
+  max-height: calc(100% - 16px);
+  overflow: auto;
+  color: var(--ink);
+  background: var(--menu);
+  border: 1px solid var(--menu-edge);
+  border-radius: 12px;
+  box-shadow: 0 16px 36px rgb(0 0 0 / 45%);
+}
+.overlay-manager #editor h2 { margin-bottom: 11px; }
+.overlay-manager #editor label { display: grid; gap: 4px; margin-bottom: 10px; }
+.overlay-manager #editor :is(input[type="text"], input:not([type]), input[type="url"], textarea) {
+  min-width: 0;
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--edge);
+  border-radius: 6px;
+  background: var(--input);
+}
+.overlay-manager #editor .login-link { display: flex; align-items: center; gap: 7px; }
+.overlay-manager .custom-css { margin-bottom: 10px; border: 1px solid var(--edge); border-radius: 6px; }
+.overlay-manager .custom-css summary { padding: 6px 8px; cursor: pointer; }
+.overlay-manager #editor .custom-css textarea {
+  display: block;
+  border-width: 1px 0 0;
+  border-radius: 0 0 6px 6px;
+  resize: vertical;
+  font: 12px/1.5 ui-monospace, monospace;
+}
+.overlay-manager .appearance { min-width: 0; margin: 0 0 10px; padding: 6px 8px; border: 1px solid var(--edge); border-radius: 6px; }
+.overlay-manager .appearance legend { padding-inline: 4px; color: var(--muted); }
+.overlay-manager #editor .appearance label { display: flex; justify-content: space-between; margin: 0; }
+.overlay-manager .appearance output { color: var(--muted); font-variant-numeric: tabular-nums; }
+.overlay-manager .appearance input { width: 100%; margin: 1px 0 5px; accent-color: var(--accent); }
+.overlay-manager .actions {
+  position: sticky;
+  bottom: -12px;
+  justify-content: flex-end;
+  margin: 0 -12px -12px;
+  padding: 8px 12px 12px;
+  background: var(--menu);
+  border-top: 1px solid var(--edge);
+}
+.overlay-manager #editor .chzzk-checkbox-input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.overlay-manager :is(#status, #editor-status) { margin-block: 7px; font-size: 12px; color: var(--muted); }
+.overlay-manager :is(#status[data-error="true"], #editor-status) { color: var(--error); }
+
+.overlay-manager { color: var(--ink); }
+.overlay-manager h2, .overlay-manager p { margin: 0; }
+.overlay-manager h2 { font-size: 14px; font-weight: 650; }
+.overlay-manager .mode-title { margin-bottom: 5px; }
+.overlay-manager .source-tools .source-tool-icon {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 28px;
+  padding: 0;
+  font: 16px/1 "Segoe UI Symbol", system-ui, sans-serif;
+}
+.overlay-manager #overlay-editor:popover-open { display: block; inset: auto; margin: 0; }
+.overlay-manager #overlay-editor::backdrop { background: rgb(4 7 12 / 65%); }
+.overlay-manager .appearance label:has(input[type="color"]){display:flex;align-items:center;justify-content:space-between;gap:12px;white-space:nowrap}
+.overlay-manager input[type="color"]{width:64px;min-width:64px;height:28px;padding:2px;cursor:pointer}
+
+.overlay-manager .source-row { position: relative; }
+.overlay-manager .source-name { cursor: grab; }
+.overlay-manager .source-row.dragging { opacity: .5; }
+.overlay-manager .source-row.drop-before::before,.overlay-manager .source-row.drop-after::after { content: ""; position: absolute; left: 3px; right: 3px; height: 3px; background: var(--accent); border-radius: 3px; z-index: 2; pointer-events: none; }
+.overlay-manager .source-row.drop-before::before { top: 0; }
+.overlay-manager .source-row.drop-after::after { bottom: 0; }

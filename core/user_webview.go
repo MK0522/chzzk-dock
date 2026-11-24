@@ -185,11 +185,14 @@ func applyDarkTheme(hwnd uintptr) {
 // -----------------------------------------------------------------------------
 // 2. 메인 독 웹뷰 창 (Standalone Main Dock Window)
 type ToolWindowState struct {
-	X       int  `json:"x"`
-	Y       int  `json:"y"`
-	Width   int  `json:"width"`
-	Height  int  `json:"height"`
-	Topmost bool `json:"topmost"`
+	X                 int                 `json:"x"`
+	Y                 int                 `json:"y"`
+	Width             int                 `json:"width"`
+	Height            int                 `json:"height"`
+	Topmost           bool                `json:"topmost"`
+	OverlayBackground bool                `json:"overlay_background,omitempty"`
+	OverlayCrop       *overlayCrop        `json:"overlay_crop,omitempty"`
+	OverlayHome       *overlayMonitorHome `json:"overlay_home,omitempty"`
 }
 
 type DockWindowState = ToolWindowState
@@ -341,8 +344,8 @@ func dockWndProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintpt
 		}
 		return 0
 
-	case 0x0112 /* WM_SYSCOMMAND */:
-		if (wParam & 0xFFFF) == IDM_DOCK_TOPMOST || wParam == IDM_DOCK_TOPMOST {
+	case 0x0112 /* WM_SYSCOMMAND */ :
+		if (wParam&0xFFFF) == IDM_DOCK_TOPMOST || wParam == IDM_DOCK_TOPMOST {
 			if toggleDockTopmost != nil {
 				toggleDockTopmost()
 			}
@@ -371,10 +374,10 @@ func dockWndProc(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintpt
 		}
 		return 0
 
-	case 0x0011 /* WM_QUERYENDSESSION */:
+	case 0x0011 /* WM_QUERYENDSESSION */ :
 		return 1 // 시스템 종료 가능 응답
 
-	case 0x0016 /* WM_ENDSESSION */:
+	case 0x0016 /* WM_ENDSESSION */ :
 		if wParam != 0 {
 			saveDockWindowState(captureDockWindowState(uintptr(hwnd)))
 			if dockShutdownCallback != nil {
@@ -420,8 +423,6 @@ func ShowDockWindow() {
 	st := loadDockWindowState()
 	ForceForegroundWindow(dockHwnd, st.Topmost)
 }
-
-
 
 // InitDockWindow: 독 독립 윈도우 및 WebView2 생성
 func InitDockWindow(port int, version string, showInitially bool) uintptr {
@@ -625,8 +626,6 @@ func DestroyDockWindow() {
 // 3. 플로팅 툴 웹뷰 공통 엔진 (Floating Tool Engine)
 // -----------------------------------------------------------------------------
 
-
-
 const IDM_REMOTE_TOPMOST = 0x1001
 
 func updateWindowTitle(hwnd uintptr, baseTitle string, topmost bool) {
@@ -661,9 +660,13 @@ type ToolWebviewConfig struct {
 	TargetURL      string
 	ProfileDir     string
 	CookieInjector func(chromium *edge.Chromium)
+	ChatOverlay    bool
+	OverlayCSS     string
+	CustomOverlay  bool
+	OverlayLayer   OverlayLayer
 }
 
-func loadToolWindowState(fileName string, defW, defH int) ToolWindowState {
+func loadToolWindowState(fileName string, defW, defH, minW, minH int) ToolWindowState {
 	defState := ToolWindowState{
 		X:       0,
 		Y:       0,
@@ -684,7 +687,7 @@ func loadToolWindowState(fileName string, defW, defH int) ToolWindowState {
 	if err := json.Unmarshal(data, &state); err != nil {
 		return defState
 	}
-	if state.Width < 300 || state.Height < 400 {
+	if state.Width < minW || state.Height < minH {
 		state.Width = defW
 		state.Height = defH
 	}
@@ -933,6 +936,10 @@ func makeFloatingToolbarScript(storageKey string, alignRight bool, enableReload 
 
 // RunToolWebview: 치지직 팝업 툴(채팅창, 리모컨 등) 공통 실행 함수
 func RunToolWebview(cfg ToolWebviewConfig) {
+	if cfg.ChatOverlay {
+		// The overlay runs in its own process. Make its initial surface transparent before Embed.
+		_ = os.Setenv("WEBVIEW2_DEFAULT_BACKGROUND_COLOR", "00000000")
+	}
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
@@ -948,8 +955,12 @@ func RunToolWebview(cfg ToolWebviewConfig) {
 		classNamePtr, _ := syscall.UTF16PtrFromString(cfg.ClassName)
 		existingHwnd, _, _ := user32.NewProc("FindWindowW").Call(uintptr(unsafe.Pointer(classNamePtr)), 0)
 		if existingHwnd != 0 {
-			user32.NewProc("ShowWindow").Call(existingHwnd, 9 /* SW_RESTORE */)
-			ForceForegroundWindow(existingHwnd, false)
+			if cfg.ChatOverlay {
+				procPostMessageW.Call(existingHwnd, overlayActivateMessage, 0, 0)
+			} else {
+				user32.NewProc("ShowWindow").Call(existingHwnd, 9 /* SW_RESTORE */)
+				ForceForegroundWindow(existingHwnd, false)
+			}
 		}
 		if mutexHandle != 0 {
 			kernel32.NewProc("CloseHandle").Call(mutexHandle)
@@ -968,14 +979,36 @@ func RunToolWebview(cfg ToolWebviewConfig) {
 	hIcon := LoadAppIcon()
 
 	hBrush, _, _ := procCreateSolidBrush.Call(0x00110E0B) // #0B0E11 다크 브러시
-	state := loadToolWindowState(cfg.StateFileName, cfg.DefaultWidth, cfg.DefaultHeight)
+	minW, minH := 300, 400
+	if cfg.ChatOverlay {
+		minW, minH = minOverlayWidth, minOverlayHeight
+	}
+	state := loadToolWindowState(cfg.StateFileName, cfg.DefaultWidth, cfg.DefaultHeight, minW, minH)
 	isTopmost := state.Topmost
 
 	var activeHwnd uintptr
 	var activeChromium *edge.Chromium
 	var toggleTopmost func()
+	var overlay *chatOverlayWindow
+	if cfg.ChatOverlay {
+		overlay = &chatOverlayWindow{state: &state, target: cfg.TargetURL, windowOpacity: 100, donationBackgroundOpacity: 100, backgroundColor: 0x141517}
+		if cfg.OverlayLayer.DonationBackgroundOpacity != nil {
+			overlay.donationBackgroundOpacity = min(max(*cfg.OverlayLayer.DonationBackgroundOpacity, 0), 100)
+		}
+		if cfg.OverlayLayer.WindowOpacity != nil {
+			overlay.windowOpacity = min(max(*cfg.OverlayLayer.WindowOpacity, 0), 100)
+		}
+		if cfg.OverlayLayer.BackgroundOpacity != nil {
+			overlay.setBackgroundOpacity(min(max(*cfg.OverlayLayer.BackgroundOpacity, 0), 100))
+		}
+	}
 
 	wndProc := func(hwnd syscall.Handle, msg uint32, wParam, lParam uintptr) uintptr {
+		if overlay != nil {
+			if handled, result := overlay.handleMessage(uintptr(hwnd), msg, wParam, lParam); handled {
+				return result
+			}
+		}
 		switch msg {
 		case WM_MOVE_WV:
 			if activeChromium != nil {
@@ -983,20 +1016,22 @@ func RunToolWebview(cfg ToolWebviewConfig) {
 			}
 			return 0
 		case WM_SIZE_WV:
-			if activeChromium != nil {
+			if overlay != nil && overlay.chromium != nil {
+				overlay.resizeWebView()
+			} else if activeChromium != nil {
 				activeChromium.Resize()
 			}
 			return 0
-		case 0x0112 /* WM_SYSCOMMAND */:
-			if (wParam & 0xFFFF) == IDM_REMOTE_TOPMOST || wParam == IDM_REMOTE_TOPMOST {
+		case 0x0112 /* WM_SYSCOMMAND */ :
+			if (wParam&0xFFFF) == IDM_REMOTE_TOPMOST || wParam == IDM_REMOTE_TOPMOST {
 				if toggleTopmost != nil {
 					toggleTopmost()
 				}
 				return 0
 			}
-		case 0x0011 /* WM_QUERYENDSESSION */:
+		case 0x0011 /* WM_QUERYENDSESSION */ :
 			return 1
-		case 0x0016 /* WM_ENDSESSION */:
+		case 0x0016 /* WM_ENDSESSION */ :
 			if wParam != 0 {
 				procPostQuitMessage.Call(0)
 				os.Exit(0)
@@ -1010,7 +1045,7 @@ func RunToolWebview(cfg ToolWebviewConfig) {
 			procGetWindowRect.Call(uintptr(hwnd), uintptr(unsafe.Pointer(&rect)))
 			w := int(rect.Right - rect.Left)
 			h := int(rect.Bottom - rect.Top)
-			if w >= 300 && h >= 400 {
+			if w >= minW && h >= minH {
 				state.X = int(rect.Left)
 				state.Y = int(rect.Top)
 				state.Width = w
@@ -1034,6 +1069,12 @@ func RunToolWebview(cfg ToolWebviewConfig) {
 		HbrBackground: syscall.Handle(hBrush),
 		LpszClassName: className,
 	}
+	if overlay != nil {
+		// Avoid full-window invalidation/repaint flashes during live resize.
+		wc.Style = 0
+		brush, _, _ := getOverlayStockObject.Call(4 /* BLACK_BRUSH */)
+		wc.HbrBackground = syscall.Handle(brush)
+	}
 	procRegisterClassW.Call(uintptr(unsafe.Pointer(&wc)))
 
 	// 화면 이탈 방지 및 다중 모니터 작업 영역 기반 안전 복원 (음수 좌표 지원)
@@ -1044,6 +1085,10 @@ func RunToolWebview(cfg ToolWebviewConfig) {
 		exStyle |= WS_EX_TOPMOST_VAL
 	}
 	dwStyle := uintptr(WS_OVERLAPPEDWINDOW_VAL)
+	if overlay != nil {
+		exStyle |= WS_EX_TOPMOST_VAL
+		dwStyle = overlayPopupStyle
+	}
 
 	hwnd, _, _ := procCreateWindowExW.Call(
 		exStyle,
@@ -1058,6 +1103,10 @@ func RunToolWebview(cfg ToolWebviewConfig) {
 		return
 	}
 	activeHwnd = hwnd
+	if overlay != nil {
+		overlay.hwnd = hwnd
+		overlay.restoreMonitorPosition()
+	}
 
 	if hIcon != 0 {
 		procSendMessageW.Call(hwnd, uintptr(WM_SETICON), uintptr(ICON_SMALL), uintptr(hIcon))
@@ -1072,8 +1121,10 @@ func RunToolWebview(cfg ToolWebviewConfig) {
 		procAppendMenuW.Call(hSysMenu, 0 /* MF_STRING */, IDM_REMOTE_TOPMOST, uintptr(unsafe.Pointer(menuText)))
 	}
 
-	updateWindowTitle(hwnd, cfg.Title, isTopmost)
-	updateSystemMenuTopmost(hwnd, isTopmost, IDM_REMOTE_TOPMOST)
+	if overlay == nil {
+		updateWindowTitle(hwnd, cfg.Title, isTopmost)
+		updateSystemMenuTopmost(hwnd, isTopmost, IDM_REMOTE_TOPMOST)
+	}
 	applyDarkTheme(hwnd)
 
 	chromium := edge.NewChromium()
@@ -1104,6 +1155,12 @@ func RunToolWebview(cfg ToolWebviewConfig) {
 
 	// 웹뷰 IPC 메시지 핸들러
 	chromium.MessageCallback = func(message string, sender *edge.ICoreWebView2, args *edge.ICoreWebView2WebMessageReceivedEventArgs) {
+		if overlay != nil && (cfg.CustomOverlay || !strings.HasPrefix(message, "open-external:")) {
+			if source, err := args.GetSource(); err == nil && overlaySourceMatches(source, cfg.TargetURL, cfg.CustomOverlay) {
+				overlay.handleWebMessage(message)
+			}
+			return
+		}
 		switch message {
 		case "toggle-topmost":
 			if toggleTopmost != nil {
@@ -1122,6 +1179,9 @@ func RunToolWebview(cfg ToolWebviewConfig) {
 	}
 
 	// [중요] 반드시 Embed(hwnd) 성공 후에 Init/Show/Resize/Navigate를 호출해야 함 (Embed 전 Init 호출 시 nil pointer dereference 패닉 발생)
+	if overlay != nil {
+		chromium.ProcessFailedCallback = overlay.processFailed
+	}
 	if !chromium.Embed(hwnd) || embedFailed {
 		LogError("[%s] [%s] WebView2 임베딩 실패 (에러: %v)", cfg.Title, ErrSysWebviewRuntime, embedErr)
 		user32 := syscall.NewLazyDLL("user32.dll")
@@ -1138,28 +1198,51 @@ func RunToolWebview(cfg ToolWebviewConfig) {
 
 	// 컨트롤러 가시성 및 크기 동기화
 	_ = chromium.Show()
-	chromium.Focus()
 	chromium.Resize()
-
-	// 초기 백색 화면 방지 (배경 다크 테마)
-	chromium.SetBackgroundColour(0x0B, 0x0E, 0x11, 255)
+	if overlay != nil {
+		if len(cfg.OverlayLayer.BackgroundColor) == 7 {
+			_, _ = fmt.Sscanf(cfg.OverlayLayer.BackgroundColor, "#%x", &overlay.backgroundColor)
+		}
+		overlay.initialize(chromium)
+	} else {
+		chromium.Focus()
+		chromium.SetBackgroundColour(0x0B, 0x0E, 0x11, 255)
+	}
 
 	// 공통 링크 가드 및 플로팅 툴바 주입
 	toolbarScript := makeFloatingToolbarScript(cfg.StoragePinKey, cfg.AlignRight, true)
-	chromium.Init(ExternalLinkGuardScript)
-	chromium.Init(toolbarScript)
+	if !cfg.CustomOverlay {
+		chromium.Init(ExternalLinkGuardScript)
+	}
+	if overlay == nil {
+		chromium.Init(toolbarScript)
+	}
 
 	chromium.NavigationCompletedCallback = func(sender *edge.ICoreWebView2, args *edge.ICoreWebView2NavigationCompletedEventArgs) {
 		src, _ := sender.GetSource()
 		LogInfo("[%s] 웹뷰 페이지 로드 완료: %s", cfg.Title, src)
+		if overlay != nil {
+			if overlaySourceMatches(src, cfg.TargetURL, cfg.CustomOverlay) {
+				overlay.surfaceReady = false
+				chromium.Eval(overlayScriptFor(isChzzkChatURL(src), cfg.OverlayCSS, overlay.pageStateArguments()))
+			}
+			return
+		}
 		chromium.Eval(toolbarScript)
 		chromium.Eval(fmt.Sprintf("if (window.__updateTopmostUI) window.__updateTopmostUI(%v);", isTopmost))
 	}
 
 	// 창 표시 및 WebView2 바인딩
-	procShowWindow.Call(hwnd, 5 /* SW_SHOW */)
+	if overlay != nil {
+		procShowWindow.Call(hwnd, 4 /* SW_SHOWNOACTIVATE */)
+		if tray := overlayTrayWindow(); tray != 0 {
+			procPostMessageW.Call(tray, overlayOrderMessage, 0, 0)
+		}
+	} else {
+		procShowWindow.Call(hwnd, 5 /* SW_SHOW */)
+		ForceForegroundWindow(hwnd, isTopmost)
+	}
 	procUpdateWindow.Call(hwnd)
-	ForceForegroundWindow(hwnd, isTopmost)
 
 	if cfg.CookieInjector != nil {
 		cfg.CookieInjector(chromium)
@@ -1191,6 +1274,9 @@ func RunToolWebview(cfg ToolWebviewConfig) {
 		procTranslateMessage.Call(uintptr(unsafe.Pointer(&msg)))
 		procDispatchMessageW.Call(uintptr(unsafe.Pointer(&msg)))
 	}
+	if overlay != nil && overlay.restart {
+		os.Exit(OverlayRestartCode)
+	}
 }
 
 // -----------------------------------------------------------------------------
@@ -1209,6 +1295,16 @@ func injectUserSessionCookies(chromium *edge.Chromium) {
 
 // RunChatWebview: 치지직 실시간 채팅 웹뷰 창 실행
 func RunChatWebview(channelId string) {
+	runChatWebview(channelId, false, OverlayLayer{})
+}
+
+func RunChatOverlay(channelId string) {
+	if err := RunOverlayLayer(channelId, "chzzk"); err != nil {
+		LogError("[Chat Overlay] %v", err)
+	}
+}
+
+func runChatWebview(channelId string, overlay bool, layer OverlayLayer) {
 	targetUrl := "https://chzzk.naver.com"
 	if channelId != "" {
 		targetUrl = fmt.Sprintf("https://chzzk.naver.com/live/%s/chat", channelId)
@@ -1222,7 +1318,7 @@ func RunChatWebview(channelId string) {
 	profileDir := filepath.Join(appData, "ChzzkObsDock", "webview_profile")
 	_ = os.MkdirAll(profileDir, 0755)
 
-	RunToolWebview(ToolWebviewConfig{
+	cfg := ToolWebviewConfig{
 		Title:          "치지직 채팅 - CHZZK OBS Dock",
 		ClassName:      "ChzzkChatWindowClass",
 		MutexName:      `Local\ChzzkChatWindowMutex`,
@@ -1234,7 +1330,18 @@ func RunChatWebview(channelId string) {
 		TargetURL:      targetUrl,
 		ProfileDir:     profileDir,
 		CookieInjector: injectUserSessionCookies,
-	})
+		ChatOverlay:    overlay,
+		OverlayCSS:     layer.CSS,
+		OverlayLayer:   layer,
+	}
+	if overlay {
+		cfg.Title = layer.Name
+		cfg.ClassName = overlayClassName
+		cfg.MutexName = `Local\ChzzkChatOverlayMutex`
+		cfg.StateFileName = "chat_overlay_window.json"
+		configureOverlayLogin(&cfg, layer)
+	}
+	RunToolWebview(cfg)
 }
 
 // BringChatWindowToFront: 이미 켜져 있는 채팅창을 최상단으로 복원

@@ -413,6 +413,7 @@ function closeTopmostOverlayOnEsc() {
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && !e.isComposing) {
+    if (document.getElementById('overlay-editor')?.matches(':modal, :popover-open')) return;
     if (closeTopmostOverlayOnEsc()) {
       e.preventDefault();
     }

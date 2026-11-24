@@ -1,0 +1,46 @@
+<div class="overlay-manager">
+  <h2 class="mode-title" id="overlay-mode-title">모드 선택</h2>
+  <div class="mode-tabs" role="group" aria-labelledby="overlay-mode-title">
+    <button type="button" data-mode="1" aria-pressed="false"><span aria-hidden="true">✥</span> 수정</button>
+    <button type="button" data-mode="2" aria-pressed="false"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M5 3v15l4-4 3.5 7 3-1.5L12 12h6z"/></svg> 상호작용</button>
+    <button type="button" data-mode="0" aria-pressed="false"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3"/></svg> 고정</button>
+  </div>
+  <section class="source-panel" aria-labelledby="sources-title">
+    <h2 id="sources-title">소스</h2>
+    <div id="layers"></div>
+    <div class="source-tools" role="group" aria-label="소스 작업">
+      <button class="source-tool-icon" id="add" type="button" aria-label="추가" title="추가" aria-haspopup="dialog" aria-controls="overlay-editor"><span aria-hidden="true">＋</span></button>
+      <button class="source-tool-icon" id="remove" type="button" aria-label="삭제" title="삭제"><span aria-hidden="true">🗑︎</span></button>
+      <button class="source-tool-icon" id="properties" type="button" aria-label="수정" title="수정" aria-haspopup="dialog" aria-controls="overlay-editor"><span aria-hidden="true">⚙︎</span></button>
+      <span class="tool-spacer"></span>
+      <button id="up" type="button" title="앞으로 이동" aria-label="앞으로 이동">↑</button>
+      <button id="down" type="button" title="뒤로 이동" aria-label="뒤로 이동">↓</button>
+    </div>
+  </section>
+  <p id="status" role="status"></p>
+  <dialog id="overlay-editor" aria-labelledby="editor-title">
+    <form id="editor" autocomplete="off">
+      <h2 id="editor-title">소스 설정</h2>
+      <label>이름<input name="name" autocomplete="off" maxlength="80" required placeholder="예: 방송 알림" autofocus></label>
+      <label>URL<input name="url" autocomplete="off" type="url" maxlength="4096" placeholder="https://example.com/widget"></label>
+      <label class="login-link">
+        <input class="chzzk-checkbox-input" type="checkbox" name="linkLogin" checked>
+        로그인 연동
+      </label>
+      <details class="custom-css" id="custom-css">
+        <summary>커스텀 CSS</summary><p>미입력 시 기본값을 적용합니다.</p>
+        <textarea name="css" aria-label="커스텀 CSS" rows="5" spellcheck="false" placeholder="body { background: transparent; }"></textarea>
+      </details>
+      <fieldset class="appearance">
+        <legend>배경 및 불투명도</legend><label>배경 색상<input type="color" name="backgroundColor" id="background-color" value="#141517"></label>
+        <label for="window-opacity">창 전체 <output id="window-opacity-value">100%</output></label>
+        <input name="windowOpacity" id="window-opacity" type="range" min="0" max="100" value="100">
+        <label for="donation-opacity">후원 메시지 배경 <output id="donation-opacity-value">100%</output></label><input name="donationBackgroundOpacity" id="donation-opacity" type="range" min="0" max="100" value="100">
+      <label for="background-opacity">배경 <output id="background-opacity-value">0%</output></label>
+        <input name="backgroundOpacity" id="background-opacity" type="range" min="0" max="100" value="0">
+      </fieldset>
+      <p id="editor-status" role="status" hidden></p>
+      <div class="actions"><button type="button" id="cancel">취소</button><button class="primary" type="submit">저장</button></div>
+    </form>
+  </dialog>
+</div>

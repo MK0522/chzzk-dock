@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>오버레이 레이어 · CHZZK OBS Dock</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/ui/shared/theme.css">
+  <link rel="stylesheet" href="/ui/overlay-settings/style.css">
+  <script>try { document.documentElement.dataset.theme = localStorage.getItem('chzzk_theme_mode') === 'light' ? 'light' : 'dark'; } catch {}</script>
+  <script defer src="/ui/shared/api.js"></script>
+  <script defer src="/ui/overlay-settings/settings.js"></script>
+</head>
+<body class="overlay-settings-page">
+<main>
+  <a class="back" href="/">← 독으로 돌아가기</a>
+  <header><h1>오버레이 레이어</h1></header>
+  {{OVERLAY_MANAGER}}
+</main>
+</body>
+</html>

@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="/ui/shared/tailwind.css" />
   <link rel="stylesheet" href="/ui/shared/theme.css" />
   <link rel="stylesheet" href="/ui/main-dock/style.css" />
+  <link rel="stylesheet" href="/ui/overlay-settings/style.css" />
   <script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('chzzk_theme_mode')==='light'?'light':'dark');}catch(_){}</script>
 </head>
 <body class="dark font-sans text-white antialiased overflow-x-hidden">
@@ -65,18 +66,17 @@
         </span>
       </div>
       <div class="flex items-center gap-1.5 flex-shrink-0">
-        <button id="header-btn-urls" onclick="toggleUrlsPanel()" class="h-9 flex items-center gap-1.5 px-2.5 rounded-lg bg-[#121721] border border-[#1E2738] hover:border-[#00FFA3]/50 text-[12px] font-bold text-slate-300 hover:text-[#00FFA3] transition-all flex-shrink-0 cursor-pointer shadow-sm" title="알림 URL & 방송 정보 열기">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-          <span>URL</span>
-        </button>
+        <div class="header-reveal"><div class="header-reveal-tools">
+        <button type="button" id="header-btn-urls" onclick="toggleUrlsPanel()" aria-controls="urls-panel" class="h-9 px-2 rounded-lg bg-[#121721] border border-[#1E2738] hover:border-[#00FFA3]/50 text-[12px] font-bold text-slate-300 hover:text-[#00FFA3] transition-all flex-shrink-0 cursor-pointer shadow-sm" title="오버레이 설정" aria-label="오버레이 설정"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="m12 3 10 5-10 5L2 8zM2 12l10 5 10-5M2 16l10 5 10-5"/></svg></button>
         <!-- 원클릭 다크 / 라이트 테마 전환 버튼 -->
         <button id="header-btn-theme" onclick="toggleThemeMode()" class="h-9 w-9 flex items-center justify-center rounded-lg bg-[#121721] border border-[#1E2738] hover:border-[#00FFA3]/50 text-[15px] transition-all flex-shrink-0 cursor-pointer shadow-sm" title="다크 / 라이트 모드 전환" aria-label="화면 테마 전환">
           <span id="header-theme-icon">🌙</span>
         </button>
+        </div>
         <!-- 순수 독 환경 설정 버튼 (h-9 36px 통일 · 이모지 아이콘) -->
         <button id="btn-settings" onclick="toggleSettings()" class="h-9 w-9 flex items-center justify-center rounded-lg bg-[#121721] border border-[#1E2738] hover:border-[#00FFA3]/50 text-[15px] transition-all flex-shrink-0 cursor-pointer shadow-sm" title="독 환경 설정" aria-label="독 환경 설정">
           ⚙️
-        </button>
+        </button></div>
       </div>
     </div>
 
@@ -499,7 +499,7 @@
         <div class="space-y-0.5 relative" id="category-wrapper">
           <div class="flex items-center justify-between h-5">
             <label class="text-[11px] font-bold text-slate-100 uppercase tracking-wider leading-none flex items-center gap-1">
-              <span>🎮</span> 카테고리
+              카테고리
               <span id="dot-dirty-category" class="dot-dirty" style="display:none;" title="카테고리 변경됨"></span>
             </label>
             <div class="flex items-center gap-1 leading-none">
@@ -549,7 +549,7 @@
           <div class="flex items-center justify-between h-5">
             <div class="flex items-center gap-1 leading-none">
               <label class="text-[11px] font-bold text-slate-100 uppercase tracking-wider leading-none flex items-center gap-1">
-                <span>🎬</span> 같이보기
+                같이보기
                 <span id="dot-dirty-watch-party" class="dot-dirty" style="display:none;" title="같이보기 변경됨"></span>
               </label>
               <button onclick="reloadWatchPartiesOnly()" class="text-slate-400 hover:text-[#00FFA3] transition-colors p-0.5 rounded hover:bg-white/5 cursor-pointer flex items-center leading-none" title="치지직 같이보기 목록 즉시 새로고침">
@@ -710,26 +710,26 @@
     </div>
   </div>
 
-  <!-- ===== URLS & STREAM KEY & REVENUE PANEL ===== -->
-  <div id="urls-panel" class="settings-panel px-2.5 py-3">
-    <!-- Panel Header -->
-    <div class="flex items-center justify-between mb-2 border-b border-chzzk-border pb-2">
-      <div class="flex items-center gap-1.5">
-        <span class="text-base">🔗</span>
-        <span class="text-xs font-bold text-white">방송 URL & 스트림키</span>
-      </div>
+  <section id="urls-panel" class="settings-panel px-2.5 pt-2 pb-3" aria-labelledby="urls-panel-title">
+    <header class="flex items-center justify-between mb-2 border-b border-chzzk-border pb-2">
+      <h2 id="urls-panel-title" class="flex items-center gap-1.5 text-xs font-bold text-white"><span class="text-base" aria-hidden="true">📚</span><span>방송 소스 설정</span></h2>
       <div class="flex items-center gap-1">
-        <button onclick="fetchStreamingInfo(false)" class="icon-refresh-btn" title="새로고침" aria-label="방송 URL 새로고침">
+        <button type="button" id="urls-panel-refresh" onclick="fetchStreamingInfo(false)" class="icon-refresh-btn" title="새로고침" aria-label="방송 URL 새로고침">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
         </button>
-        <button onclick="toggleUrlsPanel()" class="w-6 h-6 rounded-md bg-chzzk-card border border-chzzk-border flex items-center justify-center hover:border-chzzk-muted transition-colors cursor-pointer">
+        <button type="button" onclick="toggleUrlsPanel()" aria-label="방송 소스 닫기" title="방송 소스 닫기" class="w-6 h-6 rounded-md bg-chzzk-card border border-chzzk-border flex items-center justify-center hover:border-chzzk-muted transition-colors cursor-pointer">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5A6577" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>
-    </div>
+    </header>
 
     <!-- 방송 URL 및 스트림키 목록 -->
-    <div id="tab-content-urls" class="space-y-2">
+    <div id="urls-liquid-tabs" class="liquid-tab-group liquid-full mb-2" role="tablist" aria-labelledby="urls-panel-title">
+      <div class="liquid-pill" aria-hidden="true"></div>
+      <button type="button" id="urls-tab" class="liquid-tab-btn active" role="tab" aria-selected="true" aria-controls="tab-content-urls" onclick="switchUrlsPanelTab('urls')">스튜디오 URL</button>
+      <button type="button" id="layers-tab" class="liquid-tab-btn" role="tab" aria-selected="false" aria-controls="tab-content-layers" onclick="switchUrlsPanelTab('layers')">오버레이 설정</button>
+    </div>
+    <div id="tab-content-urls" class="space-y-2" role="tabpanel" aria-labelledby="urls-tab">
       <!-- 안내 문구 -->
       <div class="px-2 py-1 rounded bg-[#101620] border border-[#1E2738] text-[10px] text-slate-400 leading-snug">
         OBS 소스에 추가할 URL입니다. 방송 노출 방지를 위해 <span class="text-[#00FFA3]">기본 마스킹</span>되어 있습니다.
@@ -882,8 +882,10 @@
 
       </div>
     </div>
-
-  </div>
+    <div id="tab-content-layers" role="tabpanel" aria-labelledby="layers-tab" hidden>
+      {{OVERLAY_MANAGER}}
+    </div>
+  </section>
 
   <!-- ===== CHZZK REMOTE CONTROL PANEL ===== -->
   <div id="remote-panel" class="settings-panel !px-2.5 !py-2.5 !flex flex-col gap-2 !overflow-hidden">
@@ -1114,12 +1116,27 @@
           <span class="text-sm">ℹ️</span>
           <span>앱 정보</span>
         </button>
+        <div class="settings-nav-divider" aria-hidden="true"></div>
+        <button type="button" onclick="switchSettingsTab('shortcuts')" id="tab-btn-shortcuts" class="settings-nav-btn"><span class="text-sm" aria-hidden="true">⌨️</span><span>단축키</span></button>
       </nav>
 
       <!-- Right Tab Content Area -->
       <div class="flex-1 min-w-0 overflow-y-auto pr-0.5 space-y-2.5">
 
         <!-- ===== TAB 1: 로그인 (Login) ===== -->
+
+        <div id="tab-content-shortcuts" class="space-y-2.5 hidden">
+          <section class="section-card p-3 bg-chzzk-card/70 border border-chzzk-border space-y-2.5" aria-labelledby="shortcut-title">
+            <h3 id="shortcut-title" class="flex items-center gap-1.5 pb-2 border-b border-chzzk-border text-xs font-bold text-slate-100"><span aria-hidden="true">⌨️</span>단축키 설정</h3>
+            <span id="overlay-shortcut-label" class="block text-[11px] font-semibold text-slate-200">오버레이 변경</span>
+            <div class="flex items-center gap-2">
+              <button type="button" id="overlay-shortcut" class="shortcut-capture min-w-0 flex-1" aria-labelledby="overlay-shortcut-label" aria-describedby="overlay-shortcut-help overlay-shortcut-status" aria-pressed="false">단축키 지정</button>
+              <button type="button" id="clear-overlay-shortcut" class="px-3 py-1.5 text-[11px] font-bold rounded bg-chzzk-card border border-chzzk-border text-slate-300 hover:text-white cursor-pointer">해제</button>
+            </div>
+            <p id="overlay-shortcut-help" class="text-[10px] text-slate-400 leading-relaxed">수정 → 상호작용 → 고정 순서로 전환합니다. 최대 4개 키를 조합할 수 있으며 지정 즉시 저장됩니다.</p>
+            <p id="overlay-shortcut-status" class="text-[10px] text-slate-400 leading-relaxed" role="status"></p>
+          </section>
+        </div>
         <div id="tab-content-login" class="space-y-2.5">
           <!-- 치지직 연동 카드 (방법 A, B 묶음 박스) -->
           <div class="section-card p-3 bg-chzzk-card/70 border border-chzzk-border space-y-2.5">
@@ -2389,6 +2406,7 @@ SOFTWARE.</div>
   <script src="/ui/main-dock/js/settings.js"></script>
   <script src="/ui/main-dock/js/moderation.js"></script>
   <script src="/ui/main-dock/js/broadcast.js"></script>
+  <script src="/ui/overlay-settings/settings.js"></script>
 </div>
 </body>
 </html>

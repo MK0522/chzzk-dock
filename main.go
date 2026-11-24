@@ -1,8 +1,8 @@
-﻿package main
+package main
 
 import (
-	"embed"
 	"bytes"
+	"embed"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -10,9 +10,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
-	"runtime"
 	"syscall"
 	"time"
 	"unsafe"
@@ -26,6 +26,9 @@ var embeddedUI embed.FS
 
 //go:embed ui/main-dock/index.html
 var embeddedHTML []byte
+
+//go:embed ui/overlay-settings/manager.html
+var embeddedOverlayManager []byte
 
 //go:embed ui/stats-dock/index.html
 var embeddedStatsHTML []byte
@@ -77,7 +80,9 @@ func loadAppVersionFromEmbed() string {
 }
 
 // ============================================================
-//  CHZZK OBS Dock Server (Modular Architecture)
+//
+//	CHZZK OBS Dock Server (Modular Architecture)
+//
 // ============================================================
 const (
 	DEFAULT_HTTP_PORT = 8081
@@ -85,10 +90,10 @@ const (
 )
 
 var (
-	APP_VERSION = loadAppVersionFromEmbed()
-	activeHttpPort     = DEFAULT_HTTP_PORT
-	isFallbackPort     = false
-	portFallbackReason = ""
+	APP_VERSION         = loadAppVersionFromEmbed()
+	activeHttpPort      = DEFAULT_HTTP_PORT
+	isFallbackPort      = false
+	portFallbackReason  = ""
 	webviewProcess      *exec.Cmd
 	webviewWaitCh       chan struct{}
 	webviewLock         sync.Mutex
@@ -122,8 +127,13 @@ var (
 func getRenderedHTML() []byte {
 	renderedHTMLOnce.Do(func() {
 		renderedHTMLCache = bytes.ReplaceAll(embeddedHTML, []byte("{{APP_VERSION}}"), []byte(runtimeAppVersion))
+		renderedHTMLCache = renderOverlayManager(renderedHTMLCache)
 	})
 	return renderedHTMLCache
+}
+
+func renderOverlayManager(page []byte) []byte {
+	return bytes.ReplaceAll(page, []byte("{{OVERLAY_MANAGER}}"), embeddedOverlayManager)
 }
 
 func getRenderedStatsHTML() []byte {
@@ -185,7 +195,7 @@ func getTrayTooltip() string {
 }
 
 var (
-	user32DLL                   = syscall.NewLazyDLL("user32.dll")
+	user32DLL                    = syscall.NewLazyDLL("user32.dll")
 	procAllowSetForegroundWindow = user32DLL.NewProc("AllowSetForegroundWindow")
 )
 
@@ -261,7 +271,9 @@ func fetchSessionUserStatus(aut, ses string) (channelID, channelName, profileIma
 }
 
 // ============================================================
-//  시스템 트레이 및 앱 생명주기 관리
+//
+//	시스템 트레이 및 앱 생명주기 관리
+//
 // ============================================================
 func exitApp() {
 	core.DestroyDockWindow()
@@ -306,8 +318,6 @@ func restartSelf() {
 
 	os.Exit(0)
 }
-
-
 
 func getWatchdogTrayLabel(sec int) string {
 	switch sec {
@@ -370,6 +380,12 @@ func runTray(silentMode bool) {
 			},
 		},
 		{
+			Label: "오버레이 레이어 관리",
+			Callback: func() {
+				core.OpenBrowser(fmt.Sprintf("http://localhost:%d/ui/overlay-settings/index.html", activeHttpPort))
+			},
+		},
+		{
 			Label: fmt.Sprintf("CHZZK Dock %s (주소 복사)", APP_VERSION),
 			Callback: func() {
 				core.CopyDockUrl(activeHttpPort)
@@ -404,39 +420,39 @@ func runTray(silentMode bool) {
 			},
 			SubItems: []core.MenuItem{
 				{
-					Label: "사용 안 함 (자동 종료 비활성화)",
-					CheckFn: func() bool { return core.GetWatchdogTimeoutSec() == -1 },
+					Label:    "사용 안 함 (자동 종료 비활성화)",
+					CheckFn:  func() bool { return core.GetWatchdogTimeoutSec() == -1 },
 					Callback: func() { updateWatchdogTimeoutFromTray(-1) },
 				},
 				{
-					Label: "즉시 종료 (0초)",
-					CheckFn: func() bool { return core.GetWatchdogTimeoutSec() == 0 },
+					Label:    "즉시 종료 (0초)",
+					CheckFn:  func() bool { return core.GetWatchdogTimeoutSec() == 0 },
 					Callback: func() { updateWatchdogTimeoutFromTray(0) },
 				},
 				{IsSeparator: true},
 				{
-					Label: "10초 뒤 종료",
-					CheckFn: func() bool { return core.GetWatchdogTimeoutSec() == 10 },
+					Label:    "10초 뒤 종료",
+					CheckFn:  func() bool { return core.GetWatchdogTimeoutSec() == 10 },
 					Callback: func() { updateWatchdogTimeoutFromTray(10) },
 				},
 				{
-					Label: "30초 뒤 종료",
-					CheckFn: func() bool { return core.GetWatchdogTimeoutSec() == 30 },
+					Label:    "30초 뒤 종료",
+					CheckFn:  func() bool { return core.GetWatchdogTimeoutSec() == 30 },
 					Callback: func() { updateWatchdogTimeoutFromTray(30) },
 				},
 				{
-					Label: "1분 뒤 종료 (기본값)",
-					CheckFn: func() bool { return core.GetWatchdogTimeoutSec() == 60 },
+					Label:    "1분 뒤 종료 (기본값)",
+					CheckFn:  func() bool { return core.GetWatchdogTimeoutSec() == 60 },
 					Callback: func() { updateWatchdogTimeoutFromTray(60) },
 				},
 				{
-					Label: "5분 뒤 종료",
-					CheckFn: func() bool { return core.GetWatchdogTimeoutSec() == 300 },
+					Label:    "5분 뒤 종료",
+					CheckFn:  func() bool { return core.GetWatchdogTimeoutSec() == 300 },
 					Callback: func() { updateWatchdogTimeoutFromTray(300) },
 				},
 				{
-					Label: "10분 뒤 종료",
-					CheckFn: func() bool { return core.GetWatchdogTimeoutSec() == 600 },
+					Label:    "10분 뒤 종료",
+					CheckFn:  func() bool { return core.GetWatchdogTimeoutSec() == 600 },
 					Callback: func() { updateWatchdogTimeoutFromTray(600) },
 				},
 				{IsSeparator: true},
@@ -547,13 +563,23 @@ func handleSubcommands() bool {
 		}
 		core.RunRemoteWebview(channelId)
 		os.Exit(0)
-	case "--chat", "-c":
+	case "--chat", "-c", "--chat-overlay":
 		core.StartParentWatchdog()
 		channelId := ""
 		if len(os.Args) > 2 {
 			channelId = strings.TrimSpace(os.Args[2])
 		}
-		core.RunChatWebview(channelId)
+		if os.Args[1] == "--chat-overlay" {
+			if len(os.Args) > 3 {
+				if err := core.RunOverlayLayer(channelId, os.Args[3]); err != nil {
+					core.LogError("[Chat Overlay] %v", err)
+				}
+			} else {
+				core.RunChatOverlay(channelId)
+			}
+		} else {
+			core.RunChatWebview(channelId)
+		}
 		os.Exit(0)
 	case "--install-script":
 		targetDir := ""
@@ -753,7 +779,9 @@ func startHttpServer(listener net.Listener) {
 }
 
 // ============================================================
-//  Main Entrypoint (간결한 시퀀스)
+//
+//	Main Entrypoint (간결한 시퀀스)
+//
 // ============================================================
 func main() {
 	core.SetAppVersion(APP_VERSION)
@@ -768,6 +796,7 @@ func main() {
 
 	core.SetDockShutdownCallback(exitApp)
 	core.InitProcessJobObject()
+	core.InitializeOverlayMode()
 
 	silentMode := isSilentMode()
 	user32 := syscall.NewLazyDLL("user32.dll")
@@ -783,16 +812,25 @@ func main() {
 	listener := bindServerListener(cliPort, silentMode, user32)
 
 	startHttpServer(listener)
+	go func() {
+		layers, err := core.LoadOverlayLayers()
+		if err != nil {
+			core.LogWarn("[Chat Overlay] restore: %v", err)
+			return
+		}
+		for _, layer := range layers {
+			if !layer.Enabled {
+				continue
+			}
+			if layer.ID == "chzzk" && layer.URL == "" && layer.RestoreChannel == "" {
+				continue
+			}
+			if err := startToolWebview("--chat-overlay", layer.RestoreChannel, layer.ID); err != nil {
+				core.LogWarn("[Chat Overlay] restore: %v", err)
+			}
+		}
+	}()
 	time.Sleep(150 * time.Millisecond)
 
 	runTray(silentMode)
 }
-
-
-
-
-
-
-
-
-

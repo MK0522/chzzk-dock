@@ -2441,3 +2441,46 @@
       dropdown.innerHTML = html;
       dropdown.style.display = 'block';
     }
+(() => {
+  const button = document.getElementById('overlay-shortcut');
+  const status = document.getElementById('overlay-shortcut-status');
+  if (!button) return;
+  let pending = false;
+  let capturing = false;
+  let currentLabel = '';
+  function render() {
+    button.textContent = capturing ? '키 조합을 누르세요' : currentLabel || '단축키 지정';
+    button.setAttribute('aria-pressed', String(capturing));
+  }
+  async function save(shortcut) {
+    if (pending) return;
+    pending = true;
+    try {
+      const response = await apiFetch('/overlay-shortcut', {method:'PUT', body:JSON.stringify(shortcut)});
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || data.error || '단축키 등록에 실패했습니다.');
+      currentLabel = data.label || '';
+      status.textContent = data.key ? '단축키를 등록했습니다.' : '지정된 단축키가 없습니다.';
+    } catch (error) { status.textContent = error.message; }
+    finally { pending = false; render(); }
+  }
+  button.addEventListener('click', () => { capturing = true; status.textContent = '조합키를 누르세요. Esc를 누르면 취소합니다.'; render(); });
+  button.addEventListener('blur', () => { if (capturing) { capturing = false; render(); } });
+  button.addEventListener('keydown', event => {
+    if (!capturing) return;
+    if (event.key === 'Tab' && !event.ctrlKey && !event.altKey && !event.shiftKey && !event.metaKey) { capturing = false; render(); return; }
+    event.preventDefault();
+    if (event.key === 'Escape') { capturing = false; status.textContent = '단축키 지정을 취소했습니다.'; render(); return; }
+    if (event.repeat || ['Control','Alt','Shift','Meta'].includes(event.key)) return;
+    const modifiers = (event.altKey ? 1 : 0) | (event.ctrlKey ? 2 : 0) | (event.shiftKey ? 4 : 0) | (event.metaKey ? 8 : 0);
+    if ([event.altKey,event.ctrlKey,event.shiftKey,event.metaKey].filter(Boolean).length > 3) { status.textContent = '최대 4개 키까지 조합할 수 있습니다.'; return; }
+    const key = event.keyCode;
+    if (!key || key > 255) { status.textContent = '다른 키를 선택해 주세요.'; return; }
+    const label = [event.ctrlKey && 'Ctrl',event.altKey && 'Alt',event.shiftKey && 'Shift',event.metaKey && 'Win',event.key === ' ' ? 'Space' : event.key.toUpperCase()].filter(Boolean).join(' + ');
+    capturing = false;
+    render();
+    save({key,modifiers,label});
+  });
+  document.getElementById('clear-overlay-shortcut').addEventListener('click', () => { capturing = false; render(); save({key:0,modifiers:0,label:''}); });
+  apiFetch('/overlay-shortcut').then(r=>r.json()).then(data=>{currentLabel=data.label || '';render();}).catch(error=>{status.textContent=error.message;});
+})();

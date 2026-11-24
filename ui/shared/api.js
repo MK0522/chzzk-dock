@@ -81,7 +81,8 @@ const chzzkApi = {
   },
 
   // --- [3. 윈도우 웹뷰 제어 & 시스템 기능] ---
-  openChatWebview: (channelId = '') => apiFetch(`/chat-webview?channelId=${encodeURIComponent(channelId || '')}`),
+  openChatWebview: (channelId = '', overlay = false) =>
+    apiFetch(`/chat-webview?channelId=${encodeURIComponent(channelId || '')}${overlay ? '&overlay=1' : ''}`),
   openRemoteWebview: (channelId = '') => apiFetch(`/remote-webview?channelId=${encodeURIComponent(channelId || '')}`),
   openFolder: (path) => apiFetch(`/api/open-folder?path=${encodeURIComponent(path)}`),
   getDiskTotal: (drive = 'C') => apiFetch(`/api/disk-total?drive=${encodeURIComponent(drive)}`),

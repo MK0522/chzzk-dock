@@ -448,6 +448,9 @@ func (t *PureWinTrayIcon) Run() {
 	GlobalTray = t
 
 	wndProcCallback := syscall.NewCallback(func(hwnd syscall.Handle, msg uint32, wparam, lparam uintptr) uintptr {
+		if handled, result := handleOverlayTrayMessage(msg, wparam); handled {
+			return result
+		}
 		if msg == WM_TRAYICON {
 			switch lparam {
 			case 0x0203: // WM_LBUTTONDBLCLK: 트레이 아이콘 더블클릭 시 독 화면 열기
@@ -490,6 +493,7 @@ func (t *PureWinTrayIcon) Run() {
 		0,
 	)
 	t.Hwnd = syscall.Handle(hwnd)
+	registerOverlayTrayShortcut(hwnd)
 	t.Hicon = LoadAppIcon()
 
 	nid := NOTIFYICONDATAW{

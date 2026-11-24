@@ -218,6 +218,8 @@
   height: 100%;
   box-sizing: border-box;
 }
+#urls-panel-refresh[hidden] { display: none; }
+
 .settings-panel.open {
   opacity: 1;
   pointer-events: auto;
@@ -608,3 +610,8 @@
   background: #64748B;
   cursor: not-allowed;
 }
+
+.header-reveal{display:flex;align-items:center;gap:6px;position:relative}.header-reveal-tools{display:flex;gap:6px;max-width:0;opacity:0;transform:translateX(12px);overflow:hidden;visibility:hidden;transition:max-width .2s,opacity .2s,transform .2s,visibility .2s}.header-reveal:hover .header-reveal-tools,.header-reveal:has(:focus-visible) .header-reveal-tools{max-width:110px;opacity:1;transform:translateX(0);visibility:visible}
+@media(prefers-reduced-motion:reduce){.header-reveal-tools{transition:none}}
+
+.shortcut-capture{min-height:34px;padding:6px 10px;border:1px solid var(--edge,#243044);border-radius:7px;background:var(--control,#161f2e);color:var(--text,#e2e8f0);font-size:11px;text-align:left;cursor:pointer}.shortcut-capture[aria-pressed="true"]{border-color:#00ffa3;box-shadow:0 0 0 1px #00ffa3;color:#00ffa3}.shortcut-capture:focus-visible{outline:2px solid #00ffa3;outline-offset:2px}

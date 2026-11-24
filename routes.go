@@ -97,6 +97,11 @@ func buildRouter() http.Handler {
 	wrap("GET /open-browser", handleOpenBrowser, true)
 	wrap("GET /remote-webview", handleRemoteWebview, true)
 	wrap("GET /chat-webview", handleChatWebview, true)
+	wrap("GET /overlay-layers", handleOverlayLayers, true)
+	wrap("PUT /overlay-layers", handleOverlayLayers, true)
+	wrap("POST /overlay-layers/action", handleOverlayAction, true)
+	wrap("GET /overlay-shortcut", handleOverlayShortcut, true)
+	wrap("PUT /overlay-shortcut", handleOverlayShortcut, true)
 	wrap("POST /check-port", handleCheckPort, true)
 	wrap("POST /save-port", handleSavePort, true)
 	wrap("GET /app-settings", handleAppSettingsGet, true)
@@ -136,18 +141,18 @@ func buildRouter() http.Handler {
 	wrap("GET /chzzkdock/streamkey", handleChzzkStreamKeyGet, true)
 	wrap("PUT /chzzkdock/streamkey", handleChzzkStreamKeyPut, true)
 	wrap("GET /chzzkdock/revenue/summary", handleChzzkRevenueSummaryGet, true)
-	wrap("GET /chzzkdock/profile", handleChzzkProfileGet, true)                // 치지직 쿠키 불필요 (공개 프로필)
-	wrap("GET /chzzkdock/live-status", handleChzzkLiveStatusGet, true)          // 치지직 쿠키 불필요 (공개 라이브 상태)
+	wrap("GET /chzzkdock/profile", handleChzzkProfileGet, true)        // 치지직 쿠키 불필요 (공개 프로필)
+	wrap("GET /chzzkdock/live-status", handleChzzkLiveStatusGet, true) // 치지직 쿠키 불필요 (공개 라이브 상태)
 	wrap("GET /chzzkdock/user-status", handleChzzkUserStatusGet, true)
 	wrap("GET /chzzkdock/session/bootstrap", handleChzzkSessionBootstrap, true)
 	wrap("GET /chzzkdock/chat-rule", handleChzzkChatRuleGet, true)
 	wrap("PUT /chzzkdock/chat-rule", handleChzzkChatRulePut, true)
 	wrap("GET /chzzkdock/broadcast", handleChzzkBroadcastGet, true)
 	wrap("PUT /chzzkdock/broadcast", handleChzzkBroadcastPut, true)
-	wrap("GET /chzzkdock/categories/search", handleChzzkCategoriesSearchGet, true)        // 치지직 쿠키 불필요 (공개 검색)
-	wrap("GET /chzzkdock/categories/recommended", handleChzzkCategoriesRecommendedGet, true)  // 치지직 쿠키 불필요 (공개 추천)
+	wrap("GET /chzzkdock/categories/search", handleChzzkCategoriesSearchGet, true)           // 치지직 쿠키 불필요 (공개 검색)
+	wrap("GET /chzzkdock/categories/recommended", handleChzzkCategoriesRecommendedGet, true) // 치지직 쿠키 불필요 (공개 추천)
 	wrap("GET /chzzkdock/drops/campaigns", handleChzzkDropsCampaignsGet, true)
-	wrap("GET /chzzkdock/drops/match", handleChzzkDropsMatchGet, true)                    // 치지직 쿠키 불필요 (공개 드롭스)
+	wrap("GET /chzzkdock/drops/match", handleChzzkDropsMatchGet, true) // 치지직 쿠키 불필요 (공개 드롭스)
 	wrap("GET /chzzkdock/watch-parties", handleChzzkWatchPartiesGet, true)
 	wrap("GET /chzzkdock/snapshot", handleChzzkWatchPartySnapshotGet, true)
 	wrap("POST /chzzkdock/snapshot", handleChzzkWatchPartySnapshotPost, true)
@@ -722,23 +727,29 @@ var toolWebviews = struct {
 	inputs map[io.WriteCloser]struct{}
 }{inputs: make(map[io.WriteCloser]struct{})}
 
-func startToolWebview(mode, channelID string) error {
+func startToolWebview(mode, channelID string, extra ...string) error {
+
+	toolWebviews.Lock()
+	defer toolWebviews.Unlock()
+	return startToolWebviewLocked(mode, channelID, 0, extra...)
+}
+
+func startToolWebviewLocked(mode, channelID string, retries int, extra ...string) error {
 	exePath, err := os.Executable()
 	if err != nil {
 		return err
 	}
 	args := []string{mode}
-	if channelID != "" {
+	if channelID != "" || len(extra) != 0 {
 		args = append(args, channelID)
 	}
+	args = append(args, extra...)
 	cmd := exec.Command(exePath, args...)
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return err
 	}
 
-	toolWebviews.Lock()
-	defer toolWebviews.Unlock()
 	if err := startWebview(cmd); err != nil {
 		_ = stdin.Close()
 		return err
@@ -747,8 +758,14 @@ func startToolWebview(mode, channelID string) error {
 	go func() {
 		_ = cmd.Wait()
 		toolWebviews.Lock()
+		defer toolWebviews.Unlock()
+		_, active := toolWebviews.inputs[stdin]
 		delete(toolWebviews.inputs, stdin)
-		toolWebviews.Unlock()
+		if active && mode == "--chat-overlay" && cmd.ProcessState.ExitCode() == core.OverlayRestartCode && retries < 2 {
+			if err := startToolWebviewLocked(mode, channelID, retries+1, extra...); err != nil {
+				core.LogError("[Chat Overlay] restart failed: %v", err)
+			}
+		}
 	}()
 	return nil
 }
@@ -773,6 +790,21 @@ func handleRemoteWebview(w http.ResponseWriter, r *http.Request) {
 
 func handleChatWebview(w http.ResponseWriter, r *http.Request) {
 	channelId := resolveChannelIdFromRequest(r)
+	if r.URL.Query().Get("overlay") == "1" {
+		if channelId == "" {
+			respondErr(w, http.StatusBadRequest, "채널을 선택한 뒤 채팅 오버레이를 열어 주세요.")
+			return
+		}
+		if !core.ActivateChatOverlay() {
+			if err := startToolWebview("--chat-overlay", channelId); err != nil {
+				core.LogError("[Chat] overlay start failed: %v", err)
+				respondErr(w, http.StatusInternalServerError, "채팅 오버레이를 열 수 없습니다.")
+				return
+			}
+		}
+		respondOK(w, map[string]any{"status": "started"})
+		return
+	}
 	core.LogInfo("[Chat] /chat-webview 요청 수신 (channelId: %s)", channelId)
 	if core.BringChatWindowToFront() {
 		respondOK(w, map[string]any{
@@ -788,8 +820,6 @@ func handleChatWebview(w http.ResponseWriter, r *http.Request) {
 	}
 	respondOK(w, map[string]any{"status": "started", "message": "치지직 채팅 창이 열렸습니다."})
 }
-
-
 
 func handleCheckPort(w http.ResponseWriter, r *http.Request) {
 	var req struct {
@@ -874,33 +904,31 @@ func handleSavePort(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-
-
 // handleAppSettingsGet: GET /app-settings
 // settings.json의 모든 일반 설정 및 런타임 상태(포트, 기본 브라우저)를 단일 JSON 객체로 반환
 func handleAppSettingsGet(w http.ResponseWriter, r *http.Request) {
 	st := core.LoadSettings()
 	respondOK(w, map[string]any{
-		"code":                   200,
-		"settings":               st,
-		"http_port":              st.HttpPort,
-		"active_port":            activeHttpPort,
-		"configured_port":        core.GetConfiguredPort(),
-		"is_fallback":            isFallbackPort,
-		"fallback_reason":        portFallbackReason,
-		"default_browser":        core.GetDefaultBrowserName(),
-		"font_scale":             st.FontScale,
+		"code":                          200,
+		"settings":                      st,
+		"http_port":                     st.HttpPort,
+		"active_port":                   activeHttpPort,
+		"configured_port":               core.GetConfiguredPort(),
+		"is_fallback":                   isFallbackPort,
+		"fallback_reason":               portFallbackReason,
+		"default_browser":               core.GetDefaultBrowserName(),
+		"font_scale":                    st.FontScale,
 		"theme_mode":                    st.GetThemeMode(),
 		"remote_filter_colors":          st.RemoteFilterColors,
 		"dismissed_watch_party_notices": st.DismissedWatchPartyNotices,
-		"show_viewer_count":      st.IsShowViewerCount(),
-		"popup_on_start":         st.IsPopupOnStart(),
-		"notify_on_shutdown":     st.IsNotifyOnShutdown(),
-		"enable_gpu":             st.IsEnableGPU(),
-		"external_browser_guard": st.IsExternalBrowserGuard(),
-		"enable_beta_updates":    st.IsEnableBetaUpdates(),
-		"auto_check_update":      st.IsAutoCheckUpdate(),
-		"watchdog_timeout_sec":   st.WatchdogTimeoutSec,
+		"show_viewer_count":             st.IsShowViewerCount(),
+		"popup_on_start":                st.IsPopupOnStart(),
+		"notify_on_shutdown":            st.IsNotifyOnShutdown(),
+		"enable_gpu":                    st.IsEnableGPU(),
+		"external_browser_guard":        st.IsExternalBrowserGuard(),
+		"enable_beta_updates":           st.IsEnableBetaUpdates(),
+		"auto_check_update":             st.IsAutoCheckUpdate(),
+		"watchdog_timeout_sec":          st.WatchdogTimeoutSec,
 	})
 }
 
@@ -1287,6 +1315,12 @@ func handleStaticUI(w http.ResponseWriter, r *http.Request) {
 
 	slashPath := "ui/" + filepath.ToSlash(cleanRel)
 	if data, err := embeddedUI.ReadFile(slashPath); err == nil {
+		switch slashPath {
+		case "ui/main-dock/index.html":
+			data = getRenderedHTML()
+		case "ui/overlay-settings/index.html":
+			data = renderOverlayManager(data)
+		}
 		sendStaticAsset(w, cleanRel, data)
 		return
 	}

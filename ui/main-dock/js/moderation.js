@@ -246,15 +246,19 @@ async function openExternalUrl(url, label = '페이지') {
   }
 }
 
-async function openChatWebview() {
+async function openChatWebview(overlay = false) {
   if (typeof checkLoginGuard === 'function' && !checkLoginGuard('채팅창 열기')) return;
   try {
     if (!userChannelId) await resolveChannelId();
-    const res = await chzzkApi.openChatWebview(userChannelId);
+    const res = await chzzkApi.openChatWebview(userChannelId, overlay);
     if (res.ok) {
       const data = await res.json();
       if (data.status === 'started') {
-        showToast('💬 채팅창 실행됨', 'success', '독립 채팅창이 열렸습니다.');
+        if (overlay) {
+          showToast('채팅 오버레이', 'success', 'Ctrl+Alt+T로 모드를 바꿀 수 있습니다.');
+        } else {
+          showToast('💬 채팅창 실행됨', 'success', '독립 채팅창이 열렸습니다.');
+        }
       } else {
         showToast('채팅창 알림', 'info', data.message || '채팅창이 실행되었습니다.');
       }
@@ -2262,8 +2266,24 @@ function setSelectedChatGroup(val) {
 }
 
 // ===== 방송 URL, 스트림 키 & 수익 요약 =====
+function switchUrlsPanelTab(tab, animate = true) {
+  const layers = tab === 'layers';
+  if (!layers && !checkLoginGuard('방송 URL 및 스트림 키 확인')) return;
+  const active = document.getElementById(layers ? 'layers-tab' : 'urls-tab');
+  for (const button of active.parentElement.querySelectorAll('[role="tab"]')) {
+    button.classList.toggle('active', button === active);
+    button.setAttribute('aria-selected', String(button === active));
+  }
+  document.getElementById('tab-content-urls').hidden = layers;
+  const layersPanel = document.getElementById('tab-content-layers');
+  layersPanel.hidden = !layers;
+  document.getElementById('urls-panel-refresh').hidden = layers;
+  moveLiquidPill('urls-liquid-tabs', active, animate);
+  if (layers) layersPanel.querySelector('.overlay-manager').dispatchEvent(new Event('overlay-activated'));
+  else fetchStreamingInfo();
+}
+
 function toggleUrlsPanel() {
-  if (typeof checkLoginGuard === 'function' && !checkLoginGuard('방송 URL 및 스트림 키 확인')) return;
   closeAllPopovers();
   const panel = document.getElementById('urls-panel');
   const settingsPanel = document.getElementById('settings-panel');
@@ -2283,7 +2303,9 @@ function toggleUrlsPanel() {
     const elStats = document.getElementById('field-stats-dock-url');
     if (elStats) elStats.value = `${window.location.origin}/stats`;
     if (panel.classList.contains('open')) {
-      fetchStreamingInfo();
+      const hasLogin = userChannelId || (serverConfig.nid_aut && serverConfig.nid_ses);
+      const tab = !hasLogin || document.getElementById('layers-tab').classList.contains('active') ? 'layers' : 'urls';
+      switchUrlsPanelTab(tab, false);
     }
   }
   if (typeof updatePanelScrollLock === 'function') updatePanelScrollLock();
@@ -2564,6 +2586,7 @@ function syncAllVisibleLiquidPills() {
   [
     'stream-option-liquid-tabs',
     'donations-liquid-tabs',
+    'urls-liquid-tabs',
     'remote-liquid-tabs',
     'mission-sort-group',
     'settings-liquid-nav'

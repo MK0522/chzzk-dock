@@ -986,7 +986,7 @@ async function initConnection() {
     // ===== 설정창 내비게이션 탭 전환 (로그인 / 일반 / UI / 고급 / 앱 정보) =====
 
     function switchSettingsTab(tabName) {
-      const tabs = ['login', 'general', 'ui', 'advanced', 'info'];
+      const tabs = ['login', 'general', 'ui', 'advanced', 'info', 'shortcuts'];
       tabs.forEach(t => {
         const btn = document.getElementById(`tab-btn-${t}`);
         const content = document.getElementById(`tab-content-${t}`);
