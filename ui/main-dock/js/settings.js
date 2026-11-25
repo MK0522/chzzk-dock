@@ -423,6 +423,14 @@
           ? { ...data.dismissed_watch_party_notices }
           : {};
       }
+      if (typeof dismissedBetaNotices !== 'undefined') {
+        dismissedBetaNotices = (data.dismissed_beta_notices && typeof data.dismissed_beta_notices === 'object')
+          ? { ...data.dismissed_beta_notices }
+          : {};
+      }
+      collapsedCategorySections = (data.collapsed_category_sections && typeof data.collapsed_category_sections === 'object')
+        ? { ...data.collapsed_category_sections }
+        : {};
 
       // 3. 실시간 시청자 수
       if (typeof data.show_viewer_count === 'boolean') {
@@ -2248,15 +2256,31 @@
         return fId === catId;
       });
 
-      if (existingIdx > -1) {
+      const isRemoving = existingIdx > -1;
+      if (!isRemoving && favs.length >= MAX_CATEGORY_FAVORITES) {
+        showToast(`즐겨찾기는 최대 ${MAX_CATEGORY_FAVORITES}개까지 등록 가능합니다.`, 'warn');
+        return;
+      }
+
+      if (typeof showConfirmModal === 'function') {
+        const confirmed = await showConfirmModal({
+          title: isRemoving ? '즐겨찾기 해제' : '즐겨찾기 추가',
+          message: isRemoving
+            ? `'${catVal}' 카테고리를 즐겨찾기에서 해제하시겠습니까?`
+            : `'${catVal}' 카테고리를 즐겨찾기에 추가하시겠습니까?`,
+          confirmText: isRemoving ? '해제' : '추가',
+          cancelText: '취소',
+          danger: isRemoving,
+          icon: isRemoving ? '☆' : '⭐'
+        });
+        if (!confirmed) return;
+      }
+
+      if (isRemoving) {
         favs.splice(existingIdx, 1);
         await saveCategoryFavorites(favs);
         showToast(`[${catVal}] 즐겨찾기 해제`, 'info');
       } else {
-        if (favs.length >= MAX_CATEGORY_FAVORITES) {
-          showToast(`즐겨찾기는 최대 ${MAX_CATEGORY_FAVORITES}개까지 등록 가능합니다.`, 'warn');
-          return;
-        }
         favs.push({
           category_id: catId,
           category_name: catVal,
@@ -2372,6 +2396,50 @@
     }
 
 
+    var collapsedCategorySections = {};
+    function getCollapsedCategorySections() {
+      return collapsedCategorySections || {};
+    }
+
+    function toggleCategorySection(sectionKey, event) {
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      const nextState = { ...(collapsedCategorySections || {}) };
+      const collapsed = !nextState[sectionKey];
+      if (collapsed) nextState[sectionKey] = true;
+      else delete nextState[sectionKey];
+      collapsedCategorySections = nextState;
+      if (typeof saveAppSettingField === 'function') {
+        saveAppSettingField('collapsed_category_sections', collapsedCategorySections);
+      }
+      const dropdown = document.getElementById('category-dropdown');
+      const body = dropdown?.querySelector?.(`[data-cat-section-body="${sectionKey}"]`);
+      const arrow = dropdown?.querySelector?.(`[data-cat-section-arrow="${sectionKey}"]`);
+      const header = dropdown?.querySelector?.(`[data-cat-section-toggle="${sectionKey}"]`);
+      if (body) body.classList.toggle('hidden', collapsed);
+      if (arrow) arrow.textContent = collapsed ? '▸' : '▾';
+      if (header) header.setAttribute('aria-expanded', String(!collapsed));
+    }
+
+    function renderCategorySectionHtml(key, icon, title, colorClass, rowsHtml, countText = '') {
+      const collapsed = !!getCollapsedCategorySections()[key];
+      return `
+        <button type="button" data-cat-section-toggle="${key}" aria-expanded="${!collapsed}" onclick="toggleCategorySection('${key}', event)"
+                class="w-full px-2.5 py-1 text-[10px] font-bold ${colorClass} bg-[#161F2E] hover:bg-[#1E2738] flex items-center justify-between border-b border-[#1E2738] cursor-pointer select-none transition-colors">
+          <span class="flex items-center gap-1">${icon} <span>${title}</span></span>
+          <span class="flex items-center gap-1.5 text-slate-400 font-normal">
+            ${countText ? `<span>${countText}</span>` : ''}
+            <span data-cat-section-arrow="${key}" class="text-[9.5px] leading-none">${collapsed ? '▸' : '▾'}</span>
+          </span>
+        </button>
+        <div data-cat-section-body="${key}" class="${collapsed ? 'hidden' : ''}">
+          ${rowsHtml}
+        </div>
+      `;
+    }
+
     async function renderFavoritesDropdown() {
       const dropdown = document.getElementById('category-dropdown');
       if (!dropdown) return;
@@ -2397,12 +2465,7 @@
       `;
 
       if (favs.length > 0) {
-        html += `
-          <div class="px-2.5 py-1 text-[10px] font-bold text-amber-400 bg-[#161F2E] flex items-center justify-between border-b border-[#1E2738]">
-            <span class="flex items-center gap-1">⭐ <span>즐겨찾기 목록</span></span>
-            <span class="text-slate-500 font-normal">${favs.length}/${MAX_CATEGORY_FAVORITES}</span>
-          </div>
-        `;
+        let favRowsHtml = '';
         favs.forEach(f => {
           let fId = f.category_id || f.categoryId || f.id || '';
           let fVal = f.category_name || f.categoryValue || fId;
@@ -2415,27 +2478,43 @@
             if (!poster) poster = 'https://ssl.pstatic.net/static/nng/glive/icon/category_poster_talk.png';
           }
           seenIds.add(fId);
-          html += renderCategoryRowHtml(fType, fId, fVal, poster, null, true);
+          favRowsHtml += renderCategoryRowHtml(fType, fId, fVal, poster, null, true);
         });
+        html += renderCategorySectionHtml('favorites', '⭐', '즐겨찾기 목록', 'text-amber-400', favRowsHtml, `${favs.length}/${MAX_CATEGORY_FAVORITES}`);
       }
 
       // 추천 카테고리 (치지직 실시간 상위 인기 카테고리 풀에서 즐겨찾기 중복을 제외하고 상시 5개 유지)
-      let popList = livePopularCategories;
-      if (!popList || popList.length === 0) {
-        popList = await fetchLivePopularCategories();
-      }
+      const [popList, dropsList] = await Promise.all([
+        (!livePopularCategories || livePopularCategories.length === 0)
+          ? fetchLivePopularCategories()
+          : Promise.resolve(livePopularCategories),
+        (typeof activeChannelDrops !== 'undefined' && activeChannelDrops.length === 0 && typeof userChannelId !== 'undefined' && userChannelId && typeof fetchChannelDropsCampaigns === 'function')
+          ? fetchChannelDropsCampaigns(userChannelId)
+          : Promise.resolve(typeof activeChannelDrops !== 'undefined' ? activeChannelDrops : []),
+      ]);
+
+      // 비동기 조회 중 사용자가 검색어를 입력한 경우 드롭다운 덮어쓰기 방지
+      const activeSearchEl = document.getElementById('category-search');
+      if (activeSearchEl && activeSearchEl.value.trim().length > 0) return;
+
       const recommendations = (popList || [])
         .filter(c => c && !seenIds.has(c.categoryId) && !seenIds.has(c.categoryValue))
         .slice(0, 5);
       if (recommendations.length > 0) {
-        html += `
-          <div class="px-2.5 py-1 text-[10px] font-bold text-slate-400 bg-[#161F2E] flex items-center justify-between border-b border-[#1E2738]">
-            <span>🔥 <span>추천 카테고리</span></span>
-          </div>
-        `;
+        let recRowsHtml = '';
         recommendations.forEach(c => {
-          html += renderCategoryRowHtml(c.categoryType, c.categoryId, c.categoryValue, c.posterImageUrl, c.dropsCampaignNo, false);
+          recRowsHtml += renderCategoryRowHtml(c.categoryType, c.categoryId, c.categoryValue, c.posterImageUrl, c.dropsCampaignNo, false);
         });
+        html += renderCategorySectionHtml('recommended', '🔥', '추천 카테고리', 'text-slate-400', recRowsHtml);
+      }
+
+      // 드롭스 진행 중 목록 (백엔드 /chzzkdock/drops/campaigns에서 정제·중복 제거된 목록 직접 렌더링)
+      if (Array.isArray(dropsList) && dropsList.length > 0) {
+        let dropRowsHtml = '';
+        dropsList.forEach(d => {
+          dropRowsHtml += renderCategoryRowHtml(d.categoryType || 'GAME', d.categoryId, d.categoryValue, d.posterImageUrl || '', d.campaignNo || null, isCategoryFavorite(d.categoryId || d.categoryValue));
+        });
+        html += renderCategorySectionHtml('drops', '🎁', '드롭스 진행 중', 'text-emerald-400', dropRowsHtml, String(dropsList.length));
       }
 
       dropdown.innerHTML = html;

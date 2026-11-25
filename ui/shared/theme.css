@@ -454,6 +454,15 @@ html[data-theme="light"] .mini-select:focus {
   border-color: #009E66 !important;
   box-shadow: 0 0 0 2px rgba(0, 158, 102, 0.16) !important;
 }
+html[data-theme="light"] .shortcut-capture[aria-pressed="true"] {
+  background-color: #E6F9F1 !important;
+  border-color: #009E66 !important;
+  box-shadow: 0 0 0 2px rgba(0, 158, 102, 0.16) !important;
+  color: #007A4E !important;
+}
+html[data-theme="light"] .shortcut-capture:focus-visible {
+  outline-color: #009E66 !important;
+}
 html[data-theme="light"] .chzzk-input::placeholder {
   color: #94A3B8 !important;
 }

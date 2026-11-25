@@ -81,7 +81,13 @@ const ALL_POPOVER_IDS = ['channel-popover-menu', 'popover-chatmode', 'popover-do
 
 function closeAllPopovers(exceptId = '') {
   ALL_POPOVER_IDS.forEach(id => {
-    if (id !== exceptId) document.getElementById(id)?.classList.add('hidden');
+    if (id !== exceptId) {
+      if (id === 'popover-party') {
+        closePartyPopover();
+      } else {
+        document.getElementById(id)?.classList.add('hidden');
+      }
+    }
   });
   if (exceptId !== 'channel-popover-menu' && typeof stopChannelPopoverPolling === 'function') {
     stopChannelPopoverPolling();
@@ -332,6 +338,7 @@ function toggleRemotePanel() {
       loadRemoteState();
       switchRemoteTab(activeRemoteTab || 'all');
       startRemotePolling();
+      openRemoteNoticeModal();
       requestAnimationFrame(() => {
         const activeBtn = document.getElementById(`remote-tab-btn-${activeRemoteTab || 'all'}`);
         moveLiquidPill('remote-liquid-tabs', activeBtn, false);
@@ -1245,16 +1252,27 @@ async function settleMission(missionDonationId, outcome) {
 }
 
 // ===== 치지직 합방 파티 관리 (메인 독 팝오버) =====
+function closePartyPopover() {
+  document.getElementById('popover-party')?.classList.add('hidden');
+  showPartySubView('choose');
+}
+
 function togglePartyPopover() {
   if (typeof checkLoginGuard === 'function' && !checkLoginGuard('합방 파티')) return;
   closeAllPopovers('popover-party');
   const popover = document.getElementById('popover-party');
   if (!popover) return;
   if (popover.classList.contains('hidden')) {
+    if (currentPartyInfo && currentPartyInfo.participating) {
+      renderActivePartyView(currentPartyInfo);
+      showPartySubView('active');
+    } else {
+      showPartySubView('choose');
+    }
     popover.classList.remove('hidden');
     refreshPartyStatus(false);
   } else {
-    popover.classList.add('hidden');
+    closePartyPopover();
   }
 }
 
@@ -2434,11 +2452,20 @@ async function fetchStreamingInfo() {
 }
 
 function openRevenueNoticeModal() {
-  showNoticeModal({
+  showBetaNoticeModal('revenue', {
     icon: '🚧',
     title: '기능 준비 중 안내',
-    message: '후원 수익 요약 기능은 현재 개발 및 연동 테스트 진행 중인 미완성 기능입니다.',
+    message: '후원 수익 요약 기능은 현재 개발 및 연동 테스트 진행 중인 베타 기능입니다.',
     submessage: 'ℹ️ 정확한 후원 수익 집계 및 정산 내역은 치지직 스튜디오 공식 웹사이트의 정산 관리 메뉴에서 확인해 주시기 바랍니다.'
+  });
+}
+
+function openRemoteNoticeModal() {
+  showBetaNoticeModal('remote', {
+    icon: '🚧',
+    title: '리모컨 베타 기능 안내',
+    message: '리모컨 패널은 현재 개발 및 연동 테스트 진행 중인 베타 기능입니다.',
+    submessage: 'ℹ️ 일부 기능(후원 관리·음량 조절 등)이 정상 동작하지 않을 경우 상단의 "치지직 리모컨 ↗" 버튼으로 공식 리모컨 창을 이용해 주세요.'
   });
 }
 

@@ -31,6 +31,7 @@ func handleOverlayLayers(w http.ResponseWriter, r *http.Request) {
 		respondErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	var restartedOpen map[string]bool
 	if r.Method == http.MethodPut {
 		var next []core.OverlayLayer
 		r.Body = http.MaxBytesReader(w, r.Body, 2<<20)
@@ -45,10 +46,21 @@ func handleOverlayLayers(w http.ResponseWriter, r *http.Request) {
 		for _, layer := range next {
 			byID[layer.ID] = layer
 		}
+		restartedOpen = make(map[string]bool, len(layers))
 		for _, layer := range layers {
 			updated, exists := byID[layer.ID]
-			if !exists || layer.Name != updated.Name || layer.URL != updated.URL || layer.CSS != updated.CSS || layer.LoginLinked() != updated.LoginLinked() {
+			if !exists {
 				core.CloseOverlayLayer(layer.ID)
+				continue
+			}
+			prevCSS := layer.ModeCSSMap()
+			nextCSS := updated.ModeCSSMap()
+			cssChanged := prevCSS["0"] != nextCSS["0"] || prevCSS["1"] != nextCSS["1"] || prevCSS["2"] != nextCSS["2"]
+			if layer.Name != updated.Name || layer.URL != updated.URL || cssChanged || layer.LoginLinked() != updated.LoginLinked() {
+				if core.OverlayLayerOpen(layer.ID) {
+					restartedOpen[layer.ID] = true
+					core.RestartOverlayLayer(layer.ID)
+				}
 			} else {
 				core.ApplyOverlayAppearance(updated)
 			}
@@ -61,7 +73,7 @@ func handleOverlayLayers(w http.ResponseWriter, r *http.Request) {
 	}
 	running := make(map[string]bool, len(layers))
 	for _, layer := range layers {
-		running[layer.ID] = core.OverlayLayerOpen(layer.ID)
+		running[layer.ID] = core.OverlayLayerOpen(layer.ID) || restartedOpen[layer.ID]
 	}
 	respondOK(w, map[string]any{"layers": layers, "running": running, "mode": core.CurrentOverlayMode(), "hotkey": core.OverlayHotkeyAvailable()})
 }
@@ -75,6 +87,7 @@ func handleOverlayAction(w http.ResponseWriter, r *http.Request) {
 		WindowOpacity             *int
 		BackgroundColor           string
 		BackgroundOpacity         *int
+		ChatScale                 *int
 	}
 	if !bindJSON(w, r, &action) {
 		return
@@ -115,6 +128,9 @@ func handleOverlayAction(w http.ResponseWriter, r *http.Request) {
 			layer.BackgroundColor = action.BackgroundColor
 			layer.WindowOpacity = action.WindowOpacity
 			layer.BackgroundOpacity = action.BackgroundOpacity
+			if action.ChatScale != nil && *action.ChatScale >= 100 && *action.ChatScale <= 170 {
+				layer.ChatScale = action.ChatScale
+			}
 			core.ApplyOverlayAppearance(layer)
 		case "hide":
 			layers[layerIndex].Enabled = false

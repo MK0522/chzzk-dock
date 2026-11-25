@@ -991,7 +991,10 @@ func RunToolWebview(cfg ToolWebviewConfig) {
 	var toggleTopmost func()
 	var overlay *chatOverlayWindow
 	if cfg.ChatOverlay {
-		overlay = &chatOverlayWindow{state: &state, target: cfg.TargetURL, windowOpacity: 100, donationBackgroundOpacity: 100, backgroundColor: 0x141517}
+		overlay = &chatOverlayWindow{state: &state, target: cfg.TargetURL, windowOpacity: 100, donationBackgroundOpacity: 100, backgroundColor: 0x141517, chatScale: 100, stateFileName: cfg.StateFileName}
+		if cfg.OverlayLayer.ChatScale != nil {
+			overlay.chatScale = min(max(*cfg.OverlayLayer.ChatScale, 100), 170)
+		}
 		if cfg.OverlayLayer.DonationBackgroundOpacity != nil {
 			overlay.donationBackgroundOpacity = min(max(*cfg.OverlayLayer.DonationBackgroundOpacity, 0), 100)
 		}
@@ -1224,7 +1227,11 @@ func RunToolWebview(cfg ToolWebviewConfig) {
 		if overlay != nil {
 			if overlaySourceMatches(src, cfg.TargetURL, cfg.CustomOverlay) {
 				overlay.surfaceReady = false
-				chromium.Eval(overlayScriptFor(isChzzkChatURL(src), cfg.OverlayCSS, overlay.pageStateArguments()))
+				var cssArg any = cfg.OverlayCSS
+				if cfg.OverlayLayer.ID != "" {
+					cssArg = cfg.OverlayLayer.ModeCSSMap()
+				}
+				chromium.Eval(overlayScriptFor(isChzzkChatURL(src), cssArg, overlay.pageStateArguments()))
 			}
 			return
 		}

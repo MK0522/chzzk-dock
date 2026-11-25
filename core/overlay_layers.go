@@ -26,9 +26,28 @@ type OverlayLayer struct {
 	URL                       string `json:"url"`
 	BackgroundColor           string `json:"backgroundColor,omitempty"`
 	CSS                       string `json:"css"`
+	CSSPass                   string `json:"cssPass,omitempty"`
+	CSSArrange                string `json:"cssArrange,omitempty"`
+	CSSInteract               string `json:"cssInteract,omitempty"`
 	WindowOpacity             *int   `json:"windowOpacity,omitempty"`
 	BackgroundOpacity         *int   `json:"backgroundOpacity,omitempty"`
+	ChatScale                 *int   `json:"chatScale,omitempty"`
 	LinkLogin                 *bool  `json:"linkLogin,omitempty"`
+}
+
+func (layer OverlayLayer) ModeCSSMap() map[string]string {
+	pass := layer.CSSPass
+	arrange := layer.CSSArrange
+	interact := layer.CSSInteract
+	if pass == "" && arrange == "" && interact == "" && layer.CSS != "" {
+		pass = layer.CSS
+		arrange = layer.CSS
+	}
+	return map[string]string{
+		"0": pass,
+		"1": arrange,
+		"2": interact,
+	}
 }
 
 func (layer OverlayLayer) LoginLinked() bool {
@@ -42,44 +61,116 @@ func overlayDataDir() string {
 	return filepath.Dir(getSettingsFilePath())
 }
 
+type overlaySettings struct {
+	Layers   []OverlayLayer  `json:"layers"`
+	Mode     uint32          `json:"mode"`
+	Shortcut OverlayShortcut `json:"shortcut"`
+}
+
+func defaultOverlaySettings() overlaySettings {
+	return overlaySettings{
+		Layers: []OverlayLayer{{ID: "chzzk", Name: "치지직 채팅"}},
+		Mode:   uint32(overlayPass),
+	}
+}
+
+func saveOverlaySettingsLocked(settings overlaySettings) error {
+	dir := overlayDataDir()
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		return err
+	}
+	data, err := json.MarshalIndent(settings, "", "  ")
+	if err != nil {
+		return err
+	}
+	tmp, err := os.CreateTemp(dir, "overlay-settings-*.tmp")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmp.Name())
+	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tmp.Name(), filepath.Join(dir, "overlay_settings.json"))
+}
+
+func removeLegacyOverlaySettings() {
+	for _, name := range []string{"overlay_layers.json", "overlay_mode.json", "overlay_shortcut.json", "overlay_preview_window.json"} {
+		_ = os.Remove(filepath.Join(overlayDataDir(), name))
+	}
+}
+
+// loadOverlaySettingsLocked migrates legacy files only after the combined file is written.
+func loadOverlaySettingsLocked() (overlaySettings, error) {
+	settings := defaultOverlaySettings()
+	dir := overlayDataDir()
+	data, err := os.ReadFile(filepath.Join(dir, "overlay_settings.json"))
+	if err == nil {
+		if err := json.Unmarshal(data, &settings); err != nil {
+			return overlaySettings{}, err
+		}
+		if settings.Layers == nil {
+			settings.Layers = []OverlayLayer{}
+		}
+		if settings.Mode > uint32(overlayInteract) {
+			settings.Mode = uint32(overlayPass)
+		}
+		return settings, nil
+	}
+	if !errors.Is(err, os.ErrNotExist) {
+		return overlaySettings{}, err
+	}
+
+	if data, err = os.ReadFile(filepath.Join(dir, "overlay_layers.json")); err == nil {
+		if err := json.Unmarshal(data, &settings.Layers); err != nil {
+			return overlaySettings{}, err
+		}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return overlaySettings{}, err
+	}
+	if data, err = os.ReadFile(filepath.Join(dir, "overlay_mode.json")); err == nil {
+		if err := json.Unmarshal(data, &settings.Mode); err != nil {
+			return overlaySettings{}, err
+		}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return overlaySettings{}, err
+	}
+	if data, err = os.ReadFile(filepath.Join(dir, "overlay_shortcut.json")); err == nil {
+		if err := json.Unmarshal(data, &settings.Shortcut); err != nil {
+			return overlaySettings{}, err
+		}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return overlaySettings{}, err
+	}
+	if settings.Layers == nil {
+		settings.Layers = []OverlayLayer{}
+	}
+	if settings.Mode > uint32(overlayInteract) {
+		settings.Mode = uint32(overlayPass)
+	}
+	if err := saveOverlaySettingsLocked(settings); err != nil {
+		return overlaySettings{}, err
+	}
+	removeLegacyOverlaySettings()
+	return settings, nil
+}
+
 func LoadOverlayLayers() ([]OverlayLayer, error) {
 	overlaySettingsLock.Lock()
 	defer overlaySettingsLock.Unlock()
-	data, err := os.ReadFile(filepath.Join(overlayDataDir(), "overlay_layers.json"))
-	layers := []OverlayLayer{{ID: "chzzk", Name: "치지직 채팅"}}
-	if errors.Is(err, os.ErrNotExist) {
-		return layers, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	if err := json.Unmarshal(data, &layers); err != nil {
-		return nil, err
-	}
-	if layers == nil {
-		layers = []OverlayLayer{}
-	}
-	return layers, nil
+	settings, err := loadOverlaySettingsLocked()
+	return settings.Layers, err
 }
 
 func LoadOverlayMode() (uint32, error) {
 	overlaySettingsLock.Lock()
 	defer overlaySettingsLock.Unlock()
-	data, err := os.ReadFile(filepath.Join(overlayDataDir(), "overlay_mode.json"))
-	if errors.Is(err, os.ErrNotExist) {
-		return uint32(overlayPass), nil
-	}
-	if err != nil {
-		return 0, err
-	}
-	var mode uint32
-	if err := json.Unmarshal(data, &mode); err != nil {
-		return 0, err
-	}
-	if mode > uint32(overlayInteract) {
-		return uint32(overlayPass), nil
-	}
-	return mode, nil
+	settings, err := loadOverlaySettingsLocked()
+	return settings.Mode, err
 }
 
 func SaveOverlayMode(mode uint32) error {
@@ -88,29 +179,17 @@ func SaveOverlayMode(mode uint32) error {
 	}
 	overlaySettingsLock.Lock()
 	defer overlaySettingsLock.Unlock()
-	dir := overlayDataDir()
-	if err := os.MkdirAll(dir, 0700); err != nil {
-		return err
-	}
-	data, err := json.Marshal(mode)
+	settings, err := loadOverlaySettingsLocked()
 	if err != nil {
 		return err
 	}
-	tmp, err := os.CreateTemp(dir, "overlay-mode-*.tmp")
-	if err != nil {
+	settings.Mode = mode
+	if err := saveOverlaySettingsLocked(settings); err != nil {
 		return err
 	}
-	defer os.Remove(tmp.Name())
-	if _, err = tmp.Write(data); err != nil {
-		tmp.Close()
-		return err
-	}
-	if err = tmp.Close(); err != nil {
-		return err
-	}
-	return os.Rename(tmp.Name(), filepath.Join(dir, "overlay_mode.json"))
+	removeLegacyOverlaySettings()
+	return nil
 }
-
 func overlayURL(raw string) (*url.URL, bool) {
 	u, err := url.Parse(raw)
 	return u, err == nil && (u.Scheme == "https" || u.Scheme == "http") && u.Hostname() != "" && u.User == nil
@@ -143,13 +222,17 @@ func SaveOverlayLayers(layers []OverlayLayer) error {
 		layer := &layers[i]
 		layer.Name = strings.TrimSpace(layer.Name)
 		layer.URL = strings.TrimSpace(layer.URL)
-		if !overlayLayerID.MatchString(layer.ID) || seen[layer.ID] || layer.Name == "" || len(layer.Name) > 240 || len(layer.CSS) > 64*1024 {
+		if !overlayLayerID.MatchString(layer.ID) || seen[layer.ID] || layer.Name == "" || len(layer.Name) > 240 ||
+			len(layer.CSS) > 64*1024 || len(layer.CSSPass) > 64*1024 || len(layer.CSSArrange) > 64*1024 || len(layer.CSSInteract) > 64*1024 {
 			return errors.New("레이어 이름, ID 또는 CSS를 확인해 주세요.")
 		}
 		for _, opacity := range []*int{layer.WindowOpacity, layer.BackgroundOpacity, layer.DonationBackgroundOpacity} {
 			if opacity != nil && (*opacity < 0 || *opacity > 100) {
 				return errors.New("불투명도는 0~100 사이여야 합니다.")
 			}
+		}
+		if layer.ChatScale != nil && (*layer.ChatScale < 100 || *layer.ChatScale > 170) {
+			return errors.New("채팅 크기는 100~170% 사이여야 합니다.")
 		}
 		if layer.BackgroundColor != "" {
 			if len(layer.BackgroundColor) != 7 || layer.BackgroundColor[0] != '#' {
@@ -172,24 +255,16 @@ func SaveOverlayLayers(layers []OverlayLayer) error {
 	}
 	overlaySettingsLock.Lock()
 	defer overlaySettingsLock.Unlock()
-	dir := overlayDataDir()
-	if err := os.MkdirAll(dir, 0700); err != nil {
-		return err
-	}
-	f, err := os.CreateTemp(dir, "overlay-layers-*.tmp")
+	settings, err := loadOverlaySettingsLocked()
 	if err != nil {
 		return err
 	}
-	defer os.Remove(f.Name())
-	err = json.NewEncoder(f).Encode(layers)
-	closeErr := f.Close()
-	if err != nil {
+	settings.Layers = layers
+	if err := saveOverlaySettingsLocked(settings); err != nil {
 		return err
 	}
-	if closeErr != nil {
-		return closeErr
-	}
-	return os.Rename(f.Name(), filepath.Join(dir, "overlay_layers.json"))
+	removeLegacyOverlaySettings()
+	return nil
 }
 
 func overlayLayerMutex(id string) string {
@@ -243,6 +318,11 @@ func ApplyOverlayAppearance(layer OverlayLayer) {
 		}
 		procPostMessageW.Call(hwnd, overlayDonationMessage, uintptr(donation), 0)
 		procPostMessageW.Call(hwnd, overlayColorMessage, uintptr(color), 0)
+		chatScale := 100
+		if layer.ChatScale != nil {
+			chatScale = min(max(*layer.ChatScale, 100), 170)
+		}
+		procPostMessageW.Call(hwnd, overlayScaleMessage, uintptr(chatScale), 0)
 		procPostMessageW.Call(hwnd, overlayAppearanceMessage, uintptr(window), uintptr(background))
 	}
 }
@@ -250,6 +330,12 @@ func ApplyOverlayAppearance(layer OverlayLayer) {
 func CloseOverlayLayer(id string) {
 	if hwnd := overlayWindow(id); hwnd != 0 {
 		procPostMessageW.Call(hwnd, WM_CLOSE_VAL, 0, 0)
+	}
+}
+
+func RestartOverlayLayer(id string) {
+	if hwnd := overlayWindow(id); hwnd != 0 {
+		procPostMessageW.Call(hwnd, overlayRestartMessage, 0, 0)
 	}
 }
 
@@ -321,7 +407,7 @@ func isChzzkChatURL(raw string) bool {
 	return len(parts) == 3 && parts[0] == "live" && parts[1] != "" && parts[2] == "chat"
 }
 
-func overlayScriptFor(chzzkChat bool, css, stateArguments string) string {
+func overlayScriptFor(chzzkChat bool, css any, stateArguments string) string {
 	body, _ := json.Marshal(css)
 	return fmt.Sprintf("(%s)(%t, %s, [%s]);", chatOverlayScript, chzzkChat, body, stateArguments)
 }

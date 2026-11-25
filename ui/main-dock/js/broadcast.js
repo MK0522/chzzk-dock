@@ -884,7 +884,7 @@ async function initConnection() {
       const btnParty = document.getElementById('btn-party-popover');
       if (popoverParty && !popoverParty.classList.contains('hidden')) {
         if (!popoverParty.contains(e.target) && (!btnParty || !btnParty.contains(e.target))) {
-          popoverParty.classList.add('hidden');
+          closePartyPopover();
         }
       }
     });
@@ -1639,6 +1639,11 @@ async function initConnection() {
         });
 
         catSearch.addEventListener('focus', () => {
+          const dropdown = document.getElementById('category-dropdown');
+          if (dropdown && dropdown.style.display && dropdown.style.display !== 'none') {
+            // 웹뷰 창 재활성화 시 이미 열린 드롭다운 DOM을 다시 그려 오클릭·깜박임이 발생하지 않도록 유지
+            return;
+          }
           const query = catSearch.value.trim();
           selectedCatIdx = -1;
           if (query.length >= 1) {
@@ -1649,8 +1654,15 @@ async function initConnection() {
         });
 
         catSearch.addEventListener('blur', () => {
+          // 웹뷰 창 바깥 클릭으로 OS 포커스가 빠져나간 경우에는 목록을 닫지 않음
+          if (typeof document.hasFocus === 'function' && !document.hasFocus()) {
+            return;
+          }
           // 마우스 클릭 이벤트가 먼저 완료될 수 있도록 지연 후 자동 확정
           setTimeout(() => {
+            if (typeof document.hasFocus === 'function' && !document.hasFocus()) {
+              return;
+            }
             const dropdown = document.getElementById('category-dropdown');
             if (dropdown && dropdown.style.display !== 'none') {
               autoConfirmOrValidateCategory();
@@ -1659,6 +1671,15 @@ async function initConnection() {
               validateCategoryInput();
             }
           }, 200);
+        });
+
+        window.addEventListener('blur', () => {
+          const dropdown = document.getElementById('category-dropdown');
+          const isOpen = dropdown && dropdown.style.display && dropdown.style.display !== 'none';
+          // 목록이 닫혀 있는데 입력창에만 포커스가 남아있으면 재진입 시 목록이 불쑥 열리지 않도록 정리
+          if (!isOpen && document.activeElement === catSearch) {
+            catSearch.blur();
+          }
         });
 
         catSearch.addEventListener('keydown', (e) => {
@@ -1691,6 +1712,7 @@ async function initConnection() {
       }
 
       document.addEventListener('click', (e) => {
+        if (e.target?.closest?.('#modal-custom-confirm')) return;
         const catWrapper = document.getElementById('category-wrapper');
         if (catWrapper && !catWrapper.contains(e.target)) {
           const drop = document.getElementById('category-dropdown');

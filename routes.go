@@ -756,13 +756,19 @@ func startToolWebviewLocked(mode, channelID string, retries int, extra ...string
 	}
 	toolWebviews.inputs[stdin] = struct{}{}
 	go func() {
+		startedAt := time.Now()
 		_ = cmd.Wait()
 		toolWebviews.Lock()
 		defer toolWebviews.Unlock()
 		_, active := toolWebviews.inputs[stdin]
 		delete(toolWebviews.inputs, stdin)
-		if active && mode == "--chat-overlay" && cmd.ProcessState.ExitCode() == core.OverlayRestartCode && retries < 2 {
-			if err := startToolWebviewLocked(mode, channelID, retries+1, extra...); err != nil {
+		// Allow unlimited restarts for live config/URL edits while still capping rapid crash loops.
+		if active && mode == "--chat-overlay" && cmd.ProcessState.ExitCode() == core.OverlayRestartCode && (retries < 2 || time.Since(startedAt) > 3*time.Second) {
+			nextRetries := retries + 1
+			if time.Since(startedAt) > 3*time.Second {
+				nextRetries = 0
+			}
+			if err := startToolWebviewLocked(mode, channelID, nextRetries, extra...); err != nil {
 				core.LogError("[Chat Overlay] restart failed: %v", err)
 			}
 		}
@@ -921,6 +927,9 @@ func handleAppSettingsGet(w http.ResponseWriter, r *http.Request) {
 		"theme_mode":                    st.GetThemeMode(),
 		"remote_filter_colors":          st.RemoteFilterColors,
 		"dismissed_watch_party_notices": st.DismissedWatchPartyNotices,
+		"dismissed_beta_notices":        st.DismissedBetaNotices,
+		"collapsed_category_sections":   st.CollapsedCategorySections,
+		"overlay_source_columns":        st.OverlaySourceColumns,
 		"show_viewer_count":             st.IsShowViewerCount(),
 		"popup_on_start":                st.IsPopupOnStart(),
 		"notify_on_shutdown":            st.IsNotifyOnShutdown(),
@@ -1055,7 +1064,16 @@ func handleAppSettingsPut(w http.ResponseWriter, r *http.Request) {
 		st.RemoteFilterColors = sanitizeRemoteFilterColors(rawColors)
 	}
 	if rawDismissed, exists := patch["dismissed_watch_party_notices"]; exists {
-		st.DismissedWatchPartyNotices = sanitizeDismissedNotices(rawDismissed)
+		st.DismissedWatchPartyNotices = sanitizeBoolFlagMap(rawDismissed)
+	}
+	if rawBeta, exists := patch["dismissed_beta_notices"]; exists {
+		st.DismissedBetaNotices = sanitizeBoolFlagMap(rawBeta)
+	}
+	if rawCat, exists := patch["collapsed_category_sections"]; exists {
+		st.CollapsedCategorySections = sanitizeBoolFlagMap(rawCat)
+	}
+	if v, ok := patch["overlay_source_columns"].(float64); ok && (int(v) == 1 || int(v) == 2) {
+		st.OverlaySourceColumns = int(v)
 	}
 
 	if err := core.SaveSettings(st); err != nil {
@@ -1093,9 +1111,9 @@ func sanitizeRemoteFilterColors(raw any) map[string]string {
 	return cleaned
 }
 
-var validNoticeIndexPattern = regexp.MustCompile(`^[0-9a-zA-Z_-]{1,16}$`)
+var validNoticeIndexPattern = regexp.MustCompile(`^[0-9a-zA-Z_-]{1,32}$`)
 
-func sanitizeDismissedNotices(raw any) map[string]bool {
+func sanitizeBoolFlagMap(raw any) map[string]bool {
 	m, ok := raw.(map[string]any)
 	if !ok || len(m) == 0 {
 		return nil

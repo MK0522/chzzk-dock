@@ -8,7 +8,6 @@
   const status = document.querySelector('#status');
   const editorStatus = document.querySelector('#editor-status');
   const editorTitle = document.querySelector('#editor-title');
-  const sourceTools = document.querySelector('.source-tools');
   let editorTrigger = null;
   const modeTabs = Array.from(document.querySelectorAll('.mode-tabs [data-mode]'));
   let layers = [];
@@ -129,6 +128,7 @@
     donationBackgroundOpacity: document.querySelector("#donation-opacity"),
     windowOpacity: document.querySelector('#window-opacity'),
     backgroundOpacity: document.querySelector('#background-opacity'),
+    chatScale: document.querySelector('#chat-scale'),
   };
 
   function syncSelection() {
@@ -145,7 +145,14 @@
     input.addEventListener('input', () => {
       if (input.type === 'range') document.querySelector('#' + input.id + '-value').textContent = input.value + '%';
       if (editing && running[editing]) {
-        queuePreview({ donationBackgroundOpacity: Number(controls.donationBackgroundOpacity.value), backgroundColor: editor.elements.backgroundColor.value, id: editing, windowOpacity: Number(controls.windowOpacity.value), backgroundOpacity: Number(controls.backgroundOpacity.value) });
+        queuePreview({
+          donationBackgroundOpacity: Number(controls.donationBackgroundOpacity.value),
+          backgroundColor: editor.elements.backgroundColor.value,
+          id: editing,
+          windowOpacity: Number(controls.windowOpacity.value),
+          backgroundOpacity: Number(controls.backgroundOpacity.value),
+          chatScale: Number(controls.chatScale.value),
+        });
       }
     });
   }
@@ -158,9 +165,21 @@
     const layer = layers.find(layer => layer.id === selected);
     if (layer) openEditor(event.currentTarget, layer);
   });
-  document.querySelector('#remove').addEventListener('click', () => {
+  document.querySelector('#remove').addEventListener('click', async () => {
     const id = selected;
-    if (!id) return;
+    if (!id || busy) return;
+    const layer = layers.find(item => item.id === id);
+    const label = layer?.name || '선택한 소스';
+    const confirmed = (typeof window.showConfirmModal === 'function')
+      ? await window.showConfirmModal({
+          title: '소스 삭제',
+          message: `'${label}' 소스를 삭제하시겠습니까?`,
+          confirmText: '삭제',
+          cancelText: '취소',
+          danger: true,
+        })
+      : window.confirm(`'${label}' 소스를 삭제하시겠습니까?`);
+    if (!confirmed) return;
     perform(async () => {
       await save(layers.filter(layer => layer.id !== id));
       if (editing === id) closeEditor();
@@ -170,8 +189,43 @@
     document.querySelector(selector).addEventListener('click', () => move(layers.findIndex(layer => layer.id === selected), offset));
   }
 
+  const MODE_DESCRIPTIONS = {
+    1: '위치·크기 조절 (투명)',
+    2: '채팅 입력·클릭 (불투명)',
+    0: '클릭 통과·송출 (투명)',
+  };
+  const modeDesc = document.querySelector('#overlay-mode-desc');
+  const layoutButtons = Array.from(document.querySelectorAll('.layout-toggle [data-layout]'));
+
+  function applySourceColumns(cols, persist = false) {
+    const normalized = Number(cols) === 2 ? 2 : 1;
+    list.dataset.columns = String(normalized);
+    for (const btn of layoutButtons) {
+      btn.setAttribute('aria-pressed', String(Number(btn.dataset.layout) === normalized));
+    }
+    if (persist) {
+      apiFetch('/app-settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ overlay_source_columns: normalized }),
+      }).catch(() => {});
+    }
+  }
+  for (const btn of layoutButtons) {
+    btn.addEventListener('click', () => applySourceColumns(btn.dataset.layout, true));
+  }
+  apiFetch('/app-settings').then(r => r.ok ? r.json() : null).then(data => {
+    if (data && (data.overlay_source_columns === 1 || data.overlay_source_columns === 2)) {
+      applySourceColumns(data.overlay_source_columns, false);
+    }
+  }).catch(() => {});
+
   function highlightMode(mode) {
     for (const tab of modeTabs) tab.setAttribute('aria-pressed', String(Number(tab.dataset.mode) === mode));
+    if (modeDesc) {
+      modeDesc.textContent = MODE_DESCRIPTIONS[mode] || MODE_DESCRIPTIONS[1];
+      modeDesc.dataset.activeMode = String(mode);
+    }
   }
 
   function update(data) {
@@ -213,21 +267,16 @@
     });
   }
 
-  function positionEditor() {
-    if (!dialog.matches(':popover-open') || !editorTrigger) return;
-    const { clientWidth: width, clientHeight: height } = document.documentElement;
-    const { left } = editorTrigger.getBoundingClientRect();
-    const { top, bottom } = sourceTools.getBoundingClientRect();
-    const gutter = 8;
-    const below = height - bottom - gutter * 2;
-    const above = top - gutter * 2;
-    const naturalHeight = dialog.scrollHeight + dialog.offsetHeight - dialog.clientHeight;
-    const placeBelow = below >= naturalHeight || below >= above;
-    const available = placeBelow ? below : above;
-    dialog.style.maxHeight = Math.min(height - gutter * 2, Math.max(260, available)) + 'px';
-    const preferred = placeBelow ? bottom + gutter : top - gutter - dialog.offsetHeight;
-    dialog.style.left = Math.max(gutter, Math.min(left, width - dialog.offsetWidth - gutter)) + 'px';
-    dialog.style.top = Math.max(gutter, Math.min(preferred, height - dialog.offsetHeight - gutter)) + 'px';
+  const cssTabs = Array.from(document.querySelectorAll('.css-mode-tabs [data-css-tab]'));
+  const cssHelps = Array.from(document.querySelectorAll('#custom-css [data-css-help]'));
+  const cssPanes = Array.from(document.querySelectorAll('#custom-css [data-css-pane]'));
+  function selectCssTab(tabName) {
+    for (const tab of cssTabs) tab.setAttribute('aria-selected', String(tab.dataset.cssTab === tabName));
+    for (const help of cssHelps) help.hidden = help.dataset.cssHelp !== tabName;
+    for (const pane of cssPanes) pane.hidden = pane.dataset.cssPane !== tabName;
+  }
+  for (const tab of cssTabs) {
+    tab.addEventListener('click', () => selectCssTab(tab.dataset.cssTab));
   }
 
   function openEditor(trigger, layer) {
@@ -235,14 +284,28 @@
     closeEditor();
     editing = layer?.id ?? null;
     editor.elements.backgroundColor.value = layer?.backgroundColor ?? "#141517";
-    previewOriginal = layer ? { donationBackgroundOpacity: layer.donationBackgroundOpacity ?? 100, backgroundColor: layer.backgroundColor ?? "#141517", id: layer.id, windowOpacity: layer.windowOpacity ?? 100, backgroundOpacity: layer.backgroundOpacity ?? 0 } : null;
+    previewOriginal = layer ? {
+      donationBackgroundOpacity: layer.donationBackgroundOpacity ?? 100,
+      backgroundColor: layer.backgroundColor ?? "#141517",
+      id: layer.id,
+      windowOpacity: layer.windowOpacity ?? 100,
+      backgroundOpacity: layer.backgroundOpacity ?? 0,
+      chatScale: layer.chatScale ?? 100,
+    } : null;
     editorTitle.textContent = layer ? '소스 수정' : '소스 추가';
     editorStatus.hidden = true;
     editor.elements.name.value = layer?.name ?? '';
     editor.elements.url.required = layer?.id !== 'chzzk';
     editor.elements.url.value = layer?.url ?? '';
-    editor.elements.css.value = layer?.css ?? '';
+    const hasPerModeCss = Boolean(layer?.cssArrange || layer?.cssInteract || layer?.cssPass);
+    const legacyCss = hasPerModeCss ? '' : (layer?.css ?? '');
+    editor.elements.cssArrange.value = layer?.cssArrange ?? legacyCss;
+    editor.elements.cssInteract.value = layer?.cssInteract ?? '';
+    editor.elements.cssPass.value = layer?.cssPass ?? legacyCss;
+    selectCssTab('arrange');
     document.querySelector('#custom-css').open = false;
+    const appearanceDetails = document.querySelector('#appearance-settings');
+    if (appearanceDetails) appearanceDetails.open = false;
     editor.elements.linkLogin.checked = layer?.linkLogin ?? true;
     for (const [key, input] of Object.entries(controls)) {
       input.value = layer?.[key] ?? (key === 'backgroundOpacity' ? 0 : 100);
@@ -252,25 +315,18 @@
     editorTrigger = trigger;
     trigger.setAttribute('aria-expanded', 'true');
     dialog.removeAttribute('style');
-    if (layer) {
-      dialog.removeAttribute('popover');
-      dialog.showModal();
-    } else {
-      dialog.setAttribute('popover', 'auto');
-      dialog.showPopover({ source: trigger });
-      positionEditor();
-    }
+    dialog.removeAttribute('popover');
+    dialog.showModal();
     editor.elements.name.focus({ preventScroll: true });
   }
 
   function closeEditor() {
     if (busy) return;
     if (dialog.open) dialog.close();
-    else if (dialog.matches(':popover-open')) dialog.hidePopover();
   }
 
   function resetEditor() {
-    if (dialog.open || dialog.matches(':popover-open')) return;
+    if (dialog.open) return;
     if (previewOriginal) queuePreview(previewOriginal);
     previewOriginal = null;
     editorTrigger?.setAttribute('aria-expanded', 'false');
@@ -278,14 +334,29 @@
     editing = null;
   }
 
+  let backdropDownOutside = false;
+  dialog.addEventListener('pointerdown', event => {
+    if (!dialog.open || busy) {
+      backdropDownOutside = false;
+      return;
+    }
+    const rect = dialog.getBoundingClientRect();
+    backdropDownOutside = event.clientX < rect.left || event.clientX > rect.right
+      || event.clientY < rect.top || event.clientY > rect.bottom;
+  });
+  dialog.addEventListener('click', event => {
+    if (!dialog.open || busy || !backdropDownOutside) return;
+    backdropDownOutside = false;
+    const rect = dialog.getBoundingClientRect();
+    if (event.clientX < rect.left || event.clientX > rect.right
+      || event.clientY < rect.top || event.clientY > rect.bottom) {
+      closeEditor();
+    }
+  });
   dialog.addEventListener('close', resetEditor);
   dialog.addEventListener('cancel', event => { if (busy) event.preventDefault(); });
-  dialog.addEventListener('toggle', event => { if (event.newState === 'closed') resetEditor(); });
   document.querySelector('#add').addEventListener('click', event => openEditor(event.currentTarget));
   document.querySelector('#cancel').addEventListener('click', closeEditor);
-  (urlsPanel ?? document.body).addEventListener('scroll', positionEditor);
-  window.addEventListener('resize', positionEditor);
-  new ResizeObserver(positionEditor).observe(dialog);
 
   for (const tab of modeTabs) {
     tab.addEventListener('click', () => perform(async () => {
@@ -303,18 +374,18 @@
       values.donationBackgroundOpacity = Number(values.donationBackgroundOpacity);
       values.windowOpacity = Number(values.windowOpacity);
       values.backgroundOpacity = Number(values.backgroundOpacity);
+      values.chatScale = Number(values.chatScale);
       const before = layers.find(layer => layer.id === editing);
-      const layer = { ...before, ...values, url: values.url ?? '', id: editing ?? crypto.randomUUID() };
+      const layer = { ...before, ...values, css: '', url: values.url ?? '', id: editing ?? crypto.randomUUID() };
       const next = editing ? layers.map(item => item.id === editing ? layer : item) : [...layers, layer];
       await previewQueue;
       await save(next);
       previewOriginal = null;
       select(layer.id);
       if (dialog.open) dialog.close();
-      else if (dialog.matches(':popover-open')) dialog.hidePopover();
       announce('레이어를 저장했습니다.');
     }, message => {
-      if (!dialog.open && !dialog.matches(':popover-open')) return announce(message, true);
+      if (!dialog.open) return announce(message, true);
       editorStatus.textContent = message;
       editorStatus.hidden = false;
     });

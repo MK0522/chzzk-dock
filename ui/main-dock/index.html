@@ -66,17 +66,15 @@
         </span>
       </div>
       <div class="flex items-center gap-1.5 flex-shrink-0">
-        <div class="header-reveal"><div class="header-reveal-tools">
         <button type="button" id="header-btn-urls" onclick="toggleUrlsPanel()" aria-controls="urls-panel" class="h-9 px-2 rounded-lg bg-[#121721] border border-[#1E2738] hover:border-[#00FFA3]/50 text-[12px] font-bold text-slate-300 hover:text-[#00FFA3] transition-all flex-shrink-0 cursor-pointer shadow-sm" title="오버레이 설정" aria-label="오버레이 설정"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="m12 3 10 5-10 5L2 8zM2 12l10 5 10-5M2 16l10 5 10-5"/></svg></button>
         <!-- 원클릭 다크 / 라이트 테마 전환 버튼 -->
         <button id="header-btn-theme" onclick="toggleThemeMode()" class="h-9 w-9 flex items-center justify-center rounded-lg bg-[#121721] border border-[#1E2738] hover:border-[#00FFA3]/50 text-[15px] transition-all flex-shrink-0 cursor-pointer shadow-sm" title="다크 / 라이트 모드 전환" aria-label="화면 테마 전환">
           <span id="header-theme-icon">🌙</span>
         </button>
-        </div>
         <!-- 순수 독 환경 설정 버튼 (h-9 36px 통일 · 이모지 아이콘) -->
         <button id="btn-settings" onclick="toggleSettings()" class="h-9 w-9 flex items-center justify-center rounded-lg bg-[#121721] border border-[#1E2738] hover:border-[#00FFA3]/50 text-[15px] transition-all flex-shrink-0 cursor-pointer shadow-sm" title="독 환경 설정" aria-label="독 환경 설정">
           ⚙️
-        </button></div>
+        </button>
       </div>
     </div>
 
@@ -206,10 +204,10 @@
       </div>
 
       <!-- [팝오버 2] 후원 & 수익 요약 팝오버 -->
-      <div id="popover-donations" class="absolute left-0 right-0 top-full mt-1.5 bg-[#181524] border border-[#3E2E55] rounded-xl shadow-[0_20px_45px_rgba(0,0,0,0.95)] z-40 p-2.5 space-y-2 hidden max-h-[420px] overflow-y-auto ring-1 ring-amber-400/20">
+      <div id="popover-donations" class="absolute left-0 right-0 top-full mt-1.5 bg-[#0F1522] border border-[#2B3E5E] rounded-xl shadow-[0_20px_45px_rgba(0,0,0,0.95)] z-40 p-2.5 space-y-2 hidden max-h-[420px] overflow-y-auto ring-1 ring-[#00FFA3]/20">
         <!-- 팝오버 헤더 및 탭 전환: 물방울 2-Way 세그먼트 알약 탭 -->
-        <div class="flex items-center justify-between gap-1.5 pb-1.5 border-b border-[#2C213D]">
-          <div id="donations-liquid-tabs" class="flex-1 liquid-tab-group liquid-full liquid-amber !bg-[#0F0D17] !border-[#2C213D]">
+        <div class="flex items-center justify-between gap-1.5 pb-1.5 border-b border-[#1E2B40]">
+          <div id="donations-liquid-tabs" class="flex-1 liquid-tab-group liquid-full">
             <div class="liquid-pill"></div>
             <button type="button" id="donations-popover-tab-settings" onclick="switchDonationsPopoverTab('settings')" class="liquid-tab-btn active !py-1">
               <span>⭐</span> <span>후원 제어</span>
@@ -226,12 +224,12 @@
         <!-- 탭 1: 후원 제어 (채팅/영상/미션/구독) -->
         <div id="donations-popover-content-settings" class="space-y-1.5 tab-pane-animate">
           <!-- 채팅 후원 -->
-          <div class="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-[#161F2E] border border-[#1E2738]">
+          <div class="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-[#0B0F15] border border-[#1E2738]">
             <span class="flex items-center gap-2 text-xs font-medium text-slate-200">
               <span>💬</span> <span>채팅 후원</span>
             </span>
             <div class="flex items-center gap-1.5">
-              <button type="button" id="btn-dsetting-chat" onclick="openDonationModal('chat')" class="px-2 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1 transition-all bg-[#0B0F15] border border-[#00FFA3]/40 text-[#00FFA3] hover:bg-[#161F2E] cursor-pointer" title="채팅 후원 세부 설정">
+              <button type="button" id="btn-dsetting-chat" onclick="openDonationModal('chat')" class="px-2 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1 transition-all bg-[#121721] border border-[#243044] hover:border-[#00FFA3]/50 text-slate-200 hover:text-white cursor-pointer" title="채팅 후원 세부 설정">
                 <span>⚙️</span><span>설정</span>
               </button>
               <label class="toggle-switch">
@@ -242,12 +240,12 @@
           </div>
 
           <!-- 영상 후원 -->
-          <div class="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-[#161F2E] border border-[#1E2738]">
+          <div class="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-[#0B0F15] border border-[#1E2738]">
             <span class="flex items-center gap-2 text-xs font-medium text-slate-200">
               <span>🎬</span> <span>영상(영도) 후원</span>
             </span>
             <div class="flex items-center gap-1.5">
-              <button type="button" id="btn-dsetting-video" onclick="openDonationModal('video')" class="px-2 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1 transition-all bg-[#0B0F15] border border-[#00FFA3]/40 text-[#00FFA3] hover:bg-[#161F2E] cursor-pointer" title="영상 후원 세부 설정">
+              <button type="button" id="btn-dsetting-video" onclick="openDonationModal('video')" class="px-2 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1 transition-all bg-[#121721] border border-[#243044] hover:border-[#00FFA3]/50 text-slate-200 hover:text-white cursor-pointer" title="영상 후원 세부 설정">
                 <span>⚙️</span><span>설정</span>
               </button>
               <label class="toggle-switch">
@@ -258,12 +256,12 @@
           </div>
 
           <!-- 미션 후원 -->
-          <div class="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-[#161F2E] border border-[#1E2738]">
+          <div class="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-[#0B0F15] border border-[#1E2738]">
             <span class="flex items-center gap-2 text-xs font-medium text-slate-200">
               <span>🎯</span> <span>미션 후원</span>
             </span>
             <div class="flex items-center gap-1.5">
-              <button type="button" id="btn-dsetting-mission" onclick="openDonationModal('mission')" class="px-2 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1 transition-all bg-[#0B0F15] border border-[#00FFA3]/40 text-[#00FFA3] hover:bg-[#161F2E] cursor-pointer" title="미션 후원 세부 설정">
+              <button type="button" id="btn-dsetting-mission" onclick="openDonationModal('mission')" class="px-2 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1 transition-all bg-[#121721] border border-[#243044] hover:border-[#00FFA3]/50 text-slate-200 hover:text-white cursor-pointer" title="미션 후원 세부 설정">
                 <span>⚙️</span><span>설정</span>
               </button>
               <label class="toggle-switch">
@@ -274,12 +272,12 @@
           </div>
 
           <!-- 구독 알림 -->
-          <div class="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-[#161F2E] border border-[#1E2738]">
+          <div class="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-[#0B0F15] border border-[#1E2738]">
             <span class="flex items-center gap-2 text-xs font-medium text-slate-200">
               <span>⭐</span> <span>구독 알림</span>
             </span>
             <div class="flex items-center gap-1.5">
-              <button type="button" id="btn-dsetting-sub" onclick="openDonationModal('sub')" class="px-2 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1 transition-all bg-[#0B0F15] border border-[#00FFA3]/40 text-[#00FFA3] hover:bg-[#161F2E] cursor-pointer" title="구독 알림 세부 설정">
+              <button type="button" id="btn-dsetting-sub" onclick="openDonationModal('sub')" class="px-2 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1 transition-all bg-[#121721] border border-[#243044] hover:border-[#00FFA3]/50 text-slate-200 hover:text-white cursor-pointer" title="구독 알림 세부 설정">
                 <span>⚙️</span><span>설정</span>
               </button>
               <label class="toggle-switch">
@@ -1107,6 +1105,11 @@
           <span>UI</span>
         </button>
         <div class="settings-nav-divider" aria-hidden="true"></div>
+        <button type="button" onclick="switchSettingsTab('shortcuts')" id="tab-btn-shortcuts" class="settings-nav-btn">
+          <span class="text-sm" aria-hidden="true">⌨️</span>
+          <span>단축키</span>
+        </button>
+        <div class="settings-nav-divider" aria-hidden="true"></div>
         <button type="button" onclick="switchSettingsTab('advanced')" id="tab-btn-advanced" class="settings-nav-btn">
           <span class="text-sm">🛠️</span>
           <span>고급</span>
@@ -1116,27 +1119,47 @@
           <span class="text-sm">ℹ️</span>
           <span>앱 정보</span>
         </button>
-        <div class="settings-nav-divider" aria-hidden="true"></div>
-        <button type="button" onclick="switchSettingsTab('shortcuts')" id="tab-btn-shortcuts" class="settings-nav-btn"><span class="text-sm" aria-hidden="true">⌨️</span><span>단축키</span></button>
       </nav>
 
       <!-- Right Tab Content Area -->
       <div class="flex-1 min-w-0 overflow-y-auto pr-0.5 space-y-2.5">
 
-        <!-- ===== TAB 1: 로그인 (Login) ===== -->
-
+        <!-- ===== TAB: 단축키 (Shortcuts) ===== -->
         <div id="tab-content-shortcuts" class="space-y-2.5 hidden">
-          <section class="section-card p-3 bg-chzzk-card/70 border border-chzzk-border space-y-2.5" aria-labelledby="shortcut-title">
-            <h3 id="shortcut-title" class="flex items-center gap-1.5 pb-2 border-b border-chzzk-border text-xs font-bold text-slate-100"><span aria-hidden="true">⌨️</span>단축키 설정</h3>
-            <span id="overlay-shortcut-label" class="block text-[11px] font-semibold text-slate-200">오버레이 변경</span>
-            <div class="flex items-center gap-2">
-              <button type="button" id="overlay-shortcut" class="shortcut-capture min-w-0 flex-1" aria-labelledby="overlay-shortcut-label" aria-describedby="overlay-shortcut-help overlay-shortcut-status" aria-pressed="false">단축키 지정</button>
-              <button type="button" id="clear-overlay-shortcut" class="px-3 py-1.5 text-[11px] font-bold rounded bg-chzzk-card border border-chzzk-border text-slate-300 hover:text-white cursor-pointer">해제</button>
+          <section class="section-card p-2.5 bg-chzzk-card/70 border border-chzzk-border space-y-2" aria-labelledby="shortcut-title">
+            <div class="flex items-center justify-between pb-1.5 border-b border-[#1E2738]/80">
+              <div id="shortcut-title" class="flex items-center gap-1.5 min-w-0">
+                <span class="text-xs" aria-hidden="true">⌨️</span>
+                <span class="text-xs font-bold text-slate-100">단축키 설정</span>
+              </div>
+              <span class="text-[9px] px-1.5 py-0.5 rounded font-bold bg-[#161F2E] text-slate-400 border border-[#243044]">전역 핫키</span>
             </div>
-            <p id="overlay-shortcut-help" class="text-[10px] text-slate-400 leading-relaxed">수정 → 상호작용 → 고정 순서로 전환합니다. 최대 4개 키를 조합할 수 있으며 지정 즉시 저장됩니다.</p>
-            <p id="overlay-shortcut-status" class="text-[10px] text-slate-400 leading-relaxed" role="status"></p>
+            <div class="p-2.5 rounded-lg bg-[#0B0F15] border border-[#1E2738] space-y-1.5">
+              <div class="flex items-center justify-between gap-2">
+                <span id="overlay-shortcut-label" class="text-[11px] font-semibold text-slate-200">오버레이 모드 전환</span>
+                <span class="text-[9.5px] text-chzzk-muted">수정 → 상호작용 → 고정</span>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <button type="button" id="overlay-shortcut" class="chzzk-input shortcut-capture min-w-0 flex-1 text-left font-semibold cursor-pointer" aria-labelledby="overlay-shortcut-label" aria-describedby="overlay-shortcut-help overlay-shortcut-status" aria-pressed="false">단축키 지정</button>
+                <button type="button" id="clear-overlay-shortcut" class="px-3 h-[28px] text-[11px] font-bold rounded-md bg-[#161F2E] hover:bg-[#1E2A3D] border border-[#243044] text-slate-200 transition-colors cursor-pointer flex-shrink-0">해제</button>
+              </div>
+              <p id="overlay-shortcut-help" class="text-[9.5px] text-chzzk-muted leading-relaxed">입력 칸을 클릭한 뒤 원하는 키 조합을 누르면 즉시 저장됩니다.</p>
+              <p id="overlay-shortcut-status" class="text-[10px] font-medium text-emerald-400 leading-relaxed min-h-[14px]" role="status"></p>
+            </div>
+            <div class="p-2.5 rounded-lg bg-[#0B0F15] border border-[#1E2738] space-y-1 text-[10px] text-slate-400 leading-relaxed">
+              <div class="font-bold text-slate-200 flex items-center gap-1">
+                <span>💡</span> <span>단축키 지정 안내 및 주의사항</span>
+              </div>
+              <ul class="list-disc list-inside space-y-0.5 text-[9.5px]">
+                <li><strong class="text-slate-300">키 조합</strong>: <code class="font-mono text-emerald-400">Ctrl</code> · <code class="font-mono text-emerald-400">Alt</code> · <code class="font-mono text-emerald-400">Shift</code> · <code class="font-mono text-emerald-400">Win</code> 중 1~3개와 일반 키 1개(최대 4키) 조합을 권장합니다. (예: <code class="font-mono">Ctrl + Shift + O</code>)</li>
+                <li><strong class="text-slate-300">입력 취소</strong>: 지정 대기 중 <code class="font-mono">Esc</code>를 누르면 취소되며, <code class="font-mono">Tab</code>은 다음 버튼으로 이동합니다.</li>
+                <li><strong class="text-slate-300">충돌 주의</strong>: 게임·채팅 입력과 겹치는 단독 키는 피하고, Windows/OBS 등에서 이미 사용 중인 전역 단축키는 등록이 거부될 수 있습니다.</li>
+              </ul>
+            </div>
           </section>
         </div>
+
+        <!-- ===== TAB 1: 로그인 (Login) ===== -->
         <div id="tab-content-login" class="space-y-2.5">
           <!-- 치지직 연동 카드 (방법 A, B 묶음 박스) -->
           <div class="section-card p-3 bg-chzzk-card/70 border border-chzzk-border space-y-2.5">
@@ -2354,9 +2377,9 @@ SOFTWARE.</div>
         <div class="p-2.5 rounded-lg bg-[#090D13] border border-[#1A2333] space-y-2">
           <div class="flex items-center justify-between">
             <div class="font-bold text-slate-200">알림 효과음 볼륨</div>
-            <span id="dsetting-sub-alert-vol-label" class="font-mono text-[11px] font-bold text-[#5C3BFF]">70%</span>
+            <span id="dsetting-sub-alert-vol-label" class="font-mono text-[11px] font-bold text-[#00FFA3]">70%</span>
           </div>
-          <input type="range" id="dsetting-sub-alert-vol" min="0" max="100" value="70" oninput="document.getElementById('dsetting-sub-alert-vol-label').textContent=this.value+'%'" class="w-full accent-[#5C3BFF] cursor-pointer h-1.5 bg-[#1E2738] rounded-lg" />
+          <input type="range" id="dsetting-sub-alert-vol" min="0" max="100" value="70" oninput="document.getElementById('dsetting-sub-alert-vol-label').textContent=this.value+'%'" class="w-full accent-[#00FFA3] cursor-pointer h-1.5 bg-[#1E2738] rounded-lg" />
         </div>
         <!-- TTS 설정 -->
         <div class="p-2.5 rounded-lg bg-[#090D13] border border-[#1A2333] space-y-2.5">
@@ -2370,9 +2393,9 @@ SOFTWARE.</div>
           <div>
             <div class="flex items-center justify-between mb-1">
               <span class="text-[11px] text-slate-400">TTS 음량</span>
-              <span id="dsetting-sub-tts-vol-label" class="font-mono text-[11px] font-bold text-[#5C3BFF]">70%</span>
+              <span id="dsetting-sub-tts-vol-label" class="font-mono text-[11px] font-bold text-[#00FFA3]">70%</span>
             </div>
-            <input type="range" id="dsetting-sub-tts-vol" min="0" max="100" value="70" oninput="document.getElementById('dsetting-sub-tts-vol-label').textContent=this.value+'%'" class="w-full accent-[#5C3BFF] cursor-pointer h-1.5 bg-[#1E2738] rounded-lg" />
+            <input type="range" id="dsetting-sub-tts-vol" min="0" max="100" value="70" oninput="document.getElementById('dsetting-sub-tts-vol-label').textContent=this.value+'%'" class="w-full accent-[#00FFA3] cursor-pointer h-1.5 bg-[#1E2738] rounded-lg" />
           </div>
         </div>
       </div>

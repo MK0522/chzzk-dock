@@ -30,7 +30,10 @@ const (
 	overlayDonationMessage     = 0x8000 + 83
 	overlayColorMessage        = 0x8000 + 81
 	overlayShortcutMessage     = 0x8000 + 82
+	overlayRestartMessage      = 0x8000 + 84
+	overlayScaleMessage        = 0x8000 + 85
 	overlayLayered             = 0x00080000
+	overlayToolWindow          = 0x00000080
 	overlayTransparent         = 0x00000020
 	overlayNoActivate          = 0x08000000
 	overlayExStyle             = ^uintptr(19) // GWL_EXSTYLE (-20)
@@ -76,6 +79,8 @@ type chatOverlayWindow struct {
 	donationBackgroundOpacity int
 	backgroundColor           uint32
 	backgroundOpacity         int
+	chatScale                 int
+	stateFileName             string
 	surfaceReady              bool
 }
 
@@ -93,6 +98,21 @@ func overlayNeedsLayered(mode overlayMode, opacity int) bool {
 	return mode == overlayPass || opacity < 100
 }
 
+func overlayModeExStyle(base uintptr, mode overlayMode, opacity int) uintptr {
+	// Hide overlay windows from Alt+Tab and the taskbar across all modes.
+	style := (base &^ (overlayLayered | overlayTransparent | overlayNoActivate | WS_EX_APPWINDOW_VAL)) | overlayToolWindow
+	if mode == overlayPass {
+		style |= overlayTransparent | overlayNoActivate
+	}
+	// Only enable WS_EX_LAYERED when click-through or window opacity needs it.
+	// Keeping edit mode on pure DWM DirectComposition at 100% opacity avoids
+	// layered redirection surface reallocations (white flashes) during resize.
+	if overlayNeedsLayered(mode, opacity) {
+		style |= overlayLayered
+	}
+	return style
+}
+
 func (o *chatOverlayWindow) extendFrame() {
 	margins := [4]int32{-1, -1, -1, -1}
 	result, _, _ := extendOverlayFrame.Call(o.hwnd, uintptr(unsafe.Pointer(&margins)))
@@ -106,12 +126,17 @@ func (o *chatOverlayWindow) initialize(chromium *edge.Chromium) {
 	chromium.SetBackgroundColour(0, 0, 0, 0)
 	o.resizeWebView()
 	o.extendFrame()
-	if tray := overlayTrayWindow(); tray != 0 {
-		mode, _, _ := procSendMessageW.Call(tray, overlayTrayModeMessage, 0, 0)
-		o.setMode(overlayMode(mode & 3))
-	} else {
-		o.setMode(overlayMode(CurrentOverlayMode()))
+	mode := overlayMode(CurrentOverlayMode())
+	if loaded, err := LoadOverlayMode(); err == nil && loaded <= uint32(overlayInteract) {
+		mode = overlayMode(loaded)
 	}
+	if tray := overlayTrayWindow(); tray != 0 {
+		var trayMode uintptr
+		if ok, _, _ := user32.NewProc("SendMessageTimeoutW").Call(tray, overlayTrayModeMessage, 0, 0, 0x0002 /* SMTO_ABORTIFHUNG */, 500, uintptr(unsafe.Pointer(&trayMode))); ok != 0 && trayMode <= uintptr(overlayInteract) {
+			mode = overlayMode(trayMode)
+		}
+	}
+	o.setMode(mode)
 }
 
 func (o *chatOverlayWindow) setMode(mode overlayMode) {
@@ -125,26 +150,18 @@ func (o *chatOverlayWindow) setMode(mode overlayMode) {
 		}
 	}
 	style, _, _ := getOverlayStyle.Call(o.hwnd, overlayExStyle)
-	style &^= overlayLayered | overlayTransparent | overlayNoActivate
-	if mode == overlayPass {
-		style |= overlayTransparent | overlayNoActivate
-	}
 	opacity := o.windowOpacity
-	// Only enable WS_EX_LAYERED when click-through or window opacity needs it.
-	// Keeping edit mode on pure DWM DirectComposition at 100% opacity avoids
-	// layered redirection surface reallocations (white flashes) during resize.
-	if overlayNeedsLayered(mode, opacity) {
-		style |= overlayLayered
-	}
+	style = overlayModeExStyle(style, mode, opacity)
 	setOverlayStyle.Call(o.hwnd, overlayExStyle, style)
 	if style&overlayLayered != 0 {
 		alpha := uintptr((opacity*255 + 50) / 100)
 		if ok, _, err := setOverlayAlpha.Call(o.hwnd, 0, alpha, 0x02 /* LWA_ALPHA */); ok == 0 {
 			LogWarn("[Chat Overlay] opacity setup failed: %v", err)
-			setOverlayStyle.Call(o.hwnd, overlayExStyle, style&^(overlayLayered|overlayTransparent|overlayNoActivate))
 			if mode == overlayPass {
 				mode = overlayInteract
 			}
+			fallbackStyle := overlayModeExStyle(style, mode, 100) &^ overlayLayered
+			setOverlayStyle.Call(o.hwnd, overlayExStyle, fallbackStyle)
 		}
 	}
 	o.mode = mode
@@ -173,7 +190,29 @@ func (o *chatOverlayWindow) pageStateArguments() string {
 	if o.mode != overlayInteract {
 		background = o.backgroundOpacity
 	}
-	return fmt.Sprintf(`%d, %d, [%d, %d, %d, %d], "#%06x", %d`, o.mode, background, crop.Left, crop.Top, crop.Right, crop.Bottom, o.backgroundColor, o.donationBackgroundOpacity)
+	scale := o.chatScale
+	if scale < 100 || scale > 170 {
+		scale = 100
+	}
+	return fmt.Sprintf(`%d, %d, [%d, %d, %d, %d], "#%06x", %d, %d`, o.mode, background, crop.Left, crop.Top, crop.Right, crop.Bottom, o.backgroundColor, o.donationBackgroundOpacity, scale)
+}
+
+func (o *chatOverlayWindow) persistBounds() {
+	if o.state == nil || o.stateFileName == "" || o.hwnd == 0 {
+		return
+	}
+	var rect RECT
+	if ok, _, _ := procGetWindowRect.Call(o.hwnd, uintptr(unsafe.Pointer(&rect))); ok != 0 {
+		w := int(rect.Right - rect.Left)
+		h := int(rect.Bottom - rect.Top)
+		if w >= minOverlayWidth && h >= minOverlayHeight {
+			o.state.X = int(rect.Left)
+			o.state.Y = int(rect.Top)
+			o.state.Width = w
+			o.state.Height = h
+		}
+	}
+	saveToolWindowState(o.stateFileName, *o.state)
 }
 
 func (o *chatOverlayWindow) updatePage() {
@@ -194,6 +233,7 @@ func (o *chatOverlayWindow) handleMessage(hwnd uintptr, msg uint32, wParam, lPar
 		}
 	case 0x0232: // WM_EXITSIZEMOVE: a manual move replaces the preferred position.
 		o.rememberMonitorPosition()
+		o.persistBounds()
 	case 0x0083, 0x0085: // WM_NCCALCSIZE, WM_NCPAINT: no native frame.
 		return true, 0
 	case 0x0086: // WM_NCACTIVATE: skip the border repaint on focus changes.
@@ -236,6 +276,12 @@ func (o *chatOverlayWindow) handleMessage(hwnd uintptr, msg uint32, wParam, lPar
 		o.backgroundColor = uint32(wParam)
 		o.updatePage()
 		return true, 0
+	case overlayScaleMessage:
+		if wParam >= 100 && wParam <= 170 {
+			o.chatScale = int(wParam)
+			o.updatePage()
+		}
+		return true, 0
 	case overlayAppearanceMessage:
 		opacityChanged := wParam <= 100 && o.windowOpacity != int(wParam)
 		if opacityChanged {
@@ -274,6 +320,10 @@ func (o *chatOverlayWindow) handleMessage(hwnd uintptr, msg uint32, wParam, lPar
 			o.restart = true
 			procPostMessageW.Call(hwnd, WM_CLOSE_VAL, 0, 0)
 		}
+		return true, 0
+	case overlayRestartMessage:
+		o.restart = true
+		procPostMessageW.Call(hwnd, WM_CLOSE_VAL, 0, 0)
 		return true, 0
 	case overlayDragMessage:
 		if o.mode == overlayArrange {
@@ -426,6 +476,7 @@ func (o *chatOverlayWindow) finishResizeDrag(cancel bool) {
 		return
 	}
 	o.rememberMonitorPosition()
+	o.persistBounds()
 	if overlayNeedsLayered(o.mode, o.windowOpacity) {
 		redrawOverlayWindow.Call(o.hwnd, 0, 0, 0x0181 /* INVALIDATE | ALLCHILDREN | UPDATENOW */)
 	}

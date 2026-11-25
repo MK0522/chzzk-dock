@@ -1282,6 +1282,15 @@ func handleChzzkWatchPartySnapshotDelete(w http.ResponseWriter, r *http.Request)
 	respondOK(w, map[string]any{"deleted": true})
 }
 
+type CleanDropsCampaign struct {
+	CampaignNo     int64  `json:"campaignNo"`
+	CampaignName   string `json:"campaignName"`
+	CategoryType   string `json:"categoryType"`
+	CategoryID     string `json:"categoryId"`
+	CategoryValue  string `json:"categoryValue"`
+	PosterImageURL string `json:"posterImageUrl,omitempty"`
+}
+
 // handleChzzkDropsCampaignsGet: GET /chzzkdock/drops/campaigns (채널 실시간 활성 드롭스 캠페인 목록)
 func handleChzzkDropsCampaignsGet(w http.ResponseWriter, r *http.Request) {
 	cid, err := resolveChzzkChannelId(r)
@@ -1296,12 +1305,108 @@ func handleChzzkDropsCampaignsGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var raw struct {
-		Content struct {
-			CampaignList []json.RawMessage `json:"campaignList"`
-		} `json:"content"`
+		Content json.RawMessage `json:"content"`
 	}
-	_ = json.Unmarshal(data, &raw)
-	respondOK(w, raw.Content.CampaignList)
+	if json.Unmarshal(data, &raw) != nil || len(raw.Content) == 0 || string(raw.Content) == "null" {
+		respondOK(w, []any{})
+		return
+	}
+
+	type rawCampaign struct {
+		CampaignNo     int64  `json:"campaignNo"`
+		CampaignName   string `json:"campaignName"`
+		CategoryType   string `json:"categoryType"`
+		CategoryID     string `json:"categoryId"`
+		CategoryValue  string `json:"categoryValue"`
+		PosterImageURL string `json:"posterImageUrl"`
+		ImageURL       string `json:"imageUrl"`
+		Category       *struct {
+			CategoryType   string `json:"categoryType"`
+			CategoryID     string `json:"categoryId"`
+			CategoryValue  string `json:"categoryValue"`
+			PosterImageURL string `json:"posterImageUrl"`
+		} `json:"category"`
+	}
+
+	var list []rawCampaign
+	var obj struct {
+		CampaignList []rawCampaign `json:"campaignList"`
+	}
+	if json.Unmarshal(raw.Content, &obj) == nil && obj.CampaignList != nil {
+		list = obj.CampaignList
+	} else {
+		_ = json.Unmarshal(raw.Content, &list)
+	}
+
+	// 이미 캐시된 인기 카테고리 포스터가 있으면 추가 HTTP 호출 없이 재활용
+	posterByCat := map[string]string{}
+	if cached, found := core.GetCachedApiResponse(http.MethodGet, "https://api.chzzk.naver.com/service/v1/categories/live?size=13"); found {
+		var rec struct {
+			Categories []struct {
+				CategoryID     string `json:"categoryId"`
+				PosterImageURL string `json:"posterImageUrl"`
+			} `json:"categories"`
+		}
+		if json.Unmarshal(cached.Body, &rec) == nil {
+			for _, c := range rec.Categories {
+				if c.CategoryID != "" && c.PosterImageURL != "" {
+					posterByCat[strings.ToLower(c.CategoryID)] = c.PosterImageURL
+				}
+			}
+		}
+	}
+
+	seen := make(map[string]bool, len(list))
+	cleaned := make([]CleanDropsCampaign, 0, len(list))
+	for _, c := range list {
+		catID, catVal, catType, poster := c.CategoryID, c.CategoryValue, c.CategoryType, c.PosterImageURL
+		if c.Category != nil {
+			if catID == "" {
+				catID = c.Category.CategoryID
+			}
+			if catVal == "" {
+				catVal = c.Category.CategoryValue
+			}
+			if catType == "" {
+				catType = c.Category.CategoryType
+			}
+			if poster == "" {
+				poster = c.Category.PosterImageURL
+			}
+		}
+		if catID == "" && catVal == "" {
+			continue
+		}
+		if catType == "" {
+			catType = "GAME"
+		}
+		if catVal == "" {
+			catVal = catID
+		}
+		if poster == "" {
+			poster = posterByCat[strings.ToLower(catID)]
+		}
+		if poster == "" {
+			poster = c.ImageURL
+		}
+		dedupeKey := strings.ToLower(strings.TrimSpace(catID))
+		if dedupeKey == "" {
+			dedupeKey = strings.ToLower(strings.TrimSpace(catVal))
+		}
+		if seen[dedupeKey] {
+			continue
+		}
+		seen[dedupeKey] = true
+		cleaned = append(cleaned, CleanDropsCampaign{
+			CampaignNo:     c.CampaignNo,
+			CampaignName:   c.CampaignName,
+			CategoryType:   catType,
+			CategoryID:     catID,
+			CategoryValue:  catVal,
+			PosterImageURL: poster,
+		})
+	}
+	respondOK(w, cleaned)
 }
 
 type dropsRewardItem struct {

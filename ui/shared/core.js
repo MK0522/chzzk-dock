@@ -246,6 +246,40 @@ function showNoticeModal({
   }
 }
 
+var dismissedBetaNotices = (typeof dismissedBetaNotices !== 'undefined' && dismissedBetaNotices) ? dismissedBetaNotices : {};
+
+/**
+ * 베타 기능 안내 모달 ("다시 보지 않음" 자체 저장소 /app-settings 영구 저장 지원)
+ */
+function showBetaNoticeModal(betaKey, options = {}) {
+  if (!betaKey) return;
+  if (dismissedBetaNotices && dismissedBetaNotices[betaKey]) return;
+  let handled = false;
+  const persistDismiss = (checked, triggerCallback) => {
+    if (handled) return;
+    handled = true;
+    if (checked) {
+      dismissedBetaNotices[betaKey] = true;
+      if (typeof saveAppSettingField === 'function') {
+        saveAppSettingField('dismissed_beta_notices', dismissedBetaNotices);
+      }
+    }
+    if (triggerCallback && typeof options.onConfirm === 'function') options.onConfirm(checked);
+  };
+  showNoticeModal({
+    icon: '🚧',
+    title: '베타 기능 안내',
+    checkboxLabel: '다시 보지 않음',
+    ...options,
+    onConfirm: (checked) => persistDismiss(checked, true),
+    onDismiss: () => {
+      const checked = Boolean(document.getElementById('confirm-modal-checkbox')?.checked);
+      persistDismiss(checked, false);
+      if (typeof options.onDismiss === 'function') options.onDismiss();
+    }
+  });
+}
+
 /**
  * 공통 비동기 확인/취소 모달 (Promise 기반)
  */

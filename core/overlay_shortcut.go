@@ -1,11 +1,8 @@
 package core
 
 import (
-	"encoding/json"
 	"errors"
 	"math/bits"
-	"os"
-	"path/filepath"
 )
 
 type OverlayShortcut struct {
@@ -17,35 +14,24 @@ type OverlayShortcut struct {
 func LoadOverlayShortcut() (OverlayShortcut, error) {
 	overlaySettingsLock.Lock()
 	defer overlaySettingsLock.Unlock()
-	var shortcut OverlayShortcut
-	data, err := os.ReadFile(filepath.Join(overlayDataDir(), "overlay_shortcut.json"))
-	if errors.Is(err, os.ErrNotExist) {
-		return shortcut, nil
-	}
-	if err != nil {
-		return shortcut, err
-	}
-	err = json.Unmarshal(data, &shortcut)
-	return shortcut, err
+	settings, err := loadOverlaySettingsLocked()
+	return settings.Shortcut, err
 }
 
 func SaveOverlayShortcut(shortcut OverlayShortcut) error {
 	if shortcut.Key > 255 || shortcut.Modifiers > 15 || bits.OnesCount32(shortcut.Modifiers) > 3 || len(shortcut.Label) > 80 {
 		return errors.New("단축키 값을 확인해 주세요.")
 	}
+	var previous OverlayShortcut
 	overlaySettingsLock.Lock()
-	file := filepath.Join(overlayDataDir(), "overlay_shortcut.json")
-	previous, previousErr := os.ReadFile(file)
-	if previousErr != nil && !errors.Is(previousErr, os.ErrNotExist) {
-		overlaySettingsLock.Unlock()
-		return previousErr
-	}
-	data, err := json.Marshal(shortcut)
+	settings, err := loadOverlaySettingsLocked()
 	if err == nil {
-		err = os.MkdirAll(overlayDataDir(), 0700)
-	}
-	if err == nil {
-		err = os.WriteFile(file, data, 0600)
+		previous = settings.Shortcut
+		settings.Shortcut = shortcut
+		err = saveOverlaySettingsLocked(settings)
+		if err == nil {
+			removeLegacyOverlaySettings()
+		}
 	}
 	overlaySettingsLock.Unlock()
 	if err != nil {
@@ -55,10 +41,12 @@ func SaveOverlayShortcut(shortcut OverlayShortcut) error {
 		procSendMessageW.Call(hwnd, overlayShortcutMessage, 0, 0)
 		if shortcut.Key != 0 && !OverlayHotkeyAvailable() {
 			overlaySettingsLock.Lock()
-			if previousErr == nil {
-				err = os.WriteFile(file, previous, 0600)
+			settings, loadErr := loadOverlaySettingsLocked()
+			if loadErr == nil {
+				settings.Shortcut = previous
+				err = saveOverlaySettingsLocked(settings)
 			} else {
-				err = os.Remove(file)
+				err = loadErr
 			}
 			overlaySettingsLock.Unlock()
 			procSendMessageW.Call(hwnd, overlayShortcutMessage, 0, 0)

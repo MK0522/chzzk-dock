@@ -44,8 +44,11 @@ type AppSettings struct {
 	AutoCheckUpdate      *bool             `json:"auto_check_update,omitempty"`      // 앱 시작 시 업데이트 자동 확인 여부 (기본값: true)
 	FontScale            float64            `json:"font_scale"`                       // 독 화면/폰트 배율 (기본값: 1.2)
 	ThemeMode            string             `json:"theme_mode,omitempty"`             // 화면 테마 ("dark" 기본 / "light")
-	RemoteFilterColors   map[string]string  `json:"remote_filter_colors,omitempty"`   // 리모컨 필터 칩 커스텀 포인트 색상 (키: FOLLOW/SUB/DONATION/AD/SHOP)
-	DismissedWatchPartyNotices map[string]bool `json:"dismissed_watch_party_notices,omitempty"` // 다시 보지 않음 선택한 같이보기 안내 인덱스 ("0", "1", ...)
+	RemoteFilterColors         map[string]string  `json:"remote_filter_colors,omitempty"`          // 리모컨 필터 칩 커스텀 포인트 색상 (키: FOLLOW/SUB/DONATION/AD/SHOP)
+	DismissedWatchPartyNotices map[string]bool    `json:"dismissed_watch_party_notices,omitempty"` // 다시 보지 않음 선택한 같이보기 안내 인덱스 ("0", "1", ...)
+	DismissedBetaNotices       map[string]bool    `json:"dismissed_beta_notices,omitempty"`        // 다시 보지 않음 선택한 베타 기능 안내 키 ("revenue", "remote", ...)
+	CollapsedCategorySections  map[string]bool    `json:"collapsed_category_sections,omitempty"`   // 카테고리 드롭다운 접힘 상태 ("favorites", "recommended", "drops")
+	OverlaySourceColumns       int                `json:"overlay_source_columns,omitempty"`        // 오버레이 소스 목록 열 배치 (1 또는 2)
 	ShowViewerCount      *bool              `json:"show_viewer_count,omitempty"`      // 상단 실시간 시청자 수 표시 여부 (기본값: true)
 	SkipUpdateVersion    string             `json:"skip_update_version,omitempty"`    // 건너뛴 업데이트 버전 태그
 	SkipScriptVersion    int                `json:"skip_script_version,omitempty"`    // 건너뛴 OBS Lua 스크립트 버전 번호
