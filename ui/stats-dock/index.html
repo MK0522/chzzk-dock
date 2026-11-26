@@ -1130,13 +1130,8 @@
     window.addEventListener('storage', (e) => {
       if (e.key === 'chzzk_theme_mode' && e.newValue) syncStatsDockTheme(e.newValue);
     });
-    if (typeof EventSource !== 'undefined') {
-      try {
-        const themeEs = new EventSource('/events/theme');
-        themeEs.addEventListener('theme', (e) => {
-          if (e && e.data) syncStatsDockTheme(e.data);
-        });
-      } catch (_) {}
+    if (typeof connectDockEvents === 'function') {
+      connectDockEvents(syncStatsDockTheme);
     }
     apiFetch('/app-settings').then(r => r.ok ? r.json() : null).then(d => {
       if (d && d.theme_mode) syncStatsDockTheme(d.theme_mode);

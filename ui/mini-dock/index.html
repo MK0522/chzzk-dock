@@ -22,54 +22,7 @@
       font-size: 11px;
     }
 
-    /* 토글 스위치 (메인 독 .toggle-switch / .toggle-slider 디자인 통일) */
-    .mini-switch {
-      position: relative;
-      display: inline-flex;
-      align-items: center;
-      width: 32px;
-      height: 18px;
-      flex-shrink: 0;
-      cursor: pointer;
-    }
-    .mini-switch input {
-      opacity: 0;
-      width: 0;
-      height: 0;
-      position: absolute;
-    }
-    .mini-slider {
-      position: absolute;
-      inset: 0;
-      border-radius: 9999px;
-      background-color: #1E2738;
-      border: 1.5px solid #2D3A4F;
-      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-    .mini-switch:hover .mini-slider {
-      border-color: #475569;
-    }
-    .mini-slider::before {
-      content: '';
-      position: absolute;
-      height: 12px;
-      width: 12px;
-      left: 2px;
-      bottom: 1.5px;
-      background-color: #94A3B8;
-      border-radius: 50%;
-      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
-    }
     @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; } }
-    .mini-switch input:checked + .mini-slider {
-      background-color: #00FFA3;
-      border-color: #00FFA3;
-    }
-    .mini-switch input:checked + .mini-slider::before {
-      transform: translateX(13px);
-      background-color: #080A0D;
-    }
 
     .mini-btn {
       height: 24px;
@@ -189,6 +142,19 @@
       opacity: 0.55;
       transition: opacity 0.2s ease;
     }
+    .mini-sub-locked {
+      opacity: 0.45;
+      cursor: not-allowed !important;
+    }
+    .mini-donation-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 5px;
+      border-radius: 7px;
+      background: #0C1018;
+      border: 1px solid #1E2738;
+    }
   </style>
 </head>
 <body class="flex flex-col justify-center px-1.5 pt-1 pb-2.5 overflow-x-auto overflow-y-hidden select-none">
@@ -197,7 +163,7 @@
     <div id="mini-controls-rows" class="flex flex-col gap-1">
   <!-- [1열] 새로고침 + 이모티콘 전용 + 저속 모드 + 채팅창 열기 -->
   <div class="flex items-center gap-1.5 flex-shrink-0">
-    <button onclick="fetchAllStatus()" class="w-6 h-6 rounded-md bg-[#121721] border border-[#1E2738] hover:border-[#00FFA3]/50 text-slate-400 hover:text-[#00FFA3] flex items-center justify-center transition-all cursor-pointer shrink-0" title="상태 즉시 동기화">
+    <button onclick="fetchAllStatus(false, { manual: true })" class="w-6 h-6 rounded-md bg-[#121721] border border-[#1E2738] hover:border-[#00FFA3]/50 text-slate-400 hover:text-[#00FFA3] flex items-center justify-center transition-all cursor-pointer shrink-0" title="상태 즉시 동기화">
       <svg id="sync-icon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
     </button>
 
@@ -207,9 +173,9 @@
     <label class="flex items-center gap-1 cursor-pointer bg-[#121721] px-1.5 py-0.5 rounded-md border border-[#1E2738] hover:border-slate-600 transition-all shrink-0" title="이모티콘 전용 모드 (텍스트 도배 방지)">
       <span class="text-xs">😀</span>
       <span class="text-[10px] font-semibold text-slate-300">이모티콘만</span>
-      <span class="mini-switch ml-0.5">
+      <span class="toggle-switch toggle-switch--sm ml-0.5">
         <input type="checkbox" id="toggle-emoji" onchange="updateEmojiMode(this.checked)">
-        <span class="mini-slider"></span>
+        <span class="toggle-slider"></span>
       </span>
     </label>
 
@@ -237,47 +203,52 @@
     </button>
   </div>
 
-  <!-- [2열] 후원 제어 4종 토글 (채팅, 영상, 미션, 구독) - "이모티콘만"과 동일한 라벨+토글스위치 -->
-  <div class="flex items-center gap-1.5 flex-shrink-0">
-    <!-- 채팅 후원 -->
-    <label class="flex items-center gap-1 cursor-pointer bg-[#121721] px-1.5 py-0.5 rounded-md border border-[#1E2738] hover:border-slate-600 transition-all shrink-0" title="채팅 후원 On/Off">
-      <span class="text-xs">💬</span>
-      <span class="text-[10px] font-semibold text-slate-300">채팅</span>
-      <span class="mini-switch ml-0.5">
-        <input type="checkbox" id="toggle-d-chat" onchange="toggleDonation('CHAT', this.checked)">
-        <span class="mini-slider"></span>
-      </span>
-    </label>
+  <!-- [2열] 후원 전용 그룹 (채팅, 영상, 미션, 구독) -->
+  <div class="flex items-center flex-shrink-0">
+    <div class="mini-donation-group flex-shrink-0">
+      <span class="text-[9.5px] font-bold text-[#00FFA3] pr-1 border-r border-[#1E2738] shrink-0">후원</span>
 
-    <!-- 영상 후원 -->
-    <label class="flex items-center gap-1 cursor-pointer bg-[#121721] px-1.5 py-0.5 rounded-md border border-[#1E2738] hover:border-slate-600 transition-all shrink-0" title="영상 후원 On/Off">
-      <span class="text-xs">🎬</span>
-      <span class="text-[10px] font-semibold text-slate-300">영상</span>
-      <span class="mini-switch ml-0.5">
-        <input type="checkbox" id="toggle-d-video" onchange="toggleDonation('VIDEO', this.checked)">
-        <span class="mini-slider"></span>
-      </span>
-    </label>
+      <!-- 채팅 후원 -->
+      <label class="flex items-center gap-1 cursor-pointer bg-[#121721] px-1.5 py-0.5 rounded-md border border-[#1E2738] hover:border-slate-600 transition-all shrink-0" title="채팅 후원 On/Off">
+        <span class="text-xs">💬</span>
+        <span class="text-[10px] font-semibold text-slate-300">채팅</span>
+        <span class="toggle-switch toggle-switch--sm ml-0.5">
+          <input type="checkbox" id="toggle-d-chat" onchange="toggleDonation('CHAT', this.checked)">
+          <span class="toggle-slider"></span>
+        </span>
+      </label>
 
-    <!-- 미션 후원 -->
-    <label class="flex items-center gap-1 cursor-pointer bg-[#121721] px-1.5 py-0.5 rounded-md border border-[#1E2738] hover:border-slate-600 transition-all shrink-0" title="미션 후원 On/Off">
-      <span class="text-xs">🎯</span>
-      <span class="text-[10px] font-semibold text-slate-300">미션</span>
-      <span class="mini-switch ml-0.5">
-        <input type="checkbox" id="toggle-d-mission" onchange="toggleDonation('MISSION', this.checked)">
-        <span class="mini-slider"></span>
-      </span>
-    </label>
+      <!-- 영상 후원 -->
+      <label class="flex items-center gap-1 cursor-pointer bg-[#121721] px-1.5 py-0.5 rounded-md border border-[#1E2738] hover:border-slate-600 transition-all shrink-0" title="영상 후원 On/Off">
+        <span class="text-xs">🎬</span>
+        <span class="text-[10px] font-semibold text-slate-300">영상</span>
+        <span class="toggle-switch toggle-switch--sm ml-0.5">
+          <input type="checkbox" id="toggle-d-video" onchange="toggleDonation('VIDEO', this.checked)">
+          <span class="toggle-slider"></span>
+        </span>
+      </label>
 
-    <!-- 구독 알림 -->
-    <label class="flex items-center gap-1 cursor-pointer bg-[#121721] px-1.5 py-0.5 rounded-md border border-[#1E2738] hover:border-slate-600 transition-all shrink-0" title="구독 알림 On/Off">
-      <span class="text-xs">⭐</span>
-      <span class="text-[10px] font-semibold text-slate-300">구독</span>
-      <span class="mini-switch ml-0.5">
-        <input type="checkbox" id="toggle-d-sub" onchange="toggleDonation('subscription', this.checked)">
-        <span class="mini-slider"></span>
-      </span>
-    </label>
+      <!-- 미션 후원 -->
+      <label class="flex items-center gap-1 cursor-pointer bg-[#121721] px-1.5 py-0.5 rounded-md border border-[#1E2738] hover:border-slate-600 transition-all shrink-0" title="미션 후원 On/Off">
+        <span class="text-xs">🎯</span>
+        <span class="text-[10px] font-semibold text-slate-300">미션</span>
+        <span class="toggle-switch toggle-switch--sm ml-0.5">
+          <input type="checkbox" id="toggle-d-mission" onchange="toggleDonation('MISSION', this.checked)">
+          <span class="toggle-slider"></span>
+        </span>
+      </label>
+
+      <!-- 구독 알림 (비활성 계정은 잠금 처리) -->
+      <label id="label-d-sub" class="flex items-center gap-1 cursor-pointer bg-[#121721] px-1.5 py-0.5 rounded-md border border-[#1E2738] hover:border-slate-600 transition-all shrink-0" title="구독 알림 On/Off">
+        <span class="text-xs">⭐</span>
+        <span class="text-[10px] font-semibold text-slate-300">구독</span>
+        <span id="lock-d-sub" style="display:none;" class="text-[9px]">🔒</span>
+        <span class="toggle-switch toggle-switch--sm ml-0.5">
+          <input type="checkbox" id="toggle-d-sub" onchange="toggleDonation('subscription', this.checked)">
+          <span class="toggle-slider"></span>
+        </span>
+      </label>
+    </div>
   </div>
     </div>
     <span id="mini-status-label" class="mini-frame-label" role="status" aria-live="polite"></span>
@@ -303,6 +274,31 @@
     let settingsChangesPending = 0;
     let miniConnectFadeTimer = null;
     let hasMiniSyncedOnce = false;
+    let lastMiniSyncHadError = false;
+    let miniSubscriptionAvailable = true;
+
+    function applyMiniSubscriptionLock(available) {
+      miniSubscriptionAvailable = available !== false;
+      const elSub = document.getElementById('toggle-d-sub');
+      const labelSub = document.getElementById('label-d-sub');
+      const lockSub = document.getElementById('lock-d-sub');
+      if (elSub) {
+        elSub.disabled = !miniSubscriptionAvailable;
+        if (!miniSubscriptionAvailable) elSub.checked = false;
+      }
+      if (labelSub) {
+        if (miniSubscriptionAvailable) {
+          labelSub.classList.remove('mini-sub-locked');
+          labelSub.title = '구독 알림 On/Off';
+        } else {
+          labelSub.classList.add('mini-sub-locked');
+          labelSub.title = '구독 미활성 채널 (프로/파트너 전용)';
+        }
+      }
+      if (lockSub && lockSub.style) {
+        lockSub.style.display = miniSubscriptionAvailable ? 'none' : 'inline';
+      }
+    }
 
     function setMiniConnectionState(state, text = '') {
       const frame = document.getElementById('mini-frame');
@@ -345,7 +341,7 @@
     }
 
     function endSettingsChange() {
-      if (--settingsChangesPending === 0) fetchAllStatus();
+      if (--settingsChangesPending === 0) fetchAllStatus(false, { silent: true });
     }
 
     function scheduleStatusRetry() {
@@ -358,8 +354,10 @@
     }
 
     // 전체 상태 동기화 (채팅 모드 + 후원 4종)
-    async function fetchAllStatus(isRetry = false) {
+    async function fetchAllStatus(isRetry = false, options = {}) {
       if (statusRequestPending || settingsChangesPending) return;
+      const isManual = !!(options && options.manual);
+      const isSilent = !!(options && options.silent);
       const request = {};
       statusRequestPending = request;
       if (statusRetryTimer !== null) {
@@ -373,22 +371,28 @@
       }
 
       try {
-        const [chatRes, donRes] = await Promise.all([
+        const profilePromise = (typeof chzzkApi.getProfile === 'function')
+          ? chzzkApi.getProfile().catch(() => null)
+          : Promise.resolve(null);
+        const [chatRes, donRes, profRes] = await Promise.all([
           chzzkApi.getChatMode(),
-          chzzkApi.getDonations()
+          chzzkApi.getDonations(),
+          profilePromise
         ]);
 
         if (statusRequestPending !== request) return;
 
         if (chatRes.status === 401 || donRes.status === 401) {
-          if (!isRetry) showToast('로그인 필요 (메인 독 확인)', 'warn');
+          lastMiniSyncHadError = true;
+          if (!isRetry && !isSilent) showToast('로그인 필요 (메인 독 확인)', 'warn');
           setMiniConnectionState('error', '로그인 필요 (메인 독 확인)');
           scheduleStatusRetry();
           return;
         }
 
         if (!chatRes.ok || !donRes.ok) {
-          if (!isRetry) showToast('상태 조회 실패. 10초 후 다시 확인합니다.', 'error');
+          lastMiniSyncHadError = true;
+          if (!isRetry && !isSilent) showToast('상태 조회 실패. 10초 후 다시 확인합니다.', 'error');
           setMiniConnectionState('error', '연결 끊김 · 10초 후 재시도');
           scheduleStatusRetry();
           return;
@@ -400,12 +404,28 @@
         if (elEmoji) elEmoji.checked = !!chat.emojiOnly;
         if (elSlow) elSlow.value = String(chat.slowSec || 0);
         syncDonationUI(don);
+
+        if (profRes && profRes.ok) {
+          const prof = await profRes.json().catch(() => null);
+          if (statusRequestPending !== request) return;
+          if (prof && typeof prof.subscriptionAvailable === 'boolean') {
+            applyMiniSubscriptionLock(prof.subscriptionAvailable);
+          }
+        }
+
         hasMiniSyncedOnce = true;
-        setMiniConnectionState('connected', isRetry ? '연결 복구됨' : '연결됨');
-        showToast(isRetry ? '상태 동기화 복구' : '동기화 완료', 'success');
+        if (isRetry || lastMiniSyncHadError) {
+          lastMiniSyncHadError = false;
+          setMiniConnectionState('connected', '연결 복구됨');
+          showToast('상태 동기화 복구', 'success');
+        } else {
+          setMiniConnectionState('idle', '');
+          if (isManual) showToast('동기화 완료', 'success');
+        }
       } catch (e) {
         if (statusRequestPending !== request) return;
-        if (!isRetry) showToast('상태 조회 실패. 10초 후 다시 확인합니다.', 'error');
+        lastMiniSyncHadError = true;
+        if (!isRetry && !isSilent) showToast('상태 조회 실패. 10초 후 다시 확인합니다.', 'error');
         setMiniConnectionState('error', '연결 끊김 · 10초 후 재시도');
         scheduleStatusRetry();
       } finally {
@@ -470,9 +490,14 @@
 
     // 후원 4종 개별 토글 (chat, video, mission, subscription 개별 엔드포인트)
     async function toggleDonation(target, enabled) {
-      beginSettingsChange();
       const targetLower = target.toLowerCase();
       const el = document.getElementById(getDonationElementId(targetLower));
+      if (targetLower === 'subscription' && !miniSubscriptionAvailable) {
+        if (el) el.checked = false;
+        showToast('구독 미활성 채널 (프로/파트너 전용)', 'warn');
+        return;
+      }
+      beginSettingsChange();
       const nameMap = { chat: '채팅 후원', video: '영상 후원', mission: '미션 후원', sub: '구독 알림', subscription: '구독 알림' };
 
       try {
@@ -512,13 +537,8 @@
     window.addEventListener('storage', (e) => {
       if (e.key === 'chzzk_theme_mode' && e.newValue) syncMiniDockTheme(e.newValue);
     });
-    if (typeof EventSource !== 'undefined') {
-      try {
-        const themeEs = new EventSource('/events/theme');
-        themeEs.addEventListener('theme', (e) => {
-          if (e && e.data) syncMiniDockTheme(e.data);
-        });
-      } catch (_) {}
+    if (typeof connectDockEvents === 'function') {
+      connectDockEvents(syncMiniDockTheme);
     }
     async function loadMiniDockTheme() {
       try {

@@ -66,7 +66,7 @@
         </span>
       </div>
       <div class="flex items-center gap-1.5 flex-shrink-0">
-        <button type="button" id="header-btn-urls" onclick="toggleUrlsPanel()" aria-controls="urls-panel" class="h-9 px-2 rounded-lg bg-[#121721] border border-[#1E2738] hover:border-[#00FFA3]/50 text-[12px] font-bold text-slate-300 hover:text-[#00FFA3] transition-all flex-shrink-0 cursor-pointer shadow-sm" title="오버레이 설정" aria-label="오버레이 설정"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="m12 3 10 5-10 5L2 8zM2 12l10 5 10-5M2 16l10 5 10-5"/></svg></button>
+        <button type="button" id="header-btn-urls" onclick="toggleUrlsPanel()" aria-controls="urls-panel" class="h-9 px-2 rounded-lg bg-[#121721] border border-[#1E2738] hover:border-[#00FFA3]/50 text-[12px] font-bold text-slate-300 hover:text-[#00FFA3] transition-all flex-shrink-0 cursor-pointer shadow-sm" title="오버레이 &amp; 방송 소스" aria-label="오버레이 및 방송 소스"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="m12 3 10 5-10 5L2 8zM2 12l10 5 10-5M2 16l10 5 10-5"/></svg></button>
         <!-- 원클릭 다크 / 라이트 테마 전환 버튼 -->
         <button id="header-btn-theme" onclick="toggleThemeMode()" class="h-9 w-9 flex items-center justify-center rounded-lg bg-[#121721] border border-[#1E2738] hover:border-[#00FFA3]/50 text-[15px] transition-all flex-shrink-0 cursor-pointer shadow-sm" title="다크 / 라이트 모드 전환" aria-label="화면 테마 전환">
           <span id="header-theme-icon">🌙</span>
@@ -459,8 +459,8 @@
               </div>
               <div class="flex gap-1">
                 <input type="password" id="field-party-invite-url" readonly class="chzzk-input flex-1 font-mono text-[10px] select-all" placeholder="초대 링크 불러오는 중..." />
-                <button type="button" onclick="togglePartyLinkMask(this)" class="px-1.5 rounded-md bg-[#161F2E] border border-[#243044] text-slate-300 text-xs cursor-pointer" title="보기/숨기기">👁️</button>
-                <button type="button" onclick="copyPartyInviteUrl()" class="px-2 rounded-md bg-[#161F2E] border border-[#243044] text-slate-200 text-[10.5px] font-bold flex-shrink-0 cursor-pointer">복사</button>
+                <button type="button" id="btn-party-invite-mask" onclick="toggleFieldMask('field-party-invite-url', this)" class="px-1.5 rounded-md bg-[#161F2E] border border-[#243044] text-slate-300 text-xs cursor-pointer" title="보기/숨기기">👁️</button>
+                <button type="button" onclick="copyFieldValue('field-party-invite-url', '초대 링크')" class="px-2 rounded-md bg-[#161F2E] border border-[#243044] text-slate-200 text-[10.5px] font-bold flex-shrink-0 cursor-pointer">복사</button>
                 <button type="button" id="btn-party-reissue-token" onclick="reissuePartyInviteToken()" class="px-2 rounded-md bg-[#00FFA3]/15 hover:bg-[#00FFA3]/25 border border-[#00FFA3]/40 text-[#00FFA3] text-[10.5px] font-bold flex-shrink-0 cursor-pointer" title="새 초대 링크 발급">🔄 재발급</button>
               </div>
             </div>
@@ -700,9 +700,9 @@
         <span id="save-text">적용</span>
         <svg id="save-spinner" class="animate-spin ml-1.5 inline-block" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="display:none;"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round"/></svg>
       </button>
-      <button type="button" onclick="openPresetLoadModal()" class="px-2.5 py-1.5 rounded-lg bg-[#121721] hover:bg-[#161F2E] border border-[#243044] hover:border-[#00FFA3]/50 text-slate-200 hover:text-[#00FFA3] transition-all text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer flex-shrink-0" title="방송 프리셋 관리 (불러오기, 새로 저장, 덮어쓰기)">
+      <button type="button" id="btn-preset-manage" onclick="openPresetLoadModal()" class="px-2.5 py-1.5 rounded-lg bg-[#121721] hover:bg-[#161F2E] border border-[#243044] hover:border-[#00FFA3]/50 text-slate-200 hover:text-[#00FFA3] transition-all text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer flex-shrink-0 max-w-[135px]" title="방송 프리셋 관리 (불러오기, 저장, 덮어쓰기)">
         <span>📋</span>
-        <span>프리셋</span>
+        <span id="preset-toolbar-name" class="truncate">프리셋</span>
         <span id="preset-slot-count-badge" class="text-[9.5px] font-mono text-[#00FFA3]">0/10</span>
       </button>
     </div>
@@ -710,24 +710,27 @@
 
   <section id="urls-panel" class="settings-panel px-2.5 pt-2 pb-3" aria-labelledby="urls-panel-title">
     <header class="flex items-center justify-between mb-2 border-b border-chzzk-border pb-2">
-      <h2 id="urls-panel-title" class="flex items-center gap-1.5 text-xs font-bold text-white"><span class="text-base" aria-hidden="true">📚</span><span>방송 소스 설정</span></h2>
+      <h2 id="urls-panel-title" class="flex items-center gap-1.5 text-xs font-bold text-white"><span class="text-base" aria-hidden="true">📚</span><span>오버레이 &amp; 방송 소스</span></h2>
       <div class="flex items-center gap-1">
-        <button type="button" id="urls-panel-refresh" onclick="fetchStreamingInfo(false)" class="icon-refresh-btn" title="새로고침" aria-label="방송 URL 새로고침">
+        <button type="button" id="urls-panel-refresh" onclick="fetchStreamingInfo(false)" hidden class="icon-refresh-btn" title="새로고침" aria-label="방송 URL 새로고침">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
         </button>
-        <button type="button" onclick="toggleUrlsPanel()" aria-label="방송 소스 닫기" title="방송 소스 닫기" class="w-6 h-6 rounded-md bg-chzzk-card border border-chzzk-border flex items-center justify-center hover:border-chzzk-muted transition-colors cursor-pointer">
+        <button type="button" onclick="toggleUrlsPanel()" aria-label="오버레이 및 방송 소스 닫기" title="닫기" class="w-6 h-6 rounded-md bg-chzzk-card border border-chzzk-border flex items-center justify-center hover:border-chzzk-muted transition-colors cursor-pointer">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5A6577" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>
     </header>
 
-    <!-- 방송 URL 및 스트림키 목록 -->
+    <!-- 탭 순서: 오버레이 설정 우선 -> 스튜디오 URL -->
     <div id="urls-liquid-tabs" class="liquid-tab-group liquid-full mb-2" role="tablist" aria-labelledby="urls-panel-title">
       <div class="liquid-pill" aria-hidden="true"></div>
-      <button type="button" id="urls-tab" class="liquid-tab-btn active" role="tab" aria-selected="true" aria-controls="tab-content-urls" onclick="switchUrlsPanelTab('urls')">스튜디오 URL</button>
-      <button type="button" id="layers-tab" class="liquid-tab-btn" role="tab" aria-selected="false" aria-controls="tab-content-layers" onclick="switchUrlsPanelTab('layers')">오버레이 설정</button>
+      <button type="button" id="layers-tab" class="liquid-tab-btn active" role="tab" aria-selected="true" aria-controls="tab-content-layers" onclick="switchUrlsPanelTab('layers')">오버레이 설정</button>
+      <button type="button" id="urls-tab" class="liquid-tab-btn" role="tab" aria-selected="false" aria-controls="tab-content-urls" onclick="switchUrlsPanelTab('urls')">스튜디오 URL</button>
     </div>
-    <div id="tab-content-urls" class="space-y-2" role="tabpanel" aria-labelledby="urls-tab">
+    <div id="tab-content-layers" role="tabpanel" aria-labelledby="layers-tab">
+      {{OVERLAY_MANAGER}}
+    </div>
+    <div id="tab-content-urls" class="space-y-2" role="tabpanel" aria-labelledby="urls-tab" hidden>
       <!-- 안내 문구 -->
       <div class="px-2 py-1 rounded bg-[#101620] border border-[#1E2738] text-[10px] text-slate-400 leading-snug">
         OBS 소스에 추가할 URL입니다. 방송 노출 방지를 위해 <span class="text-[#00FFA3]">기본 마스킹</span>되어 있습니다.
@@ -749,139 +752,123 @@
         </div>
       </div>
 
-      <!-- [그룹 2] 📋 OBS 독 전용 URL (Docks) -->
-      <div class="section-card space-y-2 p-2">
-        <div class="text-xs font-bold text-[#00FFA3] flex items-center justify-between border-b border-[#1E2738] pb-1">
+      <!-- [그룹 2] 📋 OBS 커스텀 독 URL (아코디언 접기) -->
+      <details class="url-accordion section-card !p-0 overflow-hidden border border-[#243248] hover:border-[#00FFA3]/60 transition-colors group">
+        <summary class="url-accordion-summary cursor-pointer select-none list-none px-2.5 py-2 bg-[#121926] hover:bg-[#172133] flex items-center justify-between text-xs font-bold text-[#00FFA3] transition-colors">
           <span class="flex items-center gap-1">
-            <span>📋</span> OBS 독
+            <span>📋</span> <span>OBS 커스텀 독 URL</span>
           </span>
-          <span class="text-[10px] text-slate-400 font-normal">커스텀 독</span>
-        </div>
-
-        <!-- 1) 메인 통합 제어 독 -->
-        <div class="space-y-0.5">
-          <div class="text-[10px] text-slate-300 font-medium">🎛️ 메인 방송 제어 독 URL</div>
-          <div class="flex items-center gap-1">
-            <input type="password" id="field-main-dock-url" readonly class="chzzk-input text-[10px] py-0.5 px-2 font-mono flex-1 bg-[#090D13] select-all" />
-            <button onclick="toggleFieldMask('field-main-dock-url', this)" class="px-1.5 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-300 text-[10px]" title="보기/숨기기">👁️</button>
-            <button onclick="copyFieldValue('field-main-dock-url', '메인 방송 제어 독 URL')" class="px-2 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-200 text-[10px]">복사</button>
+          <span class="url-accordion-pill px-1.5 py-0.5 rounded bg-[#00FFA3]/12 border border-[#00FFA3]/35 text-[#00FFA3] text-[9.5px] font-bold flex items-center gap-1">
+            <span>4개</span>
+            <span class="inline-block transition-transform duration-150 group-open:rotate-90">▸</span>
+          </span>
+        </summary>
+        <div class="p-2 border-t border-[#1E2738] space-y-2">
+          <div class="space-y-0.5">
+            <div class="text-[10px] text-slate-300 font-medium">🎛️ 메인 방송 제어 독 URL</div>
+            <div class="flex items-center gap-1">
+              <input type="password" id="field-main-dock-url" readonly class="chzzk-input text-[10px] py-0.5 px-2 font-mono flex-1 bg-[#090D13] select-all" />
+              <button type="button" onclick="toggleFieldMask('field-main-dock-url', this)" class="px-1.5 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-300 text-[10px] cursor-pointer" title="보기/숨기기">👁️</button>
+              <button type="button" onclick="copyFieldValue('field-main-dock-url', '메인 방송 제어 독 URL')" class="px-2 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-200 text-[10px] cursor-pointer">복사</button>
+            </div>
+          </div>
+          <div class="space-y-0.5">
+            <div class="text-[10px] text-slate-300 font-medium">🕹️ 미니 퀵 컨트롤러 독 URL (36px 상시 거치)</div>
+            <div class="flex items-center gap-1">
+              <input type="password" id="field-mini-dock-url" readonly class="chzzk-input text-[10px] py-0.5 px-2 font-mono flex-1 bg-[#090D13] select-all" />
+              <button type="button" onclick="toggleFieldMask('field-mini-dock-url', this)" class="px-1.5 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-300 text-[10px] cursor-pointer" title="보기/숨기기">👁️</button>
+              <button type="button" onclick="copyFieldValue('field-mini-dock-url', '미니 퀵 컨트롤러 독 URL')" class="px-2 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-200 text-[10px] cursor-pointer">복사</button>
+            </div>
+          </div>
+          <div class="space-y-0.5">
+            <div class="text-[10px] text-slate-300 font-medium">📊 실시간 방송 통계 독 URL</div>
+            <div class="flex items-center gap-1">
+              <input type="password" id="field-stats-dock-url" readonly class="chzzk-input text-[10px] py-0.5 px-2 font-mono flex-1 bg-[#090D13] select-all" />
+              <button type="button" onclick="toggleFieldMask('field-stats-dock-url', this)" class="px-1.5 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-300 text-[10px] cursor-pointer" title="보기/숨기기">👁️</button>
+              <button type="button" onclick="copyFieldValue('field-stats-dock-url', '방송 통계 독 URL')" class="px-2 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-200 text-[10px] cursor-pointer">복사</button>
+            </div>
+          </div>
+          <div class="space-y-0.5">
+            <div class="text-[10px] text-slate-300 font-medium">💬 공식 채팅창 독 URL</div>
+            <div class="flex items-center gap-1">
+              <input type="password" id="field-chat-url" readonly class="chzzk-input text-[10px] py-0.5 px-2 font-mono flex-1 bg-[#090D13] select-all" placeholder="불러오는 중..." />
+              <button type="button" onclick="toggleFieldMask('field-chat-url', this)" class="px-1.5 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-300 text-[10px] cursor-pointer" title="보기/숨기기">👁️</button>
+              <button type="button" onclick="copyFieldValue('field-chat-url', '채팅창 URL')" class="px-2 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-200 text-[10px] cursor-pointer">복사</button>
+            </div>
           </div>
         </div>
+      </details>
 
-        <!-- 2) 초경량 미니 퀵 컨트롤러 독 -->
-        <div class="space-y-0.5">
-          <div class="text-[10px] text-slate-300 font-medium">🕹️ 미니 퀵 컨트롤러 독 URL (36px 상시 거치)</div>
-          <div class="flex items-center gap-1">
-            <input type="password" id="field-mini-dock-url" readonly class="chzzk-input text-[10px] py-0.5 px-2 font-mono flex-1 bg-[#090D13] select-all" />
-            <button onclick="toggleFieldMask('field-mini-dock-url', this)" class="px-1.5 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-300 text-[10px]" title="보기/숨기기">👁️</button>
-            <button onclick="copyFieldValue('field-mini-dock-url', '미니 퀵 컨트롤러 독 URL')" class="px-2 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-200 text-[10px]">복사</button>
-          </div>
-        </div>
-
-        <!-- 3) 실시간 방송 통계 독 -->
-        <div class="space-y-0.5">
-          <div class="text-[10px] text-slate-300 font-medium">📊 방송 통계 독 URL</div>
-          <div class="flex items-center gap-1">
-            <input type="password" id="field-stats-dock-url" readonly class="chzzk-input text-[10px] py-0.5 px-2 font-mono flex-1 bg-[#090D13] select-all" />
-            <button onclick="toggleFieldMask('field-stats-dock-url', this)" class="px-1.5 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-300 text-[10px]" title="보기/숨기기">👁️</button>
-            <button onclick="copyFieldValue('field-stats-dock-url', '방송 통계 독 URL')" class="px-2 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-200 text-[10px]">복사</button>
-          </div>
-        </div>
-
-        <!-- 4) 치지직 공식 채팅창 독 -->
-        <div class="space-y-0.5">
-          <div class="text-[10px] text-slate-300 font-medium">💬 공식 채팅창 독 URL</div>
-          <div class="flex items-center gap-1">
-            <input type="password" id="field-chat-url" readonly class="chzzk-input text-[10px] py-0.5 px-2 font-mono flex-1 bg-[#090D13] select-all" placeholder="불러오는 중..." />
-            <button onclick="toggleFieldMask('field-chat-url', this)" class="px-1.5 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-300 text-[10px]" title="보기/숨기기">👁️</button>
-            <button onclick="copyFieldValue('field-chat-url', '채팅창 URL')" class="px-2 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-200 text-[10px]">복사</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- [그룹 3] 🔔 후원 & 참여 알림 URL (브라우저 소스) -->
-      <div class="section-card space-y-1.5 p-2">
-        <div class="text-xs font-bold text-slate-200 flex items-center justify-between border-b border-[#1E2738] pb-1">
+      <!-- [그룹 3] 🔔 후원 알림 URL (아코디언 접기) -->
+      <details class="url-accordion section-card !p-0 overflow-hidden border border-[#243248] hover:border-[#00FFA3]/60 transition-colors group">
+        <summary class="url-accordion-summary cursor-pointer select-none list-none px-2.5 py-2 bg-[#121926] hover:bg-[#172133] flex items-center justify-between text-xs font-bold text-slate-200 transition-colors">
           <span class="flex items-center gap-1">
-            <span>🔔</span> 후원 & 참여 알림 URL
+            <span>🔔</span> <span>후원 알림 URL</span>
           </span>
-          <span class="text-[10px] text-slate-400 font-normal">브라우저 소스</span>
-        </div>
-
-        <!-- 1) 채팅 후원/구독 알림 -->
-        <div class="space-y-0.5">
-          <div class="text-[10px] text-slate-300 font-medium">💬 채팅 후원 / 구독 알림</div>
-          <div class="flex items-center gap-1">
-            <input type="password" id="field-alert-donation" readonly class="chzzk-input text-[10px] py-0.5 px-2 font-mono flex-1 bg-[#090D13] select-all" />
-            <button onclick="toggleFieldMask('field-alert-donation', this)" class="px-1.5 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-300 text-[10px]">👁️</button>
-            <button onclick="copyFieldValue('field-alert-donation', '채팅 후원 알림 URL')" class="px-2 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-200 text-[10px]">복사</button>
+          <span class="url-accordion-pill px-1.5 py-0.5 rounded bg-[#00FFA3]/12 border border-[#00FFA3]/35 text-[#00FFA3] text-[9.5px] font-bold flex items-center gap-1">
+            <span>7개</span>
+            <span class="inline-block transition-transform duration-150 group-open:rotate-90">▸</span>
+          </span>
+        </summary>
+        <div class="p-2 border-t border-[#1E2738] space-y-1.5">
+          <div class="space-y-0.5">
+            <div class="text-[10px] text-slate-300 font-medium">💬 채팅 후원 / 구독 알림</div>
+            <div class="flex items-center gap-1">
+              <input type="password" id="field-alert-donation" readonly class="chzzk-input text-[10px] py-0.5 px-2 font-mono flex-1 bg-[#090D13] select-all" />
+              <button type="button" onclick="toggleFieldMask('field-alert-donation', this)" class="px-1.5 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-300 text-[10px] cursor-pointer" title="보기/숨기기">👁️</button>
+              <button type="button" onclick="copyFieldValue('field-alert-donation', '채팅 후원 알림 URL')" class="px-2 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-200 text-[10px] cursor-pointer">복사</button>
+            </div>
+          </div>
+          <div class="space-y-0.5">
+            <div class="text-[10px] text-slate-300 font-medium">🎬 영상 후원 알림</div>
+            <div class="flex items-center gap-1">
+              <input type="password" id="field-alert-video" readonly class="chzzk-input text-[10px] py-0.5 px-2 font-mono flex-1 bg-[#090D13] select-all" />
+              <button type="button" onclick="toggleFieldMask('field-alert-video', this)" class="px-1.5 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-300 text-[10px] cursor-pointer" title="보기/숨기기">👁️</button>
+              <button type="button" onclick="copyFieldValue('field-alert-video', '영상 후원 알림 URL')" class="px-2 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-200 text-[10px] cursor-pointer">복사</button>
+            </div>
+          </div>
+          <div class="space-y-0.5">
+            <div class="text-[10px] text-slate-300 font-medium">🎯 미션 후원 알림</div>
+            <div class="flex items-center gap-1">
+              <input type="password" id="field-alert-mission" readonly class="chzzk-input text-[10px] py-0.5 px-2 font-mono flex-1 bg-[#090D13] select-all" />
+              <button type="button" onclick="toggleFieldMask('field-alert-mission', this)" class="px-1.5 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-300 text-[10px] cursor-pointer" title="보기/숨기기">👁️</button>
+              <button type="button" onclick="copyFieldValue('field-alert-mission', '미션 후원 알림 URL')" class="px-2 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-200 text-[10px] cursor-pointer">복사</button>
+            </div>
+          </div>
+          <div class="space-y-0.5">
+            <div class="text-[10px] text-slate-300 font-medium">🏆 파티 누적 후원금 안내</div>
+            <div class="flex items-center gap-1">
+              <input type="password" id="field-alert-party-amount" readonly class="chzzk-input text-[10px] py-0.5 px-2 font-mono flex-1 bg-[#090D13] select-all" />
+              <button type="button" onclick="toggleFieldMask('field-alert-party-amount', this)" class="px-1.5 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-300 text-[10px] cursor-pointer" title="보기/숨기기">👁️</button>
+              <button type="button" onclick="copyFieldValue('field-alert-party-amount', '파티 누적 후원금 URL')" class="px-2 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-200 text-[10px] cursor-pointer">복사</button>
+            </div>
+          </div>
+          <div class="space-y-0.5">
+            <div class="text-[10px] text-slate-300 font-medium">📊 파티 후원 실시간 티커</div>
+            <div class="flex items-center gap-1">
+              <input type="password" id="field-alert-party-ticker" readonly class="chzzk-input text-[10px] py-0.5 px-2 font-mono flex-1 bg-[#090D13] select-all" />
+              <button type="button" onclick="toggleFieldMask('field-alert-party-ticker', this)" class="px-1.5 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-300 text-[10px] cursor-pointer" title="보기/숨기기">👁️</button>
+              <button type="button" onclick="copyFieldValue('field-alert-party-ticker', '파티 후원 티커 URL')" class="px-2 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-200 text-[10px] cursor-pointer">복사</button>
+            </div>
+          </div>
+          <div class="space-y-0.5">
+            <div class="text-[10px] text-slate-300 font-medium">🎁 구독 선물 효과</div>
+            <div class="flex items-center gap-1">
+              <input type="password" id="field-alert-gift" readonly class="chzzk-input text-[10px] py-0.5 px-2 font-mono flex-1 bg-[#090D13] select-all" />
+              <button type="button" onclick="toggleFieldMask('field-alert-gift', this)" class="px-1.5 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-300 text-[10px] cursor-pointer" title="보기/숨기기">👁️</button>
+              <button type="button" onclick="copyFieldValue('field-alert-gift', '구독 선물 효과 URL')" class="px-2 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-200 text-[10px] cursor-pointer">복사</button>
+            </div>
+          </div>
+          <div class="space-y-0.5">
+            <div class="text-[10px] text-slate-300 font-medium">🛍️ 상품 구매 알림</div>
+            <div class="flex items-center gap-1">
+              <input type="password" id="field-alert-shop" readonly class="chzzk-input text-[10px] py-0.5 px-2 font-mono flex-1 bg-[#090D13] select-all" />
+              <button type="button" onclick="toggleFieldMask('field-alert-shop', this)" class="px-1.5 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-300 text-[10px] cursor-pointer" title="보기/숨기기">👁️</button>
+              <button type="button" onclick="copyFieldValue('field-alert-shop', '상품 구매 알림 URL')" class="px-2 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-200 text-[10px] cursor-pointer">복사</button>
+            </div>
           </div>
         </div>
-
-        <!-- 2) 영상 후원 알림 -->
-        <div class="space-y-0.5">
-          <div class="text-[10px] text-slate-300 font-medium">🎬 영상 후원 알림</div>
-          <div class="flex items-center gap-1">
-            <input type="password" id="field-alert-video" readonly class="chzzk-input text-[10px] py-0.5 px-2 font-mono flex-1 bg-[#090D13] select-all" />
-            <button onclick="toggleFieldMask('field-alert-video', this)" class="px-1.5 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-300 text-[10px]">👁️</button>
-            <button onclick="copyFieldValue('field-alert-video', '영상 후원 알림 URL')" class="px-2 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-200 text-[10px]">복사</button>
-          </div>
-        </div>
-
-        <!-- 3) 미션 후원 알림 -->
-        <div class="space-y-0.5">
-          <div class="text-[10px] text-slate-300 font-medium">🎯 미션 후원 알림</div>
-          <div class="flex items-center gap-1">
-            <input type="password" id="field-alert-mission" readonly class="chzzk-input text-[10px] py-0.5 px-2 font-mono flex-1 bg-[#090D13] select-all" />
-            <button onclick="toggleFieldMask('field-alert-mission', this)" class="px-1.5 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-300 text-[10px]">👁️</button>
-            <button onclick="copyFieldValue('field-alert-mission', '미션 후원 알림 URL')" class="px-2 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-200 text-[10px]">복사</button>
-          </div>
-        </div>
-
-        <!-- 4) 파티 누적 후원금 안내 -->
-        <div class="space-y-0.5">
-          <div class="text-[10px] text-slate-300 font-medium">🏆 파티 누적 후원금 안내</div>
-          <div class="flex items-center gap-1">
-            <input type="password" id="field-alert-party-amount" readonly class="chzzk-input text-[10px] py-0.5 px-2 font-mono flex-1 bg-[#090D13] select-all" />
-            <button onclick="toggleFieldMask('field-alert-party-amount', this)" class="px-1.5 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-300 text-[10px]">👁️</button>
-            <button onclick="copyFieldValue('field-alert-party-amount', '파티 누적 후원금 URL')" class="px-2 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-200 text-[10px]">복사</button>
-          </div>
-        </div>
-
-        <!-- 5) 파티 후원 실시간 티커 -->
-        <div class="space-y-0.5">
-          <div class="text-[10px] text-slate-300 font-medium">📊 파티 후원 실시간 티커</div>
-          <div class="flex items-center gap-1">
-            <input type="password" id="field-alert-party-ticker" readonly class="chzzk-input text-[10px] py-0.5 px-2 font-mono flex-1 bg-[#090D13] select-all" />
-            <button onclick="toggleFieldMask('field-alert-party-ticker', this)" class="px-1.5 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-300 text-[10px]">👁️</button>
-            <button onclick="copyFieldValue('field-alert-party-ticker', '파티 후원 티커 URL')" class="px-2 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-200 text-[10px]">복사</button>
-          </div>
-        </div>
-
-        <!-- 6) 구독 선물 효과 -->
-        <div class="space-y-0.5">
-          <div class="text-[10px] text-slate-300 font-medium">🎁 구독 선물 효과</div>
-          <div class="flex items-center gap-1">
-            <input type="password" id="field-alert-gift" readonly class="chzzk-input text-[10px] py-0.5 px-2 font-mono flex-1 bg-[#090D13] select-all" />
-            <button onclick="toggleFieldMask('field-alert-gift', this)" class="px-1.5 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-300 text-[10px]">👁️</button>
-            <button onclick="copyFieldValue('field-alert-gift', '구독 선물 효과 URL')" class="px-2 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-200 text-[10px]">복사</button>
-          </div>
-        </div>
-
-        <!-- 7) 상품 구매 알림 -->
-        <div class="space-y-0.5">
-          <div class="text-[10px] text-slate-300 font-medium">🛍️ 상품 구매 알림</div>
-          <div class="flex items-center gap-1">
-            <input type="password" id="field-alert-shop" readonly class="chzzk-input text-[10px] py-0.5 px-2 font-mono flex-1 bg-[#090D13] select-all" />
-            <button onclick="toggleFieldMask('field-alert-shop', this)" class="px-1.5 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-300 text-[10px]">👁️</button>
-            <button onclick="copyFieldValue('field-alert-shop', '상품 구매 알림 URL')" class="px-2 py-0.5 bg-[#161F2E] border border-[#1E2738] rounded text-slate-200 text-[10px]">복사</button>
-          </div>
-        </div>
-
-      </div>
-    </div>
-    <div id="tab-content-layers" role="tabpanel" aria-labelledby="layers-tab" hidden>
-      {{OVERLAY_MANAGER}}
+      </details>
     </div>
   </section>
 
@@ -996,20 +983,18 @@
       </div>
     </div>
 
-    <!-- 하단 고정 제어 2버튼 ([⏭️ TTS 넘기기], [⏸️ 알림 정지]) -->
-    <div class="grid grid-cols-2 gap-2 pt-1.5 border-t border-[#1E2738] flex-shrink-0">
-      <button type="button" onclick="skipTTS()" class="py-2 px-2 rounded-xl bg-[#5C3BFF] hover:bg-[#6E50FF] text-white font-bold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-md">
+    <!-- 하단 고정 제어 3버튼 ([⏭️ TTS 넘기기], [⏸️ 알림 정지], [🔊 볼륨]) -->
+    <div class="grid grid-cols-3 gap-1.5 pt-1.5 border-t border-[#1E2738] flex-shrink-0">
+      <button type="button" onclick="skipTTS()" class="py-2 px-1.5 rounded-xl bg-[#5C3BFF] hover:bg-[#6E50FF] text-white font-bold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1 shadow-md">
         <span>⏭️</span> <span>TTS 넘기기</span>
       </button>
-      <button type="button" onclick="togglePauseAlert()" id="btn-remote-pause-alert" class="py-2 px-2 rounded-xl bg-[#1E1936] hover:bg-[#28214A] border border-[#5C3BFF]/40 text-[#C4B5FD] font-bold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5">
+      <button type="button" onclick="togglePauseAlert()" id="btn-remote-pause-alert" class="py-2 px-1.5 rounded-xl bg-[#1E1936] hover:bg-[#28214A] border border-[#5C3BFF]/40 text-[#C4B5FD] font-bold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1">
         <span id="icon-remote-pause">⏸️</span> <span id="text-remote-pause">알림 정지</span>
       </button>
+      <button type="button" onclick="openRemoteVolumeDrawer()" id="btn-remote-vol-open" class="py-2 px-1.5 rounded-xl bg-[#161F2E] hover:bg-[#1E2A3D] border border-[#243044] hover:border-[#00FFA3]/50 text-slate-200 hover:text-[#00FFA3] font-bold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1">
+        <span>🔊</span> <span>볼륨</span>
+      </button>
     </div>
-
-    <!-- 드래그 가능한 좌/우 스냅 볼륨 핸들 -->
-    <button type="button" id="remote-vol-handle" class="vol-drag-handle" data-side="right" style="top: 52%;" title="클릭: 볼륨 설정 열기 · 드래그: 좌/우 및 상/하 위치 이동" aria-label="볼륨 설정 열기">
-      <span class="text-sm leading-none">🔊</span><span>볼륨</span>
-    </button>
 
     <!-- 2-Layer 볼륨 슬라이드 오버레이 (어두운 백드롭 + 적응형 서랍) -->
     <div id="remote-vol-backdrop" class="vol-backdrop" onclick="closeRemoteVolumeDrawer()"></div>
@@ -1108,11 +1093,6 @@
         <button type="button" onclick="switchSettingsTab('shortcuts')" id="tab-btn-shortcuts" class="settings-nav-btn">
           <span class="text-sm" aria-hidden="true">⌨️</span>
           <span>단축키</span>
-        </button>
-        <div class="settings-nav-divider" aria-hidden="true"></div>
-        <button type="button" onclick="switchSettingsTab('advanced')" id="tab-btn-advanced" class="settings-nav-btn">
-          <span class="text-sm">🛠️</span>
-          <span>고급</span>
         </button>
         <div class="settings-nav-divider" aria-hidden="true"></div>
         <button type="button" onclick="switchSettingsTab('info')" id="tab-btn-info" class="settings-nav-btn">
@@ -1279,8 +1259,9 @@
           </div>
         </div>
 
-        <!-- ===== TAB 2: 일반 (General) ===== -->
+        <!-- ===== TAB 2: 일반 (OBS 연동 · 앱 실행 · 시스템) ===== -->
         <div id="tab-content-general" class="space-y-2.5 hidden">
+          <div class="text-[10px] font-bold text-[#00FFA3] tracking-wider px-0.5">OBS 연동</div>
           <!-- 앱 자동 시작 (스크립트 설치 관리 카드) -->
           <div class="section-card py-2.5 px-3 border border-[#1E2738] bg-[#0B1017]">
             <div class="flex items-center justify-between">
@@ -1288,14 +1269,19 @@
                 <span class="text-xs font-bold text-slate-100">🚀 앱 자동 시작</span>
               </div>
               <div class="flex items-center gap-2 flex-shrink-0">
-                <button type="button" onclick="browseAndInstallObsFolder()" class="text-slate-500 hover:text-[#00FFA3] text-[9px] transition-colors cursor-pointer" title="OBS 설치 폴더를 직접 변경하려면 클릭하세요">
-                  폴더 변경
+                <button type="button" onclick="browseAndInstallObsFolder()" class="text-slate-500 hover:text-[#00FFA3] text-[9px] transition-colors cursor-pointer" title="obs64.exe 파일을 선택해 OBS 설치 위치를 변경합니다">
+                  위치 변경
+                </button>
+                <button type="button" id="btn-obs-script-reinstall" onclick="reinstallObsScript()" class="hidden text-slate-500 hover:text-amber-400 text-[9px] transition-colors cursor-pointer" title="현재 경로 또는 새 경로에 스크립트를 다시 설치합니다">
+                  재설치
                 </button>
                 <button type="button" id="btn-obs-script-action" onclick="handleObsScriptAction()" class="px-3 py-1.5 text-[11px] font-bold rounded transition-all cursor-pointer bg-[#161F2E] border border-[#243044] text-slate-300 hover:text-white">
                   확인 중...
                 </button>
               </div>
             </div>
+            <div id="obs-script-path-info" class="hidden mt-1 text-[9px] text-slate-500 truncate"></div>
+            <div id="obs-script-warning-box" class="hidden mt-1.5 px-2 py-1.5 rounded bg-amber-500/10 border border-amber-500/40 text-[10px] text-amber-300 leading-snug"></div>
 
             <!-- OBS 스크립트 1회 등록 가이드 (적용 방법 아코디언) -->
             <div class="mt-2 pt-1.5 border-t border-[#1E2738]/80">
@@ -1343,12 +1329,13 @@
                 <div class="text-xs font-bold text-slate-100">🔔 자동 종료 시 Windows 알림 받기</div>
               </div>
               <label class="toggle-switch">
-                <input type="checkbox" id="toggle-shutdown-notify" aria-label="자동 종료 시 Windows 알림 받기" onchange="saveShutdownNotifySetting(this.checked)" checked>
+                <input type="checkbox" id="toggle-shutdown-notify" aria-label="자동 종료 시 Windows 알림 받기" onchange="saveAppSettingField('notify_on_shutdown', this.checked, this.checked ? 'OBS 종료 또는 미감지로 자동 종료 시 알림을 받습니다.' : '자동 종료 시 알림 없이 조용히 종료됩니다.')" checked>
                 <span class="toggle-slider"></span>
               </label>
             </div>
           </div>
 
+          <div class="text-[10px] font-bold text-[#00FFA3] tracking-wider px-0.5 pt-1">앱 실행 · 웹뷰</div>
           <!-- 프로그램 시작 시 독 팝업창 자동 열기 설정 -->
           <div class="section-card p-2.5 bg-chzzk-card/70 border border-chzzk-border space-y-2">
             <div class="flex items-center justify-between">
@@ -1356,15 +1343,85 @@
                 <div class="text-xs font-bold text-slate-100">🖥️ 프로그램 시작 시 독 팝업창 열기</div>
               </div>
               <label class="toggle-switch">
-                <input type="checkbox" id="toggle-popup-on-start" aria-label="프로그램 시작 시 독 팝업창 열기" onchange="savePopupOnStartSetting(this.checked)">
+                <input type="checkbox" id="toggle-popup-on-start" aria-label="프로그램 시작 시 독 팝업창 열기" onchange="saveAppSettingField('popup_on_start', this.checked, this.checked ? '프로그램 시작 시 독 팝업창이 자동으로 열립니다.' : '프로그램 시작 시 팝업창을 띄우지 않고 트레이로만 실행됩니다.')">
                 <span class="toggle-slider"></span>
               </label>
+            </div>
+          </div>
+
+          <!-- 웹뷰 GPU 하드웨어 가속 설정 -->
+          <div class="section-card p-2.5 bg-chzzk-card/70 border border-chzzk-border space-y-2">
+            <div class="flex items-center justify-between">
+              <div class="pr-2">
+                <div class="text-xs font-bold text-slate-100">⚡ 웹뷰 GPU 하드웨어 가속</div>
+                <div class="text-[9px] text-chzzk-muted leading-tight mt-0.5">화면 깨짐 및 WebView 동작 이상시 해제(재실행 권장)</div>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="toggle-enable-gpu" aria-label="GPU 하드웨어 가속" onchange="saveAppSettingField('enable_gpu', this.checked, this.checked ? '웹뷰 GPU 하드웨어 가속이 활성화되었습니다. (창을 다시 열 때 적용)' : '웹뷰 GPU 하드웨어 가속이 비활성화되었습니다. (CPU 렌더링, 창을 다시 열 때 적용)')">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <!-- 외부 링크 기본 브라우저 열기 설정 -->
+          <div class="section-card p-2.5 bg-chzzk-card/70 border border-chzzk-border space-y-2">
+            <div class="flex items-center justify-between gap-2">
+              <div class="pr-2 space-y-1">
+                <div class="text-xs font-bold text-slate-100">🔗 외부 링크 기본 브라우저 열기</div>
+                <div class="text-[9px] text-chzzk-muted leading-tight">Safe Browsing 보호를 위해 기본 브라우저 연결을 권장합니다.</div>
+                <div id="wrap-default-browser" class="hidden inline-flex items-stretch rounded-md overflow-hidden border border-[#26354D] text-[9.5px] leading-none w-fit">
+                  <span class="px-1.5 py-1 bg-[#161F2E] text-slate-300 font-semibold border-r border-[#26354D]">감지된 기본 브라우저</span>
+                  <span id="label-default-browser" class="px-1.5 py-1 font-mono font-bold bg-sky-950/90 text-sky-400"></span>
+                </div>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="toggle-external-browser" aria-label="외부 브라우저 사용" onchange="saveAppSettingField('external_browser_guard', this.checked, this.checked ? '외부 링크 클릭 시 기본 브라우저로 열립니다.' : '외부 링크 클릭 시 웹뷰 내에서 열립니다.')">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="text-[10px] font-bold text-[#00FFA3] tracking-wider px-0.5 pt-1">네트워크 · 서버</div>
+          <!-- 서버 포트 설정 & 충돌 방지 검사 -->
+          <div class="section-card p-2.5 bg-chzzk-card/70 border border-chzzk-border space-y-2">
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="text-xs font-bold text-slate-100">🌐 서버 포트 설정</div>
+                <div class="text-[9px] text-chzzk-muted">기본 포트: 8081 (충돌 시 안전한 랜덤 포트 자동 전환)</div>
+              </div>
+              <span id="badge-port-status" class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950/80 text-emerald-400 border border-emerald-500/30 font-mono">
+                현재 포트: 8081
+              </span>
+            </div>
+
+            <div id="port-fallback-banner" class="hidden p-2 rounded bg-amber-950/40 border border-amber-500/30 text-[10px] text-amber-300 leading-relaxed">
+              <div class="font-bold flex items-center gap-1 text-amber-300">
+                <span>⚠️</span> <span>임시 대체 포트 사용 중</span>
+              </div>
+              <p id="port-fallback-reason" class="text-[9.5px] text-amber-200/80 mt-1"></p>
+            </div>
+
+            <div class="space-y-1.5 pt-0.5">
+              <div class="flex items-center gap-1.5">
+                <div class="relative flex-1 min-w-[90px]">
+                  <input id="input-custom-port" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="5" class="chzzk-input text-[11px] py-1.5 pr-6 w-full text-center font-mono placeholder:text-slate-500" placeholder="포트 (1024~65535)" />
+                  <button id="port-clear" type="button" onclick="clearCustomPort()" class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-chzzk-danger text-xs font-bold leading-none cursor-pointer" style="display:none;" title="포트 지우기">✕</button>
+                </div>
+                <button type="button" onclick="checkCustomPort()" class="!w-auto px-3 py-1.5 rounded bg-[#161F2E] border border-[#243044] hover:border-chzzk-accent text-chzzk-accent text-[11px] font-semibold whitespace-nowrap cursor-pointer transition-colors">
+                  🔍 점검
+                </button>
+                <button type="button" onclick="saveCustomPort()" class="!w-auto px-3 py-1.5 rounded bg-[#161F2E] border border-[#243044] hover:border-emerald-400 text-emerald-400 text-[11px] font-semibold whitespace-nowrap cursor-pointer transition-colors">
+                  💾 저장
+                </button>
+              </div>
+              <div id="port-check-result" class="text-[10px] leading-tight min-h-[14px] text-chzzk-muted px-0.5 font-medium"></div>
             </div>
           </div>
         </div>
 
         <!-- ===== TAB 3: UI (인터페이스 설정) ===== -->
         <div id="tab-content-ui" class="space-y-2.5 hidden">
+          <div class="text-[10px] font-bold text-[#00FFA3] tracking-wider px-0.5">화면 표시</div>
           <!-- 화면 배율 및 UI 표시 설정 카드 -->
           <div class="section-card p-2.5 bg-chzzk-card/70 border border-chzzk-border space-y-2.5">
             <div class="pb-2.5 border-b border-[#1E2738]/80 flex items-center justify-between gap-2">
@@ -1433,75 +1490,9 @@
           </div>
         </div>
 
-        <!-- ===== TAB 4: 고급 (Advanced) ===== -->
-        <div id="tab-content-advanced" class="space-y-2.5 hidden">
-          <!-- 서버 포트 설정 & 충돌 방지 검사 -->
-          <div class="section-card p-2.5 bg-chzzk-card/70 border border-chzzk-border space-y-2">
-            <div class="flex items-center justify-between">
-              <div>
-                <div class="text-xs font-bold text-slate-100">🌐 서버 포트 설정</div>
-                <div class="text-[9px] text-chzzk-muted">기본 포트: 8081 (충돌 시 안전한 랜덤 포트 자동 전환)</div>
-              </div>
-              <span id="badge-port-status" class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950/80 text-emerald-400 border border-emerald-500/30 font-mono">
-                현재 포트: 8081
-              </span>
-            </div>
-
-            <div id="port-fallback-banner" class="hidden p-2 rounded bg-amber-950/40 border border-amber-500/30 text-[10px] text-amber-300 leading-relaxed">
-              <div class="font-bold flex items-center gap-1 text-amber-300">
-                <span>⚠️</span> <span>임시 대체 포트 사용 중</span>
-              </div>
-              <p id="port-fallback-reason" class="text-[9.5px] text-amber-200/80 mt-1"></p>
-            </div>
-
-            <div class="space-y-1.5 pt-0.5">
-              <div class="flex items-center gap-1.5">
-                <div class="relative flex-1 min-w-[90px]">
-                  <input id="input-custom-port" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="5" class="chzzk-input text-[11px] py-1.5 pr-6 w-full text-center font-mono placeholder:text-slate-500" placeholder="포트 (1024~65535)" />
-                  <button id="port-clear" type="button" onclick="clearCustomPort()" class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-chzzk-danger text-xs font-bold leading-none cursor-pointer" style="display:none;" title="포트 지우기">✕</button>
-                </div>
-                <button type="button" onclick="checkCustomPort()" class="!w-auto px-3 py-1.5 rounded bg-[#161F2E] border border-[#243044] hover:border-chzzk-accent text-chzzk-accent text-[11px] font-semibold whitespace-nowrap cursor-pointer transition-colors">
-                  🔍 점검
-                </button>
-                <button type="button" onclick="saveCustomPort()" class="!w-auto px-3 py-1.5 rounded bg-[#161F2E] border border-[#243044] hover:border-emerald-400 text-emerald-400 text-[11px] font-semibold whitespace-nowrap cursor-pointer transition-colors">
-                  💾 저장
-                </button>
-              </div>
-              <div id="port-check-result" class="text-[10px] leading-tight min-h-[14px] text-chzzk-muted px-0.5 font-medium"></div>
-            </div>
-          </div>
-
-          <!-- 웹뷰 GPU 하드웨어 가속 설정 -->
-          <div class="section-card p-2.5 bg-chzzk-card/70 border border-chzzk-border space-y-2">
-            <div class="flex items-center justify-between">
-              <div class="pr-2">
-                <div class="text-xs font-bold text-slate-100">⚡ 웹뷰 GPU 하드웨어 가속</div>
-                <div class="text-[9px] text-chzzk-muted leading-tight mt-0.5">화면 깨짐 및 WebView 동작 이상시 해제(재실행 권장)</div>
-              </div>
-              <label class="toggle-switch">
-                <input type="checkbox" id="toggle-enable-gpu" aria-label="GPU 하드웨어 가속" onchange="saveGPUSetting(this.checked)">
-                <span class="toggle-slider"></span>
-              </label>
-            </div>
-          </div>
-
-          <!-- 외부 링크 기본 브라우저 열기 설정 -->
-          <div class="section-card p-2.5 bg-chzzk-card/70 border border-chzzk-border space-y-2">
-            <div class="flex items-center justify-between">
-              <div class="pr-2 flex items-center gap-1.5 flex-wrap">
-                <span class="text-xs font-bold text-slate-100">🔗 외부 링크 기본 브라우저 열기</span>
-                <span id="label-default-browser" class="hidden px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-sky-950/80 text-sky-400 border border-sky-800/60"></span>
-              </div>
-              <label class="toggle-switch">
-                <input type="checkbox" id="toggle-external-browser" aria-label="외부 브라우저 사용" onchange="saveExternalBrowserSetting(this.checked)">
-                <span class="toggle-slider"></span>
-              </label>
-            </div>
-          </div>
-        </div>
-
         <!-- ===== TAB 4: 앱 정보 (App Info) ===== -->
         <div id="tab-content-info" class="space-y-2.5 hidden">
+          <div class="text-[10px] font-bold text-[#00FFA3] tracking-wider px-0.5">업데이트</div>
           <!-- 소프트웨어 업데이트 -->
           <div class="section-card p-2.5 bg-chzzk-card/70 border border-chzzk-border space-y-2">
             <div class="flex items-center justify-between">
@@ -1538,7 +1529,7 @@
                 </div>
               </div>
               <label class="toggle-switch">
-                <input type="checkbox" id="toggle-auto-check-update" aria-label="자동 업데이트 확인" onchange="saveAutoCheckUpdateSetting(this.checked)">
+                <input type="checkbox" id="toggle-auto-check-update" aria-label="자동 업데이트 확인" onchange="saveAppSettingField('auto_check_update', this.checked, this.checked ? '앱 시작 시 최신 버전을 자동으로 확인합니다.' : '업데이트 자동 확인이 해제되었습니다. 수동으로만 확인합니다.')">
                 <span class="toggle-slider"></span>
               </label>
             </div>
@@ -1560,6 +1551,7 @@
             </div>
           </div>
 
+          <div class="text-[10px] font-bold text-[#00FFA3] tracking-wider px-0.5 pt-1">라이선스 · 안내</div>
           <!-- 오픈소스 라이선스 고지 (Open Source Licenses) -->
           <div class="section-card p-2.5 bg-chzzk-card/70 border border-chzzk-border space-y-2">
             <div class="flex items-center justify-between">
@@ -1932,13 +1924,13 @@ SOFTWARE.</div>
     </div>
   </div>
 
-  <!-- ===== [FEAT-06-03] 방송 정보 프리셋 불러오기 & 관리 모달 (블러/불투명 없는 투명 배경) ===== -->
+  <!-- ===== [FEAT-06-03] 방송 정보 프리셋 통합 관리 모달 ===== -->
   <div id="modal-preset-load" class="fixed inset-0 bg-black/25 z-[9990] flex items-center justify-center p-3 hidden" onclick="if(event.target===this) closePresetLoadModal()">
-    <div class="bg-[#151D28] border-2 border-[#2E3F58] rounded-xl max-w-sm w-full p-3.5 shadow-[0_16px_50px_rgba(0,0,0,0.85)] space-y-3" onclick="event.stopPropagation()">
+    <div class="bg-[#151D28] border-2 border-[#2E3F58] rounded-xl max-w-sm w-full p-3.5 shadow-[0_16px_50px_rgba(0,0,0,0.85)] space-y-2.5" onclick="event.stopPropagation()">
       <div class="flex items-center justify-between border-b border-[#243044] pb-2">
         <div class="flex items-center gap-1.5">
-          <span class="text-sm">📥</span>
-          <span class="text-xs font-bold text-white">방송 프리셋 불러오기</span>
+          <span class="text-sm">📋</span>
+          <span class="text-xs font-bold text-white">방송 프리셋</span>
           <span id="load-modal-slot-count" class="text-[9.5px] px-1.5 py-0.2 rounded bg-[#0D131B] text-slate-400 font-mono border border-[#243044]">
             0 / 10
           </span>
@@ -1948,148 +1940,25 @@ SOFTWARE.</div>
         </button>
       </div>
 
+      <!-- 상단 1줄 새 프리셋 저장 바 -->
+      <div class="flex items-center gap-1.5 p-1.5 rounded-lg bg-[#0D131B] border border-[#243044]">
+        <input id="input-save-new-name" type="text" maxlength="10" placeholder="현재 설정 새 프리셋 이름 (최대 10자)"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();saveNewPresetQuick();}"
+          class="chzzk-input text-xs !py-1 !bg-[#090D13] border-[#1E2738] focus:border-[#00FFA3] flex-1 min-w-0" autocomplete="off" />
+        <button type="button" id="btn-save-new-preset" onclick="saveNewPresetQuick()" class="px-2.5 py-1 rounded bg-[#00FFA3] hover:bg-[#00E591] text-black text-[11px] font-bold whitespace-nowrap cursor-pointer transition-colors shrink-0">
+          ➕ 저장
+        </button>
+      </div>
+
       <!-- 프리셋 목록 컨테이너 -->
       <div id="preset-load-list" class="space-y-1.5 max-h-[300px] overflow-y-auto pr-0.5 no-scrollbar">
         <!-- 동적 렌더링 -->
       </div>
 
       <!-- 하단 액션 버튼 바 -->
-      <div class="flex items-center justify-between pt-2 border-t border-[#243044]">
-        <button type="button" onclick="openPresetSaveModalFromLoad()" class="text-[10.5px] text-[#00FFA3] hover:underline flex items-center gap-1 cursor-pointer">
-          <span>➕</span> <span>현재 설정 새로 저장</span>
-        </button>
+      <div class="flex items-center justify-end pt-1.5 border-t border-[#243044]">
         <button type="button" onclick="closePresetLoadModal()" class="px-3 py-1 rounded bg-[#1B2535] hover:bg-[#253247] text-slate-300 text-xs font-medium cursor-pointer transition-colors">
           닫기
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ===== [FEAT-06-03] 방송 정보 프리셋 저장/덮어쓰기 모달 (블러/불투명 없는 투명 배경) ===== -->
-  <div id="modal-preset-save" class="fixed inset-0 bg-black/25 z-[9990] flex items-center justify-center p-3 hidden" onclick="if(event.target===this) closePresetSaveModal()">
-    <div class="bg-[#151D28] border-2 border-[#2E3F58] rounded-xl max-w-sm w-full p-3.5 shadow-[0_16px_50px_rgba(0,0,0,0.85)] space-y-3" onclick="event.stopPropagation()">
-      <div class="flex items-center justify-between border-b border-[#243044] pb-2">
-        <div class="flex items-center gap-1.5">
-          <span class="text-sm">💾</span>
-          <span class="text-xs font-bold text-white">방송 정보 프리셋 저장</span>
-          <span id="save-modal-slot-count" class="text-[9.5px] px-1.5 py-0.2 rounded bg-[#0D131B] text-slate-400 font-mono border border-[#243044]">
-            0 / 10
-          </span>
-        </div>
-        <button type="button" onclick="closePresetSaveModal()" class="w-6 h-6 rounded hover:bg-white/5 text-slate-400 hover:text-white flex items-center justify-center text-xs font-bold cursor-pointer">
-          ✕
-        </button>
-      </div>
-
-      <!-- 모드 전환 탭 (새로 저장 vs 기존 덮어쓰기) -->
-      <div class="grid grid-cols-2 gap-1 p-0.5 bg-[#0C1118] rounded-lg border border-[#243044]">
-        <button type="button" id="tab-btn-save-new" onclick="switchPresetSaveTab('new')" class="py-1 text-[11px] font-semibold rounded transition-all text-center bg-[#1B2535] text-[#00FFA3] shadow-sm cursor-pointer">
-          ➕ 새 프리셋 등록
-        </button>
-        <button type="button" id="tab-btn-save-overwrite" onclick="switchPresetSaveTab('overwrite')" class="py-1 text-[11px] font-semibold rounded transition-all text-center text-slate-400 hover:text-white cursor-pointer">
-          🔄 기존 덮어쓰기
-        </button>
-      </div>
-
-      <!-- 탭 1: 새 프리셋 등록 -->
-      <div id="tab-content-save-new" class="space-y-2">
-        <div class="space-y-0.5">
-          <div class="flex justify-between items-center text-[10.5px]">
-            <label class="font-semibold text-slate-200">프리셋 이름 <span class="text-[#00FFA3]">*</span></label>
-            <span id="save-new-name-counter" class="text-slate-400 font-mono text-[10px]">0 / 10자</span>
-          </div>
-          <input id="input-save-new-name" type="text" maxlength="10" placeholder="예: ☕ 저챗, ⚔️ 롤 솔랭, 🎮 종겜" 
-            oninput="validatePresetSaveNew()"
-            class="chzzk-input text-xs !py-1 !bg-[#0D131B] border-[#2E3F58] focus:border-[#00FFA3]" autocomplete="off" />
-        </div>
-
-        <!-- 현재 방송 설정 스냅샷 (왼쪽 박스 형태) -->
-        <div class="flex items-start gap-2 p-2 rounded-lg bg-[#00FFA3]/5 border border-[#00FFA3]/30 text-[10.5px]">
-          <div class="shrink-0 px-2 py-1 rounded bg-[#00FFA3]/20 border border-[#00FFA3]/40 text-[10px] font-bold text-[#00FFA3] text-center min-w-[58px]">
-            현재 설정
-          </div>
-          <div class="min-w-0 flex-1 space-y-0.5">
-            <div class="truncate text-white font-medium" id="save-preview-title">-</div>
-            <div class="text-[10px] text-slate-400 truncate flex items-center gap-1">
-              <span class="text-slate-500">카테고리:</span>
-              <span id="save-preview-cat" class="text-[#00FFA3] font-medium">-</span>
-            </div>
-            <div class="flex items-center gap-1 flex-wrap text-[10px] text-slate-400">
-              <span class="text-slate-500 shrink-0">태그:</span>
-              <div id="save-preview-tags" class="flex items-center gap-1 flex-wrap"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 탭 2: 기존 프리셋 덮어쓰기 -->
-      <div id="tab-content-save-overwrite" class="space-y-2 hidden">
-        <div class="space-y-0.5">
-          <label class="font-semibold text-slate-200 text-[10.5px]">덮어쓸 대상 프리셋 선택 <span class="text-[#00FFA3]">*</span></label>
-          <select id="select-preset-overwrite" class="chzzk-select text-xs !bg-[#0D131B] border-[#2E3F58]" onchange="onSelectOverwritePreset(this.value)">
-            <!-- 동적 옵션 렌더링 -->
-          </select>
-        </div>
-
-        <!-- 비교 영역: 기존 설정 vs 현재 설정 -->
-        <div id="overwrite-comparison-section" class="space-y-1.5 pt-0.5">
-          <!-- 1. 기존 설정 -->
-          <div class="flex items-start gap-2 p-2 rounded-lg bg-[#0D131B] border border-[#243044] text-[10.5px]">
-            <div class="shrink-0 px-2 py-1 rounded bg-[#1B2535] border border-[#2E3F58] text-[10px] font-bold text-slate-300 text-center min-w-[58px]">
-              기존 설정
-            </div>
-            <div class="min-w-0 flex-1 space-y-0.5">
-              <div class="truncate text-slate-200 font-medium" id="ow-prev-title">-</div>
-              <div class="text-[10px] text-slate-400 truncate flex items-center gap-1">
-                <span class="text-slate-500">카테고리:</span>
-                <span id="ow-prev-cat" class="text-slate-300">-</span>
-              </div>
-              <div class="text-[10px] text-slate-400 truncate flex items-center gap-1">
-                <span class="text-slate-500">태그:</span>
-                <span id="ow-prev-tags" class="text-slate-400">-</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- 연결 인디케이터 -->
-          <div class="flex items-center justify-center gap-1 text-[10px] text-slate-400 font-medium py-0.5">
-            <span class="text-[#00FFA3]">▼</span>
-            <span>현재 설정으로 덮어씁니다</span>
-            <span class="text-[#00FFA3]">▼</span>
-          </div>
-
-          <!-- 2. 현재 설정 -->
-          <div class="flex items-start gap-2 p-2 rounded-lg bg-[#00FFA3]/5 border border-[#00FFA3]/30 text-[10.5px]">
-            <div class="shrink-0 px-2 py-1 rounded bg-[#00FFA3]/20 border border-[#00FFA3]/40 text-[10px] font-bold text-[#00FFA3] text-center min-w-[58px]">
-              현재 설정
-            </div>
-            <div class="min-w-0 flex-1 space-y-0.5">
-              <div class="truncate text-white font-medium" id="ow-curr-title">-</div>
-              <div class="text-[10px] text-slate-400 truncate flex items-center gap-1">
-                <span class="text-slate-500">카테고리:</span>
-                <span id="ow-curr-cat" class="text-[#00FFA3] font-medium">-</span>
-              </div>
-              <div class="text-[10px] text-slate-400 truncate flex items-center gap-1">
-                <span class="text-slate-500">태그:</span>
-                <span id="ow-curr-tags" class="text-slate-300">-</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 경고 / 유효성 메시지 -->
-      <div id="save-preset-validation-msg" class="hidden text-[10px] text-amber-300 bg-amber-950/40 border border-amber-500/30 rounded px-2 py-1 flex items-center gap-1">
-        <span>⚠️</span> <span id="save-preset-validation-text">프리셋 이름을 입력해 주세요.</span>
-      </div>
-
-      <!-- 하단 액션 버튼 -->
-      <div class="flex items-center justify-end gap-1.5 pt-1 border-t border-[#243044]">
-        <button type="button" onclick="closePresetSaveModal()" class="px-2.5 py-1 rounded bg-[#1B2535] hover:bg-[#253247] text-slate-300 text-xs font-medium cursor-pointer transition-colors">
-          취소
-        </button>
-        <button type="button" id="btn-confirm-save-action" onclick="executePresetSaveAction()" class="px-3.5 py-1 rounded bg-[#00FFA3] hover:bg-[#00E591] text-black text-xs font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer">
-          저장하기
         </button>
       </div>
     </div>

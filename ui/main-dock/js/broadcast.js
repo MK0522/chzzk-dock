@@ -2,7 +2,7 @@
 
 
 async function fetchSessionBootstrap() {
-  const res = await apiFetch('/chzzkdock/session/bootstrap');
+  const res = await chzzkApi.getSessionBootstrap();
   if (!res.ok) throw new Error(`부트스트랩 실패 (HTTP ${res.status})`);
   const data = await res.json();
 
@@ -241,7 +241,7 @@ async function initConnection() {
         return dropsCampaignDetailsCache[campaignNo];
       }
       try {
-        const res = await apiFetch(`/chzzkdock/drops/match?campaignNo=${encodeURIComponent(campaignNo)}`);
+        const res = await chzzkApi.matchDropsCampaign(campaignNo);
         if (res.ok) {
           const matchData = await res.json();
           if (matchData && matchData.supported) {
@@ -274,7 +274,7 @@ async function initConnection() {
     // 치지직 스튜디오 공식 API: 현재 채널이 참여 가능한 실시간 활성 드롭스 캠페인 목록 조회 (BFF)
     async function fetchChannelDropsCampaigns(channelId) {
       try {
-        const res = await apiFetch('/chzzkdock/drops/campaigns');
+        const res = await chzzkApi.getDropsCampaigns();
         if (res.ok) {
           const data = await res.json();
           activeChannelDrops = Array.isArray(data) ? data : (data?.content?.campaignList || []);
@@ -499,6 +499,7 @@ async function initConnection() {
       const isDirty = titleDirty || catDirty || tagsDirty || thumbDirty || streamDirty || replayDirty || wpDirty || boardDirty || dropsDirty;
 
       setSaveButtonDirty(isDirty);
+      if (typeof updatePresetToolbarLabel === 'function') updatePresetToolbarLabel();
       return isDirty;
     }
 
@@ -959,19 +960,8 @@ async function initConnection() {
 
 
     function toggleSettings() {
-      closeAllPopovers();
-      const urlsPanel = document.getElementById('urls-panel');
-      if (urlsPanel && urlsPanel.classList.contains('open')) urlsPanel.classList.remove('open');
-      const remotePanel = document.getElementById('remote-panel');
-      if (remotePanel && remotePanel.classList.contains('open')) {
-        remotePanel.classList.remove('open');
-        if (typeof closeRemoteVolumeDrawer === 'function') closeRemoteVolumeDrawer();
-        if (typeof stopRemotePolling === 'function') stopRemotePolling();
-      }
-      const panel = document.getElementById('settings-panel');
-      if (panel) {
-        panel.classList.toggle('open');
-        if (panel.classList.contains('open')) {
+      toggleSidePanel('settings-panel', {
+        onOpen: () => {
           if (typeof checkObsScriptStatus === 'function') checkObsScriptStatus();
           if (typeof loadAllDockSettings === 'function') loadAllDockSettings();
           requestAnimationFrame(() => {
@@ -979,14 +969,14 @@ async function initConnection() {
             if (typeof moveLiquidPill === 'function' && active) moveLiquidPill('settings-liquid-nav', active, false);
           });
         }
-      }
-      updatePanelScrollLock();
+      });
     }
 
     // ===== 설정창 내비게이션 탭 전환 (로그인 / 일반 / UI / 고급 / 앱 정보) =====
 
     function switchSettingsTab(tabName) {
-      const tabs = ['login', 'general', 'ui', 'advanced', 'info', 'shortcuts'];
+      if (tabName === 'advanced') tabName = 'general';
+      const tabs = ['login', 'general', 'ui', 'shortcuts', 'info'];
       tabs.forEach(t => {
         const btn = document.getElementById(`tab-btn-${t}`);
         const content = document.getElementById(`tab-content-${t}`);
@@ -1049,7 +1039,7 @@ async function initConnection() {
           if (!isSilent) showToast('로그인 필요', 'warn', '치지직 로그인을 먼저 확인해 주세요.');
           return null;
         }
-        const wpRes = await apiFetch('/chzzkdock/watch-parties');
+        const wpRes = await chzzkApi.getWatchParties();
         lastWatchPartyRefreshMs = Date.now();
         if (wpRes.ok) {
           const wpData = await wpRes.json();
@@ -2081,7 +2071,7 @@ async function initConnection() {
         // 0. 같이보기(Watch Party) 목록 조회 (BFF)
         let watchPartiesFetchOk = false;
         try {
-          const wpRes = await apiFetch('/chzzkdock/watch-parties');
+          const wpRes = await chzzkApi.getWatchParties();
           if (wpRes.ok) {
             const wpData = await wpRes.json();
             const list = wpData.watchParties || wpData.content?.watchParties || [];
@@ -2536,7 +2526,7 @@ async function initConnection() {
         return livePopularCategories;
       }
       try {
-        const res = await apiFetch('/chzzkdock/categories/recommended');
+        const res = await chzzkApi.getRecommendedCategories();
         if (res.ok) {
           const data = await res.json();
           const list = data?.categories || [];
@@ -2557,8 +2547,7 @@ async function initConnection() {
     async function fetchCategoriesApi(keyword) {
       if (!keyword || !keyword.trim()) return [];
       try {
-        const q = encodeURIComponent(keyword.trim());
-        const res = await apiFetch(`/chzzkdock/categories/search?keyword=${q}&size=50`);
+        const res = await chzzkApi.searchCategories(keyword.trim(), 50);
         if (res.ok) {
           const results = await res.json();
           return Array.isArray(results) ? results : (results?.content?.results || []);

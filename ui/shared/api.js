@@ -71,6 +71,23 @@ const chzzkApi = {
 
   // --- [2. 후원 제어 4종] (각 스위치마다 독립 엔드포인트 전송) ---
   getDonations: () => apiFetch('/chzzkdock/donations'),
+  getDonationDetails: () => apiFetch('/chzzkdock/donations/details'),
+  saveDonationDetailChat: (payload) => apiFetch('/chzzkdock/donations/details/chat', {
+    method: 'PUT',
+    body: JSON.stringify(payload)
+  }),
+  saveDonationDetailVideo: (payload) => apiFetch('/chzzkdock/donations/details/video', {
+    method: 'PUT',
+    body: JSON.stringify(payload)
+  }),
+  saveDonationDetailMission: (payload) => apiFetch('/chzzkdock/donations/details/mission', {
+    method: 'PUT',
+    body: JSON.stringify(payload)
+  }),
+  saveDonationDetailSubscription: (payload) => apiFetch('/chzzkdock/donations/details/subscription', {
+    method: 'PATCH',
+    body: JSON.stringify(payload)
+  }),
   // 범용 후원 토글 디스패처
   toggleDonation: (target, enabled) => {
     const t = target === 'sub' ? 'subscription' : target.toLowerCase();
@@ -89,6 +106,8 @@ const chzzkApi = {
   getObsBitrateTarget: (profile = '') => apiFetch(`/api/obs-bitrate-target?profile=${encodeURIComponent(profile)}`),
 
   // --- [4. 방송 설정 & 치지직 상태] ---
+  getSessionBootstrap: () => apiFetch('/chzzkdock/session/bootstrap'),
+  getProfile: () => apiFetch('/chzzkdock/profile'),
   getLiveStatus: (channelId = '') => apiFetch(`/chzzkdock/live-status${channelId ? '?channelId=' + encodeURIComponent(channelId) : ''}`),
   getBroadcast: () => apiFetch('/chzzkdock/broadcast'),
   saveBroadcast: (payload) => apiFetch('/chzzkdock/broadcast', {
@@ -96,6 +115,19 @@ const chzzkApi = {
     body: JSON.stringify(payload)
   }),
   getChatRule: () => apiFetch('/chzzkdock/chat-rule'),
+  saveChatRule: (payload) => apiFetch('/chzzkdock/chat-rule', {
+    method: 'PUT',
+    body: JSON.stringify(payload)
+  }),
+  getStreamKey: () => apiFetch('/chzzkdock/streamkey'),
+  reissueStreamKey: () => apiFetch('/chzzkdock/streamkey', { method: 'PUT' }),
+  getStreamingUrls: () => apiFetch('/chzzkdock/streaming-urls'),
+  getRevenueSummary: (yearMonth) => apiFetch(`/chzzkdock/revenue/summary?yearMonth=${encodeURIComponent(yearMonth)}`),
+  getDropsCampaigns: () => apiFetch('/chzzkdock/drops/campaigns'),
+  matchDropsCampaign: (campaignNo) => apiFetch(`/chzzkdock/drops/match?campaignNo=${encodeURIComponent(campaignNo)}`),
+  getWatchParties: () => apiFetch('/chzzkdock/watch-parties'),
+  getRecommendedCategories: () => apiFetch('/chzzkdock/categories/recommended'),
+  searchCategories: (keyword, size = 50) => apiFetch(`/chzzkdock/categories/search?keyword=${encodeURIComponent(keyword)}&size=${encodeURIComponent(size)}`),
 
   // --- [5. 리모컨 & 파티 관리] ---
   getRemoteState: () => apiFetch('/chzzkdock/remote/state'),
@@ -151,3 +183,28 @@ const chzzkApi = {
     body: JSON.stringify({ channelId })
   })
 };
+
+/**
+ * 실시간 테마 동기화 + 백엔드 재시작/업데이트 감지 시 자동 새로고침 SSE 연결
+ */
+function connectDockEvents(onTheme) {
+  if (typeof EventSource === 'undefined') return null;
+  let initialInstanceId = null;
+  try {
+    const es = new EventSource('/events/theme');
+    es.addEventListener('theme', (e) => {
+      if (e && e.lastEventId) {
+        if (initialInstanceId === null) {
+          initialInstanceId = e.lastEventId;
+        } else if (e.lastEventId !== initialInstanceId) {
+          window.location.reload();
+          return;
+        }
+      }
+      if (typeof onTheme === 'function' && e && e.data) onTheme(e.data);
+    });
+    return es;
+  } catch (_) {
+    return null;
+  }
+}

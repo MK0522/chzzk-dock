@@ -343,7 +343,6 @@ function testContextMenuAndEscStack() {
     closeDonationModal() {},
     closeThumbnailModal() { coreNodes.get('modal-thumbnail').classList.add('hidden'); },
     closePresetLoadModal() {},
-    closePresetSaveModal() {},
     closeFilterColorPopover() {},
     closeRemoteVolumeDrawer() {},
     closeAllPopovers() { coreNodes.get('popover-chatmode').classList.add('hidden'); },
@@ -374,6 +373,22 @@ function testContextMenuAndEscStack() {
 async function testModalLiveApiSyncOnOpen() {
   const nodes = new Map([['modal-dsetting-chat', createEl('modal-dsetting-chat', ['hidden'])]]);
   let detailCalls = 0;
+  const mockApiFetch = async (url) => {
+    if (url === '/chzzkdock/donations/details') {
+      detailCalls++;
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          chat: { donationActive: false, minCurrencyPayAmount: 3000, exposureDonationAmount: 1000, useLargeDonationEnvelope: false },
+          video: { donationActive: true, minCurrencyPayAmount: 2000, payAmountPerSecond: 50, maxDuration: 60 },
+          mission: { donationActive: false, minCurrencyPayAmount: 5000, failSupportRatio: 20, exposureDonationAmount: 1000 },
+          subscription: { alertActive: false, alertVolume: 35, ttsActive: true, ttsVolume: 80 },
+        }),
+      };
+    }
+    return { ok: false, status: 404, json: async () => ({}) };
+  };
   const { ctx, document } = createDockTestEnv({
     nodes,
     globals: {
@@ -381,23 +396,9 @@ async function testModalLiveApiSyncOnOpen() {
       currentDonationState: { chatDonationActive: true, videoDonationActive: true, missionDonationActive: true, subAlertActive: true },
       checkLoginGuard: () => true,
     },
-    apiFetch: async (url) => {
-      if (url === '/chzzkdock/donations/details') {
-        detailCalls++;
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({
-            chat: { donationActive: false, minCurrencyPayAmount: 3000, exposureDonationAmount: 1000, useLargeDonationEnvelope: false },
-            video: { donationActive: true, minCurrencyPayAmount: 2000, payAmountPerSecond: 50, maxDuration: 60 },
-            mission: { donationActive: false, minCurrencyPayAmount: 5000, failSupportRatio: 20, exposureDonationAmount: 1000 },
-            subscription: { alertActive: false, alertVolume: 35, ttsActive: true, ttsVolume: 80 },
-          }),
-        };
-      }
-      return { ok: false, status: 404, json: async () => ({}) };
-    },
   });
+  vm.runInContext(read('ui/shared/api.js'), ctx);
+  ctx.apiFetch = mockApiFetch;
   vm.runInContext(read('ui/main-dock/js/moderation.js'), ctx);
 
   document.getElementById('toggle-chat-donation').checked = true;
@@ -503,6 +504,33 @@ async function testCategoryDropdownDropsAndFocusPersistence() {
 
   const savedPatches = [];
   const noop = () => {};
+  const mockCatApiFetch = async (url, reqOpts = {}) => {
+    if (url === '/app-settings' && reqOpts.method === 'PUT') {
+      savedPatches.push(JSON.parse(reqOpts.body));
+      return { ok: true, status: 200, json: async () => ({ code: 200 }) };
+    }
+    if (url === '/chzzkdock/categories/recommended') {
+      return {
+        ok: true, status: 200,
+        json: async () => ({
+          categories: [
+            { categoryType: 'GAME', categoryId: 'League_of_Legends', categoryValue: '리그 오브 레전드', posterImageUrl: 'https://img/lol.png', dropsCampaignNo: 2097 },
+            { categoryType: 'ETC', categoryId: 'talk', categoryValue: 'talk', posterImageUrl: 'https://img/talk.png', dropsCampaignNo: null },
+          ],
+        }),
+      };
+    }
+    if (url === '/chzzkdock/drops/campaigns') {
+      return {
+        ok: true, status: 200,
+        json: async () => ([
+          { campaignNo: 2097, campaignName: '롤 드롭스', categoryType: 'GAME', categoryId: 'League_of_Legends', categoryValue: '리그 오브 레전드', posterImageUrl: 'https://img/lol.png' },
+          { campaignNo: 2128, campaignName: '도깨비의세계 드롭스', categoryType: 'GAME', categoryId: 'dokkaebi', categoryValue: '도깨비의세계', posterImageUrl: 'https://img/dokkaebi.png' },
+        ]),
+      };
+    }
+    return { ok: false, status: 404, json: async () => ({}) };
+  };
   const { ctx, docListeners, winListeners } = createDockTestEnv({
     nodes,
     autoCreate: false,
@@ -519,34 +547,9 @@ async function testCategoryDropdownDropsAndFocusPersistence() {
       checkForUpdate: noop,
       loadAllDockSettings: noop,
     },
-    apiFetch: async (url, reqOpts = {}) => {
-      if (url === '/app-settings' && reqOpts.method === 'PUT') {
-        savedPatches.push(JSON.parse(reqOpts.body));
-        return { ok: true, status: 200, json: async () => ({ code: 200 }) };
-      }
-      if (url === '/chzzkdock/categories/recommended') {
-        return {
-          ok: true, status: 200,
-          json: async () => ({
-            categories: [
-              { categoryType: 'GAME', categoryId: 'League_of_Legends', categoryValue: '리그 오브 레전드', posterImageUrl: 'https://img/lol.png', dropsCampaignNo: 2097 },
-              { categoryType: 'ETC', categoryId: 'talk', categoryValue: 'talk', posterImageUrl: 'https://img/talk.png', dropsCampaignNo: null },
-            ],
-          }),
-        };
-      }
-      if (url === '/chzzkdock/drops/campaigns') {
-        return {
-          ok: true, status: 200,
-          json: async () => ([
-            { campaignNo: 2097, campaignName: '롤 드롭스', categoryType: 'GAME', categoryId: 'League_of_Legends', categoryValue: '리그 오브 레전드', posterImageUrl: 'https://img/lol.png' },
-            { campaignNo: 2128, campaignName: '도깨비의세계 드롭스', categoryType: 'GAME', categoryId: 'dokkaebi', categoryValue: '도깨비의세계', posterImageUrl: 'https://img/dokkaebi.png' },
-          ]),
-        };
-      }
-      return { ok: false, status: 404, json: async () => ({}) };
-    },
   });
+  vm.runInContext(read('ui/shared/api.js'), ctx);
+  ctx.apiFetch = mockCatApiFetch;
   vm.runInContext(read('ui/shared/core.js'), ctx);
   vm.runInContext(read('ui/main-dock/js/moderation.js'), ctx);
   vm.runInContext(read('ui/main-dock/js/settings.js'), ctx);
@@ -656,6 +659,25 @@ function testBetaNoticeAndOverlayCssTabs() {
   const overlayCss = read('ui/overlay-settings/style.css');
   assert(overlayCss.includes('width: fit-content;'), 'mode-desc callout must hug text width');
   assert(!read('ui/main-dock/index.html').includes('header-reveal') && !read('ui/main-dock/style.css').includes('header-reveal'), 'header-reveal hiding must be removed');
+
+  // Verify shared connectDockEvents reloads on new server instance ID
+  let reloads = 0;
+  const listeners = {};
+  const apiCtx = {
+    window: { location: { origin: 'http://localhost:8081', reload: () => { reloads++; } } },
+    EventSource: class {
+      addEventListener(ev, fn) { (listeners[ev] = listeners[ev] || []).push(fn); }
+    },
+  };
+  vm.createContext(apiCtx);
+  vm.runInContext(read('ui/shared/api.js'), apiCtx);
+  let themed = '';
+  apiCtx.connectDockEvents((m) => { themed = m; });
+  listeners.theme.forEach(fn => fn({ lastEventId: 'boot-1', data: 'light' }));
+  assert.equal(themed, 'light');
+  assert.equal(reloads, 0, 'initial instance ID must not reload');
+  listeners.theme.forEach(fn => fn({ lastEventId: 'boot-2', data: 'light' }));
+  assert.equal(reloads, 1, 'changed server instance ID must trigger reload');
 
   const savedBeta = [];
   const { ctx } = createDockTestEnv({

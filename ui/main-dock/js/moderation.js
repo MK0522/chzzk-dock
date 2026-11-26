@@ -326,15 +326,8 @@ function stopRemotePolling() {
 
 function toggleRemotePanel() {
   if (typeof checkLoginGuard === 'function' && !checkLoginGuard('치지직 리모컨')) return;
-  closeAllPopovers();
-  const panel = document.getElementById('remote-panel');
-  const settingsPanel = document.getElementById('settings-panel');
-  const urlsPanel = document.getElementById('urls-panel');
-  if (settingsPanel && settingsPanel.classList.contains('open')) settingsPanel.classList.remove('open');
-  if (urlsPanel && urlsPanel.classList.contains('open')) urlsPanel.classList.remove('open');
-  if (panel) {
-    panel.classList.toggle('open');
-    if (panel.classList.contains('open')) {
+  toggleSidePanel('remote-panel', {
+    onOpen: () => {
       loadRemoteState();
       switchRemoteTab(activeRemoteTab || 'all');
       startRemotePolling();
@@ -343,12 +336,12 @@ function toggleRemotePanel() {
         const activeBtn = document.getElementById(`remote-tab-btn-${activeRemoteTab || 'all'}`);
         moveLiquidPill('remote-liquid-tabs', activeBtn, false);
       });
-    } else {
+    },
+    onClose: () => {
       closeRemoteVolumeDrawer();
       stopRemotePolling();
     }
-  }
-  if (typeof updatePanelScrollLock === 'function') updatePanelScrollLock();
+  });
 }
 
 function openRemoteVolumeDrawer() {
@@ -1252,8 +1245,16 @@ async function settleMission(missionDonationId, outcome) {
 }
 
 // ===== 치지직 합방 파티 관리 (메인 독 팝오버) =====
+function resetPartyInviteMask() {
+  const input = document.getElementById('field-party-invite-url');
+  const btn = document.getElementById('btn-party-invite-mask');
+  if (input) input.type = 'password';
+  if (btn) btn.textContent = '👁️';
+}
+
 function closePartyPopover() {
   document.getElementById('popover-party')?.classList.add('hidden');
+  resetPartyInviteMask();
   showPartySubView('choose');
 }
 
@@ -1263,6 +1264,7 @@ function togglePartyPopover() {
   const popover = document.getElementById('popover-party');
   if (!popover) return;
   if (popover.classList.contains('hidden')) {
+    resetPartyInviteMask();
     if (currentPartyInfo && currentPartyInfo.participating) {
       renderActivePartyView(currentPartyInfo);
       showPartySubView('active');
@@ -1502,31 +1504,6 @@ async function leavePartySubmit() {
   }
 }
 
-function togglePartyLinkMask(btn) {
-  const input = document.getElementById('field-party-invite-url');
-  if (!input) return;
-  input.type = input.type === 'password' ? 'text' : 'password';
-  if (btn) btn.textContent = input.type === 'password' ? '👁️' : '🙈';
-}
-
-function copyPartyInviteUrl() {
-  const input = document.getElementById('field-party-invite-url');
-  if (!input || !input.value) {
-    showToast('복사 실패', 'warn', '복사할 초대 링크가 없습니다.');
-    return;
-  }
-  navigator.clipboard.writeText(input.value).then(() => {
-    showToast('🔗 초대 링크 복사 완료', 'success');
-  }).catch(() => {
-    const prevType = input.type;
-    input.type = 'text';
-    input.select();
-    document.execCommand('copy');
-    input.type = prevType;
-    showToast('🔗 초대 링크 복사 완료', 'success');
-  });
-}
-
 async function reissuePartyInviteToken() {
   if (typeof checkLoginGuard === 'function' && !checkLoginGuard('초대 링크 재발급')) return;
   const partyNo = currentPartyInfo?.partyNo;
@@ -1566,6 +1543,7 @@ async function createPartySubmit() {
       if (input) input.value = '';
       const createLen = document.getElementById('party-create-len');
       if (createLen) createLen.textContent = '0/60';
+      resetPartyInviteMask();
       await refreshPartyStatus(false);
     } else {
       const err = await res.json().catch(() => ({}));
@@ -1670,7 +1648,7 @@ function updateSpamFilterUI(val) {
 // ===== 구독 활성화 여부 확인 및 잠금 UI =====
 async function checkChannelMonetization() {
   try {
-    const res = await apiFetch('/chzzkdock/profile');
+    const res = await chzzkApi.getProfile();
     if (res.ok) {
       const profile = await res.json();
       userSubscriptionAvailable = !!profile.subscriptionAvailable;
@@ -1749,7 +1727,7 @@ function closeDonationModal(type) {
 async function loadAllDonationSettings() {
   if (!userChannelId) return;
   try {
-    const res = await apiFetch('/chzzkdock/donations/details');
+    const res = await chzzkApi.getDonationDetails();
     if (!res.ok) return;
     const details = await res.json();
 
@@ -1848,13 +1826,9 @@ async function saveChatDonationCondition() {
   const isChatActive = document.getElementById('toggle-chat-donation') ? document.getElementById('toggle-chat-donation').checked : (currentDonationState.chatDonationActive !== false);
 
   try {
-    const res = await apiFetch('/chzzkdock/donations/details/chat', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        donationActive: isChatActive,
-        minCurrencyPayAmount: minVal
-      })
+    const res = await chzzkApi.saveDonationDetailChat({
+      donationActive: isChatActive,
+      minCurrencyPayAmount: minVal
     });
     const existingToasts = document.querySelectorAll('#toast-container .toast');
     existingToasts.forEach(t => t.remove());
@@ -1873,11 +1847,7 @@ async function toggleChatExposure(checked) {
   if (!userChannelId) return;
   const el = document.getElementById('dsetting-chat-exposure');
   try {
-    const res = await apiFetch('/chzzkdock/donations/details/chat', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ exposureDonationAmount: checked ? 1000 : 0 })
-    });
+    const res = await chzzkApi.saveDonationDetailChat({ exposureDonationAmount: checked ? 1000 : 0 });
     const existingToasts = document.querySelectorAll('#toast-container .toast');
     existingToasts.forEach(t => t.remove());
     if (!res.ok) {
@@ -1898,13 +1868,9 @@ async function toggleEnvelope(checked) {
   const el = document.getElementById('dsetting-chat-envelope');
   const isChatActive = document.getElementById('toggle-chat-donation') ? document.getElementById('toggle-chat-donation').checked : (currentDonationState.chatDonationActive !== false);
   try {
-    const res = await apiFetch('/chzzkdock/donations/details/chat', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        donationActive: isChatActive,
-        useLargeDonationEnvelope: checked
-      })
+    const res = await chzzkApi.saveDonationDetailChat({
+      donationActive: isChatActive,
+      useLargeDonationEnvelope: checked
     });
     const existingToasts = document.querySelectorAll('#toast-container .toast');
     existingToasts.forEach(t => t.remove());
@@ -1932,18 +1898,14 @@ async function saveVideoDonationSetting() {
   const isVideoActive = document.getElementById('toggle-video-donation') ? document.getElementById('toggle-video-donation').checked : (currentDonationState.videoDonationActive !== false);
 
   try {
-    const res = await apiFetch('/chzzkdock/donations/details/video', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        donationActive: isVideoActive,
-        minCurrencyPayAmount: minCheese,
-        payAmountPerSecond: secCheese,
-        maxDurationLength: maxDur,
-        isAutoPlay: autoPlay,
-        isTitleExpose: titleExp,
-        spamFilterLevel: spamLevel
-      })
+    const res = await chzzkApi.saveDonationDetailVideo({
+      donationActive: isVideoActive,
+      minCurrencyPayAmount: minCheese,
+      payAmountPerSecond: secCheese,
+      maxDurationLength: maxDur,
+      isAutoPlay: autoPlay,
+      isTitleExpose: titleExp,
+      spamFilterLevel: spamLevel
     });
     const existingToasts = document.querySelectorAll('#toast-container .toast');
     existingToasts.forEach(t => t.remove());
@@ -1969,15 +1931,11 @@ async function saveMissionDonationSetting() {
   const isMissionActive = misActiveEl ? !!misActiveEl.checked : (document.getElementById('toggle-mission-donation') ? document.getElementById('toggle-mission-donation').checked : (currentDonationState.missionDonationActive !== false));
 
   try {
-    const res = await apiFetch('/chzzkdock/donations/details/mission', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        donationActive: isMissionActive,
-        minCurrencyPayAmount: minAmount,
-        failCheeringRate: failRate,
-        exposureAmount: exposure
-      })
+    const res = await chzzkApi.saveDonationDetailMission({
+      donationActive: isMissionActive,
+      minCurrencyPayAmount: minAmount,
+      failCheeringRate: failRate,
+      exposureAmount: exposure
     });
 
     if (!res.ok) {
@@ -2000,11 +1958,7 @@ async function saveMissionDonationSetting() {
 
 async function toggleSubAlertActive(checked) {
   try {
-    const res = await apiFetch('/chzzkdock/donations/subscription', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ enabled: checked })
-    });
+    const res = await chzzkApi.toggleDonation('subscription', checked);
     const existingToasts = document.querySelectorAll('#toast-container .toast');
     existingToasts.forEach(t => t.remove());
 
@@ -2044,11 +1998,7 @@ async function saveSubscriptionSetting() {
   });
 
   try {
-    const res = await apiFetch('/chzzkdock/donations/details/subscription', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
+    const res = await chzzkApi.saveDonationDetailSubscription(payload);
     const existingToasts = document.querySelectorAll('#toast-container .toast');
     existingToasts.forEach(t => t.remove());
 
@@ -2232,11 +2182,7 @@ async function applyChatRuleInstant() {
   };
 
   try {
-    const res = await apiFetch('/chzzkdock/chat-rule', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payloadChat)
-    });
+    const res = await chzzkApi.saveChatRule(payloadChat);
     if (res.ok) {
       const groupNames = { ALL: '모두', FOLLOWER: '팔로워 전용', MANAGER: '운영자 전용' };
       let msg = `채팅 권한: ${groupNames[group] || group}`;
@@ -2302,31 +2248,19 @@ function switchUrlsPanelTab(tab, animate = true) {
 }
 
 function toggleUrlsPanel() {
-  closeAllPopovers();
-  const panel = document.getElementById('urls-panel');
-  const settingsPanel = document.getElementById('settings-panel');
-  const remotePanel = document.getElementById('remote-panel');
-  if (settingsPanel && settingsPanel.classList.contains('open')) settingsPanel.classList.remove('open');
-  if (remotePanel && remotePanel.classList.contains('open')) {
-    remotePanel.classList.remove('open');
-    closeRemoteVolumeDrawer();
-    stopRemotePolling();
-  }
-  if (panel) {
-    panel.classList.toggle('open');
-    const elMainDock = document.getElementById('field-main-dock-url');
-    if (elMainDock) elMainDock.value = `${window.location.origin}/`;
-    const elMini = document.getElementById('field-mini-dock-url');
-    if (elMini) elMini.value = `${window.location.origin}/mini`;
-    const elStats = document.getElementById('field-stats-dock-url');
-    if (elStats) elStats.value = `${window.location.origin}/stats`;
-    if (panel.classList.contains('open')) {
+  toggleSidePanel('urls-panel', {
+    onOpen: () => {
+      const elMainDock = document.getElementById('field-main-dock-url');
+      if (elMainDock) elMainDock.value = `${window.location.origin}/`;
+      const elMini = document.getElementById('field-mini-dock-url');
+      if (elMini) elMini.value = `${window.location.origin}/mini`;
+      const elStats = document.getElementById('field-stats-dock-url');
+      if (elStats) elStats.value = `${window.location.origin}/stats`;
       const hasLogin = userChannelId || (serverConfig.nid_aut && serverConfig.nid_ses);
-      const tab = !hasLogin || document.getElementById('layers-tab').classList.contains('active') ? 'layers' : 'urls';
+      const tab = (hasLogin && document.getElementById('urls-tab')?.classList.contains('active')) ? 'urls' : 'layers';
       switchUrlsPanelTab(tab, false);
     }
-  }
-  if (typeof updatePanelScrollLock === 'function') updatePanelScrollLock();
+  });
 }
 
 async function reissueStreamKey() {
@@ -2350,7 +2284,7 @@ async function reissueStreamKey() {
   if (!ok) return;
 
   try {
-    const res = await apiFetch('/chzzkdock/streamkey', { method: 'PUT' });
+    const res = await chzzkApi.reissueStreamKey();
     if (res.ok) {
       const data = await res.json();
       const newKey = data?.streamKey;
@@ -2379,21 +2313,41 @@ function toggleFieldMask(fieldId, btn) {
   }
 }
 
-// [보류 / v0.6.4 이후 검토]: navigator.clipboard 실패 시 execCommand('copy') 이중 폴백 처리.
-// 차기 버전에서 공통 클립보드 헬퍼로 통합하거나 레거시 execCommand 완전 삭제 검토 필요.
 function copyFieldValue(fieldId, label) {
   const input = document.getElementById(fieldId);
   if (!input || !input.value) {
     showToast('복사 실패', 'warn', '복사할 값이 없습니다.');
     return;
   }
-  navigator.clipboard.writeText(input.value).then(() => {
-    showToast(`✅ ${label} 복사 완료!`, 'success');
-  }).catch(() => {
+  const copyFallback = () => {
+    if (input.type === 'hidden') {
+      const ta = document.createElement('textarea');
+      ta.value = input.value;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      ta.remove();
+      return;
+    }
+    const prevType = input.type;
+    if (prevType === 'password') input.type = 'text';
     input.select();
     document.execCommand('copy');
+    if (prevType === 'password') input.type = prevType;
+  };
+  if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+    navigator.clipboard.writeText(input.value).then(() => {
+      showToast(`✅ ${label} 복사 완료!`, 'success');
+    }).catch(() => {
+      copyFallback();
+      showToast(`✅ ${label} 복사 완료!`, 'success');
+    });
+  } else {
+    copyFallback();
     showToast(`✅ ${label} 복사 완료!`, 'success');
-  });
+  }
 }
 
 async function fetchStreamingInfo() {
@@ -2404,8 +2358,8 @@ async function fetchStreamingInfo() {
   }
 
   try {
-    const keyPromise = apiFetch('/chzzkdock/streamkey').then(r => r.ok ? r.json() : null).catch(() => null);
-    const urlsPromise = apiFetch('/chzzkdock/streaming-urls').then(r => r.ok ? r.json() : null).catch(() => null);
+    const keyPromise = chzzkApi.getStreamKey().then(r => r.ok ? r.json() : null).catch(() => null);
+    const urlsPromise = chzzkApi.getStreamingUrls().then(r => r.ok ? r.json() : null).catch(() => null);
 
     const [keyData, urlsData] = await Promise.all([keyPromise, urlsPromise]);
 
@@ -2524,7 +2478,7 @@ async function fetchRevenueSummary() {
   }
 
   try {
-    const res = await apiFetch(`/chzzkdock/revenue/summary?yearMonth=${ym}`);
+    const res = await chzzkApi.getRevenueSummary(ym);
     if (res.ok) {
       const data = await res.json();
       const content = data.content || data;
@@ -2623,75 +2577,6 @@ function syncAllVisibleLiquidPills() {
   });
 }
 
-function initRemoteVolumeHandleDrag() {
-  const panel = document.getElementById('remote-panel');
-  const handle = document.getElementById('remote-vol-handle');
-  const drawer = document.getElementById('remote-vol-drawer');
-  if (!panel || !handle || !drawer) return;
-
-  function applySide(side, topPct) {
-    const cleanSide = (side === 'left') ? 'left' : 'right';
-    handle.dataset.side = cleanSide;
-    drawer.dataset.side = cleanSide;
-    if (typeof topPct === 'number' && isFinite(topPct)) {
-      handle.style.top = `${Math.max(12, Math.min(82, topPct))}%`;
-    }
-  }
-
-  try {
-    const saved = JSON.parse(localStorage.getItem('chzzk_remote_vol_pos') || 'null');
-    if (saved) applySide(saved.side, saved.topPct);
-  } catch (_) {}
-
-  let dragging = false;
-  let startX = 0;
-  let startY = 0;
-  let moved = false;
-
-  handle.addEventListener('mousedown', (e) => {
-    if (e.button !== 0) return;
-    dragging = true;
-    moved = false;
-    startX = e.clientX;
-    startY = e.clientY;
-    handle.classList.add('is-dragging');
-    e.preventDefault();
-  });
-
-  document.addEventListener('mousemove', (e) => {
-    if (!dragging) return;
-    if (Math.abs(e.clientX - startX) > 4 || Math.abs(e.clientY - startY) > 4) {
-      moved = true;
-    }
-    if (!moved) return;
-
-    const rect = panel.getBoundingClientRect();
-    const minY = 52;
-    const maxY = Math.max(minY + 10, panel.clientHeight - handle.offsetHeight - 58);
-    const clampedPx = Math.max(minY, Math.min(maxY, e.clientY - rect.top - handle.offsetHeight / 2));
-    const topPct = rect.height > 0 ? (clampedPx / rect.height) * 100 : 52;
-    const nextSide = (e.clientX - rect.left) < rect.width / 2 ? 'left' : 'right';
-    applySide(nextSide, topPct);
-  });
-
-  document.addEventListener('mouseup', () => {
-    if (!dragging) return;
-    dragging = false;
-    handle.classList.remove('is-dragging');
-    if (!moved) {
-      openRemoteVolumeDrawer();
-      return;
-    }
-    const topPct = parseFloat(handle.style.top) || 52;
-    try {
-      localStorage.setItem('chzzk_remote_vol_pos', JSON.stringify({
-        side: handle.dataset.side || 'right',
-        topPct: Math.round(topPct * 10) / 10
-      }));
-    } catch (_) {}
-  });
-}
-
 document.addEventListener('DOMContentLoaded', () => {
   const elMainDock = document.getElementById('field-main-dock-url');
   if (elMainDock) elMainDock.value = `${window.location.origin}/`;
@@ -2699,7 +2584,6 @@ document.addEventListener('DOMContentLoaded', () => {
   if (elMini) elMini.value = `${window.location.origin}/mini`;
   const elStats = document.getElementById('field-stats-dock-url');
   if (elStats) elStats.value = `${window.location.origin}/stats`;
-  initRemoteVolumeHandleDrag();
   requestAnimationFrame(syncAllVisibleLiquidPills);
 });
 

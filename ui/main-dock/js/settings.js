@@ -118,13 +118,8 @@
       }
     });
 
-    if (typeof EventSource !== 'undefined') {
-      try {
-        const themeEs = new EventSource('/events/theme');
-        themeEs.addEventListener('theme', (e) => {
-          if (e && e.data) setThemeMode(e.data, false);
-        });
-      } catch (_) {}
+    if (typeof connectDockEvents === 'function') {
+      connectDockEvents((mode) => setThemeMode(mode, false));
     }
 
 
@@ -466,26 +461,27 @@
         toggleExt.checked = data.external_browser_guard;
       }
       const labelBrowser = document.getElementById('label-default-browser');
+      const wrapBrowser = document.getElementById('wrap-default-browser');
       if (labelBrowser && data.default_browser) {
+        if (wrapBrowser) wrapBrowser.classList.remove('hidden');
         const rawName = data.default_browser;
         labelBrowser.textContent = rawName;
-        labelBrowser.classList.remove('hidden');
         const nameLower = rawName.toLowerCase();
-        let colorClass = "bg-slate-800/80 text-slate-300 border border-slate-700/60";
+        let colorClass = "bg-slate-800/80 text-slate-300";
         if (nameLower.includes('whale') || nameLower.includes('웨일')) {
-          colorClass = "bg-emerald-950/90 text-[#00FFA3] border border-emerald-500/50";
+          colorClass = "bg-emerald-950/90 text-[#00FFA3]";
         } else if (nameLower.includes('chrome') || nameLower.includes('크롬')) {
-          colorClass = "bg-amber-950/90 text-amber-300 border border-amber-500/50";
+          colorClass = "bg-amber-950/90 text-amber-300";
         } else if (nameLower.includes('edge') || nameLower.includes('엣지')) {
-          colorClass = "bg-sky-950/90 text-sky-300 border border-sky-500/50";
+          colorClass = "bg-sky-950/90 text-sky-300";
         } else if (nameLower.includes('firefox') || nameLower.includes('파이어폭스')) {
-          colorClass = "bg-orange-950/90 text-orange-400 border border-orange-500/50";
+          colorClass = "bg-orange-950/90 text-orange-400";
         } else if (nameLower.includes('brave') || nameLower.includes('브레이브')) {
-          colorClass = "bg-rose-950/90 text-rose-400 border border-rose-500/50";
+          colorClass = "bg-rose-950/90 text-rose-400";
         } else if (nameLower.includes('opera') || nameLower.includes('오페라')) {
-          colorClass = "bg-red-950/90 text-red-400 border border-red-500/50";
+          colorClass = "bg-red-950/90 text-red-400";
         }
-        labelBrowser.className = `px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold ${colorClass}`;
+        labelBrowser.className = `px-1.5 py-1 font-mono font-bold ${colorClass}`;
       }
 
       // 8. 베타 업데이트
@@ -548,38 +544,34 @@
       await saveAppSettingField('show_viewer_count', checked, checked ? '메인 UI에 시청자 수가 표시됩니다.' : '메인 UI에서 시청자 수가 숨겨집니다.');
     }
 
-    async function savePopupOnStartSetting(checked) {
-      await saveAppSettingField('popup_on_start', checked, checked ? '프로그램 시작 시 독 팝업창이 자동으로 열립니다.' : '프로그램 시작 시 팝업창을 띄우지 않고 트레이로만 실행됩니다.');
-    }
-
-    async function saveShutdownNotifySetting(checked) {
-      await saveAppSettingField('notify_on_shutdown', checked, checked ? 'OBS 종료 또는 미감지로 자동 종료 시 알림을 받습니다.' : '자동 종료 시 알림 없이 조용히 종료됩니다.');
-    }
-
-    async function saveGPUSetting(checked) {
-      await saveAppSettingField('enable_gpu', checked, checked ? '웹뷰 GPU 하드웨어 가속이 활성화되었습니다. (창을 다시 열 때 적용)' : '웹뷰 GPU 하드웨어 가속이 비활성화되었습니다. (CPU 렌더링, 창을 다시 열 때 적용)');
-    }
-
-    async function saveExternalBrowserSetting(checked) {
-      await saveAppSettingField('external_browser_guard', checked, checked ? '외부 링크 클릭 시 기본 브라우저로 열립니다.' : '외부 링크 클릭 시 웹뷰 내에서 열립니다.');
-    }
-
     async function saveBetaUpdatesSetting(checked) {
       const ok = await saveAppSettingField('enable_beta_updates', checked, checked ? '테스트(Beta) 버전 업데이트 확인이 활성화되었습니다.' : '안정화(정식) 버전만 업데이트를 받습니다.');
       if (ok && typeof checkForUpdate === 'function') checkForUpdate(true);
     }
 
-    async function saveAutoCheckUpdateSetting(checked) {
-      await saveAppSettingField('auto_check_update', checked, checked ? '앱 시작 시 최신 버전을 자동으로 확인합니다.' : '업데이트 자동 확인이 해제되었습니다. 수동으로만 확인합니다.');
-    }
-
-    // ===== [FEAT-06-03] 방송 정보 프리셋 관리 파이프라인 (최대 10개, 불러오기/저장/덮어쓰기) =====
+    // ===== [FEAT-06-03] 방송 정보 프리셋 관리 파이프라인 (최대 10개, 단일 모달) =====
     const MAX_PRESET_SLOTS = 10;
     const MAX_PRESET_NAME_LEN = 10;
     let broadcastPresets = [];
     let activePresetId = null;
-    let currentSaveTab = 'new'; // 'new' | 'overwrite'
 
+    function isPresetModified(preset) {
+      if (!preset) return false;
+      const curTitle = (document.getElementById('live-title')?.value || '').trim();
+      const curCatId = (document.getElementById('category-id')?.value || '').trim();
+      const curCatName = (document.getElementById('category-search')?.value || '').trim();
+      const curTags = (typeof currentTags !== 'undefined' && Array.isArray(currentTags)) ? currentTags : [];
+      const pTags = Array.isArray(preset.tags) ? preset.tags : [];
+
+      if (curTitle !== (preset.title || '').trim()) return true;
+      if ((preset.category_id || '').trim()) {
+        if (curCatId !== (preset.category_id || '').trim()) return true;
+      } else if (curCatName !== (preset.category_name || '').trim()) {
+        return true;
+      }
+      if (curTags.length !== pTags.length) return true;
+      return curTags.some((t, idx) => t !== pTags[idx]);
+    }
 
     async function loadBroadcastPresets() {
       try {
@@ -601,6 +593,22 @@
       const badgeEl = document.getElementById('preset-slot-count-badge');
       if (badgeEl) {
         badgeEl.textContent = `${broadcastPresets.length}/${MAX_PRESET_SLOTS}`;
+      }
+      const nameEl = document.getElementById('preset-toolbar-name');
+      const btnEl = document.getElementById('btn-preset-manage');
+      const activePreset = activePresetId ? broadcastPresets.find(p => p.id === activePresetId) : null;
+      const modified = activePreset ? isPresetModified(activePreset) : false;
+
+      if (nameEl) {
+        nameEl.textContent = activePreset ? `${activePreset.name}${modified ? ' *' : ''}` : '프리셋';
+      }
+      if (btnEl) {
+        btnEl.classList.remove('border-[#243044]', 'border-[#00FFA3]', 'border-amber-400', 'text-[#00FFA3]', 'text-amber-300');
+        if (activePreset) {
+          btnEl.classList.add(modified ? 'border-amber-400' : 'border-[#00FFA3]', modified ? 'text-amber-300' : 'text-[#00FFA3]');
+        } else {
+          btnEl.classList.add('border-[#243044]');
+        }
       }
     }
 
@@ -1142,25 +1150,41 @@
 
       broadcastPresets.forEach(preset => {
         const isActive = (preset.id === activePresetId);
+        const modified = isActive ? isPresetModified(preset) : false;
         const card = document.createElement('div');
-        card.className = `p-2.5 rounded-lg border transition-all space-y-1.5 ${
-          isActive 
-            ? 'bg-[#0E131A] border-[#00FFA3]/50 shadow-[0_0_10px_rgba(0,255,163,0.1)]' 
-            : 'bg-[#0E131A] border-[#1E2738] hover:border-[#2A374E]'
-        }`;
+        const borderStyle = isActive
+          ? (modified
+            ? 'border-amber-400 border-l-[3.5px] shadow-[0_0_10px_rgba(251,191,36,0.12)]'
+            : 'border-[#00FFA3] border-l-[3.5px] shadow-[0_0_10px_rgba(0,255,163,0.12)]')
+          : 'border-[#1E2738] hover:border-[#2A374E]';
+        card.className = `p-2.5 rounded-lg border transition-all space-y-1.5 bg-[#0E131A] ${borderStyle}`;
+
+        const statusBadge = isActive
+          ? (modified
+            ? '<span class="text-[9px] px-1.5 py-0.2 rounded font-bold bg-amber-500/20 text-amber-300 border border-amber-400/50">✏️ 수정됨</span>'
+            : '<span class="text-[9px] px-1.5 py-0.2 rounded font-bold bg-[#00FFA3]/20 text-[#00FFA3] border border-[#00FFA3]/40">✓ 적용 중</span>')
+          : '';
+
+        const applyBtnHtml = isActive && !modified
+          ? `<button type="button" disabled class="flex-1 py-1 rounded bg-[#00FFA3]/10 border border-[#00FFA3]/35 text-[#00FFA3] text-xs font-bold cursor-default flex items-center justify-center gap-1 opacity-80">✓ 현재 적용됨</button>`
+          : `<button type="button" onclick="applyPresetFromModal('${preset.id}')" class="flex-1 py-1 rounded bg-[#161F2E] hover:bg-[#00FFA3] hover:text-black border border-[#243044] hover:border-[#00FFA3] text-slate-200 text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-1"><span>${isActive ? '↺' : '📥'}</span> <span>${isActive ? '원래대로' : '적용'}</span></button>`;
+
+        const owBtnClass = (isActive && modified)
+          ? 'px-2 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/60 text-amber-300 text-xs font-bold transition-colors cursor-pointer flex items-center gap-1'
+          : 'px-2 py-1 rounded bg-[#161F2E] hover:bg-[#1E2738] border border-[#243044] text-slate-300 text-xs font-medium transition-colors cursor-pointer flex items-center gap-1';
 
         card.innerHTML = `
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-1.5 min-w-0">
               <span class="font-bold text-xs text-white truncate max-w-[140px]">${escapeHtml(preset.name)}</span>
-              ${isActive ? '<span class="text-[9px] px-1 py-0.2 rounded font-bold bg-[#00FFA3]/20 text-[#00FFA3] border border-[#00FFA3]/40">현재 활성</span>' : ''}
+              ${statusBadge}
             </div>
             <div class="flex items-center gap-1 shrink-0">
               <button type="button" onclick="promptRenamePreset('${preset.id}')" class="px-1.5 py-0.5 rounded text-[10px] bg-[#161F2E] hover:bg-[#1E2738] text-slate-300 hover:text-white border border-[#243044] cursor-pointer" title="프리셋 이름 변경">
-                ✏️ 수정
+                ✏️
               </button>
               <button type="button" onclick="requestDeletePreset('${preset.id}')" class="px-1.5 py-0.5 rounded text-[10px] bg-[#161F2E] hover:bg-rose-950/80 text-slate-400 hover:text-rose-300 border border-[#243044] hover:border-rose-800/50 cursor-pointer" title="프리셋 삭제">
-                🗑️ 삭제
+                🗑️
               </button>
             </div>
           </div>
@@ -1180,10 +1204,8 @@
           </div>
 
           <div class="pt-0.5 flex items-center gap-1">
-            <button type="button" onclick="applyPresetFromModal('${preset.id}')" class="flex-1 py-1 rounded bg-[#161F2E] hover:bg-[#00FFA3] hover:text-black border border-[#243044] hover:border-[#00FFA3] text-slate-200 text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-1">
-              <span>📥</span> <span>이 설정으로 불러오기</span>
-            </button>
-            <button type="button" onclick="openPresetSaveModal('${preset.id}')" class="px-2 py-1 rounded bg-[#161F2E] hover:bg-[#1E2738] border border-[#243044] text-slate-300 text-xs font-medium transition-colors cursor-pointer flex items-center gap-1" title="현재 설정을 이 프리셋에 덮어쓰기">
+            ${applyBtnHtml}
+            <button type="button" onclick="overwritePresetDirect('${preset.id}')" class="${owBtnClass}" title="현재 설정을 이 프리셋에 덮어쓰기">
               <span>🔄</span> <span>덮어쓰기</span>
             </button>
           </div>
@@ -1344,237 +1366,83 @@
       setTimeout(() => el.classList.remove('pulse-feedback'), 400);
     }
 
-    // ── 2. 프리셋 저장/덮어쓰기 모달 제어 ──
+    // ── 2. 프리셋 빠른 저장 및 직접 덮어쓰기 ──
 
-    async function openPresetSaveModal(presetIdToOverwrite = null) {
-      closePresetLoadModal();
-      const modal = document.getElementById('modal-preset-save');
-      const slotEl = document.getElementById('save-modal-slot-count');
-      if (!modal) return;
-
-      try {
-        await loadBroadcastPresets();
-      } catch (_) {}
-
-      if (slotEl) {
-        slotEl.textContent = `${broadcastPresets.length} / ${MAX_PRESET_SLOTS}`;
-        slotEl.className = (broadcastPresets.length >= MAX_PRESET_SLOTS)
-          ? 'text-[9.5px] px-1.5 py-0.2 rounded bg-rose-950 text-rose-400 font-mono border border-rose-800/40'
-          : 'text-[9.5px] px-1.5 py-0.2 rounded bg-[#161F2E] text-slate-400 font-mono border border-[#243044]';
-      }
-
-      // 현재 방송 설정 스냅샷 미리보기 채우기
-      const curTitle = (document.getElementById('live-title')?.value || '').trim();
-      const curCat = (document.getElementById('category-search')?.value || '').trim();
-
-      const previewTitle = document.getElementById('save-preview-title');
-      const previewCat = document.getElementById('save-preview-cat');
-      const previewTags = document.getElementById('save-preview-tags');
-
-      if (previewTitle) previewTitle.textContent = curTitle || '(제목 없음)';
-      if (previewCat) previewCat.textContent = curCat || '(카테고리 없음)';
-      if (previewTags) {
-        previewTags.innerHTML = '';
-        if (currentTags.length === 0) {
-          previewTags.innerHTML = '<span class="text-slate-500">(태그 없음)</span>';
-        } else {
-          currentTags.forEach(t => {
-            previewTags.innerHTML += `<span class="px-1.5 py-0.2 rounded bg-[#161F2E] border border-[#243044] text-[#00FFA3] text-[9.5px]">#${escapeHtml(t)}</span>`;
-          });
-        }
-      }
-
-      // 덮어쓰기 셀렉트박스 옵션 구성
-      populateOverwriteSelect(presetIdToOverwrite);
-
-      // 슬롯이 가득 찼거나 특정 대상을 덮어쓰기 위해 열었으면 덮어쓰기 탭 활성화
-      if (presetIdToOverwrite || broadcastPresets.length >= MAX_PRESET_SLOTS) {
-        switchPresetSaveTab('overwrite');
-      } else {
-        switchPresetSaveTab('new');
-      }
-
-      const inputName = document.getElementById('input-save-new-name');
-      if (inputName) {
-        inputName.value = '';
-        validatePresetSaveNew();
-      }
-
-      modal.classList.remove('hidden');
-    }
-
-
-    function openPresetSaveModalFromLoad() {
-      openPresetSaveModal();
-    }
-
-
-    function closePresetSaveModal() {
-      const modal = document.getElementById('modal-preset-save');
-      if (modal) modal.classList.add('hidden');
-    }
-
-
-    function populateOverwriteSelect(selectedId = null) {
-      const selectEl = document.getElementById('select-preset-overwrite');
-      if (!selectEl) return;
-
-      selectEl.innerHTML = '';
-      if (broadcastPresets.length === 0) {
-        selectEl.innerHTML = '<option value="">(덮어쓸 기존 프리셋 없음)</option>';
-        onSelectOverwritePreset('');
-        return;
-      }
-
-      broadcastPresets.forEach(preset => {
-        const opt = document.createElement('option');
-        opt.value = preset.id;
-        opt.textContent = `${preset.name} - [${preset.category_name || '카테고리 없음'}] ${preset.title}`;
-        if (selectedId && preset.id === selectedId) {
-          opt.selected = true;
-        } else if (!selectedId && preset.id === activePresetId) {
-          opt.selected = true;
-        }
-        selectEl.appendChild(opt);
-      });
-
-      onSelectOverwritePreset(selectEl.value);
-    }
-
-
-    function onSelectOverwritePreset(presetId) {
-      const section = document.getElementById('overwrite-comparison-section');
-      const target = broadcastPresets.find(p => p.id === presetId);
-      if (!target || !section) {
-        if (section) section.classList.add('hidden');
-        return;
-      }
-
-      section.classList.remove('hidden');
-      const elPrevTitle = document.getElementById('ow-prev-title');
-      const elPrevCat = document.getElementById('ow-prev-cat');
-      const elPrevTags = document.getElementById('ow-prev-tags');
-      if (elPrevTitle) elPrevTitle.textContent = target.title || '(제목 없음)';
-      if (elPrevCat) elPrevCat.textContent = target.category_name || '(카테고리 없음)';
-      if (elPrevTags) elPrevTags.textContent = (target.tags && target.tags.length > 0) ? target.tags.map(t => '#' + t).join(' ') : '(태그 없음)';
-
-      const curTitle = (document.getElementById('live-title')?.value || '').trim();
-      const curCat = (document.getElementById('category-search')?.value || '').trim();
-      const elCurrTitle = document.getElementById('ow-curr-title');
-      const elCurrCat = document.getElementById('ow-curr-cat');
-      const elCurrTags = document.getElementById('ow-curr-tags');
-      if (elCurrTitle) elCurrTitle.textContent = curTitle || '(제목 없음)';
-      if (elCurrCat) elCurrCat.textContent = curCat || '(카테고리 없음)';
-      if (elCurrTags) elCurrTags.textContent = (currentTags.length > 0) ? currentTags.map(t => '#' + t).join(' ') : '(태그 없음)';
-    }
-
-
-    function switchPresetSaveTab(tab) {
-      currentSaveTab = tab;
-      const btnNew = document.getElementById('tab-btn-save-new');
-      const btnOw = document.getElementById('tab-btn-save-overwrite');
-      const contentNew = document.getElementById('tab-content-save-new');
-      const contentOw = document.getElementById('tab-content-save-overwrite');
-
-      if (tab === 'new') {
-        if (btnNew) {
-          btnNew.className = 'py-1 text-[11px] font-semibold rounded transition-all text-center bg-[#1B2535] text-[#00FFA3] shadow-sm cursor-pointer';
-        }
-        if (btnOw) {
-          btnOw.className = 'py-1 text-[11px] font-semibold rounded transition-all text-center text-slate-400 hover:text-white cursor-pointer';
-        }
-        if (contentNew) contentNew.classList.remove('hidden');
-        if (contentOw) contentOw.classList.add('hidden');
-        validatePresetSaveNew();
-      } else {
-        if (btnNew) {
-          btnNew.className = 'py-1 text-[11px] font-semibold rounded transition-all text-center text-slate-400 hover:text-white cursor-pointer';
-        }
-        if (btnOw) {
-          btnOw.className = 'py-1 text-[11px] font-semibold rounded transition-all text-center bg-[#1B2535] text-[#00FFA3] shadow-sm cursor-pointer';
-        }
-        if (contentNew) contentNew.classList.add('hidden');
-        if (contentOw) contentOw.classList.remove('hidden');
-        validatePresetSaveOverwrite();
-      }
-    }
-
-
-    function validatePresetSaveNew() {
-      if (currentSaveTab !== 'new') return;
+    async function saveNewPresetQuick() {
       const nameInput = document.getElementById('input-save-new-name');
-      const counter = document.getElementById('save-new-name-counter');
-      const valMsg = document.getElementById('save-preset-validation-msg');
-      const valText = document.getElementById('save-preset-validation-text');
-      const btnConfirm = document.getElementById('btn-confirm-save-action');
-      if (!nameInput || !btnConfirm) return;
-
-      const name = nameInput.value.trim();
-      if (counter) counter.textContent = `${name.length} / ${MAX_PRESET_NAME_LEN}자`;
-
+      const name = nameInput ? nameInput.value.trim() : '';
       const curTitle = (document.getElementById('live-title')?.value || '').trim();
-      const curCat = (document.getElementById('category-search')?.value || '').trim();
+      const curCatSearch = (document.getElementById('category-search')?.value || '').trim();
+      const curCatId = (document.getElementById('category-id')?.value || '').trim();
+      const curCatType = (document.getElementById('category-type')?.value || '').trim();
 
-      let err = null;
       if (broadcastPresets.length >= MAX_PRESET_SLOTS) {
-        err = `슬롯이 가득 찼습니다 (최대 ${MAX_PRESET_SLOTS}개). 기존 프리셋에 덮어쓰거나 삭제하세요.`;
-      } else if (!name) {
-        err = '프리셋 이름을 입력해 주세요 (최대 10자).';
-      } else if (name.length > MAX_PRESET_NAME_LEN) {
-        err = `프리셋 이름은 최대 ${MAX_PRESET_NAME_LEN}자까지 가능합니다.`;
-      } else if (broadcastPresets.some(p => p.name === name)) {
-        err = '이미 같은 이름의 프리셋이 존재합니다.';
-      } else if (!curTitle) {
-        err = '현재 방송 제목이 비어있습니다. 제목을 먼저 입력하세요.';
-      } else if (!curCat) {
-        err = '현재 카테고리가 비어있습니다. 카테고리를 먼저 선택하세요.';
-      } else if (currentTags.length > 5) {
-        err = '태그는 최대 5개까지만 등록할 수 있습니다.';
+        showToast('슬롯 초과', 'warn', `프리셋은 최대 ${MAX_PRESET_SLOTS}개까지만 등록할 수 있습니다.`);
+        return;
+      }
+      if (!name) {
+        showToast('이름 필요', 'warn', '프리셋 이름을 입력해 주세요 (최대 10자).');
+        if (nameInput) nameInput.focus();
+        return;
+      }
+      if (name.length > MAX_PRESET_NAME_LEN) {
+        showToast('이름 길이 초과', 'warn', `프리셋 이름은 최대 ${MAX_PRESET_NAME_LEN}자까지 가능합니다.`);
+        return;
+      }
+      if (broadcastPresets.some(p => p.name === name)) {
+        showToast('중복 이름', 'warn', '이미 같은 이름의 프리셋이 존재합니다.');
+        return;
+      }
+      if (!curTitle || !curCatSearch) {
+        showToast('저장 불가', 'warn', '방송 제목과 카테고리를 먼저 설정해 주세요.');
+        return;
+      }
+      if (currentTags.length > 5) {
+        showToast('태그 초과', 'warn', '태그는 최대 5개까지만 등록할 수 있습니다.');
+        return;
       }
 
-      if (err) {
-        if (valMsg) valMsg.classList.remove('hidden');
-        if (valText) valText.textContent = err;
-        btnConfirm.disabled = true;
-      } else {
-        if (valMsg) valMsg.classList.add('hidden');
-        btnConfirm.disabled = false;
+      const newPreset = {
+        id: 'preset_' + Date.now(),
+        name: name,
+        title: curTitle,
+        category_id: curCatId,
+        category_type: curCatType,
+        category_name: curCatSearch,
+        tags: [...currentTags]
+      };
+
+      const nextPresets = [...broadcastPresets, newPreset];
+      try {
+        const res = await apiFetch('/save-broadcast-presets', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ presets: nextPresets })
+        });
+        if (res.ok) {
+          broadcastPresets = nextPresets;
+          activePresetId = newPreset.id;
+          if (nameInput) nameInput.value = '';
+          updatePresetToolbarLabel();
+          renderPresetLoadList();
+          showToast('프리셋 등록 완료', 'success', `'${name}' 프리셋이 저장되었습니다!`);
+        } else {
+          const data = await res.json().catch(() => ({}));
+          showToast('저장 실패', 'error', data.message || '프리셋 저장 중 오류가 발생했습니다.');
+        }
+      } catch (err) {
+        showToast('저장 실패', 'error', err.message);
       }
     }
 
 
-    function validatePresetSaveOverwrite() {
-      if (currentSaveTab !== 'overwrite') return;
-      const valMsg = document.getElementById('save-preset-validation-msg');
-      const valText = document.getElementById('save-preset-validation-text');
-      const btnConfirm = document.getElementById('btn-confirm-save-action');
-      if (!btnConfirm) return;
-
-      const targetId = document.getElementById('select-preset-overwrite')?.value;
-      const curTitle = (document.getElementById('live-title')?.value || '').trim();
-      const curCat = (document.getElementById('category-search')?.value || '').trim();
-
-      let err = null;
-      if (!targetId || broadcastPresets.length === 0) {
-        err = '덮어쓸 대상 프리셋이 없습니다.';
-      } else if (!curTitle) {
-        err = '현재 방송 제목이 비어있습니다.';
-      } else if (!curCat) {
-        err = '현재 카테고리가 비어있습니다.';
+    async function overwritePresetDirect(targetId) {
+      const target = broadcastPresets.find(p => p.id === targetId);
+      if (!target) {
+        showToast('덮어쓰기 오류', 'warn', '대상 프리셋을 찾을 수 없습니다.');
+        return;
       }
 
-      if (err) {
-        if (valMsg) valMsg.classList.remove('hidden');
-        if (valText) valText.textContent = err;
-        btnConfirm.disabled = true;
-      } else {
-        if (valMsg) valMsg.classList.add('hidden');
-        btnConfirm.disabled = false;
-      }
-    }
-
-
-    async function executePresetSaveAction() {
       const curTitle = (document.getElementById('live-title')?.value || '').trim();
       const curCatSearch = (document.getElementById('category-search')?.value || '').trim();
       const curCatId = (document.getElementById('category-id')?.value || '').trim();
@@ -1585,92 +1453,45 @@
         return;
       }
 
-      if (currentSaveTab === 'new') {
-        const nameInput = document.getElementById('input-save-new-name');
-        const name = nameInput ? nameInput.value.trim() : '';
-        if (!name) {
-          validatePresetSaveNew();
-          return;
-        }
-        if (broadcastPresets.length >= MAX_PRESET_SLOTS) {
-          showToast('슬롯 초과', 'warn', `프리셋은 최대 ${MAX_PRESET_SLOTS}개까지만 등록할 수 있습니다.`);
-          return;
-        }
+      const ok = await showConfirmModal({
+        title: '프리셋 덮어쓰기 확인',
+        message: `'${target.name}' 프리셋을 현재 방송 설정으로 덮어쓰시겠습니까?`,
+        submessage: '제목, 카테고리, 태그가 현재 입력값으로 즉시 갱신됩니다.',
+        confirmText: '덮어쓰기',
+        cancelText: '취소',
+        danger: false,
+        icon: '🔄'
+      });
+      if (!ok) return;
 
-        const newPreset = {
-          id: 'preset_' + Date.now(),
-          name: name,
-          title: curTitle,
-          category_id: curCatId,
-          category_type: curCatType,
-          category_name: curCatSearch,
-          tags: [...currentTags]
-        };
+      const updatedPreset = {
+        ...target,
+        title: curTitle,
+        category_id: curCatId,
+        category_type: curCatType,
+        category_name: curCatSearch,
+        tags: [...currentTags]
+      };
+      const nextPresets = broadcastPresets.map(p => (p.id === targetId ? updatedPreset : p));
 
-        const nextPresets = [...broadcastPresets, newPreset];
-        try {
-          const res = await apiFetch('/save-broadcast-presets', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ presets: nextPresets })
-          });
-          if (res.ok) {
-            broadcastPresets = nextPresets;
-            activePresetId = newPreset.id;
-            updatePresetToolbarLabel();
-            closePresetSaveModal();
-            showToast('프리셋 등록 완료', 'success', `'${name}' 프리셋이 성공적으로 저장되었습니다!`);
-          } else {
-            const data = await res.json().catch(() => ({}));
-            showToast('저장 실패', 'error', data.message || '프리셋 저장 중 오류가 발생했습니다.');
-          }
-        } catch (err) {
-          showToast('저장 실패', 'error', err.message);
-        }
-      } else {
-        // 기존 덮어쓰기 모드
-        const targetId = document.getElementById('select-preset-overwrite')?.value;
-        const target = broadcastPresets.find(p => p.id === targetId);
-        if (!target) {
-          showToast('덮어쓰기 오류', 'warn', '덮어쓸 대상 프리셋을 선택해 주세요.');
-          return;
-        }
-
-        const ok = await showConfirmModal({
-          title: '프리셋 덮어쓰기 확인',
-          message: `'${target.name}' 프리셋의 설정을 현재 방송 정보로 덮어쓰시겠습니까?`,
-          submessage: '선택한 프리셋의 제목, 카테고리, 태그가 현재 설정으로 즉시 변경됩니다.',
-          confirmText: '덮어쓰기',
-          cancelText: '취소',
-          danger: false,
-          icon: '🔄'
+      try {
+        const res = await apiFetch('/save-broadcast-presets', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ presets: nextPresets })
         });
-        if (!ok) return;
-
-        target.title = curTitle;
-        target.category_id = curCatId;
-        target.category_type = curCatType;
-        target.category_name = curCatSearch;
-        target.tags = [...currentTags];
-
-        try {
-          const res = await apiFetch('/save-broadcast-presets', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ presets: broadcastPresets })
-          });
-          if (res.ok) {
-            activePresetId = target.id;
-            updatePresetToolbarLabel();
-            closePresetSaveModal();
-            showToast('프리셋 덮어쓰기 완료', 'success', `'${target.name}' 프리셋이 현재 설정으로 갱신되었습니다!`);
-          } else {
-            const data = await res.json().catch(() => ({}));
-            showToast('저장 실패', 'error', data.message || '프리셋 저장 중 오류가 발생했습니다.');
-          }
-        } catch (err) {
-          showToast('저장 실패', 'error', err.message);
+        if (res.ok) {
+          broadcastPresets = nextPresets;
+          activePresetId = target.id;
+          updatePresetToolbarLabel();
+          renderPresetLoadList();
+          showToast('프리셋 덮어쓰기 완료', 'success', `'${target.name}' 프리셋이 현재 설정으로 갱신되었습니다!`);
+        } else {
+          const data = await res.json().catch(() => ({}));
+          showToast('저장 실패', 'error', data.message || '프리셋 저장 중 오류가 발생했습니다.');
         }
+      } catch (err) {
+        showToast('저장 실패', 'error', err.message);
       }
     }
 
@@ -2006,6 +1827,9 @@
 
     function updateObsScriptUI() {
       const btn = document.getElementById('btn-obs-script-action');
+      const reinstallBtn = document.getElementById('btn-obs-script-reinstall');
+      const pathInfo = document.getElementById('obs-script-path-info');
+      const warningBox = document.getElementById('obs-script-warning-box');
       if (!btn) return;
 
       if (currentObsStatus.installed) {
@@ -2022,6 +1846,32 @@
         btn.textContent = '📥 스크립트 설치';
         btn.disabled = false;
         btn.className = 'px-3 py-1.5 text-[11px] font-bold rounded transition-all cursor-pointer bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-md font-extrabold';
+      }
+
+      if (reinstallBtn) {
+        reinstallBtn.classList.toggle('hidden', !currentObsStatus.installed);
+      }
+
+      if (pathInfo) {
+        if (currentObsStatus.path) {
+          pathInfo.textContent = `경로: ${currentObsStatus.path}`;
+          pathInfo.title = currentObsStatus.path;
+          pathInfo.classList.remove('hidden');
+        } else {
+          pathInfo.classList.add('hidden');
+        }
+      }
+
+      if (warningBox) {
+        if (currentObsStatus.detected === false) {
+          warningBox.textContent = '⚠️ OBS 설치 위치를 자동으로 찾지 못했습니다. [위치 변경] 또는 [스크립트 설치]를 눌러 obs64.exe 파일을 선택해 주세요.';
+          warningBox.classList.remove('hidden');
+        } else if (currentObsStatus.valid === false && currentObsStatus.warning) {
+          warningBox.textContent = `⚠️ ${currentObsStatus.warning}`;
+          warningBox.classList.remove('hidden');
+        } else {
+          warningBox.classList.add('hidden');
+        }
       }
     }
 
@@ -2092,61 +1942,135 @@
     }
 
 
-    async function handleObsScriptAction() {
+    async function handleObsScriptAction(forceReinstall = false, previousDir = '') {
       const btn = document.getElementById('btn-obs-script-action');
-      if (currentObsStatus.installed && !currentObsStatus.needs_update) return;
+      const reinstallBtn = document.getElementById('btn-obs-script-reinstall');
+      if (!forceReinstall && currentObsStatus.installed && !currentObsStatus.needs_update) return;
 
       if (!currentObsStatus.detected) {
         await browseAndInstallObsFolder();
         return;
       }
 
-      const isUpdate = (currentObsStatus.installed && currentObsStatus.needs_update);
+      const wasInstalled = !!currentObsStatus.installed;
+      const isUpdate = (wasInstalled && currentObsStatus.needs_update);
+      const isReinstall = (forceReinstall && wasInstalled && !isUpdate);
       if (btn) {
         btn.disabled = true;
-        btn.textContent = isUpdate ? '업데이트 중...' : '설치 중...';
+        btn.textContent = isUpdate ? '업데이트 중...' : (isReinstall ? '재설치 중...' : '설치 중...');
       }
+      if (reinstallBtn) reinstallBtn.disabled = true;
 
       try {
         const res = await apiFetch('/install-obs-script', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ custom_dir: currentObsStatus.path || '' })
+          body: JSON.stringify({
+            custom_dir: currentObsStatus.path || '',
+            previous_dir: previousDir || ''
+          })
         });
         const data = await res.json();
         if (res.ok && data.code === 200) {
           if (isUpdate) {
             showToast('🎉 스크립트 업데이트 완료', 'success', '최신 버전의 chzzk_dock_launcher.lua가 적용되었습니다.');
+          } else if (isReinstall) {
+            showToast('🎉 스크립트 재설치 완료', 'success', '새 위치에 chzzk_dock_launcher.lua를 다시 설치하고 이전 위치의 파일을 정리했습니다.');
           } else {
             showToast('🎉 스크립트 파일 설치 완료', 'success', 'OBS [도구] ➔ [스크립트] ➔ [+] 버튼으로 chzzk_dock_launcher.lua를 등록해 주세요.');
           }
           currentObsStatus.installed = true;
           currentObsStatus.needs_update = false;
           currentObsStatus.detected = true;
+          if (data.dir) currentObsStatus.path = data.dir;
+          if (typeof data.valid === 'boolean') currentObsStatus.valid = data.valid;
+          currentObsStatus.warning = data.warning || '';
           if (currentObsStatus.latest_version) {
             currentObsStatus.installed_version = currentObsStatus.latest_version;
           }
         } else {
-          showToast(isUpdate ? '업데이트 실패' : '설치 실패', 'error', data.message || '스크립트 적용 실패');
+          showToast(isUpdate ? '업데이트 실패' : (isReinstall ? '재설치 실패' : '설치 실패'), 'error', data.message || '스크립트 적용 실패');
         }
       } catch (e) {
-        showToast(isUpdate ? '업데이트 오류' : '설치 오류', 'error', e.message);
+        showToast(isUpdate ? '업데이트 오류' : (isReinstall ? '재설치 오류' : '설치 오류'), 'error', e.message);
       } finally {
+        if (reinstallBtn) reinstallBtn.disabled = false;
         updateObsScriptUI();
       }
     }
 
+    function promptObsInvalidFolderConfirm(resolvedPath, warningMsg, prevPath) {
+      const safePath = escapeHtml(String(resolvedPath || ''));
+      const safeWarn = escapeHtml(String(warningMsg || '선택한 폴더가 올바른 OBS Studio 경로인지 확인할 수 없습니다.'));
+      showNoticeModal({
+        title: '⚠️ OBS 위치 확인 필요',
+        message: safeWarn,
+        submessage: 'OBS가 설치된 폴더 안의 obs64.exe 파일(예: C:\\Program Files\\obs-studio\\bin\\64bit\\obs64.exe)을 선택해 주세요.',
+        icon: '⚠️',
+        html: `
+          <div class="mt-2.5 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-200 break-all">
+            <div class="font-semibold text-amber-300 mb-1">예상 설치 경로</div>
+            <code>${safePath}</code>
+          </div>
+        `,
+        buttons: [
+          {
+            text: '다시 선택',
+            className: 'px-3.5 py-1.5 rounded-lg bg-[#00FFA3] hover:bg-[#00E591] text-black text-xs font-bold transition-all cursor-pointer',
+            onClick: async () => {
+              window.__resolveConfirmModal(false);
+              await browseAndInstallObsFolder();
+            }
+          },
+          {
+            text: '그래도 설치',
+            className: 'px-3.5 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-200 text-xs font-semibold transition-colors cursor-pointer',
+            onClick: async () => {
+              window.__resolveConfirmModal(true);
+              currentObsStatus.path = resolvedPath;
+              currentObsStatus.detected = true;
+              currentObsStatus.valid = false;
+              currentObsStatus.warning = warningMsg || '';
+              updateObsScriptUI();
+              await handleObsScriptAction(true, prevPath);
+            }
+          },
+          {
+            text: '취소',
+            className: 'px-3.5 py-1.5 rounded-lg bg-[#1C1C26] hover:bg-[#282837] text-zinc-300 text-xs font-medium transition-colors cursor-pointer',
+            onClick: () => {
+              window.__resolveConfirmModal(false);
+            }
+          }
+        ]
+      });
+    }
+
+    async function reinstallObsScript() {
+      if (!currentObsStatus.detected || currentObsStatus.valid === false) {
+        await browseAndInstallObsFolder();
+        return;
+      }
+      await handleObsScriptAction(true, currentObsStatus.path || '');
+    }
 
     async function browseAndInstallObsFolder() {
+      const prevPath = currentObsStatus.path || '';
       try {
         const res = await apiFetch('/browse-obs-folder', { method: 'POST' });
         const data = await res.json();
         if (res.ok && data.code === 200) {
           if (!data.cancelled && data.resolved_path) {
+            if (data.valid === false) {
+              promptObsInvalidFolderConfirm(data.resolved_path, data.warning, prevPath);
+              return;
+            }
             currentObsStatus.path = data.resolved_path;
             currentObsStatus.detected = true;
+            currentObsStatus.valid = data.valid !== false;
+            currentObsStatus.warning = data.warning || '';
             updateObsScriptUI();
-            await handleObsScriptAction();
+            await handleObsScriptAction(true, prevPath);
           } else {
             updateObsScriptUI();
           }

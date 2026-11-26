@@ -132,8 +132,8 @@
 }
 .dot-dirty {
   display: inline-block;
-  width: 5.5px;
-  height: 5.5px;
+  width: 6px;
+  height: 6px;
   border-radius: 9999px;
   background-color: #F59E0B;
   margin-left: 4px;
@@ -475,58 +475,6 @@
   opacity: 1;
   visibility: visible;
   transform: translateY(0);
-}
-
-/* 드래그 가능 · 고시인성 좌/우 스냅 볼륨 핸들 */
-.vol-drag-handle {
-  position: absolute;
-  z-index: 28;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  height: 40px;
-  padding: 0 9px;
-  background: #162235;
-  border: 1.5px solid rgba(0, 255, 163, 0.72);
-  color: #00FFA3;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.55), 0 0 10px rgba(0, 255, 163, 0.16);
-  font-size: 11px;
-  font-weight: 800;
-  white-space: nowrap;
-  cursor: grab;
-  user-select: none;
-  touch-action: none;
-  transition: transform 0.22s cubic-bezier(0.34, 1.4, 0.64, 1),
-              background 0.18s,
-              box-shadow 0.18s,
-              border-color 0.18s;
-}
-.vol-drag-handle:active {
-  cursor: grabbing;
-}
-.vol-drag-handle[data-side="right"] {
-  right: 0;
-  left: auto;
-  border-right: none;
-  border-radius: 12px 0 0 12px;
-  transform: translateX(30px);
-}
-.vol-drag-handle[data-side="left"] {
-  left: 0;
-  right: auto;
-  border-left: none;
-  border-radius: 0 12px 12px 0;
-  flex-direction: row-reverse;
-  transform: translateX(-30px);
-}
-.vol-drag-handle[data-side="right"]:hover,
-.vol-drag-handle[data-side="left"]:hover,
-.vol-drag-handle:focus-visible,
-.vol-drag-handle.is-dragging {
-  transform: translateX(0);
-  background: #1D2E48;
-  border-color: #00FFA3;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.65), 0 0 14px rgba(0, 255, 163, 0.28);
 }
 
 .vol-backdrop {

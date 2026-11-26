@@ -386,10 +386,6 @@ function closeTopmostOverlayOnEsc() {
     if (typeof closePresetLoadModal === 'function') closePresetLoadModal();
     return true;
   }
-  if (isShown('modal-preset-save')) {
-    if (typeof closePresetSaveModal === 'function') closePresetSaveModal();
-    return true;
-  }
 
   if (isShown('filter-color-popover')) {
     if (typeof closeFilterColorPopover === 'function') closeFilterColorPopover();
@@ -443,6 +439,28 @@ function closeTopmostOverlayOnEsc() {
   }
 
   return false;
+}
+
+function toggleSidePanel(panelId, { onOpen, onClose } = {}) {
+  if (typeof closeAllPopovers === 'function') closeAllPopovers();
+  ['settings-panel', 'urls-panel', 'remote-panel'].forEach(id => {
+    if (id === panelId) return;
+    const other = document.getElementById(id);
+    if (other && other.classList.contains('open')) {
+      other.classList.remove('open');
+      if (id === 'remote-panel') {
+        if (typeof closeRemoteVolumeDrawer === 'function') closeRemoteVolumeDrawer();
+        if (typeof stopRemotePolling === 'function') stopRemotePolling();
+      }
+    }
+  });
+  const panel = document.getElementById(panelId);
+  if (panel) {
+    const isOpen = panel.classList.toggle('open');
+    if (isOpen && typeof onOpen === 'function') onOpen(panel);
+    if (!isOpen && typeof onClose === 'function') onClose(panel);
+  }
+  if (typeof updatePanelScrollLock === 'function') updatePanelScrollLock();
 }
 
 document.addEventListener('keydown', (e) => {

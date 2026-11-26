@@ -112,6 +112,22 @@ body.panel-open {
   opacity: 0.35;
   cursor: not-allowed;
 }
+.toggle-switch.toggle-switch--sm {
+  width: 32px;
+  height: 18px;
+}
+.toggle-switch.toggle-switch--sm .toggle-slider::before {
+  width: 12px;
+  height: 12px;
+  top: 1.5px;
+  left: 2px;
+}
+.toggle-switch.toggle-switch--sm input:checked + .toggle-slider {
+  box-shadow: none;
+}
+.toggle-switch.toggle-switch--sm input:checked + .toggle-slider::before {
+  transform: translateX(13px);
+}
 
 /* Custom Checkbox (+2px scale: 17x17) */
 .chzzk-checkbox-input {
@@ -726,29 +742,24 @@ html[data-theme="light"] .chzzk-checkbox-input:checked {
 html[data-theme="light"] .chzzk-checkbox-input:checked::before {
   border-color: #052E1C !important;
 }
-html[data-theme="light"] .toggle-slider,
-html[data-theme="light"] .mini-slider {
+html[data-theme="light"] .toggle-slider {
   background-color: #CBD5E1 !important;
   border-color: #CBD5E1 !important;
   box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.08) !important;
 }
-html[data-theme="light"] .toggle-switch:hover .toggle-slider,
-html[data-theme="light"] .mini-switch:hover .mini-slider {
+html[data-theme="light"] .toggle-switch:hover .toggle-slider {
   border-color: #94A3B8 !important;
 }
-html[data-theme="light"] .toggle-slider::before,
-html[data-theme="light"] .mini-slider::before {
+html[data-theme="light"] .toggle-slider::before {
   background-color: #FFFFFF !important;
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.22) !important;
 }
-html[data-theme="light"] .toggle-switch input:checked + .toggle-slider,
-html[data-theme="light"] .mini-switch input:checked + .mini-slider {
+html[data-theme="light"] .toggle-switch input:checked + .toggle-slider {
   background-color: #00B874 !important;
   border-color: #009E66 !important;
   box-shadow: none !important;
 }
-html[data-theme="light"] .toggle-switch input:checked + .toggle-slider::before,
-html[data-theme="light"] .mini-switch input:checked + .mini-slider::before {
+html[data-theme="light"] .toggle-switch input:checked + .toggle-slider::before {
   background-color: #FFFFFF !important;
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.25) !important;
 }
@@ -787,7 +798,7 @@ html[data-theme="light"] .liquid-tab-group.liquid-amber .liquid-tab-btn.active {
   color: #B45309 !important;
 }
 
-/* 리모컨 필터 칩 & 볼륨 핸들 & 파티 버튼 */
+/* 리모컨 필터 칩 & 볼륨 & 파티 버튼 */
 html[data-theme="light"] .remote-filter-chip:not(.on) {
   background: #F1F5F9 !important;
   border-color: #CBD5E1 !important;
@@ -797,16 +808,6 @@ html[data-theme="light"] .remote-filter-chip.on {
   background: var(--chip-bg, rgba(0, 184, 116, 0.13)) !important;
   border-color: var(--chip-border, rgba(0, 158, 102, 0.48)) !important;
   color: var(--chip-fg, #007A4E) !important;
-}
-html[data-theme="light"] .vol-drag-handle {
-  background: #FFFFFF !important;
-  border-color: #009E66 !important;
-  color: #007A4E !important;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.14) !important;
-}
-html[data-theme="light"] .vol-drag-handle:hover,
-html[data-theme="light"] .vol-drag-handle.is-dragging {
-  background: #E6F9F1 !important;
 }
 html[data-theme="light"] .vol-range {
   background: #CBD5E1 !important;
@@ -1005,5 +1006,27 @@ html[data-theme="light"] .mini-frame.state-error .mini-frame-label {
   color: #BE123C !important;
 }
 html[data-theme="light"] .mini-frame.state-connected .mini-frame-label {
+  color: #007A4E !important;
+}
+html[data-theme="light"] .mini-donation-group {
+  background-color: #E2E8F0 !important;
+  border-color: #CBD5E1 !important;
+}
+html[data-theme="light"] .url-accordion {
+  border-color: #CBD5E1 !important;
+}
+html[data-theme="light"] .url-accordion:hover {
+  border-color: #009E66 !important;
+}
+html[data-theme="light"] .url-accordion-summary {
+  background-color: #F1F5F9 !important;
+  color: #0F172A !important;
+}
+html[data-theme="light"] .url-accordion-summary:hover {
+  background-color: #E2E8F0 !important;
+}
+html[data-theme="light"] .url-accordion-pill {
+  background-color: #E6F9F1 !important;
+  border-color: rgba(0, 158, 102, 0.45) !important;
   color: #007A4E !important;
 }
