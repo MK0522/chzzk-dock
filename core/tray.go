@@ -147,20 +147,6 @@ type PureWinTrayIcon struct {
 
 var GlobalTray *PureWinTrayIcon
 
-// ExportLauncherScript: 실행 파일과 같은 폴더에 chzzk_dock_launcher.lua 생성 및 클립보드 복사
-func ExportLauncherScript(scriptContent []byte) (string, error) {
-	exePath, err := os.Executable()
-	if err != nil {
-		return "", fmt.Errorf("실행 파일 경로 확인 실패: %w", err)
-	}
-	targetPath := filepath.Join(filepath.Dir(exePath), "chzzk_dock_launcher.lua")
-	if err := os.WriteFile(targetPath, scriptContent, 0644); err != nil {
-		return "", fmt.Errorf("스크립트 파일 생성 실패: %w", err)
-	}
-	_ = SetClipboardText(string(scriptContent))
-	return targetPath, nil
-}
-
 // NewPureWinTrayIcon: 트레이 아이콘 인스턴스 생성
 func NewPureWinTrayIcon(tooltip string) *PureWinTrayIcon {
 	tray := &PureWinTrayIcon{

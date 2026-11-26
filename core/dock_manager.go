@@ -52,6 +52,7 @@ type AppSettings struct {
 	ShowViewerCount      *bool              `json:"show_viewer_count,omitempty"`      // 상단 실시간 시청자 수 표시 여부 (기본값: true)
 	SkipUpdateVersion    string             `json:"skip_update_version,omitempty"`    // 건너뛴 업데이트 버전 태그
 	SkipScriptVersion    int                `json:"skip_script_version,omitempty"`    // 건너뛴 OBS Lua 스크립트 버전 번호
+	ObsScriptsDir        string             `json:"obs_scripts_dir,omitempty"`        // 사용자가 지정하거나 마지막으로 설치한 OBS scripts 폴더 경로
 	LastCleanedVersion   string             `json:"last_cleaned_version,omitempty"`   // 마지막으로 레거시 잔재 청소를 완료한 앱 버전
 	BroadcastPresets        []BroadcastPreset       `json:"broadcast_presets,omitempty"`          // 방송 정보 프리셋 목록 (최대 10개)
 	CategoryFavorites       []CategoryFavorite      `json:"category_favorites,omitempty"`        // 카테고리 즐겨찾기 목록 (최대 8개)

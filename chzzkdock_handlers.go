@@ -60,41 +60,27 @@ type CleanChatRule struct {
 
 // resolveChzzkChannelId: 현재 활성 세션 쿠키에서 채널 ID 자동 추출
 func resolveChzzkChannelId(_ *http.Request) (string, error) {
-	if cached := GetCachedActiveChannelId(); cached != "" {
-		return cached, nil
-	}
-	cfg := core.LoadConfig()
-	if cfg.NidAut != "" && cfg.NidSes != "" {
-		if id, _, _, ok := fetchSessionUserStatus(cfg.NidAut, cfg.NidSes); ok && id != "" {
-			SetCachedActiveChannelId(id)
-			return id, nil
-		}
+	if id := resolveActiveChannelId(); id != "" {
+		return id, nil
 	}
 	return "", fmt.Errorf("로그인이 필요하거나 채널 식별자를 확인할 수 없습니다.")
 }
 
-// callChzzk: 치지직 API 통합 호출 클라이언트 (단일 우체부)
-// withAuth가 true이면 네이버 로그인 쿠키(NID_AUT, NID_SES)와 보안 헤더를 자동 주입합니다.
-func callChzzk(method, path string, bodyBytes []byte, withAuth bool) (int, []byte, error) {
-	targetURL := chzzkApiBaseURL + path
-	var bodyReader io.Reader
-	if len(bodyBytes) > 0 {
-		bodyReader = bytes.NewReader(bodyBytes)
-	}
-
+// doChzzkRequest: 지정된 전체 URL에 대해 치지직 API 공통 인증/보안 헤더를 주입하여 요청을 실행합니다.
+func doChzzkRequest(method, targetURL string, bodyReader io.Reader, contentType string, withAuth bool) (int, []byte, error) {
 	req, err := http.NewRequest(method, targetURL, bodyReader)
 	if err != nil {
 		return http.StatusInternalServerError, nil, err
 	}
 	req.Header.Set("User-Agent", USER_AGENT)
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
+	}
 
 	if withAuth {
 		cfg := core.LoadConfig()
 		if cfg.NidAut == "" || cfg.NidSes == "" {
 			return http.StatusUnauthorized, nil, fmt.Errorf("네이버 로그인 쿠키가 설정되지 않았습니다.")
-		}
-		if len(bodyBytes) > 0 {
-			req.Header.Set("Content-Type", "application/json")
 		}
 		req.Header.Set("Cookie", fmt.Sprintf("NID_AUT=%s; NID_SES=%s", cfg.NidAut, cfg.NidSes))
 		req.Header.Set("Origin", "https://chzzk.naver.com")
@@ -112,6 +98,20 @@ func callChzzk(method, path string, bodyBytes []byte, withAuth bool) (int, []byt
 		return resp.StatusCode, nil, err
 	}
 	return resp.StatusCode, respBytes, nil
+}
+
+// callChzzk: 치지직 API 통합 호출 클라이언트 (단일 우체부)
+// withAuth가 true이면 네이버 로그인 쿠키(NID_AUT, NID_SES)와 보안 헤더를 자동 주입합니다.
+func callChzzk(method, path string, bodyBytes []byte, withAuth bool) (int, []byte, error) {
+	var bodyReader io.Reader
+	contentType := ""
+	if len(bodyBytes) > 0 {
+		bodyReader = bytes.NewReader(bodyBytes)
+		if withAuth {
+			contentType = "application/json"
+		}
+	}
+	return doChzzkRequest(method, chzzkApiBaseURL+path, bodyReader, contentType, withAuth)
 }
 
 // --- [1. 채팅 모드 서비스 로직] ---

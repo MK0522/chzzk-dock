@@ -15,6 +15,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	"unicode/utf16"
 	"unsafe"
 )
 
@@ -47,6 +48,10 @@ var (
 	procShellExecuteW        = shell32.NewProc("ShellExecuteW")
 	procSHBrowseForFolderW   = shell32.NewProc("SHBrowseForFolderW")
 	procSHGetPathFromIDListW = shell32.NewProc("SHGetPathFromIDListW")
+
+	comdlg32DLL              = syscall.NewLazyDLL("comdlg32.dll")
+	procGetOpenFileNameW     = comdlg32DLL.NewProc("GetOpenFileNameW")
+	procCommDlgExtendedError = comdlg32DLL.NewProc("CommDlgExtendedError")
 
 	procCoInitializeEx      = ole32DLL.NewProc("CoInitializeEx")
 	procCoUninitialize      = ole32DLL.NewProc("CoUninitialize")
@@ -405,9 +410,11 @@ func DetectObsScriptsDir() (string, bool) {
 		}
 	}
 
-	// 2순위: 표준 C 드라이브 설치 경로 확인
+	// 2순위: 표준 C 드라이브 설치 경로 확인 (최신 OBS: core\frontend-tools\data\scripts 우선)
 	candidates := []string{
+		`C:\Program Files\obs-studio\core\frontend-tools\data\scripts`,
 		`C:\Program Files\obs-studio\data\obs-plugins\frontend-tools\scripts`,
+		`C:\Program Files (x86)\obs-studio\core\frontend-tools\data\scripts`,
 		`C:\Program Files (x86)\obs-studio\data\obs-plugins\frontend-tools\scripts`,
 	}
 
@@ -418,11 +425,23 @@ func DetectObsScriptsDir() (string, bool) {
 	}
 
 	// 3순위: 디스크에 아직 존재하지 않는 경우 표준 64비트 기본 경로와 함께 false 반환
-	defaultPath := `C:\Program Files\obs-studio\data\obs-plugins\frontend-tools\scripts`
+	defaultPath := `C:\Program Files\obs-studio\core\frontend-tools\data\scripts`
 	return defaultPath, false
 }
 
-
+func resolveObsRootScriptsDir(rootDir string) string {
+	for _, rel := range [][]string{
+		{"core", "frontend-tools", "data", "scripts"},
+		{"data", "obs-plugins", "frontend-tools", "scripts"},
+		{"scripts"},
+	} {
+		candidate := filepath.Join(append([]string{rootDir}, rel...)...)
+		if stat, err := os.Stat(candidate); err == nil && stat.IsDir() {
+			return candidate
+		}
+	}
+	return filepath.Join(rootDir, "core", "frontend-tools", "data", "scripts")
+}
 
 // ResolveObsScriptsDir: 사용자가 입력하거나 선택한 폴더 경로로부터 scripts 디렉터리 경로를 도출합니다.
 func ResolveObsScriptsDir(inputPath string) string {
@@ -434,7 +453,8 @@ func ResolveObsScriptsDir(inputPath string) string {
 	}
 
 	cleanPath = filepath.Clean(cleanPath)
-	if strings.HasSuffix(strings.ToLower(cleanPath), ".lua") {
+	lowerClean := strings.ToLower(cleanPath)
+	if strings.HasSuffix(lowerClean, ".lua") || strings.HasSuffix(lowerClean, ".exe") {
 		cleanPath = filepath.Dir(cleanPath)
 	}
 
@@ -444,35 +464,81 @@ func ResolveObsScriptsDir(inputPath string) string {
 		return cleanPath
 	}
 
-	// 2. 입력된 경로 내에 data\obs-plugins\frontend-tools\scripts가 존재하는 경우
-	subCandidate := filepath.Join(cleanPath, "data", "obs-plugins", "frontend-tools", "scripts")
-	if stat, err := os.Stat(subCandidate); err == nil && stat.IsDir() {
-		return subCandidate
-	}
-
-	// 3. 입력된 경로 내에 scripts 하위 폴더가 존재하는 경우 (포터블 또는 커스텀 구조)
-	simpleSub := filepath.Join(cleanPath, "scripts")
-	if stat, err := os.Stat(simpleSub); err == nil && stat.IsDir() {
-		return simpleSub
-	}
-
-	// 4. bin\64bit 또는 bin 경로가 포함된 경우 루트 디렉터리로 거슬러 올라가 탐색
+	// 2. bin\64bit 또는 bin 경로가 포함된 경우 루트 디렉터리로 거슬러 올라가 탐색
 	norm := filepath.ToSlash(cleanPath)
-	if idx := strings.Index(norm, "/bin/64bit"); idx != -1 {
-		rootDir := cleanPath[:idx]
-		return filepath.Join(rootDir, "data", "obs-plugins", "frontend-tools", "scripts")
+	lowerNorm := strings.ToLower(norm)
+	if idx := strings.Index(lowerNorm, "/bin/64bit"); idx != -1 {
+		return resolveObsRootScriptsDir(cleanPath[:idx])
 	}
-	if idx := strings.Index(norm, "/bin/32bit"); idx != -1 {
-		rootDir := cleanPath[:idx]
-		return filepath.Join(rootDir, "data", "obs-plugins", "frontend-tools", "scripts")
+	if idx := strings.Index(lowerNorm, "/bin/32bit"); idx != -1 {
+		return resolveObsRootScriptsDir(cleanPath[:idx])
 	}
-	if strings.HasSuffix(norm, "/bin") {
-		rootDir := filepath.Dir(cleanPath)
-		return filepath.Join(rootDir, "data", "obs-plugins", "frontend-tools", "scripts")
+	if strings.HasSuffix(lowerNorm, "/bin") {
+		return resolveObsRootScriptsDir(filepath.Dir(cleanPath))
 	}
 
-	// 5. 일반 obs-studio 루트 폴더로 간주하여 표준 하위 경로 결합
-	return filepath.Join(cleanPath, "data", "obs-plugins", "frontend-tools", "scripts")
+	// 3. 일반 obs-studio 루트 폴더로 간주하여 하위 scripts 경로 탐색
+	return resolveObsRootScriptsDir(cleanPath)
+}
+
+// BrowseForObsExecutable: Win32 GetOpenFileNameW를 사용하여 사용자에게 obs64.exe(또는 obs32.exe) 선택 다이얼로그를 표시합니다.
+func BrowseForObsExecutable(title string) (string, error) {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
+	if title == "" {
+		title = "OBS 실행 파일(obs64.exe)을 선택하세요."
+	}
+	titleUTF16, err := syscall.UTF16PtrFromString(title)
+	if err != nil {
+		return "", err
+	}
+
+	filterStr := "OBS 실행 파일 (obs64.exe; obs32.exe)\x00obs64.exe;obs32.exe\x00실행 파일 (*.exe)\x00*.exe\x00\x00"
+	filterUTF16 := utf16.Encode([]rune(filterStr))
+
+	var initialDirUTF16 *uint16
+	for _, dir := range []string{
+		`C:\Program Files\obs-studio\bin\64bit`,
+		`C:\Program Files (x86)\obs-studio\bin\32bit`,
+	} {
+		if st, statErr := os.Stat(dir); statErr == nil && st.IsDir() {
+			initialDirUTF16, _ = syscall.UTF16PtrFromString(dir)
+			break
+		}
+	}
+
+	fgHwnd, _, _ := procGetForegroundWindow.Call()
+	fileBuf := make([]uint16, 1024)
+
+	const (
+		ofnPathMustExist = 0x00000800
+		ofnFileMustExist = 0x00001000
+		ofnNoChangeDir   = 0x00000008
+		ofnHideReadOnly  = 0x00000004
+	)
+
+	var ofn openFileNameW
+	ofn.lStructSize = uint32(unsafe.Sizeof(ofn))
+	ofn.hwndOwner = syscall.Handle(fgHwnd)
+	ofn.lpstrFilter = &filterUTF16[0]
+	ofn.nFilterIndex = 1
+	ofn.lpstrFile = &fileBuf[0]
+	ofn.nMaxFile = uint32(len(fileBuf))
+	ofn.lpstrInitialDir = initialDirUTF16
+	ofn.lpstrTitle = titleUTF16
+	ofn.flags = ofnPathMustExist | ofnFileMustExist | ofnNoChangeDir | ofnHideReadOnly
+
+	ret, _, _ := procGetOpenFileNameW.Call(uintptr(unsafe.Pointer(&ofn)))
+	if ret == 0 {
+		extErr, _, _ := procCommDlgExtendedError.Call()
+		if extErr == 0 {
+			return "", nil // 사용자 취소
+		}
+		return "", fmt.Errorf("파일 선택 다이얼로그 오류 (코드: 0x%x)", extErr)
+	}
+
+	return syscall.UTF16ToString(fileBuf), nil
 }
 
 // BrowseForObsFolder: Win32 SHBrowseForFolderW를 사용하여 사용자에게 폴더 선택 다이얼로그를 표시합니다.
@@ -484,7 +550,7 @@ func BrowseForObsFolder(title string) (string, error) {
 	defer procCoUninitialize.Call()
 
 	if title == "" {
-		title = "OBS Studio 설치 폴더(obs-studio) 또는 scripts 폴더를 선택하세요."
+		title = "OBS 설치 폴더(obs-studio), obs64.exe 폴더(bin\\64bit), 또는 scripts 폴더를 선택하세요."
 	}
 	titleUTF16, err := syscall.UTF16PtrFromString(title)
 	if err != nil {
@@ -592,8 +658,149 @@ func CheckScriptStatusWithVersion(scriptsDir string, latestScript []byte) (insta
 	return installed, needsUpdate, installedVer, latestVer
 }
 
-// InstallLauncherScriptToObs: 지정된(또는 자동 감지된) OBS scripts 폴더에 스크립트를 추가합니다.
-func InstallLauncherScriptToObs(customDir string, scriptData []byte) (string, error) {
+// ValidateObsScriptsDir: 도출된 scripts 경로와 사용자가 선택한 원본 경로가 실제 OBS 환경인지 검증합니다.
+func ValidateObsScriptsDir(resolvedDir, rawSelected string) (bool, string) {
+	resolvedDir = strings.TrimSpace(resolvedDir)
+	if resolvedDir == "" {
+		return false, "OBS scripts 폴더 경로를 확인할 수 없습니다. OBS 설치 폴더(obs-studio), bin\\64bit 또는 scripts 폴더를 선택해 주세요."
+	}
+
+	hasDir := func(p string) bool {
+		if p == "" {
+			return false
+		}
+		st, err := os.Stat(p)
+		return err == nil && st.IsDir()
+	}
+	hasFile := func(p string) bool {
+		if p == "" {
+			return false
+		}
+		st, err := os.Stat(p)
+		return err == nil && !st.IsDir()
+	}
+
+	// rawSelected가 .exe 파일로 들어온 경우(예: 사용자가 obs64.exe 외의 다른 .exe를 고른 경우) 파일명 확인
+	if raw := strings.TrimSpace(strings.Trim(rawSelected, `"'`)); raw != "" {
+		lowerRaw := strings.ToLower(raw)
+		if strings.HasSuffix(lowerRaw, ".exe") {
+			exeBase := strings.ToLower(filepath.Base(raw))
+			if exeBase != "obs64.exe" && exeBase != "obs32.exe" {
+				return false, "선택한 파일이 obs64.exe(또는 obs32.exe)가 아닙니다. OBS 실행 파일(obs64.exe)을 선택해 주세요."
+			}
+			// obs64.exe를 선택했더라도 주변에 scripts 폴더가 실제로 존재하지 않으면 경고
+			if !hasDir(resolvedDir) {
+				return false, "선택한 obs64.exe 주변에서 OBS scripts 폴더를 찾지 못했습니다. 정상적인 OBS 설치 폴더인지 확인해 주세요."
+			}
+			return true, ""
+		}
+	}
+
+	// 1. resolvedDir 자체가 실제 존재하는 scripts 디렉터리이고, OBS 기본 스크립트나 표준 OBS 경로 구조에 속하는지 확인
+	if hasDir(resolvedDir) {
+		for _, builtin := range []string{"clock-source.lua", "countdown.lua", "instant-replay.lua", "pause-scene.lua", "url-text.py"} {
+			if hasFile(filepath.Join(resolvedDir, builtin)) {
+				return true, ""
+			}
+		}
+		normResolved := strings.ToLower(filepath.ToSlash(filepath.Clean(resolvedDir)))
+		if strings.HasSuffix(normResolved, "/core/frontend-tools/data/scripts") ||
+			strings.HasSuffix(normResolved, "/data/obs-plugins/frontend-tools/scripts") {
+			return true, ""
+		}
+	}
+
+	// 2. 선택 경로 또는 도출 경로의 상위에서 OBS 실행 파일(obs64.exe/obs32.exe)이나 표준 scripts 폴더 확인
+	checkObsRoot := func(root string) bool {
+		if root == "" || root == "." || root == string(filepath.Separator) {
+			return false
+		}
+		return hasFile(filepath.Join(root, "bin", "64bit", "obs64.exe")) ||
+			hasFile(filepath.Join(root, "bin", "32bit", "obs32.exe")) ||
+			hasFile(filepath.Join(root, "obs64.exe")) ||
+			hasFile(filepath.Join(root, "obs32.exe")) ||
+			hasDir(filepath.Join(root, "core", "frontend-tools", "data", "scripts")) ||
+			hasDir(filepath.Join(root, "data", "obs-plugins", "frontend-tools", "scripts"))
+	}
+
+	rootsToCheck := []string{}
+	if raw := strings.TrimSpace(strings.Trim(rawSelected, `"'`)); raw != "" {
+		cleanRaw := filepath.Clean(raw)
+		rootsToCheck = append(rootsToCheck,
+			cleanRaw,
+			filepath.Dir(cleanRaw),
+			filepath.Dir(filepath.Dir(cleanRaw)),
+		)
+	}
+	rootsToCheck = append(rootsToCheck,
+		filepath.Dir(filepath.Dir(filepath.Dir(filepath.Dir(resolvedDir)))),
+	)
+	for _, r := range rootsToCheck {
+		if checkObsRoot(r) {
+			return true, ""
+		}
+	}
+
+	return false, "선택한 폴더에서 OBS Studio(obs64.exe 또는 기존 scripts 폴더)를 찾지 못했습니다. 잘못된 위치에 설치하면 OBS에서 스크립트가 보이지 않을 수 있습니다."
+}
+
+// ObsScriptCleanupCandidates: 새 설치 경로(excludeDir) 외에 기존 chzzk_dock_launcher.lua가 남아있는 경로 목록을 반환합니다.
+func ObsScriptCleanupCandidates(excludeDir string, extraDirs ...string) []string {
+	normExclude := strings.ToLower(filepath.Clean(strings.TrimSpace(excludeDir)))
+	seen := map[string]bool{}
+	var result []string
+
+	addDir := func(dir string) {
+		dir = strings.TrimSpace(dir)
+		if dir == "" {
+			return
+		}
+		cleanDir := filepath.Clean(dir)
+		if strings.ToLower(cleanDir) == normExclude {
+			return
+		}
+		luaPath := filepath.Join(cleanDir, "chzzk_dock_launcher.lua")
+		key := strings.ToLower(luaPath)
+		if seen[key] {
+			return
+		}
+		seen[key] = true
+		if st, err := os.Stat(luaPath); err == nil && !st.IsDir() {
+			result = append(result, luaPath)
+		}
+	}
+
+	for _, d := range extraDirs {
+		addDir(d)
+	}
+	for _, d := range []string{
+		`C:\Program Files\obs-studio\core\frontend-tools\data\scripts`,
+		`C:\Program Files\obs-studio\data\obs-plugins\frontend-tools\scripts`,
+		`C:\Program Files (x86)\obs-studio\core\frontend-tools\data\scripts`,
+		`C:\Program Files (x86)\obs-studio\data\obs-plugins\frontend-tools\scripts`,
+	} {
+		addDir(d)
+	}
+	if runningPath := FindRunningObsPath(); runningPath != "" {
+		addDir(ResolveObsScriptsDir(runningPath))
+	}
+
+	// excludeDir가 core\... 또는 data\... 형태라면 같은 OBS 루트의 반대쪽 경로도 검사
+	normSlashed := filepath.ToSlash(filepath.Clean(excludeDir))
+	lowerSlashed := strings.ToLower(normSlashed)
+	if idx := strings.Index(lowerSlashed, "/core/frontend-tools/data/scripts"); idx != -1 {
+		root := filepath.FromSlash(normSlashed[:idx])
+		addDir(filepath.Join(root, "data", "obs-plugins", "frontend-tools", "scripts"))
+	} else if idx := strings.Index(lowerSlashed, "/data/obs-plugins/frontend-tools/scripts"); idx != -1 {
+		root := filepath.FromSlash(normSlashed[:idx])
+		addDir(filepath.Join(root, "core", "frontend-tools", "data", "scripts"))
+	}
+
+	return result
+}
+
+// InstallLauncherScriptToObs: 지정된(또는 자동 감지된) OBS scripts 폴더에 스크립트를 추가하고, 기존 위치의 구 파일을 제거합니다.
+func InstallLauncherScriptToObs(customDir string, scriptData []byte, previousDirs ...string) (string, error) {
 	var targetDir string
 	if customDir != "" {
 		targetDir = ResolveObsScriptsDir(customDir)
@@ -606,9 +813,19 @@ func InstallLauncherScriptToObs(customDir string, scriptData []byte) (string, er
 
 	scriptData = PrepareLauncherScriptWithExePath(scriptData)
 	targetPath := filepath.Join(targetDir, "chzzk_dock_launcher.lua")
+	cleanupFiles := ObsScriptCleanupCandidates(targetDir, previousDirs...)
 
 	_ = os.MkdirAll(targetDir, 0755)
-	if err := os.WriteFile(targetPath, scriptData, 0644); err == nil {
+	writeErr := os.WriteFile(targetPath, scriptData, 0644)
+
+	var remainingCleanup []string
+	for _, oldFile := range cleanupFiles {
+		if err := os.Remove(oldFile); err != nil && !os.IsNotExist(err) {
+			remainingCleanup = append(remainingCleanup, oldFile)
+		}
+	}
+
+	if writeErr == nil && len(remainingCleanup) == 0 {
 		return targetPath, nil
 	}
 
@@ -617,9 +834,14 @@ func InstallLauncherScriptToObs(customDir string, scriptData []byte) (string, er
 		return "", fmt.Errorf("실행 파일 경로 확인 실패: %w", err)
 	}
 
+	args := fmt.Sprintf(`--install-script "%s"`, targetDir)
+	for _, oldFile := range cleanupFiles {
+		args += fmt.Sprintf(` --cleanup "%s"`, oldFile)
+	}
+
 	opPtr, _ := syscall.UTF16PtrFromString("runas")
 	filePtr, _ := syscall.UTF16PtrFromString(exePath)
-	paramPtr, _ := syscall.UTF16PtrFromString(fmt.Sprintf(`--install-script "%s"`, targetDir))
+	paramPtr, _ := syscall.UTF16PtrFromString(args)
 
 	ret, _, err := procShellExecuteW.Call(
 		0,
@@ -639,7 +861,16 @@ func InstallLauncherScriptToObs(customDir string, scriptData []byte) (string, er
 		time.Sleep(300 * time.Millisecond)
 		if written, err := os.ReadFile(targetPath); err == nil && len(written) > 0 {
 			if sameScriptContent(written, scriptData) {
-				return targetPath, nil
+				allCleaned := true
+				for _, oldFile := range remainingCleanup {
+					if _, err := os.Stat(oldFile); !os.IsNotExist(err) {
+						allCleaned = false
+						break
+					}
+				}
+				if allCleaned {
+					return targetPath, nil
+				}
 			}
 		}
 	}

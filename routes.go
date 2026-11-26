@@ -112,14 +112,12 @@ func buildRouter() http.Handler {
 	wrap("GET /obs-script-status", handleObsScriptStatus, true)
 	wrap("POST /browse-obs-folder", handleBrowseObsFolder, true)
 	wrap("POST /install-obs-script", handleInstallObsScript, true)
-	wrap("POST /export-script", handleExportScript, true)
 	wrap("GET /check-update", handleCheckUpdate, true)
 	wrap("GET /update-status", handleUpdateStatus, true)
 	wrap("POST /execute-update", handleExecuteUpdate, true)
 	wrap("GET /api/disk-total", handleDiskTotal, true)
 	wrap("GET /api/open-folder", handleOpenFolder, true)
 	wrap("GET /api/obs-bitrate-target", handleObsBitrateTarget, true)
-	wrap("POST /client-log", handleClientLog, true)
 
 	// 5.5. ChzzkDock BFF (Backend-For-Frontend) 신설 라우트
 	wrap("GET /chzzkdock/chat-mode", handleChzzkChatModeGet, true)
@@ -180,10 +178,6 @@ func buildRouter() http.Handler {
 	// 6. 정적 자산 & 공개 문서 (API Auth 불필요)
 	wrap("GET /guide-image/1", handleGuideImage1, false)
 	wrap("GET /guide-image/2", handleGuideImage2, false)
-	wrap("GET /obs-script", handleObsScriptFile, false)
-	wrap("GET /chzzk_dock_launcher.lua", handleObsScriptFile, false)
-	wrap("GET /show-ui", handleShowUI, true)
-	wrap("GET /api/show-ui", handleShowUI, true)
 	wrap("GET /stats", handleStatsHtml, false)
 	wrap("GET /stat", handleStatsHtml, false)
 	wrap("GET /mini", handleMiniHtml, false)
@@ -602,12 +596,6 @@ func handleUploadThumbnail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cfg := core.LoadConfig()
-	if cfg.NidAut == "" || cfg.NidSes == "" {
-		respondErr(w, http.StatusUnauthorized, "로그인 쿠키가 설정되지 않았습니다. 설정에서 로그인하세요.")
-		return
-	}
-
 	bodyBuf := &bytes.Buffer{}
 	mpWriter := multipart.NewWriter(bodyBuf)
 	part, err := mpWriter.CreateFormFile("file", header.Filename)
@@ -621,25 +609,22 @@ func handleUploadThumbnail(w http.ResponseWriter, r *http.Request) {
 	}
 	mpWriter.Close()
 
-	uploadReq, err := http.NewRequest("POST", "https://comm-api.game.naver.com/nng_main/v1/remote/photo/upload", bodyBuf)
-	if err != nil {
-		respondErr(w, http.StatusInternalServerError, "업로드 요청 생성 실패")
+	status, respBytes, err := doChzzkRequest(
+		"POST",
+		"https://comm-api.game.naver.com/nng_main/v1/remote/photo/upload",
+		bodyBuf,
+		mpWriter.FormDataContentType(),
+		true,
+	)
+	if status == http.StatusUnauthorized {
+		respondErr(w, http.StatusUnauthorized, "로그인 쿠키가 설정되지 않았습니다. 설정에서 로그인하세요.")
 		return
 	}
-	uploadReq.Header.Set("User-Agent", USER_AGENT)
-	uploadReq.Header.Set("Content-Type", mpWriter.FormDataContentType())
-	uploadReq.Header.Set("Cookie", fmt.Sprintf("NID_AUT=%s; NID_SES=%s", cfg.NidAut, cfg.NidSes))
-	uploadReq.Header.Set("Origin", "https://chzzk.naver.com")
-	uploadReq.Header.Set("Referer", "https://chzzk.naver.com/")
-
-	resp, err := httpClient.Do(uploadReq)
 	if err != nil {
 		respondErr(w, http.StatusBadGateway, "치지직 업로드 서버 연결 실패")
 		return
 	}
-	defer resp.Body.Close()
 
-	respBytes, _ := io.ReadAll(resp.Body)
 	var uploadResult struct {
 		Code    int    `json:"code"`
 		Message string `json:"message"`
@@ -658,7 +643,7 @@ func handleUploadThumbnail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	core.LogError("[Thumbnail] 치지직 서버 업로드 응답 실패 (HTTP %d, 바이트 크기: %d)", resp.StatusCode, len(respBytes))
+	core.LogError("[Thumbnail] 치지직 서버 업로드 응답 실패 (HTTP %d, 바이트 크기: %d)", status, len(respBytes))
 	sendJSON(w, map[string]any{
 		"code":    500,
 		"message": "치지직 서버에서 이미지 URL을 반환하지 않았습니다.",
@@ -697,6 +682,21 @@ func GetCachedActiveChannelId() string {
 	return cachedActiveChannelId
 }
 
+// resolveActiveChannelId: 백엔드 캐시 또는 활성 세션 쿠키에서 채널 ID를 단일 경로로 조회·캐싱
+func resolveActiveChannelId() string {
+	if cached := GetCachedActiveChannelId(); cached != "" {
+		return cached
+	}
+	cfg := core.LoadConfig()
+	if cfg.NidAut != "" && cfg.NidSes != "" {
+		if cid, _, _, ok := fetchSessionUserStatus(cfg.NidAut, cfg.NidSes); ok && cid != "" {
+			SetCachedActiveChannelId(cid)
+			return cid
+		}
+	}
+	return ""
+}
+
 // resolveChannelIdFromRequest: 클라이언트 전달 channelId 또는 백엔드 캐시된 활성 채널 ID 해석 (외부 통신 지연 제거)
 func resolveChannelIdFromRequest(r *http.Request) string {
 	// 1. 요청 파라미터로 명시 전달된 channelId 우선 (영숫자/언더스코어/하이픈 정규식 형식 검증)
@@ -705,21 +705,8 @@ func resolveChannelIdFromRequest(r *http.Request) string {
 		return channelId
 	}
 
-	// 2. 백엔드 메모리에 캐시된 활성 계정의 채널 ID 반환 (0ms, 외부 통신 없음)
-	if cached := GetCachedActiveChannelId(); cached != "" {
-		return cached
-	}
-
-	// 3. 캐시가 비어있는 경우에만 폴백 조회 및 캐싱
-	cfg := core.LoadConfig()
-	if cfg.NidAut != "" && cfg.NidSes != "" {
-		if cid, _, _, ok := fetchSessionUserStatus(cfg.NidAut, cfg.NidSes); ok && cid != "" {
-			SetCachedActiveChannelId(cid)
-			return cid
-		}
-	}
-
-	return ""
+	// 2. 활성 세션 채널 ID 폴백
+	return resolveActiveChannelId()
 }
 
 var toolWebviews = struct {
@@ -916,7 +903,6 @@ func handleAppSettingsGet(w http.ResponseWriter, r *http.Request) {
 	st := core.LoadSettings()
 	respondOK(w, map[string]any{
 		"code":                          200,
-		"settings":                      st,
 		"http_port":                     st.HttpPort,
 		"active_port":                   activeHttpPort,
 		"configured_port":               core.GetConfiguredPort(),
@@ -942,8 +928,9 @@ func handleAppSettingsGet(w http.ResponseWriter, r *http.Request) {
 }
 
 var (
-	themeSubsMu sync.Mutex
-	themeSubs   = make(map[chan string]struct{})
+	themeSubsMu      sync.Mutex
+	themeSubs        = make(map[chan string]struct{})
+	serverInstanceID = fmt.Sprintf("%d", time.Now().UnixNano())
 )
 
 func broadcastTheme(mode string) {
@@ -981,7 +968,7 @@ func handleThemeEvents(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	current := core.LoadSettings().GetThemeMode()
-	if _, err := fmt.Fprintf(w, "event: theme\ndata: %s\n\n", current); err != nil {
+	if _, err := fmt.Fprintf(w, "retry: 5000\nid: %s\nevent: theme\ndata: %s\n\n", serverInstanceID, current); err != nil {
 		return
 	}
 	flusher.Flush()
@@ -1147,14 +1134,25 @@ var (
 
 func handleObsScriptStatus(w http.ResponseWriter, r *http.Request) {
 	scriptsDir, detected := detectObsScriptsDir()
-	installed, needsUpdate, installedVer, latestVer := core.CheckScriptStatusWithVersion(scriptsDir, getLauncherScriptData())
-
 	st := core.LoadSettings()
+
+	// 사용자가 직접 지정/설치했던 커스텀 경로가 디스크에 존재하면 우선 반영
+	if savedDir := strings.TrimSpace(st.ObsScriptsDir); savedDir != "" {
+		if info, err := os.Stat(savedDir); err == nil && info.IsDir() {
+			scriptsDir = savedDir
+			detected = true
+		}
+	}
+
+	installed, needsUpdate, installedVer, latestVer := core.CheckScriptStatusWithVersion(scriptsDir, getLauncherScriptData())
+	valid, warning := core.ValidateObsScriptsDir(scriptsDir, scriptsDir)
 	shouldPrompt := installed && needsUpdate && (st.SkipScriptVersion < latestVer)
 
 	respondOK(w, map[string]any{
 		"code":              200,
 		"detected":          detected,
+		"valid":             valid,
+		"warning":           warning,
 		"path":              scriptsDir,
 		"installed":         installed,
 		"needs_update":      needsUpdate,
@@ -1165,39 +1163,62 @@ func handleObsScriptStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleBrowseObsFolder(w http.ResponseWriter, r *http.Request) {
-	folder, err := core.BrowseForObsFolder("OBS Studio 설치 폴더 또는 scripts 폴더를 선택하세요")
+	selected, err := core.BrowseForObsExecutable("OBS 실행 파일(obs64.exe)을 선택하세요")
 	if err != nil {
-		respondErr(w, http.StatusInternalServerError, "폴더 선택 중 오류가 발생했습니다.")
+		respondErr(w, http.StatusInternalServerError, "OBS 실행 파일 선택 중 오류가 발생했습니다.")
 		return
 	}
-	if folder == "" {
+	if selected == "" {
 		respondOK(w, map[string]any{"code": 200, "cancelled": true})
 		return
 	}
-	resolved := core.ResolveObsScriptsDir(folder)
-	respondOK(w, map[string]any{"code": 200, "cancelled": false, "selected_path": folder, "resolved_path": resolved})
+	resolved := core.ResolveObsScriptsDir(selected)
+	valid, warning := core.ValidateObsScriptsDir(resolved, selected)
+	respondOK(w, map[string]any{
+		"code":          200,
+		"cancelled":     false,
+		"selected_path": selected,
+		"resolved_path": resolved,
+		"valid":         valid,
+		"warning":       warning,
+	})
 }
 
 func handleInstallObsScript(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		CustomDir string `json:"custom_dir"`
+		CustomDir   string `json:"custom_dir"`
+		PreviousDir string `json:"previous_dir"`
 	}
 	_ = bindJSON(w, r, &req)
-	installedPath, err := core.InstallLauncherScriptToObs(req.CustomDir, getLauncherScriptData())
+
+	st := core.LoadSettings()
+	var prevDirs []string
+	if strings.TrimSpace(req.PreviousDir) != "" {
+		prevDirs = append(prevDirs, req.PreviousDir)
+	}
+	if strings.TrimSpace(st.ObsScriptsDir) != "" {
+		prevDirs = append(prevDirs, st.ObsScriptsDir)
+	}
+
+	installedPath, err := core.InstallLauncherScriptToObs(req.CustomDir, getLauncherScriptData(), prevDirs...)
 	if err != nil {
 		respondErr(w, http.StatusInternalServerError, "OBS 스크립트 설치에 실패했습니다.")
 		return
 	}
-	respondOK(w, map[string]any{"code": 200, "message": "OBS 스크립트 폴더에 성공적으로 추가되었습니다.", "path": installedPath})
-}
 
-func handleExportScript(w http.ResponseWriter, r *http.Request) {
-	createdPath, err := core.ExportLauncherScript(getLauncherScriptData())
-	if err != nil {
-		respondErr(w, http.StatusInternalServerError, "스크립트 내보내기에 실패했습니다.")
-		return
-	}
-	respondOK(w, map[string]any{"code": 200, "message": "스크립트 파일이 생성되고 코드가 클립보드에 복사되었습니다.", "path": createdPath})
+	installedDir := filepath.Dir(installedPath)
+	st.ObsScriptsDir = installedDir
+	_ = core.SaveSettings(st)
+
+	valid, warning := core.ValidateObsScriptsDir(installedDir, req.CustomDir)
+	respondOK(w, map[string]any{
+		"code":    200,
+		"message": "OBS 스크립트 폴더에 성공적으로 추가되었습니다.",
+		"path":    installedPath,
+		"dir":     installedDir,
+		"valid":   valid,
+		"warning": warning,
+	})
 }
 
 func handleCheckUpdate(w http.ResponseWriter, r *http.Request) {
@@ -1244,39 +1265,6 @@ func handleExecuteUpdate(w http.ResponseWriter, r *http.Request) {
 	respondOK(w, map[string]any{"code": 200, "message": "업데이트 다운로드를 시작했습니다."})
 }
 
-func handleClientLog(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		Level   string `json:"level"`
-		Source  string `json:"source"`
-		Message string `json:"message"`
-		Detail  string `json:"detail"`
-	}
-	if bindJSON(w, r, &req) {
-		// 단순 UI Toast 알림은 백엔드 중복 로깅 방지를 위해 무시
-		if strings.EqualFold(req.Source, "toast") {
-			respondOK(w, map[string]string{"status": "ok"})
-			return
-		}
-		msg := req.Message
-		if req.Detail != "" {
-			msg += " - " + req.Detail
-		}
-		tag := "[UI Toast]"
-		if req.Source != "" {
-			tag = fmt.Sprintf("[UI %s]", req.Source)
-		}
-		switch strings.ToLower(req.Level) {
-		case "warn", "warning":
-			core.LogWarn("%s %s", tag, msg)
-		case "error":
-			core.LogError("%s %s", tag, msg)
-		default:
-			core.LogInfo("%s %s", tag, msg)
-		}
-	}
-	respondOK(w, map[string]string{"status": "ok"})
-}
-
 func sendNoCacheBytes(w http.ResponseWriter, content []byte, contentType string) {
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 	w.Header().Set("Pragma", "no-cache")
@@ -1306,15 +1294,6 @@ func handleGuideImage1(w http.ResponseWriter, r *http.Request) {
 
 func handleGuideImage2(w http.ResponseWriter, r *http.Request) {
 	sendBytes(w, embeddedGuide2, http.StatusOK, "image/png")
-}
-
-func handleObsScriptFile(w http.ResponseWriter, r *http.Request) {
-	sendBytes(w, getLauncherScriptData(), http.StatusOK, "text/plain; charset=utf-8")
-}
-
-func handleShowUI(w http.ResponseWriter, r *http.Request) {
-	core.ShowDockWindow()
-	respondOK(w, map[string]any{"code": 200, "message": "UI 표시 완료"})
 }
 
 // handleStaticUI: GET /ui/* 정적 자산(CSS, JS, 이미지 등) 내장 embed.FS 서빙
