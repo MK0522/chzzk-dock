@@ -3,7 +3,7 @@
 ; ==============================================================================
 
 #define MyAppName "CHZZK OBS Dock"
-#define MyAppVersion "0.7.0-rc1"
+#define MyAppVersion "0.7.1-rc2"
 #define MyAppPublisher "CHZZK OBS Dock"
 #define MyAppURL "https://github.com/Dingteus/chzzk-dock"
 #define MyAppExeName "chzzk-dock.exe"
@@ -185,6 +185,7 @@ begin
     end;
   end;
 end;
+
 
 
 

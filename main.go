@@ -1,4 +1,4 @@
-package main
+﻿package main
 
 import (
 	"bytes"
@@ -583,8 +583,17 @@ func handleSubcommands() bool {
 		os.Exit(0)
 	case "--install-script":
 		targetDir := ""
-		if len(os.Args) > 2 {
-			targetDir = strings.Trim(os.Args[2], `"`)
+		var cleanupFiles []string
+		for i := 2; i < len(os.Args); i++ {
+			arg := os.Args[i]
+			if arg == "--cleanup" && i+1 < len(os.Args) {
+				cleanupFiles = append(cleanupFiles, strings.Trim(os.Args[i+1], `"`))
+				i++
+				continue
+			}
+			if targetDir == "" {
+				targetDir = strings.Trim(arg, `"`)
+			}
 		}
 		if targetDir == "" {
 			targetDir, _ = core.DetectObsScriptsDir()
@@ -598,6 +607,11 @@ func handleSubcommands() bool {
 		scriptData = core.PrepareLauncherScriptWithExePath(scriptData)
 		if err := os.WriteFile(targetFile, scriptData, 0644); err != nil {
 			os.Exit(1)
+		}
+		for _, oldFile := range cleanupFiles {
+			if oldFile != "" && !strings.EqualFold(filepath.Clean(oldFile), filepath.Clean(targetFile)) {
+				_ = os.Remove(oldFile)
+			}
 		}
 		os.Exit(0)
 	}
@@ -834,3 +848,4 @@ func main() {
 
 	runTray(silentMode)
 }
+
