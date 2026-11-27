@@ -1161,55 +1161,97 @@
 
         const statusBadge = isActive
           ? (modified
-            ? '<span class="text-[9px] px-1.5 py-0.2 rounded font-bold bg-amber-500/20 text-amber-300 border border-amber-400/50">✏️ 수정됨</span>'
-            : '<span class="text-[9px] px-1.5 py-0.2 rounded font-bold bg-[#00FFA3]/20 text-[#00FFA3] border border-[#00FFA3]/40">✓ 적용 중</span>')
-          : '';
+            ? domEl('span', { className: 'text-[9px] px-1.5 py-0.2 rounded font-bold bg-amber-500/20 text-amber-300 border border-amber-400/50', text: '✏️ 수정됨' })
+            : domEl('span', { className: 'text-[9px] px-1.5 py-0.2 rounded font-bold bg-[#00FFA3]/20 text-[#00FFA3] border border-[#00FFA3]/40', text: '✓ 적용 중' }))
+          : null;
 
-        const applyBtnHtml = isActive && !modified
-          ? `<button type="button" disabled class="flex-1 py-1 rounded bg-[#00FFA3]/10 border border-[#00FFA3]/35 text-[#00FFA3] text-xs font-bold cursor-default flex items-center justify-center gap-1 opacity-80">✓ 현재 적용됨</button>`
-          : `<button type="button" onclick="applyPresetFromModal('${preset.id}')" class="flex-1 py-1 rounded bg-[#161F2E] hover:bg-[#00FFA3] hover:text-black border border-[#243044] hover:border-[#00FFA3] text-slate-200 text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-1"><span>${isActive ? '↺' : '📥'}</span> <span>${isActive ? '원래대로' : '적용'}</span></button>`;
+        const applyBtnEl = isActive && !modified
+          ? domEl('button', {
+              type: 'button',
+              disabled: true,
+              className: 'flex-1 py-1 rounded bg-[#00FFA3]/10 border border-[#00FFA3]/35 text-[#00FFA3] text-xs font-bold cursor-default flex items-center justify-center gap-1 opacity-80',
+              text: '✓ 현재 적용됨'
+            })
+          : domEl('button', {
+              type: 'button',
+              className: 'flex-1 py-1 rounded bg-[#161F2E] hover:bg-[#00FFA3] hover:text-black border border-[#243044] hover:border-[#00FFA3] text-slate-200 text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-1',
+              on: { click: () => applyPresetFromModal(preset.id) }
+            },
+              domEl('span', { text: isActive ? '↺' : '📥' }),
+              ' ',
+              domEl('span', { text: isActive ? '원래대로' : '적용' })
+            );
 
         const owBtnClass = (isActive && modified)
           ? 'px-2 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/60 text-amber-300 text-xs font-bold transition-colors cursor-pointer flex items-center gap-1'
           : 'px-2 py-1 rounded bg-[#161F2E] hover:bg-[#1E2738] border border-[#243044] text-slate-300 text-xs font-medium transition-colors cursor-pointer flex items-center gap-1';
 
-        card.innerHTML = `
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="font-bold text-xs text-white truncate max-w-[140px]">${escapeHtml(preset.name)}</span>
-              ${statusBadge}
-            </div>
-            <div class="flex items-center gap-1 shrink-0">
-              <button type="button" onclick="promptRenamePreset('${preset.id}')" class="px-1.5 py-0.5 rounded text-[10px] bg-[#161F2E] hover:bg-[#1E2738] text-slate-300 hover:text-white border border-[#243044] cursor-pointer" title="프리셋 이름 변경">
-                ✏️
-              </button>
-              <button type="button" onclick="requestDeletePreset('${preset.id}')" class="px-1.5 py-0.5 rounded text-[10px] bg-[#161F2E] hover:bg-rose-950/80 text-slate-400 hover:text-rose-300 border border-[#243044] hover:border-rose-800/50 cursor-pointer" title="프리셋 삭제">
-                🗑️
-              </button>
-            </div>
-          </div>
-
-          <div id="rename-box-${preset.id}" class="hidden flex items-center gap-1 pt-0.5">
-            <input id="rename-input-${preset.id}" type="text" maxlength="10" value="${escapeHtml(preset.name)}" class="chzzk-input text-xs !py-0.5 flex-1" />
-            <button type="button" onclick="submitRenamePreset('${preset.id}')" class="px-2 py-0.5 rounded bg-[#00FFA3] text-black text-[11px] font-bold cursor-pointer">확인</button>
-            <button type="button" onclick="cancelRenamePreset('${preset.id}')" class="px-2 py-0.5 rounded bg-[#161F2E] text-slate-300 text-[11px] cursor-pointer">취소</button>
-          </div>
-
-          <div class="text-[11px] text-slate-300 truncate font-medium">
-            ${escapeHtml(preset.title)}
-          </div>
-          <div class="flex items-center gap-1.5 text-[10px] flex-wrap">
-            <span class="text-[#00FFA3] bg-[#00FFA3]/10 px-1 py-0.2 rounded border border-[#00FFA3]/20 font-medium">${escapeHtml(preset.category_name || '-')}</span>
-            ${(preset.tags || []).map(t => `<span class="text-slate-400 bg-[#161F2E] px-1 py-0.2 rounded">#${escapeHtml(t)}</span>`).join('')}
-          </div>
-
-          <div class="pt-0.5 flex items-center gap-1">
-            ${applyBtnHtml}
-            <button type="button" onclick="overwritePresetDirect('${preset.id}')" class="${owBtnClass}" title="현재 설정을 이 프리셋에 덮어쓰기">
-              <span>🔄</span> <span>덮어쓰기</span>
-            </button>
-          </div>
-        `;
+        card.replaceChildren(
+          domEl('div', { className: 'flex items-center justify-between' },
+            domEl('div', { className: 'flex items-center gap-1.5 min-w-0' },
+              domEl('span', { className: 'font-bold text-xs text-white truncate max-w-[140px]', text: preset.name }),
+              statusBadge
+            ),
+            domEl('div', { className: 'flex items-center gap-1 shrink-0' },
+              domEl('button', {
+                type: 'button',
+                className: 'px-1.5 py-0.5 rounded text-[10px] bg-[#161F2E] hover:bg-[#1E2738] text-slate-300 hover:text-white border border-[#243044] cursor-pointer',
+                title: '프리셋 이름 변경',
+                text: '✏️',
+                on: { click: () => promptRenamePreset(preset.id) }
+              }),
+              domEl('button', {
+                type: 'button',
+                className: 'px-1.5 py-0.5 rounded text-[10px] bg-[#161F2E] hover:bg-rose-950/80 text-slate-400 hover:text-rose-300 border border-[#243044] hover:border-rose-800/50 cursor-pointer',
+                title: '프리셋 삭제',
+                text: '🗑️',
+                on: { click: () => requestDeletePreset(preset.id) }
+              })
+            )
+          ),
+          domEl('div', { id: `rename-box-${preset.id}`, className: 'hidden flex items-center gap-1 pt-0.5' },
+            domEl('input', {
+              id: `rename-input-${preset.id}`,
+              type: 'text',
+              maxLength: 10,
+              value: preset.name || '',
+              className: 'chzzk-input text-xs !py-0.5 flex-1'
+            }),
+            domEl('button', {
+              type: 'button',
+              className: 'px-2 py-0.5 rounded bg-[#00FFA3] text-black text-[11px] font-bold cursor-pointer',
+              text: '확인',
+              on: { click: () => submitRenamePreset(preset.id) }
+            }),
+            domEl('button', {
+              type: 'button',
+              className: 'px-2 py-0.5 rounded bg-[#161F2E] text-slate-300 text-[11px] cursor-pointer',
+              text: '취소',
+              on: { click: () => cancelRenamePreset(preset.id) }
+            })
+          ),
+          domEl('div', { className: 'text-[11px] text-slate-300 truncate font-medium', text: preset.title || '' }),
+          domEl('div', { className: 'flex items-center gap-1.5 text-[10px] flex-wrap' },
+            domEl('span', {
+              className: 'text-[#00FFA3] bg-[#00FFA3]/10 px-1 py-0.2 rounded border border-[#00FFA3]/20 font-medium',
+              text: preset.category_name || '-'
+            }),
+            ...(preset.tags || []).map(t => domEl('span', { className: 'text-slate-400 bg-[#161F2E] px-1 py-0.2 rounded', text: `#${t}` }))
+          ),
+          domEl('div', { className: 'pt-0.5 flex items-center gap-1' },
+            applyBtnEl,
+            domEl('button', {
+              type: 'button',
+              className: owBtnClass,
+              title: '현재 설정을 이 프리셋에 덮어쓰기',
+              on: { click: () => overwritePresetDirect(preset.id) }
+            },
+              domEl('span', { text: '🔄' }),
+              ' ',
+              domEl('span', { text: '덮어쓰기' })
+            )
+          )
+        );
         listEl.appendChild(card);
       });
     }
@@ -1542,7 +1584,12 @@
               badgeStatus.textContent = `${data.info.latest_version} 출시`;
             }
             if (labelStatus) {
-              labelStatus.innerHTML = `현재: <b class="text-slate-300 font-mono">${data.info.current_version}</b> ➔ 최신: <b class="text-[#00FFA3] font-mono">${data.info.latest_version}</b>`;
+              labelStatus.replaceChildren(
+                '현재: ',
+                domEl('b', { className: 'text-slate-300 font-mono', text: data.info.current_version || '' }),
+                ' ➔ 최신: ',
+                domEl('b', { className: 'text-[#00FFA3] font-mono', text: data.info.latest_version || '' })
+              );
             }
             if (btnRun) {
               btnRun.classList.remove('hidden');
@@ -1558,7 +1605,11 @@
               badgeStatus.textContent = '최신 상태';
             }
             if (labelStatus) {
-              labelStatus.innerHTML = `현재 버전: <b class="text-slate-300 font-mono">${data.info.current_version}</b> (최신)`;
+              labelStatus.replaceChildren(
+                '현재 버전: ',
+                domEl('b', { className: 'text-slate-300 font-mono', text: data.info.current_version || '' }),
+                ' (최신)'
+              );
             }
             if (btnRun) btnRun.classList.add('hidden');
             if (manual) {
@@ -2001,10 +2052,10 @@
 
     function promptObsInvalidFolderConfirm(resolvedPath, warningMsg, prevPath) {
       const safePath = escapeHtml(String(resolvedPath || ''));
-      const safeWarn = escapeHtml(String(warningMsg || '선택한 폴더가 올바른 OBS Studio 경로인지 확인할 수 없습니다.'));
+      const plainWarn = String(warningMsg || '선택한 폴더가 올바른 OBS Studio 경로인지 확인할 수 없습니다.');
       showNoticeModal({
         title: '⚠️ OBS 위치 확인 필요',
-        message: safeWarn,
+        message: plainWarn,
         submessage: 'OBS가 설치된 폴더 안의 obs64.exe 파일(예: C:\\Program Files\\obs-studio\\bin\\64bit\\obs64.exe)을 선택해 주세요.',
         icon: '⚠️',
         html: `
@@ -2287,36 +2338,56 @@
     }
 
 
-    function renderCategoryRowHtml(catType, catId, catVal, poster, dropsCampaignNo, isFav) {
+    function createCategoryRowEl(catType, catId, catVal, poster, dropsCampaignNo, isFav) {
       // 드롭스 실제 진행 여부 검증 (활성 캠페인에 매칭될 때만 🎁 표시)
       const activeDrop = (typeof findActiveDropsCampaign === 'function') ? findActiveDropsCampaign(catId, catVal) : null;
       const verifiedDropsNo = activeDrop ? (activeDrop.campaignNo || dropsCampaignNo) :
         (dropsCampaignNo && typeof activeChannelDrops !== 'undefined' && Array.isArray(activeChannelDrops) && activeChannelDrops.some(c => Number(c.campaignNo) === Number(dropsCampaignNo)) ? dropsCampaignNo : null);
+      const safePoster = safeHttpUrl(poster || '');
 
-      return `
-        <div class="category-item flex items-center justify-between"
-             data-type="${escapeHtml(catType)}"
-             data-id="${escapeHtml(catId)}"
-             data-value="${escapeHtml(catVal)}"
-             data-drops="${escapeHtml(verifiedDropsNo ? String(verifiedDropsNo) : '')}"
-             onclick="selectCategoryItem(this)">
-          <div class="flex items-center gap-2 min-w-0 flex-1">
-            ${poster ? `<img src="${poster}" alt="" class="w-6 h-6 rounded object-cover flex-shrink-0" onerror="this.style.display='none'" />` : '<div class="w-6 h-6 rounded bg-chzzk-border flex items-center justify-center text-[10px] text-chzzk-muted flex-shrink-0">🎮</div>'}
-            <div class="min-w-0 flex-1">
-              <div class="flex items-center gap-1.5">
-                <span class="text-white text-xs font-medium truncate">${escapeHtml(catVal)}</span>
-                ${verifiedDropsNo ? `<span class="text-xs leading-none flex-shrink-0 cursor-default" title="드롭스 활성 (캠페인 #${escapeHtml(String(verifiedDropsNo))})">🎁</span>` : ''}
-              </div>
-              <div class="text-[9px] text-chzzk-muted">${escapeHtml(catType)}</div>
-            </div>
-          </div>
-          <button type="button" class="fav-star-btn ${isFav ? 'active' : ''} shrink-0 text-xs"
-                  onclick="toggleCategoryFavoriteRow('${escapeHtml(catId)}', '${escapeHtml(catType)}', '${escapeHtml(catVal)}', '${escapeHtml(poster || '')}', event)"
-                  title="${isFav ? '즐겨찾기 해제' : '즐겨찾기 추가'}">
-            ★
-          </button>
-        </div>
-      `;
+      const row = domEl('div', {
+        className: 'category-item flex items-center justify-between',
+        attrs: {
+          'data-type': catType || '',
+          'data-id': catId || '',
+          'data-value': catVal || '',
+          'data-drops': verifiedDropsNo ? String(verifiedDropsNo) : ''
+        },
+        on: { click: () => selectCategoryItem(row) }
+      },
+        domEl('div', { className: 'flex items-center gap-2 min-w-0 flex-1' },
+          safePoster
+            ? domEl('img', {
+                src: safePoster,
+                alt: '',
+                className: 'w-6 h-6 rounded object-cover flex-shrink-0',
+                on: { error: (e) => { e.currentTarget.style.display = 'none'; } }
+              })
+            : domEl('div', {
+                className: 'w-6 h-6 rounded bg-chzzk-border flex items-center justify-center text-[10px] text-chzzk-muted flex-shrink-0',
+                text: '🎮'
+              }),
+          domEl('div', { className: 'min-w-0 flex-1' },
+            domEl('div', { className: 'flex items-center gap-1.5' },
+              domEl('span', { className: 'text-white text-xs font-medium truncate', text: catVal || '' }),
+              verifiedDropsNo ? domEl('span', {
+                className: 'text-xs leading-none flex-shrink-0 cursor-default',
+                title: `드롭스 활성 (캠페인 #${String(verifiedDropsNo)})`,
+                text: '🎁'
+              }) : null
+            ),
+            domEl('div', { className: 'text-[9px] text-chzzk-muted', text: catType || '' })
+          )
+        ),
+        domEl('button', {
+          type: 'button',
+          className: `fav-star-btn ${isFav ? 'active' : ''} shrink-0 text-xs`,
+          title: isFav ? '즐겨찾기 해제' : '즐겨찾기 추가',
+          text: '★',
+          on: { click: (event) => toggleCategoryFavoriteRow(catId, catType, catVal, poster || '', event) }
+        })
+      );
+      return row;
     }
 
 
@@ -2347,21 +2418,32 @@
       if (header) header.setAttribute('aria-expanded', String(!collapsed));
     }
 
-    function renderCategorySectionHtml(key, icon, title, colorClass, rowsHtml, countText = '') {
+    function createCategorySectionNodes(key, icon, title, colorClass, rowEls, countText = '') {
       const collapsed = !!getCollapsedCategorySections()[key];
-      return `
-        <button type="button" data-cat-section-toggle="${key}" aria-expanded="${!collapsed}" onclick="toggleCategorySection('${key}', event)"
-                class="w-full px-2.5 py-1 text-[10px] font-bold ${colorClass} bg-[#161F2E] hover:bg-[#1E2738] flex items-center justify-between border-b border-[#1E2738] cursor-pointer select-none transition-colors">
-          <span class="flex items-center gap-1">${icon} <span>${title}</span></span>
-          <span class="flex items-center gap-1.5 text-slate-400 font-normal">
-            ${countText ? `<span>${countText}</span>` : ''}
-            <span data-cat-section-arrow="${key}" class="text-[9.5px] leading-none">${collapsed ? '▸' : '▾'}</span>
-          </span>
-        </button>
-        <div data-cat-section-body="${key}" class="${collapsed ? 'hidden' : ''}">
-          ${rowsHtml}
-        </div>
-      `;
+      const toggleBtn = domEl('button', {
+        type: 'button',
+        className: `w-full px-2.5 py-1 text-[10px] font-bold ${colorClass} bg-[#161F2E] hover:bg-[#1E2738] flex items-center justify-between border-b border-[#1E2738] cursor-pointer select-none transition-colors`,
+        attrs: {
+          'data-cat-section-toggle': key,
+          'aria-expanded': String(!collapsed)
+        },
+        on: { click: (event) => toggleCategorySection(key, event) }
+      },
+        domEl('span', { className: 'flex items-center gap-1' }, icon, ' ', domEl('span', { text: title })),
+        domEl('span', { className: 'flex items-center gap-1.5 text-slate-400 font-normal' },
+          countText ? domEl('span', { text: countText }) : null,
+          domEl('span', {
+            className: 'text-[9.5px] leading-none',
+            attrs: { 'data-cat-section-arrow': key },
+            text: collapsed ? '▸' : '▾'
+          })
+        )
+      );
+      const bodyDiv = domEl('div', {
+        className: collapsed ? 'hidden' : '',
+        attrs: { 'data-cat-section-body': key }
+      }, ...rowEls);
+      return [toggleBtn, bodyDiv];
     }
 
     async function renderFavoritesDropdown() {
@@ -2369,27 +2451,32 @@
       if (!dropdown) return;
       const favs = getFavoriteCategories();
       const seenIds = new Set();
-      let html = `
-        <div class="category-item flex items-center justify-between"
-             data-type=""
-             data-id=""
-             data-value=""
-             data-drops=""
-             onclick="selectCategoryItem(this)">
-          <div class="flex items-center gap-2 min-w-0 flex-1">
-            <div class="w-6 h-6 rounded bg-chzzk-border flex items-center justify-center text-[10px] text-chzzk-muted flex-shrink-0">🚫</div>
-            <div class="min-w-0 flex-1">
-              <div class="flex items-center gap-1.5">
-                <span class="text-slate-300 text-xs font-medium truncate">없음</span>
-              </div>
-              <div class="text-[9px] text-chzzk-muted">카테고리 미지정</div>
-            </div>
-          </div>
-        </div>
-      `;
+      const nodes = [];
+
+      const noneRow = domEl('div', {
+        className: 'category-item flex items-center justify-between',
+        attrs: {
+          'data-type': '',
+          'data-id': '',
+          'data-value': '',
+          'data-drops': ''
+        },
+        on: { click: () => selectCategoryItem(noneRow) }
+      },
+        domEl('div', { className: 'flex items-center gap-2 min-w-0 flex-1' },
+          domEl('div', { className: 'w-6 h-6 rounded bg-chzzk-border flex items-center justify-center text-[10px] text-chzzk-muted flex-shrink-0', text: '🚫' }),
+          domEl('div', { className: 'min-w-0 flex-1' },
+            domEl('div', { className: 'flex items-center gap-1.5' },
+              domEl('span', { className: 'text-slate-300 text-xs font-medium truncate', text: '없음' })
+            ),
+            domEl('div', { className: 'text-[9px] text-chzzk-muted', text: '카테고리 미지정' })
+          )
+        )
+      );
+      nodes.push(noneRow);
 
       if (favs.length > 0) {
-        let favRowsHtml = '';
+        const favRows = [];
         favs.forEach(f => {
           let fId = f.category_id || f.categoryId || f.id || '';
           let fVal = f.category_name || f.categoryValue || fId;
@@ -2402,9 +2489,9 @@
             if (!poster) poster = 'https://ssl.pstatic.net/static/nng/glive/icon/category_poster_talk.png';
           }
           seenIds.add(fId);
-          favRowsHtml += renderCategoryRowHtml(fType, fId, fVal, poster, null, true);
+          favRows.push(createCategoryRowEl(fType, fId, fVal, poster, null, true));
         });
-        html += renderCategorySectionHtml('favorites', '⭐', '즐겨찾기 목록', 'text-amber-400', favRowsHtml, `${favs.length}/${MAX_CATEGORY_FAVORITES}`);
+        nodes.push(...createCategorySectionNodes('favorites', '⭐', '즐겨찾기 목록', 'text-amber-400', favRows, `${favs.length}/${MAX_CATEGORY_FAVORITES}`));
       }
 
       // 추천 카테고리 (치지직 실시간 상위 인기 카테고리 풀에서 즐겨찾기 중복을 제외하고 상시 5개 유지)
@@ -2425,23 +2512,21 @@
         .filter(c => c && !seenIds.has(c.categoryId) && !seenIds.has(c.categoryValue))
         .slice(0, 5);
       if (recommendations.length > 0) {
-        let recRowsHtml = '';
-        recommendations.forEach(c => {
-          recRowsHtml += renderCategoryRowHtml(c.categoryType, c.categoryId, c.categoryValue, c.posterImageUrl, c.dropsCampaignNo, false);
-        });
-        html += renderCategorySectionHtml('recommended', '🔥', '추천 카테고리', 'text-slate-400', recRowsHtml);
+        const recRows = recommendations.map(c =>
+          createCategoryRowEl(c.categoryType, c.categoryId, c.categoryValue, c.posterImageUrl, c.dropsCampaignNo, false)
+        );
+        nodes.push(...createCategorySectionNodes('recommended', '🔥', '추천 카테고리', 'text-slate-400', recRows));
       }
 
       // 드롭스 진행 중 목록 (백엔드 /chzzkdock/drops/campaigns에서 정제·중복 제거된 목록 직접 렌더링)
       if (Array.isArray(dropsList) && dropsList.length > 0) {
-        let dropRowsHtml = '';
-        dropsList.forEach(d => {
-          dropRowsHtml += renderCategoryRowHtml(d.categoryType || 'GAME', d.categoryId, d.categoryValue, d.posterImageUrl || '', d.campaignNo || null, isCategoryFavorite(d.categoryId || d.categoryValue));
-        });
-        html += renderCategorySectionHtml('drops', '🎁', '드롭스 진행 중', 'text-emerald-400', dropRowsHtml, String(dropsList.length));
+        const dropRows = dropsList.map(d =>
+          createCategoryRowEl(d.categoryType || 'GAME', d.categoryId, d.categoryValue, d.posterImageUrl || '', d.campaignNo || null, isCategoryFavorite(d.categoryId || d.categoryValue))
+        );
+        nodes.push(...createCategorySectionNodes('drops', '🎁', '드롭스 진행 중', 'text-emerald-400', dropRows, String(dropsList.length)));
       }
 
-      dropdown.innerHTML = html;
+      dropdown.replaceChildren(...nodes);
       dropdown.style.display = 'block';
     }
 (() => {

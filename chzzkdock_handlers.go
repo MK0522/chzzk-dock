@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -68,7 +69,14 @@ func resolveChzzkChannelId(_ *http.Request) (string, error) {
 
 // doChzzkRequest: 지정된 전체 URL에 대해 치지직 API 공통 인증/보안 헤더를 주입하여 요청을 실행합니다.
 func doChzzkRequest(method, targetURL string, bodyReader io.Reader, contentType string, withAuth bool) (int, []byte, error) {
-	req, err := http.NewRequest(method, targetURL, bodyReader)
+	return doChzzkRequestCtx(context.Background(), method, targetURL, bodyReader, contentType, withAuth)
+}
+
+func doChzzkRequestCtx(ctx context.Context, method, targetURL string, bodyReader io.Reader, contentType string, withAuth bool) (int, []byte, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	req, err := http.NewRequestWithContext(ctx, method, targetURL, bodyReader)
 	if err != nil {
 		return http.StatusInternalServerError, nil, err
 	}
@@ -103,6 +111,10 @@ func doChzzkRequest(method, targetURL string, bodyReader io.Reader, contentType 
 // callChzzk: 치지직 API 통합 호출 클라이언트 (단일 우체부)
 // withAuth가 true이면 네이버 로그인 쿠키(NID_AUT, NID_SES)와 보안 헤더를 자동 주입합니다.
 func callChzzk(method, path string, bodyBytes []byte, withAuth bool) (int, []byte, error) {
+	return callChzzkCtx(context.Background(), method, path, bodyBytes, withAuth)
+}
+
+func callChzzkCtx(ctx context.Context, method, path string, bodyBytes []byte, withAuth bool) (int, []byte, error) {
 	var bodyReader io.Reader
 	contentType := ""
 	if len(bodyBytes) > 0 {
@@ -111,7 +123,7 @@ func callChzzk(method, path string, bodyBytes []byte, withAuth bool) (int, []byt
 			contentType = "application/json"
 		}
 	}
-	return doChzzkRequest(method, chzzkApiBaseURL+path, bodyReader, contentType, withAuth)
+	return doChzzkRequestCtx(ctx, method, chzzkApiBaseURL+path, bodyReader, contentType, withAuth)
 }
 
 // --- [1. 채팅 모드 서비스 로직] ---
@@ -120,7 +132,10 @@ func fetchChatModeFromChzzk(channelId string) (*CleanChatMode, error) {
 	path := fmt.Sprintf("/manage/v1/channels/%s/live-setting/chat-mode", channelId)
 	status, data, err := callChzzk("GET", path, nil, true)
 	if err != nil || status != http.StatusOK {
-		return nil, fmt.Errorf("채팅 설정 조회 실패 (status: %d, err: %v)", status, err)
+		if err != nil {
+			core.LogWarn("[BFF] 채팅 설정 조회 실패 (status: %d): %v", status, err)
+		}
+		return nil, fmt.Errorf("채팅 설정 조회 실패 (status: %d)", status)
 	}
 
 	var raw struct {
@@ -166,7 +181,10 @@ func fetchDonationsFromChzzk(channelId string) (*CleanDonations, error) {
 	pathDon := fmt.Sprintf("/manage/v1/channels/%s/donations/setting", channelId)
 	statusDon, dataDon, errDon := callChzzk("GET", pathDon, nil, true)
 	if errDon != nil || statusDon != http.StatusOK {
-		return nil, fmt.Errorf("후원 설정 조회 실패 (status: %d, err: %v)", statusDon, errDon)
+		if errDon != nil {
+			core.LogWarn("[BFF] 후원 설정 조회 실패 (status: %d): %v", statusDon, errDon)
+		}
+		return nil, fmt.Errorf("후원 설정 조회 실패 (status: %d)", statusDon)
 	}
 
 	var rawDon struct {
@@ -355,7 +373,8 @@ func handleChzzkDonationToggle(target string) http.HandlerFunc {
 		// 최신 4종 전체 상태 반환
 		don, err := fetchDonationsFromChzzk(cid)
 		if err != nil {
-			respondErr(w, http.StatusBadGateway, "최신 후원 설정 동기화 실패: "+err.Error())
+			core.LogWarn("[BFF] 최신 후원 설정 동기화 실패: %v", err)
+			respondErr(w, http.StatusBadGateway, "최신 후원 설정 동기화에 실패했습니다.")
 			return
 		}
 		respondOK(w, don)
@@ -592,9 +611,10 @@ func handleChzzkRevenueSummaryGet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	path := fmt.Sprintf("/manage/v2/channels/%s/revenue/summary?channelId=%s&fromYearMonth=%s&toYearMonth=%s", cid, cid, ym, ym)
-	status, data, err := callChzzk("GET", path, nil, true)
+	status, data, err := callChzzkCtx(r.Context(), "GET", path, nil, true)
 	if err != nil {
-		respondErr(w, http.StatusBadGateway, "정산 수익 조회 실패: "+err.Error())
+		core.LogWarn("[BFF] 정산 수익 조회 실패: %v", err)
+		respondErr(w, http.StatusBadGateway, "정산 수익 조회에 실패했습니다.")
 		return
 	}
 	if status == http.StatusForbidden {
@@ -809,7 +829,8 @@ func handleChzzkProfileGet(w http.ResponseWriter, r *http.Request) {
 func fetchLiveStatusFromChzzk(channelID string) (*CleanLiveStatus, error) {
 	status, data, err := callChzzk("GET", fmt.Sprintf("/polling/v2/channels/%s/live-status", channelID), nil, false)
 	if err != nil {
-		return nil, err
+		core.LogWarn("[BFF] 치지직 라이브 상태 조회 실패: %v", err)
+		return nil, fmt.Errorf("치지직 라이브 상태 조회 실패")
 	}
 	if status != http.StatusOK {
 		return nil, fmt.Errorf("치지직 라이브 상태 조회 실패 (HTTP %d)", status)
@@ -948,7 +969,7 @@ func handleChzzkChatRuleGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	path := fmt.Sprintf("/manage/v1/channels/%s/live-setting/chat", cid)
-	status, data, err := callChzzk("GET", path, nil, true)
+	status, data, err := callChzzkCtx(r.Context(), "GET", path, nil, true)
 	if err != nil || status != http.StatusOK {
 		respondErr(w, http.StatusBadGateway, "채팅 규칙 조회 실패")
 		return
@@ -973,7 +994,7 @@ func handleChzzkChatRulePut(w http.ResponseWriter, r *http.Request) {
 	}
 	path := fmt.Sprintf("/manage/v1/channels/%s/live-setting/chat", cid)
 	body, _ := json.Marshal(req)
-	status, data, err := callChzzk("PUT", path, body, true)
+	status, data, err := callChzzkCtx(r.Context(), "PUT", path, body, true)
 	if err != nil || status != http.StatusOK {
 		respondErr(w, http.StatusBadGateway, "채팅 규칙 변경 실패")
 		return
@@ -996,7 +1017,7 @@ func handleChzzkBroadcastGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	path := fmt.Sprintf("/manage/v1/channels/%s/live-setting/normal", cid)
-	status, data, err := callChzzk("GET", path, nil, true)
+	status, data, err := callChzzkCtx(r.Context(), "GET", path, nil, true)
 	if err != nil || status != http.StatusOK {
 		respondErr(w, http.StatusBadGateway, "방송 설정 조회 실패")
 		return
@@ -1023,7 +1044,7 @@ func handleChzzkBroadcastPut(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	path := fmt.Sprintf("/manage/v1/channels/%s/live-setting/normal", cid)
-	status, data, err := callChzzk("PUT", path, body, true)
+	status, data, err := callChzzkCtx(r.Context(), "PUT", path, body, true)
 	if err != nil || status != http.StatusOK {
 		// [드롭스 Fallback 자동 복구] 치지직이 드롭스 관련 에러를 반환한 경우,
 		// dropsCampaignNo를 null로 변경하여 즉시 1회 자동 재시도
@@ -1032,7 +1053,7 @@ func handleChzzkBroadcastPut(w http.ResponseWriter, r *http.Request) {
 			if jErr := json.Unmarshal(body, &retryPayload); jErr == nil {
 				retryPayload["dropsCampaignNo"] = nil
 				retryBody, _ := json.Marshal(retryPayload)
-				retryStatus, retryData, retryErr := callChzzk("PUT", path, retryBody, true)
+				retryStatus, retryData, retryErr := callChzzkCtx(r.Context(), "PUT", path, retryBody, true)
 				if retryErr == nil && retryStatus == http.StatusOK {
 					core.LogInfo("[BFF] Broadcast PUT 드롭스 에러 감지 -> dropsCampaignNo: null 자동 복구 성공")
 					w.Header().Set("Content-Type", "application/json")
@@ -1149,7 +1170,7 @@ func handleChzzkCategoriesSearchGet(w http.ResponseWriter, r *http.Request) {
 		size = "30"
 	}
 	path := fmt.Sprintf("/manage/v1/auto-complete/categories?keyword=%s&size=%s", url.QueryEscape(q), size)
-	status, data, err := callChzzk("GET", path, nil, false)
+	status, data, err := callChzzkCtx(r.Context(), "GET", path, nil, false)
 	if err != nil || status != http.StatusOK {
 		respondErr(w, http.StatusBadGateway, "카테고리 검색 실패")
 		return
@@ -1173,7 +1194,7 @@ func handleChzzkCategoriesRecommendedGet(w http.ResponseWriter, r *http.Request)
 	}
 
 	path := fmt.Sprintf("/service/v1/categories/live?size=%d", fetchSize)
-	status, data, err := callChzzk("GET", path, nil, false)
+	status, data, err := callChzzkCtx(r.Context(), "GET", path, nil, false)
 	if err != nil || status != http.StatusOK {
 		respondErr(w, http.StatusBadGateway, "치지직 API 응답 실패")
 		return
@@ -1238,7 +1259,7 @@ func handleChzzkWatchPartiesGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	path := fmt.Sprintf("/manage/v1/channels/%s/watch-parties", cid)
-	status, data, err := callChzzk("GET", path, nil, true)
+	status, data, err := callChzzkCtx(r.Context(), "GET", path, nil, true)
 	if err != nil || status != http.StatusOK {
 		respondOK(w, map[string]any{"watchParties": []any{}})
 		return
@@ -1299,7 +1320,7 @@ func handleChzzkDropsCampaignsGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	path := fmt.Sprintf("/manage/v1/channels/%s/drops/campaigns", cid)
-	status, data, err := callChzzk("GET", path, nil, true)
+	status, data, err := callChzzkCtx(r.Context(), "GET", path, nil, true)
 	if err != nil || status != http.StatusOK {
 		respondOK(w, []any{})
 		return
@@ -1472,7 +1493,7 @@ func handleChzzkDropsMatchGet(w http.ResponseWriter, r *http.Request) {
 		}
 
 		listPath := fmt.Sprintf("/manage/v1/channels/%s/drops/campaigns", cid)
-		status, data, err := callChzzk("GET", listPath, nil, true)
+		status, data, err := callChzzkCtx(r.Context(), "GET", listPath, nil, true)
 		if err == nil && status == http.StatusOK {
 			var rawList struct {
 				Content struct {
@@ -1518,10 +1539,10 @@ func handleChzzkDropsMatchGet(w http.ResponseWriter, r *http.Request) {
 
 	// 치지직 공개 캠페인 상세 API 직통 호출
 	detailPath := fmt.Sprintf("/service/v2/drops/campaigns/%d", matchedCampaignNo)
-	status, data, err := callChzzk("GET", detailPath, nil, false)
+	status, data, err := callChzzkCtx(r.Context(), "GET", detailPath, nil, false)
 	if err != nil || status != http.StatusOK {
 		detailPath = fmt.Sprintf("/service/v1/drops/campaigns/%d", matchedCampaignNo)
-		status, data, err = callChzzk("GET", detailPath, nil, false)
+		status, data, err = callChzzkCtx(r.Context(), "GET", detailPath, nil, false)
 	}
 
 	res := dropsMatchResponse{
@@ -1637,7 +1658,11 @@ func extractChzzkMessage(data []byte, fallback string) string {
 }
 
 func callChzzkChecked(w http.ResponseWriter, method, path string, bodyBytes []byte, fallbackErr string) (int, []byte, bool) {
-	status, data, err := callChzzk(method, path, bodyBytes, true)
+	return callChzzkCheckedCtx(context.Background(), w, method, path, bodyBytes, fallbackErr)
+}
+
+func callChzzkCheckedCtx(ctx context.Context, w http.ResponseWriter, method, path string, bodyBytes []byte, fallbackErr string) (int, []byte, bool) {
+	status, data, err := callChzzkCtx(ctx, method, path, bodyBytes, true)
 	if err != nil {
 		respondErr(w, http.StatusBadGateway, fallbackErr)
 		return status, data, false
@@ -1655,6 +1680,8 @@ func handleChzzkRemoteStateGet(w http.ResponseWriter, r *http.Request) {
 		respondErr(w, http.StatusUnauthorized, err.Error())
 		return
 	}
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
 
 	var (
 		paused              bool
@@ -1673,7 +1700,7 @@ func handleChzzkRemoteStateGet(w http.ResponseWriter, r *http.Request) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			status, data, callErr := callChzzk("GET", fmt.Sprintf("/manage/v1/channels/%s/%s", cid, subPath), nil, true)
+			status, data, callErr := callChzzkCtx(ctx, "GET", fmt.Sprintf("/manage/v1/channels/%s/%s", cid, subPath), nil, true)
 			if status == http.StatusUnauthorized {
 				mu.Lock()
 				unauthCount++
@@ -1786,7 +1813,7 @@ func handleChzzkRemoteFeedsGet(w http.ResponseWriter, r *http.Request) {
 		path += "&typeFilters=" + url.QueryEscape(typeFilters)
 	}
 
-	_, data, ok := callChzzkChecked(w, "GET", path, nil, "알림 피드 조회 실패")
+	_, data, ok := callChzzkCheckedCtx(r.Context(), w, "GET", path, nil, "알림 피드 조회 실패")
 	if !ok {
 		return
 	}
@@ -1827,7 +1854,7 @@ func handleChzzkRemotePausePut(w http.ResponseWriter, r *http.Request) {
 
 	body, _ := json.Marshal(map[string]bool{"active": req.Active})
 	path := fmt.Sprintf("/manage/v1/channels/%s/donations/pause-active", cid)
-	if _, _, ok := callChzzkChecked(w, "PUT", path, body, "알림 정지/재개 변경 실패"); !ok {
+	if _, _, ok := callChzzkCheckedCtx(r.Context(), w, "PUT", path, body, "알림 정지/재개 변경 실패"); !ok {
 		return
 	}
 	respondOK(w, map[string]any{"paused": req.Active})
@@ -1874,7 +1901,7 @@ func handleChzzkRemoteVolumePatch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	path := fmt.Sprintf("/manage/v1/channels/%s/donations/%s", cid, endpoint)
-	_, getData, ok := callChzzkChecked(w, "GET", path, nil, "볼륨 설정 조회 실패")
+	_, getData, ok := callChzzkCheckedCtx(r.Context(), w, "GET", path, nil, "볼륨 설정 조회 실패")
 	if !ok {
 		return
 	}
@@ -1901,7 +1928,7 @@ func handleChzzkRemoteVolumePatch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	patchBody, _ := json.Marshal(payload)
-	if _, _, ok := callChzzkChecked(w, "PATCH", path, patchBody, "볼륨 설정 저장 실패"); !ok {
+	if _, _, ok := callChzzkCheckedCtx(r.Context(), w, "PATCH", path, patchBody, "볼륨 설정 저장 실패"); !ok {
 		return
 	}
 	respondOK(w, map[string]any{"target": target, "volume": vol})
@@ -1944,7 +1971,7 @@ func handleChzzkRemoteCommandPost(w http.ResponseWriter, r *http.Request) {
 
 	body, _ := json.Marshal(payload)
 	path := fmt.Sprintf("/manage/v1/channels/%s/%s", cid, subPath)
-	if _, _, ok := callChzzkChecked(w, "POST", path, body, "리모컨 명령 전송 실패"); !ok {
+	if _, _, ok := callChzzkCheckedCtx(r.Context(), w, "POST", path, body, "리모컨 명령 전송 실패"); !ok {
 		return
 	}
 	respondOK(w, map[string]any{"status": "ok", "command": cmd})
@@ -1957,7 +1984,7 @@ func handleChzzkRemoteAdPostponePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	path := fmt.Sprintf("/manage/v2/channels/%s/live-ad-schedule/postpone", cid)
-	if _, _, ok := callChzzkChecked(w, "POST", path, nil, "중간 광고 미루기 실패"); !ok {
+	if _, _, ok := callChzzkCheckedCtx(r.Context(), w, "POST", path, nil, "중간 광고 미루기 실패"); !ok {
 		return
 	}
 	respondOK(w, map[string]any{"status": "ok"})
@@ -1985,7 +2012,7 @@ func handleChzzkRemoteMissionSettlePut(outcome string) http.HandlerFunc {
 		}
 
 		path := fmt.Sprintf("/manage/v1/channels/%s/donations/mission/%s?missionDonationId=%s", cid, outcome, url.QueryEscape(missionID))
-		if _, _, ok := callChzzkChecked(w, "PUT", path, nil, "미션 판정 처리 실패"); !ok {
+		if _, _, ok := callChzzkCheckedCtx(r.Context(), w, "PUT", path, nil, "미션 판정 처리 실패"); !ok {
 			return
 		}
 		respondOK(w, map[string]any{"status": "ok", "outcome": outcome})
@@ -2039,7 +2066,7 @@ func handleChzzkRemotePartyGet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	path := fmt.Sprintf("/manage/v1/channels/%s/party", cid)
-	_, data, ok := callChzzkChecked(w, "GET", path, nil, "파티 상태 조회 실패")
+	_, data, ok := callChzzkCheckedCtx(r.Context(), w, "GET", path, nil, "파티 상태 조회 실패")
 	if !ok {
 		return
 	}
@@ -2114,7 +2141,7 @@ func handleChzzkRemotePartyGet(w http.ResponseWriter, r *http.Request) {
 	inviteURL := ""
 	if isHost && info.PartyNo > 0 {
 		tokPath := fmt.Sprintf("/manage/v1/channels/%s/parties/%d/invitation/token", cid, info.PartyNo)
-		if tStatus, tData, tErr := callChzzk("GET", tokPath, nil, true); tErr == nil && tStatus == http.StatusOK {
+		if tStatus, tData, tErr := callChzzkCtx(r.Context(), "GET", tokPath, nil, true); tErr == nil && tStatus == http.StatusOK {
 			inviteToken = extractInviteTokenFromContent(tData)
 			if inviteToken != "" {
 				inviteURL = "https://studio.chzzk.naver.com/party-invite/" + inviteToken
@@ -2155,7 +2182,7 @@ func handleChzzkRemotePartyCreatePost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	path := fmt.Sprintf("/manage/v1/channels/%s/party?partyName=%s", cid, url.QueryEscape(name))
-	if _, _, ok := callChzzkChecked(w, "POST", path, []byte("{}"), "파티 생성 실패"); !ok {
+	if _, _, ok := callChzzkCheckedCtx(r.Context(), w, "POST", path, []byte("{}"), "파티 생성 실패"); !ok {
 		return
 	}
 	respondOK(w, map[string]any{"status": "ok", "partyName": name})
@@ -2180,7 +2207,7 @@ func handleChzzkRemotePartyNamePut(w http.ResponseWriter, r *http.Request) {
 	}
 
 	path := fmt.Sprintf("/manage/v1/channels/%s/party/name?partyName=%s", cid, url.QueryEscape(name))
-	if _, _, ok := callChzzkChecked(w, "PUT", path, []byte("{}"), "파티명 변경 실패"); !ok {
+	if _, _, ok := callChzzkCheckedCtx(r.Context(), w, "PUT", path, []byte("{}"), "파티명 변경 실패"); !ok {
 		return
 	}
 	respondOK(w, map[string]any{"status": "ok", "partyName": name})
@@ -2203,7 +2230,7 @@ func handlePartyTokenRequest(w http.ResponseWriter, r *http.Request, method stri
 		body = []byte("{}")
 	}
 	path := fmt.Sprintf("/manage/v1/channels/%s/parties/%d/invitation/token", cid, partyNo)
-	_, data, ok := callChzzkChecked(w, method, path, body, "초대 링크 처리 실패")
+	_, data, ok := callChzzkCheckedCtx(r.Context(), w, method, path, body, "초대 링크 처리 실패")
 	if !ok {
 		return
 	}
@@ -2244,7 +2271,7 @@ func handleChzzkRemotePartyJoinPost(w http.ResponseWriter, r *http.Request) {
 
 	partyTitle := ""
 	sumPath := fmt.Sprintf("/manage/v1/channels/%s/party/invitation/%s/summary", cid, url.PathEscape(token))
-	if sStatus, sData, sErr := callChzzk("GET", sumPath, nil, true); sErr == nil && sStatus == http.StatusOK {
+	if sStatus, sData, sErr := callChzzkCtx(r.Context(), "GET", sumPath, nil, true); sErr == nil && sStatus == http.StatusOK {
 		var sum struct {
 			Content struct {
 				PartyName string `json:"partyName"`
@@ -2263,7 +2290,7 @@ func handleChzzkRemotePartyJoinPost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	acceptPath := fmt.Sprintf("/manage/v1/channels/%s/party/invitation/%s/accept", cid, url.PathEscape(token))
-	if _, _, ok := callChzzkChecked(w, "POST", acceptPath, []byte("{}"), "파티 합류 실패"); !ok {
+	if _, _, ok := callChzzkCheckedCtx(r.Context(), w, "POST", acceptPath, []byte("{}"), "파티 합류 실패"); !ok {
 		return
 	}
 	respondOK(w, map[string]any{"status": "ok", "partyName": partyTitle})
@@ -2287,7 +2314,7 @@ func handleChzzkRemotePartyLeavePost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	path := fmt.Sprintf("/manage/v1/channels/%s/parties/%d/member/leave", cid, req.PartyNo)
-	if _, _, ok := callChzzkChecked(w, "POST", path, []byte("{}"), "파티 퇴장 실패"); !ok {
+	if _, _, ok := callChzzkCheckedCtx(r.Context(), w, "POST", path, []byte("{}"), "파티 퇴장 실패"); !ok {
 		return
 	}
 	respondOK(w, map[string]any{"status": "ok"})
@@ -2309,7 +2336,7 @@ func handleChzzkRemotePartyEndPost(w http.ResponseWriter, r *http.Request) {
 	st := strings.ToUpper(strings.TrimSpace(req.Status))
 	if st == "WAITING" {
 		renewPath := fmt.Sprintf("/manage/v1/channels/%s/party/renew", cid)
-		if _, _, ok := callChzzkChecked(w, "POST", renewPath, []byte("{}"), "파티 종료 실패"); !ok {
+		if _, _, ok := callChzzkCheckedCtx(r.Context(), w, "POST", renewPath, []byte("{}"), "파티 종료 실패"); !ok {
 			return
 		}
 		respondOK(w, map[string]any{"status": "ok", "method": "renew"})
@@ -2317,7 +2344,7 @@ func handleChzzkRemotePartyEndPost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	finishPath := fmt.Sprintf("/manage/v1/channels/%s/party/finish", cid)
-	status, data, callErr := callChzzk("PUT", finishPath, []byte("{}"), true)
+	status, data, callErr := callChzzkCtx(r.Context(), "PUT", finishPath, []byte("{}"), true)
 	if callErr != nil {
 		respondErr(w, http.StatusBadGateway, "파티 종료 실패")
 		return
@@ -2328,7 +2355,7 @@ func handleChzzkRemotePartyEndPost(w http.ResponseWriter, r *http.Request) {
 	}
 	if status == http.StatusBadRequest || status == http.StatusNotFound || status == http.StatusConflict {
 		renewPath := fmt.Sprintf("/manage/v1/channels/%s/party/renew", cid)
-		if _, _, ok := callChzzkChecked(w, "POST", renewPath, []byte("{}"), extractChzzkMessage(data, "파티 종료 실패")); !ok {
+		if _, _, ok := callChzzkCheckedCtx(r.Context(), w, "POST", renewPath, []byte("{}"), extractChzzkMessage(data, "파티 종료 실패")); !ok {
 			return
 		}
 		respondOK(w, map[string]any{"status": "ok", "method": "renew"})

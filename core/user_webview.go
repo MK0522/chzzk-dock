@@ -3,6 +3,7 @@ package core
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -539,7 +540,7 @@ func InitDockWindow(port int, version string, showInitially bool) uintptr {
 	dockUrl := fmt.Sprintf("http://127.0.0.1:%d", port)
 	chromium.NavigationCompletedCallback = func(sender *edge.ICoreWebView2, args *edge.ICoreWebView2NavigationCompletedEventArgs) {
 		src, _ := sender.GetSource()
-		LogInfo("[Dock Window] 방송 독 페이지 로드 완료: %s", src)
+		LogInfo("[Dock Window] 방송 독 페이지 로드 완료: %s", redactURLForLog(src))
 		if activeDockChromium != nil {
 			_ = activeDockChromium.Show()
 			activeDockChromium.Resize()
@@ -563,12 +564,18 @@ func InitDockWindow(port int, version string, showInitially bool) uintptr {
 		return 0
 	}
 
+	hardenWebViewSettings(chromium, false)
+
 	// 컨트롤러 가시성 보장 및 크기 동기화
 	_ = chromium.Show()
 	chromium.Resize()
 	chromium.Focus()
 
 	chromium.MessageCallback = func(message string, sender *edge.ICoreWebView2, args *edge.ICoreWebView2WebMessageReceivedEventArgs) {
+		source, err := args.GetSource()
+		if err != nil || !isTrustedWebMessageSource(source, dockUrl) {
+			return
+		}
 		switch message {
 		case "toggle-topmost":
 			if toggleDockTopmost != nil {
@@ -1158,10 +1165,20 @@ func RunToolWebview(cfg ToolWebviewConfig) {
 
 	// 웹뷰 IPC 메시지 핸들러
 	chromium.MessageCallback = func(message string, sender *edge.ICoreWebView2, args *edge.ICoreWebView2WebMessageReceivedEventArgs) {
-		if overlay != nil && (cfg.CustomOverlay || !strings.HasPrefix(message, "open-external:")) {
-			if source, err := args.GetSource(); err == nil && overlaySourceMatches(source, cfg.TargetURL, cfg.CustomOverlay) {
-				overlay.handleWebMessage(message)
+		source, err := args.GetSource()
+		if err != nil {
+			return
+		}
+		if overlay != nil {
+			if !overlaySourceMatches(source, cfg.TargetURL, cfg.CustomOverlay) {
+				return
 			}
+			if cfg.CustomOverlay || !strings.HasPrefix(message, "open-external:") {
+				overlay.handleWebMessage(message)
+				return
+			}
+		}
+		if !isTrustedWebMessageSource(source, cfg.TargetURL) {
 			return
 		}
 		switch message {
@@ -1199,6 +1216,8 @@ func RunToolWebview(cfg ToolWebviewConfig) {
 		os.Exit(1)
 	}
 
+	hardenWebViewSettings(chromium, overlay != nil)
+
 	// 컨트롤러 가시성 및 크기 동기화
 	_ = chromium.Show()
 	chromium.Resize()
@@ -1223,7 +1242,7 @@ func RunToolWebview(cfg ToolWebviewConfig) {
 
 	chromium.NavigationCompletedCallback = func(sender *edge.ICoreWebView2, args *edge.ICoreWebView2NavigationCompletedEventArgs) {
 		src, _ := sender.GetSource()
-		LogInfo("[%s] 웹뷰 페이지 로드 완료: %s", cfg.Title, src)
+		LogInfo("[%s] 웹뷰 페이지 로드 완료: %s", cfg.Title, redactURLForLog(src))
 		if overlay != nil {
 			if overlaySourceMatches(src, cfg.TargetURL, cfg.CustomOverlay) {
 				overlay.surfaceReady = false
@@ -1254,7 +1273,7 @@ func RunToolWebview(cfg ToolWebviewConfig) {
 	if cfg.CookieInjector != nil {
 		cfg.CookieInjector(chromium)
 	}
-	LogInfo("[%s] 웹뷰 페이지 이동: %s", cfg.Title, cfg.TargetURL)
+	LogInfo("[%s] 웹뷰 페이지 이동: %s", cfg.Title, redactURLForLog(cfg.TargetURL))
 	chromium.Navigate(cfg.TargetURL)
 
 	// 독의 로그아웃 요청은 창이 뜨기 전에 도착해도 stdin에 남아 있습니다.
@@ -1309,6 +1328,68 @@ func RunChatOverlay(channelId string) {
 	if err := RunOverlayLayer(channelId, "chzzk"); err != nil {
 		LogError("[Chat Overlay] %v", err)
 	}
+}
+
+func redactURLForLog(raw string) string {
+	u, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		return "<redacted-url>"
+	}
+	return u.Scheme + "://" + u.Host + "/<redacted>"
+}
+
+func isNaverOriginHost(hostname string) bool {
+	h := strings.ToLower(strings.TrimSpace(hostname))
+	return h == "naver.com" || strings.HasSuffix(h, ".naver.com")
+}
+
+func isLoopbackHost(hostname string) bool {
+	h := strings.ToLower(strings.TrimSpace(hostname))
+	return h == "127.0.0.1" || h == "localhost" || h == "::1"
+}
+
+func isTrustedWebMessageSource(source, expectedURL string) bool {
+	srcU, srcOk := overlayURL(source)
+	expU, expOk := overlayURL(expectedURL)
+	if !srcOk || !expOk {
+		return false
+	}
+	srcScheme := strings.ToLower(srcU.Scheme)
+	expScheme := strings.ToLower(expU.Scheme)
+	if srcScheme != expScheme {
+		return false
+	}
+	if strings.EqualFold(srcU.Host, expU.Host) {
+		return true
+	}
+	if expScheme == "https" && isNaverOriginHost(expU.Hostname()) {
+		return isNaverOriginHost(srcU.Hostname())
+	}
+	if expScheme == "http" && isLoopbackHost(expU.Hostname()) && isLoopbackHost(srcU.Hostname()) {
+		return srcU.Port() == expU.Port()
+	}
+	return false
+}
+
+// hardenWebViewSettings: WebView2 인스턴스의 DevTools/HostObjects/비밀번호 자동저장을 비활성화하고 권한을 거부합니다.
+func hardenWebViewSettings(chromium *edge.Chromium, disableContextMenu bool) {
+	if chromium == nil {
+		return
+	}
+	if settings, err := chromium.GetSettings(); err == nil && settings != nil {
+		defer settings.Release()
+		_ = settings.PutAreDevToolsEnabled(false)
+		_ = settings.PutAreHostObjectsAllowed(false)
+		_ = settings.PutIsStatusBarEnabled(false)
+		_ = settings.PutAreDefaultScriptDialogsEnabled(false)
+		if disableContextMenu {
+			_ = settings.PutAreDefaultContextMenusEnabled(false)
+		}
+		if s4 := settings.GetICoreWebView2Settings4(); s4 != nil {
+			_ = s4.PutIsPasswordAutosaveEnabled(false)
+		}
+	}
+	chromium.SetGlobalPermission(edge.CoreWebView2PermissionStateDeny)
 }
 
 func runChatWebview(channelId string, overlay bool, layer OverlayLayer) {

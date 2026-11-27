@@ -25,29 +25,117 @@ function createClassList(initial = []) {
   };
 }
 
-function createEl(id, initialClasses = []) {
+function createEl(id, initialClasses = [], tagName = 'div') {
   const props = {};
   const classList = createClassList(initialClasses);
-  return {
+  const escAttr = (v) => String(v).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+  const escText = (v) => String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const el = {
     id,
-    textContent: '',
-    innerHTML: '',
+    tagName: String(tagName || 'div').toUpperCase(),
     value: '',
     checked: false,
-    className: initialClasses.join(' '),
+    disabled: false,
     classList,
     dataset: {},
     attributes: {},
+    listeners: {},
+    childNodes: [],
+    _text: '',
+    _explicitInnerHTML: null,
     style: {
       setProperty(k, v) { props[k] = v; },
       removeProperty(k) { delete props[k]; },
       getPropertyValue(k) { return props[k] || ''; },
     },
-    setAttribute(k, v) { this.attributes[k] = String(v); },
-    getAttribute(k) { return this.attributes[k] ?? null; },
+    get className() {
+      return [...classList._set].join(' ');
+    },
+    set className(v) {
+      classList._set.clear();
+      String(v || '').split(/\s+/).filter(Boolean).forEach((c) => classList._set.add(c));
+    },
+    get textContent() {
+      return this._text;
+    },
+    set textContent(v) {
+      this._text = v == null ? '' : String(v);
+      this.childNodes = [];
+      this._explicitInnerHTML = null;
+    },
+    get innerHTML() {
+      if (this._explicitInnerHTML !== null) return this._explicitInnerHTML;
+      if (this.childNodes.length > 0) {
+        return this.childNodes.map((c) => c._toHtml ? c._toHtml() : escText(c.textContent || '')).join('');
+      }
+      return escText(this._text);
+    },
+    set innerHTML(v) {
+      this._explicitInnerHTML = v == null ? '' : String(v);
+      this.childNodes = [];
+    },
+    _toHtml() {
+      const tag = this.tagName.toLowerCase();
+      const parts = [tag];
+      for (const [k, v] of Object.entries(this.attributes)) {
+        if (k !== 'class' && k !== 'id') parts.push(`${k}="${escAttr(v)}"`);
+      }
+      for (const [k, v] of Object.entries(this.dataset)) {
+        const attrName = 'data-' + k.replace(/[A-Z]/g, (m) => '-' + m.toLowerCase());
+        if (!(attrName in this.attributes)) parts.push(`${attrName}="${escAttr(v)}"`);
+      }
+      if (this.id) parts.push(`id="${escAttr(this.id)}"`);
+      if (this.className) parts.push(`class="${escAttr(this.className)}"`);
+      if (this.src) parts.push(`src="${escAttr(this.src)}"`);
+      if (this.href) parts.push(`href="${escAttr(this.href)}"`);
+      if (this.title) parts.push(`title="${escAttr(this.title)}"`);
+      return `<${parts.join(' ')}>${this.innerHTML}</${tag}>`;
+    },
+    setAttribute(k, v) {
+      const val = String(v);
+      this.attributes[k] = val;
+      if (k === 'class') this.className = val;
+      if (k === 'id') this.id = val;
+    },
+    getAttribute(k) {
+      if (k === 'class') return this.className;
+      if (k === 'id') return this.id;
+      return this.attributes[k] ?? null;
+    },
     removeAttribute(k) { delete this.attributes[k]; },
+    addEventListener(ev, fn) {
+      this.listeners[ev] = this.listeners[ev] || [];
+      this.listeners[ev].push(fn);
+    },
+    appendChild(child) {
+      this._explicitInnerHTML = null;
+      this.childNodes.push(child);
+      return child;
+    },
+    replaceChildren(...items) {
+      this._explicitInnerHTML = null;
+      this._text = '';
+      this.childNodes = [];
+      for (const item of items) {
+        if (item == null || item === false) continue;
+        this.childNodes.push(typeof item === 'string' ? { nodeType: 3, textContent: item } : item);
+      }
+    },
+    querySelector(sel) {
+      const attrMatch = sel.match(/^\[([^=\]]+)="([^"]*)"\]$/);
+      const visit = (node) => {
+        for (const ch of (node.childNodes || [])) {
+          if (attrMatch && ch.getAttribute && ch.getAttribute(attrMatch[1]) === attrMatch[2]) return ch;
+          const found = visit(ch);
+          if (found) return found;
+        }
+        return null;
+      };
+      return visit(this);
+    },
     _props: props,
   };
+  return el;
 }
 
 function createDockTestEnv(opts = {}) {
@@ -64,17 +152,8 @@ function createDockTestEnv(opts = {}) {
     body: createEl('body', []),
     hasFocus: getHasFocus,
     get activeElement() { return getActiveElement(); },
-    createElement: () => {
-      const node = createEl('tmp', []);
-      Object.defineProperty(node, 'textContent', {
-        get() { return this._text || ''; },
-        set(v) {
-          this._text = String(v);
-          this.innerHTML = this._text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        },
-      });
-      return node;
-    },
+    createElement: (tag) => createEl('', [], tag),
+    createTextNode: (t) => ({ nodeType: 3, textContent: String(t) }),
     addEventListener(ev, fn) {
       docListeners[ev] = docListeners[ev] || [];
       docListeners[ev].push(fn);
@@ -106,6 +185,7 @@ function createDockTestEnv(opts = {}) {
     },
     navigator: {},
     console,
+    URL,
     setTimeout: opts.setTimeout || setTimeout,
     clearTimeout,
     localStorage,
@@ -711,6 +791,58 @@ function testBetaNoticeAndOverlayCssTabs() {
   console.log('PASS: backend beta notice persistence, per-mode custom CSS examples, & backdrop close verified');
 }
 
+// 10. DOM XSS hardening: escapeHtml quotes, safeHttpUrl, and inert DOM rendering
+function testDomXssHardening() {
+  const { ctx, document } = createDockTestEnv({
+    autoCreate: true,
+    globals: {
+      userChannelId: 'chan-xss-1',
+      AbortSignal: { timeout: () => undefined },
+      fetch: async () => ({ ok: false, status: 500, json: async () => ({}) }),
+      openPartyMemberLive() {},
+      openExternalUrl() {},
+      saveAppSettingField() {},
+      setBroadcastFormLocked() {},
+      initConnection() {},
+      checkObsScriptStatus() {},
+      loadBroadcastPresets() {},
+      loadCategoryFavorites() {},
+      checkForUpdate() {},
+      loadAllDockSettings() {},
+    },
+  });
+  vm.runInContext(read('ui/shared/api.js'), ctx);
+  vm.runInContext(read('ui/shared/core.js'), ctx);
+  vm.runInContext(read('ui/main-dock/js/moderation.js'), ctx);
+  vm.runInContext(read('ui/main-dock/js/settings.js'), ctx);
+  vm.runInContext(read('ui/main-dock/js/broadcast.js'), ctx);
+
+  assert.equal(ctx.escapeHtml(`"'<>&`), `&quot;&#39;&lt;&gt;&amp;`);
+  assert.equal(ctx.safeHttpUrl('https://chzzk.naver.com/live/123'), 'https://chzzk.naver.com/live/123');
+  assert.equal(ctx.safeHttpUrl('javascript:alert(1)'), '');
+  assert.equal(ctx.safeHttpUrl('file:///C:/Windows/win.ini'), '');
+  assert.equal(ctx.safeHttpUrl('https://user:pass@evil.example/'), '');
+
+  const hasTag = (node, tag) => Boolean(node && (node.tagName === tag || (node.childNodes || []).some((ch) => hasTag(ch, tag))));
+  const xssName = `x" onclick="alert(1)" '<img src=x onerror=alert(1)>`;
+  const row = ctx.createCategoryRowEl('GAME', 'id1', xssName, 'javascript:alert(1)', null, false);
+  const rowHtml = row._toHtml();
+  assert.equal(row.attributes.onclick, undefined, 'category row must not set inline onclick attribute');
+  assert.equal((row.listeners.click || []).length, 1, 'category row must attach click listener via addEventListener');
+  assert(!hasTag(row, 'IMG'), 'category row must not create img element for javascript: poster or XSS payload');
+  assert(!rowHtml.includes('javascript:'), 'category row must reject javascript: poster');
+  assert(rowHtml.includes('data-value="x&quot; onclick=&quot;alert(1)&quot;'), 'XSS payload in attribute must be escaped');
+  assert(rowHtml.includes('&lt;img src=x onerror=alert(1)&gt;'), 'XSS payload in text node must be escaped');
+
+  ctx.renderSessionItems([{ index: 0, active: true, expired: false, channel_id: 'cid-1', channel_name: xssName, profile_image_url: 'javascript:alert(2)' }]);
+  const sessList = document.getElementById('channel-list-items');
+  const sessHtml = sessList.innerHTML;
+  assert.equal(sessList.childNodes[0].attributes.onclick, undefined, 'session card must not set inline onclick attribute');
+  assert(!hasTag(sessList, 'IMG'), 'session list must not create img element for javascript: avatar or XSS payload');
+  assert(!sessHtml.includes('javascript:'), 'session list must reject javascript: avatar');
+  console.log('PASS: DOM XSS hardening (escapeHtml, safeHttpUrl, inert DOM nodes) verified');
+}
+
 (async () => {
   testStaticTailwindParity();
   testRemoteFilterColorContrast();
@@ -721,6 +853,7 @@ function testBetaNoticeAndOverlayCssTabs() {
   await testPartyPopoverResetOnClose();
   await testCategoryDropdownDropsAndFocusPersistence();
   testBetaNoticeAndOverlayCssTabs();
+  testDomXssHardening();
 })().catch((err) => {
   console.error(err);
   process.exit(1);

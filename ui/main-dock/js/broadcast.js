@@ -386,27 +386,74 @@ async function initConnection() {
       const details = cachedDetails || (currentDropsCampaignNo ? dropsCampaignDetailsCache[currentDropsCampaignNo] : null);
       if (tooltipTitle && details) {
         const titleText = details.title || '드롭스 보상';
-        if (details.linkUrl) {
-          tooltipTitle.innerHTML = `<a href="${escapeHtml(details.linkUrl)}" target="_blank" onclick="event.preventDefault(); openExternalUrl('${escapeHtml(details.linkUrl)}', '드롭스 상세 안내');" class="text-white hover:text-[#00FFA3] underline decoration-[#00FFA3]/50 hover:decoration-[#00FFA3] transition-colors truncate flex items-center gap-1 cursor-pointer" title="드롭스 안내 페이지 열기 (기본 브라우저)"><span>${escapeHtml(titleText)}</span><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="shrink-0 text-[#00FFA3]"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>`;
+        const safeLink = safeHttpUrl(details.linkUrl || '');
+        if (safeLink) {
+          let extIcon = null;
+          if (typeof document.createElementNS === 'function') {
+            extIcon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            extIcon.setAttribute('width', '10');
+            extIcon.setAttribute('height', '10');
+            extIcon.setAttribute('viewBox', '0 0 24 24');
+            extIcon.setAttribute('fill', 'none');
+            extIcon.setAttribute('stroke', 'currentColor');
+            extIcon.setAttribute('stroke-width', '2.5');
+            extIcon.setAttribute('class', 'shrink-0 text-[#00FFA3]');
+            const p1 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            p1.setAttribute('d', 'M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6');
+            const p2 = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+            p2.setAttribute('points', '15 3 21 3 21 9');
+            const p3 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            p3.setAttribute('x1', '10'); p3.setAttribute('y1', '14'); p3.setAttribute('x2', '21'); p3.setAttribute('y2', '3');
+            extIcon.appendChild(p1);
+            extIcon.appendChild(p2);
+            extIcon.appendChild(p3);
+          }
+          tooltipTitle.replaceChildren(
+            domEl('a', {
+              href: safeLink,
+              target: '_blank',
+              className: 'text-white hover:text-[#00FFA3] underline decoration-[#00FFA3]/50 hover:decoration-[#00FFA3] transition-colors truncate flex items-center gap-1 cursor-pointer',
+              title: '드롭스 안내 페이지 열기 (기본 브라우저)',
+              on: {
+                click: (e) => {
+                  e.preventDefault();
+                  openExternalUrl(safeLink, '드롭스 상세 안내');
+                }
+              }
+            },
+              domEl('span', { text: titleText }),
+              extIcon
+            )
+          );
         } else {
           tooltipTitle.textContent = titleText;
         }
       }
       if (tooltipRewards) {
         if (!details || !details.rewards || details.rewards.length === 0) {
-          tooltipRewards.innerHTML = '<div class="text-[10px] text-slate-400 py-1.5 text-center">등록된 보상 정보가 없습니다.</div>';
+          tooltipRewards.replaceChildren(
+            domEl('div', { className: 'text-[10px] text-slate-400 py-1.5 text-center', text: '등록된 보상 정보가 없습니다.' })
+          );
         } else {
-          tooltipRewards.innerHTML = details.rewards.map(r => `
-            <div class="flex items-center gap-2 p-1.5 rounded-lg bg-[#161F2E] border border-[#243044] hover:bg-[#1C283C] transition-colors">
-              <div class="w-8 h-8 rounded-md bg-[#0D1219] border border-[#243044] flex items-center justify-center p-0.5 shrink-0 overflow-hidden">
-                ${r.imageUrl ? `<img src="${escapeHtml(r.imageUrl)}" class="w-full h-full object-contain" onerror="this.parentElement.innerHTML='🎁'" />` : '<span class="text-xs">🎁</span>'}
-              </div>
-              <div class="min-w-0 flex-1">
-                ${r.conditionText ? `<div class="text-[9.5px] text-slate-400 font-medium leading-none mb-0.5">${escapeHtml(r.conditionText)}</div>` : ''}
-                <div class="text-[10.5px] font-bold text-white leading-snug break-keep">${escapeHtml(r.name)}</div>
-              </div>
-            </div>
-          `).join('');
+          tooltipRewards.replaceChildren(...details.rewards.map(r => {
+            const safeImg = safeHttpUrl(r.imageUrl || '');
+            return domEl('div', { className: 'flex items-center gap-2 p-1.5 rounded-lg bg-[#161F2E] border border-[#243044] hover:bg-[#1C283C] transition-colors' },
+              domEl('div', { className: 'w-8 h-8 rounded-md bg-[#0D1219] border border-[#243044] flex items-center justify-center p-0.5 shrink-0 overflow-hidden' },
+                safeImg
+                  ? domEl('img', {
+                      src: safeImg,
+                      alt: '',
+                      className: 'w-full h-full object-contain',
+                      on: { error: (e) => { if (e.currentTarget.parentElement) e.currentTarget.parentElement.textContent = '🎁'; } }
+                    })
+                  : domEl('span', { className: 'text-xs', text: '🎁' })
+              ),
+              domEl('div', { className: 'min-w-0 flex-1' },
+                r.conditionText ? domEl('div', { className: 'text-[9.5px] text-slate-400 font-medium leading-none mb-0.5', text: r.conditionText }) : null,
+                domEl('div', { className: 'text-[10.5px] font-bold text-white leading-snug break-keep', text: r.name || '' })
+              )
+            );
+          }));
         }
       }
     }
@@ -667,24 +714,38 @@ async function initConnection() {
       const listContainer = document.getElementById('channel-list-items');
       if (!listContainer) return;
       if (!sessions || sessions.length === 0) {
-        listContainer.innerHTML = '<div class="p-2 text-center text-[10px] text-slate-400">연동된 계정이 없습니다.</div>';
+        listContainer.replaceChildren(
+          domEl('div', { className: 'p-2 text-center text-[10px] text-slate-400', text: '연동된 계정이 없습니다.' })
+        );
         return;
       }
-      listContainer.innerHTML = sessions.map(s => {
+      listContainer.replaceChildren(...sessions.map(s => {
         const isActive = s.active;
         const isExp = s.expired;
         // 아바타 테두리: 활성 계정이고 라이브 중이면 2px 빨간색 테두리(글로우 없음), 그 외는 테두리 없음 (50% 확대: 40px)
         const avatarBorder = (isActive && isCurrentlyLive) ? 'border: 2px solid #FF4D6A;' : 'border: none;';
-        const avatarEl = s.profile_image_url
-          ? `<img src="${escapeHtml(s.profile_image_url)}" class="w-10 h-10 rounded-full object-cover flex-shrink-0" style="${avatarBorder}" alt="" onerror="this.outerHTML='<div class=\\'w-10 h-10 rounded-full bg-[#161F2E] flex items-center justify-center text-sm flex-shrink-0\\'>📺</div>';" />`
-          : `<div class="w-10 h-10 rounded-full bg-[#161F2E] flex items-center justify-center text-sm flex-shrink-0" style="${avatarBorder}">📺</div>`;
+        const safeAvatar = safeHttpUrl(s.profile_image_url || '');
+        const fallbackAvatar = () => domEl('div', {
+          className: 'w-10 h-10 rounded-full bg-[#161F2E] flex items-center justify-center text-sm flex-shrink-0',
+          style: avatarBorder,
+          text: '📺'
+        });
+        const avatarEl = safeAvatar
+          ? domEl('img', {
+              src: safeAvatar,
+              className: 'w-10 h-10 rounded-full object-cover flex-shrink-0',
+              style: avatarBorder,
+              alt: '',
+              on: { error: (e) => { if (e.currentTarget.replaceWith) e.currentTarget.replaceWith(fallbackAvatar()); } }
+            })
+          : fallbackAvatar();
 
         const activeBadge = isActive
-          ? '<span class="text-[8.5px] px-1 py-0.2 rounded font-bold bg-[#00FFA3]/15 text-[#00FFA3] border border-[#00FFA3]/30">사용 중</span>'
-          : '';
+          ? domEl('span', { className: 'text-[8.5px] px-1 py-0.2 rounded font-bold bg-[#00FFA3]/15 text-[#00FFA3] border border-[#00FFA3]/30', text: '사용 중' })
+          : null;
         const expiredBadge = isExp
-          ? '<span class="text-[8.5px] px-1 py-0.2 rounded font-bold bg-amber-950 text-amber-400 border border-amber-800/60">⚠️ 만료됨</span>'
-          : '';
+          ? domEl('span', { className: 'text-[8.5px] px-1 py-0.2 rounded font-bold bg-amber-950 text-amber-400 border border-amber-800/60', text: '⚠️ 만료됨' })
+          : null;
 
         const cardBorderClass = isActive
           ? 'border-[#00FFA3]/40 bg-[#161F2E]'
@@ -693,37 +754,46 @@ async function initConnection() {
         const followerText = (typeof s.follower_count === 'number')
           ? `팔로워 ${s.follower_count.toLocaleString()}`
           : '';
+        const channelName = s.channel_name || '치지직 채널';
 
-        return `
-          <div class="flex items-center justify-between p-1.5 rounded-lg border ${cardBorderClass} transition-colors group cursor-pointer" onclick="handleSessionCardClick(${s.index}, ${isExp}, ${isActive})">
-            <div class="flex items-center gap-2 min-w-0 pr-1 flex-1">
-              ${avatarEl}
-              <div class="min-w-0 flex-1">
-                <div class="flex items-center gap-1">
-                  <span class="text-[14px] font-bold text-slate-100 truncate">${escapeHtml(s.channel_name || '치지직 채널')}</span>
-                  ${activeBadge}
-                  ${expiredBadge}
-                </div>
-                <div class="flex items-center gap-1.5 text-[10px] text-slate-400 min-w-0">
-                  ${followerText ? `<span class="text-[#00FFA3] font-semibold tabular-nums shrink-0">${followerText}</span>` : ''}
-                  ${followerText && s.channel_id ? '<span class="text-slate-600 shrink-0">·</span>' : ''}
-                  <span class="text-[9px] font-mono truncate">${escapeHtml(s.channel_id || (isExp ? '재로그인 필요' : ''))}</span>
-                </div>
-              </div>
-            </div>
-            <div class="flex items-center gap-1 flex-shrink-0" onclick="event.stopPropagation()">
-              ${s.channel_id ? `
-              <button type="button" onclick="openExternalUrl('https://chzzk.naver.com/live/${encodeURIComponent(s.channel_id)}', '${escapeHtml(s.channel_name || '채널')}');" class="w-6 h-6 rounded-md bg-[#161F2E] hover:bg-[#202C3F] border border-[#26374D] hover:border-[#00FFA3]/50 flex items-center justify-center text-slate-300 hover:text-[#00FFA3] transition-colors cursor-pointer" title="방송 바로가기 (브라우저)">
-                <span class="text-xs leading-none">🌐</span>
-              </button>
-              ` : ''}
-              <button type="button" onclick="removeAccountSession(${s.index})" class="w-6 h-6 rounded-md bg-[#161F2E] hover:bg-rose-950/60 border border-[#26374D] hover:border-rose-500/50 flex items-center justify-center text-slate-400 hover:text-rose-400 transition-colors cursor-pointer" title="계정 연동 해제">
-                <span class="text-xs leading-none">🗑️</span>
-              </button>
-            </div>
-          </div>
-        `;
-      }).join('');
+        return domEl('div', {
+          className: `flex items-center justify-between p-1.5 rounded-lg border ${cardBorderClass} transition-colors group cursor-pointer`,
+          on: { click: () => handleSessionCardClick(s.index, isExp, isActive) }
+        },
+          domEl('div', { className: 'flex items-center gap-2 min-w-0 pr-1 flex-1' },
+            avatarEl,
+            domEl('div', { className: 'min-w-0 flex-1' },
+              domEl('div', { className: 'flex items-center gap-1' },
+                domEl('span', { className: 'text-[14px] font-bold text-slate-100 truncate', text: channelName }),
+                activeBadge,
+                expiredBadge
+              ),
+              domEl('div', { className: 'flex items-center gap-1.5 text-[10px] text-slate-400 min-w-0' },
+                followerText ? domEl('span', { className: 'text-[#00FFA3] font-semibold tabular-nums shrink-0', text: followerText }) : null,
+                (followerText && s.channel_id) ? domEl('span', { className: 'text-slate-600 shrink-0', text: '·' }) : null,
+                domEl('span', { className: 'text-[9px] font-mono truncate', text: s.channel_id || (isExp ? '재로그인 필요' : '') })
+              )
+            )
+          ),
+          domEl('div', {
+            className: 'flex items-center gap-1 flex-shrink-0',
+            on: { click: (e) => e.stopPropagation() }
+          },
+            s.channel_id ? domEl('button', {
+              type: 'button',
+              className: 'w-6 h-6 rounded-md bg-[#161F2E] hover:bg-[#202C3F] border border-[#26374D] hover:border-[#00FFA3]/50 flex items-center justify-center text-slate-300 hover:text-[#00FFA3] transition-colors cursor-pointer',
+              title: '방송 바로가기 (브라우저)',
+              on: { click: () => openExternalUrl(`https://chzzk.naver.com/live/${encodeURIComponent(s.channel_id)}`, channelName) }
+            }, domEl('span', { className: 'text-xs leading-none', text: '🌐' })) : null,
+            domEl('button', {
+              type: 'button',
+              className: 'w-6 h-6 rounded-md bg-[#161F2E] hover:bg-rose-950/60 border border-[#26374D] hover:border-rose-500/50 flex items-center justify-center text-slate-400 hover:text-rose-400 transition-colors cursor-pointer',
+              title: '계정 연동 해제',
+              on: { click: () => removeAccountSession(s.index) }
+            }, domEl('span', { className: 'text-xs leading-none', text: '🗑️' }))
+          )
+        );
+      }));
     }
 
 
@@ -1216,11 +1286,14 @@ async function initConnection() {
 
       if (presetsBox) {
         const msgs = activeWatchParty.donationBoardInfo.defaultMessages || [];
-        presetsBox.innerHTML = msgs.map(m => `
-          <button type="button" onclick="setBoardMessagePreset('${escapeHtml(m.text)}')" class="px-2 py-1 rounded bg-[#161F2E] hover:bg-[#1E2738] border border-[#1E2738] text-[11px] text-slate-200 hover:text-[#00FFA3] cursor-pointer transition-colors text-left truncate max-w-full">
-            ${escapeHtml(m.text)}
-          </button>
-        `).join('');
+        presetsBox.replaceChildren(...msgs.map(m =>
+          domEl('button', {
+            type: 'button',
+            className: 'px-2 py-1 rounded bg-[#161F2E] hover:bg-[#1E2738] border border-[#1E2738] text-[11px] text-slate-200 hover:text-[#00FFA3] cursor-pointer transition-colors text-left truncate max-w-full',
+            text: m.text || '',
+            on: { click: () => setBoardMessagePreset(m.text || '') }
+          })
+        ));
       }
 
       if (modal) modal.classList.remove('hidden');
@@ -2654,20 +2727,22 @@ async function initConnection() {
         if (!dropdown) return;
 
         if (!mergedList.length) {
-          dropdown.innerHTML = '<div class="px-2.5 py-3 text-[11px] text-chzzk-muted text-center">검색 결과 없음</div>';
+          dropdown.replaceChildren(
+            domEl('div', { className: 'px-2.5 py-3 text-[11px] text-chzzk-muted text-center', text: '검색 결과 없음' })
+          );
           dropdown.style.display = 'block';
           return;
         }
 
-        dropdown.innerHTML = mergedList.map(cat => {
+        dropdown.replaceChildren(...mergedList.map(cat => {
           const catType = cat.categoryType || 'GAME';
           const catId = cat.categoryId || '';
           const catVal = cat.categoryValue || catId;
           const poster = cat.posterImageUrl || '';
           const dropsCampaignNo = extractDropsCampaignNo(cat);
           const isFav = isCategoryFavorite(catId);
-          return renderCategoryRowHtml(catType, catId, catVal, poster, dropsCampaignNo, isFav);
-        }).join('');
+          return createCategoryRowEl(catType, catId, catVal, poster, dropsCampaignNo, isFav);
+        }));
         dropdown.style.display = 'block';
       } catch (err) {
         console.error('카테고리 검색 오류', err);

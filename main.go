@@ -2,6 +2,7 @@
 
 import (
 	"bytes"
+	"context"
 	"embed"
 	"encoding/json"
 	"fmt"
@@ -112,6 +113,7 @@ func sendBytes(w http.ResponseWriter, body []byte, status int, contentType strin
 
 func sendJSON(w http.ResponseWriter, data interface{}, status int) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(data)
 }
@@ -219,10 +221,14 @@ func setCORSHeaders(w http.ResponseWriter, r *http.Request) {
 
 // verifySessionUserStatus: 특정 세션 토큰으로 치지직 사용자 상태 검증 및 오류 코드 반환
 func verifySessionUserStatus(aut, ses string) (channelID, channelName, profileImage, errCode, detail string, ok bool) {
+	return verifySessionUserStatusCtx(context.Background(), aut, ses)
+}
+
+func verifySessionUserStatusCtx(ctx context.Context, aut, ses string) (channelID, channelName, profileImage, errCode, detail string, ok bool) {
 	if aut == "" && ses == "" {
 		return "", "", "", core.ErrAuthSessionExpired, "세션 쿠키 없음", false
 	}
-	req, err := http.NewRequest("GET", naverGameApiBaseURL+"/nng_main/v1/user/getUserStatus", nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", naverGameApiBaseURL+"/nng_main/v1/user/getUserStatus", nil)
 	if err != nil {
 		return "", "", "", core.ErrApiOtherError, fmt.Sprintf("요청 생성 실패: %v", err), false
 	}

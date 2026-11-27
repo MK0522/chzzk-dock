@@ -386,7 +386,7 @@ func startWebview(cmd *exec.Cmd) error {
 func handleLoginWebview(w http.ResponseWriter, r *http.Request) {
 	core.LogInfo("[Auth] /login-webview 요청 수신")
 	webviewLock.Lock()
-	if webviewProcess != nil && webviewProcess.ProcessState == nil {
+	if webviewProcess != nil {
 		webviewLock.Unlock()
 		core.LogWarn("[Auth] /login-webview: 이미 네이버 로그인 창이 열려 있습니다.")
 		respondOK(w, map[string]any{
@@ -423,6 +423,9 @@ func handleLoginWebview(w http.ResponseWriter, r *http.Request) {
 		if webviewProcess == cmd {
 			webviewProcess = nil
 		}
+		if webviewWaitCh == waitCh {
+			webviewWaitCh = nil
+		}
 		webviewLock.Unlock()
 		core.InvalidateConfigCache()
 		close(waitCh)
@@ -450,7 +453,6 @@ func handleLoginWait(w http.ResponseWriter, r *http.Request) {
 
 	webviewLock.Lock()
 	waitCh := webviewWaitCh
-	webviewWaitCh = nil
 	webviewLock.Unlock()
 
 	if waitCh == nil {
@@ -465,10 +467,15 @@ func handleLoginWait(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		core.LogInfo("[Auth] /login-wait 대기 시작")
+		timer := time.NewTimer(180 * time.Second)
+		defer timer.Stop()
 		select {
 		case <-waitCh:
 			core.LogInfo("[Auth] /login-wait: 로그인 프로세스 종료 감지")
-		case <-time.After(180 * time.Second):
+		case <-r.Context().Done():
+			core.LogInfo("[Auth] /login-wait: 클라이언트 연결 종료로 대기 중단")
+			return
+		case <-timer.C:
 			core.LogWarn("[Auth] /login-wait: 180초 대기 타임아웃")
 		}
 		core.InvalidateConfigCache()
@@ -476,7 +483,7 @@ func handleLoginWait(w http.ResponseWriter, r *http.Request) {
 
 	cfg := core.LoadConfig()
 	if cfg.NidAut != "" && cfg.NidSes != "" {
-		cid, cname, _, errCode, detail, ok := verifySessionUserStatus(cfg.NidAut, cfg.NidSes)
+		cid, cname, _, errCode, detail, ok := verifySessionUserStatusCtx(r.Context(), cfg.NidAut, cfg.NidSes)
 		if !ok {
 			core.LogWarn("[Auth] [%s] /login-wait: 세션 검증 실패 (%s)", errCode, detail)
 			respondOK(w, map[string]any{
@@ -1064,7 +1071,8 @@ func handleAppSettingsPut(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := core.SaveSettings(st); err != nil {
-		respondErr(w, http.StatusInternalServerError, "설정 저장에 실패했습니다: "+err.Error())
+		core.LogError("[Settings] 설정 저장 실패: %v", err)
+		respondErr(w, http.StatusInternalServerError, "설정 저장에 실패했습니다.")
 		return
 	}
 	if themeUpdated {
@@ -1189,7 +1197,19 @@ func handleInstallObsScript(w http.ResponseWriter, r *http.Request) {
 		CustomDir   string `json:"custom_dir"`
 		PreviousDir string `json:"previous_dir"`
 	}
-	_ = bindJSON(w, r, &req)
+	if r.Body != nil && r.ContentLength != 0 {
+		bodyBytes, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
+		if err != nil {
+			respondErr(w, http.StatusBadRequest, "요청 본문을 읽을 수 없습니다.")
+			return
+		}
+		if len(bytes.TrimSpace(bodyBytes)) > 0 {
+			if err := json.Unmarshal(bodyBytes, &req); err != nil {
+				respondErr(w, http.StatusBadRequest, "잘못된 요청 형식입니다.")
+				return
+			}
+		}
+	}
 
 	st := core.LoadSettings()
 	var prevDirs []string
@@ -1237,7 +1257,8 @@ func handleCheckUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 	info, err := core.CheckForUpdate(runtimeAppVersion, force)
 	if err != nil {
-		respondOK(w, map[string]any{"code": 500, "message": err.Error()})
+		core.LogWarn("[Updater] 업데이트 확인 실패: %v", err)
+		respondOK(w, map[string]any{"code": 500, "message": "업데이트 정보를 확인할 수 없습니다."})
 		return
 	}
 	respondOK(w, map[string]any{"code": 200, "info": info})
@@ -1259,7 +1280,8 @@ func handleExecuteUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := core.ExecuteUpdate(info.LatestVersion, info.DownloadURL, info.AssetSize, info.AssetDigest, updateShutdownFn); err != nil {
-		respondErr(w, http.StatusInternalServerError, err.Error())
+		core.LogError("[Updater] 업데이트 실행 실패: %v", err)
+		respondErr(w, http.StatusInternalServerError, "업데이트를 시작할 수 없습니다.")
 		return
 	}
 	respondOK(w, map[string]any{"code": 200, "message": "업데이트 다운로드를 시작했습니다."})

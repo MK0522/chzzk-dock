@@ -630,7 +630,7 @@ func RunLoginWebview() {
 	// 페이지 로딩 완료 감지 콜백
 	chromium.NavigationCompletedCallback = func(sender *edge.ICoreWebView2, args *edge.ICoreWebView2NavigationCompletedEventArgs) {
 		src, _ := sender.GetSource()
-		LogInfo("[Webview Login] 페이지 로드 완료: %s", src)
+		LogInfo("[Webview Login] 페이지 로드 완료: %s", redactURLForLog(src))
 	}
 
 	if !chromium.Embed(hwnd) || embedFailed {
@@ -647,6 +647,8 @@ func RunLoginWebview() {
 		os.Exit(1)
 	}
 
+	hardenWebViewSettings(chromium, false)
+
 	// [시점 B] 웹뷰 임베딩 직후 이전 세션 쿠키 선별 삭제 및 반영 완료 대기 (기기 기억 토큰 NID_JST 등은 보존)
 	if cm, err := chromium.GetCookieManager(); err == nil && cm != nil {
 		purgeSessionCookiesSync(cm, 2*time.Second)
@@ -654,6 +656,10 @@ func RunLoginWebview() {
 	}
 
 	chromium.MessageCallback = func(message string, sender *edge.ICoreWebView2, args *edge.ICoreWebView2WebMessageReceivedEventArgs) {
+		source, err := args.GetSource()
+		if err != nil || !isTrustedWebMessageSource(source, loginURL) {
+			return
+		}
 		if strings.HasPrefix(message, "open-external:") {
 			targetURL := strings.TrimPrefix(message, "open-external:")
 			if GetExternalBrowserGuard() {
@@ -679,7 +685,7 @@ func RunLoginWebview() {
 	chromium.Init(keepLoginScript)
 	chromium.Init(ExternalLinkGuardScript)
 
-	LogInfo("[Webview Login] 로그인 페이지로 이동: %s", loginURL)
+	LogInfo("[Webview Login] 로그인 페이지로 이동: %s", redactURLForLog(loginURL))
 	chromium.Navigate(loginURL)
 
 	// 컨트롤러 가시성 보장 및 포커스 부여 후 부드럽게 윈도우 활성화

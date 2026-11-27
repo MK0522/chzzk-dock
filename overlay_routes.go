@@ -19,7 +19,8 @@ func handleOverlayShortcut(w http.ResponseWriter, r *http.Request) {
 	}
 	shortcut, err := core.LoadOverlayShortcut()
 	if err != nil {
-		respondErr(w, http.StatusInternalServerError, err.Error())
+		core.LogError("[Overlay] 단축키 조회 실패: %v", err)
+		respondErr(w, http.StatusInternalServerError, "단축키 설정을 불러오지 못했습니다.")
 		return
 	}
 	respondOK(w, shortcut)
@@ -28,7 +29,8 @@ func handleOverlayShortcut(w http.ResponseWriter, r *http.Request) {
 func handleOverlayLayers(w http.ResponseWriter, r *http.Request) {
 	layers, err := core.LoadOverlayLayers()
 	if err != nil {
-		respondErr(w, http.StatusInternalServerError, err.Error())
+		core.LogError("[Overlay] 레이어 설정 조회 실패: %v", err)
+		respondErr(w, http.StatusInternalServerError, "오버레이 레이어 설정을 불러오지 못했습니다.")
 		return
 	}
 	var restartedOpen map[string]bool
@@ -107,7 +109,8 @@ func handleOverlayAction(w http.ResponseWriter, r *http.Request) {
 	}
 	layers, err := core.LoadOverlayLayers()
 	if err != nil {
-		respondErr(w, http.StatusInternalServerError, err.Error())
+		core.LogError("[Overlay] 레이어 설정 조회 실패: %v", err)
+		respondErr(w, http.StatusInternalServerError, "오버레이 레이어 설정을 불러오지 못했습니다.")
 		return
 	}
 	for layerIndex, layer := range layers {
@@ -135,7 +138,8 @@ func handleOverlayAction(w http.ResponseWriter, r *http.Request) {
 		case "hide":
 			layers[layerIndex].Enabled = false
 			if err := core.SaveOverlayLayers(layers); err != nil {
-				respondErr(w, http.StatusInternalServerError, err.Error())
+				core.LogError("[Overlay] 레이어 설정 저장 실패: %v", err)
+				respondErr(w, http.StatusInternalServerError, "오버레이 레이어 설정을 저장하지 못했습니다.")
 				return
 			}
 			core.CloseOverlayLayer(layer.ID)
@@ -152,7 +156,8 @@ func handleOverlayAction(w http.ResponseWriter, r *http.Request) {
 				layers[layerIndex].Enabled = true
 				layers[layerIndex].RestoreChannel = channel
 				if err := core.SaveOverlayLayers(layers); err != nil {
-					respondErr(w, http.StatusInternalServerError, err.Error())
+					core.LogError("[Overlay] 레이어 설정 저장 실패: %v", err)
+					respondErr(w, http.StatusInternalServerError, "오버레이 레이어 설정을 저장하지 못했습니다.")
 					return
 				}
 				if err := startToolWebview("--chat-overlay", channel, layer.ID); err != nil {

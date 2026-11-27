@@ -972,10 +972,12 @@ function renderRemoteFeed(items) {
       : activeRemoteTab === 'video'
         ? '최근 영상 후원 내역이 없습니다'
         : '조건에 맞는 방송 알림 내역이 없습니다';
-    container.innerHTML = `
-      <div class="text-center py-10 text-[11px] text-slate-400 bg-[#090D13] rounded-lg border border-[#1A2333]/60">
-        ${emptyMsg}
-      </div>`;
+    container.replaceChildren(
+      domEl('div', {
+        className: 'text-center py-10 text-[11px] text-slate-400 bg-[#090D13] rounded-lg border border-[#1A2333]/60',
+        text: emptyMsg
+      })
+    );
     return;
   }
 
@@ -998,7 +1000,7 @@ function renderRemoteFeed(items) {
     STREAMER_SHOP_PURCHASE: { icon: '🛍️', label: '상품구매', color: 'text-emerald-300' }
   };
 
-  container.innerHTML = list.map(item => {
+  container.replaceChildren(...list.map(item => {
     const ex = parseExtraJson(item);
     const fType = item.newsFeedType || '';
     const feedCat = getFeedCategoryKey(fType);
@@ -1009,53 +1011,62 @@ function renderRemoteFeed(items) {
     const payAmt = extractFeedAmount(item, ex);
     const amountStr = payAmt > 0 ? `${payAmt.toLocaleString()} 치즈` : '';
     const bodyText = extractFeedText(item, ex);
-    const safeDonationId = escapeHtml(item.donationId || '');
+    const donationId = item.donationId || '';
 
     if (fType === 'LIVE_AD' || fType === 'MIDROLL_AD' || fType.includes('AD')) {
       const adTitle = bodyText || '5분 뒤 중간 광고가 시작됩니다.';
-      return `
-        <div class="remote-feed-card p-2.5 rounded-lg bg-[#090D13] border border-[#1A2333] hover:border-[#1E2738] transition-colors text-xs space-y-1.5" data-feed-cat="${feedCat}">
-          <div class="flex items-center justify-between gap-2">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="msg-badge-accent px-1.5 py-0.5 rounded bg-[#161F2E] text-slate-300 border border-[#243044] text-[9px] font-black flex-shrink-0">AD</span>
-              <span class="font-bold text-slate-100 truncate text-[11.5px]">${escapeHtml(adTitle)}</span>
-            </div>
-            ${timeStr ? `<span class="text-[10px] text-slate-400 font-medium flex-shrink-0">${timeStr}</span>` : ''}
-          </div>
-          <div class="flex items-center justify-between gap-2">
-            <span class="text-[10.5px] text-slate-400">방송 당 최대 2회 10분 미루기</span>
-            <button type="button" onclick="postponeMidrollAd()" class="px-2 py-0.5 rounded bg-[#161F2E] hover:bg-[#1E2A3D] text-slate-200 border border-[#243044] text-[10.5px] font-bold transition-all cursor-pointer flex-shrink-0">
-              ⏰ 10분 미루기
-            </button>
-          </div>
-        </div>`;
+      return domEl('div', {
+        className: 'remote-feed-card p-2.5 rounded-lg bg-[#090D13] border border-[#1A2333] hover:border-[#1E2738] transition-colors text-xs space-y-1.5',
+        dataset: { feedCat }
+      },
+        domEl('div', { className: 'flex items-center justify-between gap-2' },
+          domEl('div', { className: 'flex items-center gap-1.5 min-w-0' },
+            domEl('span', { className: 'msg-badge-accent px-1.5 py-0.5 rounded bg-[#161F2E] text-slate-300 border border-[#243044] text-[9px] font-black flex-shrink-0', text: 'AD' }),
+            domEl('span', { className: 'font-bold text-slate-100 truncate text-[11.5px]', text: adTitle })
+          ),
+          timeStr ? domEl('span', { className: 'text-[10px] text-slate-400 font-medium flex-shrink-0', text: timeStr }) : null
+        ),
+        domEl('div', { className: 'flex items-center justify-between gap-2' },
+          domEl('span', { className: 'text-[10.5px] text-slate-400', text: '방송 당 최대 2회 10분 미루기' }),
+          domEl('button', {
+            type: 'button',
+            className: 'px-2 py-0.5 rounded bg-[#161F2E] hover:bg-[#1E2A3D] text-slate-200 border border-[#243044] text-[10.5px] font-bold transition-all cursor-pointer flex-shrink-0',
+            text: '⏰ 10분 미루기',
+            on: { click: () => postponeMidrollAd() }
+          })
+        )
+      );
     }
 
     if (fType === 'FOLLOW' || fType === 'FOLLOW_CHANNEL') {
-      return `
-        <div class="remote-feed-card p-2 rounded-lg bg-[#090D13] border border-[#1A2333] text-xs flex items-center justify-between gap-2" data-feed-cat="${feedCat}">
-          <div class="flex items-center gap-1.5 min-w-0">
-            <span>❤️</span>
-            <span class="msg-tag-accent font-bold text-slate-200 truncate max-w-[140px]">${escapeHtml(nickname)}</span>
-            <span class="text-slate-300 text-[11px] truncate">님이 팔로우했습니다.</span>
-          </div>
-          ${timeStr ? `<span class="text-[10px] text-slate-400 font-medium flex-shrink-0">${timeStr}</span>` : ''}
-        </div>`;
+      return domEl('div', {
+        className: 'remote-feed-card p-2 rounded-lg bg-[#090D13] border border-[#1A2333] text-xs flex items-center justify-between gap-2',
+        dataset: { feedCat }
+      },
+        domEl('div', { className: 'flex items-center gap-1.5 min-w-0' },
+          domEl('span', { text: '❤️' }),
+          domEl('span', { className: 'msg-tag-accent font-bold text-slate-200 truncate max-w-[140px]', text: nickname }),
+          domEl('span', { className: 'text-slate-300 text-[11px] truncate', text: '님이 팔로우했습니다.' })
+        ),
+        timeStr ? domEl('span', { className: 'text-[10px] text-slate-400 font-medium flex-shrink-0', text: timeStr }) : null
+      );
     }
 
     if (fType === 'STREAMER_SHOP_PURCHASE') {
-      return `
-        <div class="remote-feed-card p-2 rounded-lg bg-[#090D13] border border-[#1A2333] text-xs space-y-1" data-feed-cat="${feedCat}">
-          <div class="flex items-center justify-between gap-2">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span>🛍️</span>
-              <span class="font-bold text-slate-200 truncate">${escapeHtml(nickname)}</span>
-              <span class="msg-badge-accent text-[9.5px] px-1 rounded bg-[#161F2E] border border-[#243044] text-emerald-300 font-medium">상품구매</span>
-            </div>
-            ${timeStr ? `<span class="text-[10px] text-slate-400 flex-shrink-0">${timeStr}</span>` : ''}
-          </div>
-          ${bodyText ? `<div class="text-[11px] text-slate-300 truncate">${escapeHtml(bodyText)}</div>` : ''}
-        </div>`;
+      return domEl('div', {
+        className: 'remote-feed-card p-2 rounded-lg bg-[#090D13] border border-[#1A2333] text-xs space-y-1',
+        dataset: { feedCat }
+      },
+        domEl('div', { className: 'flex items-center justify-between gap-2' },
+          domEl('div', { className: 'flex items-center gap-1.5 min-w-0' },
+            domEl('span', { text: '🛍️' }),
+            domEl('span', { className: 'font-bold text-slate-200 truncate', text: nickname }),
+            domEl('span', { className: 'msg-badge-accent text-[9.5px] px-1 rounded bg-[#161F2E] border border-[#243044] text-emerald-300 font-medium', text: '상품구매' })
+          ),
+          timeStr ? domEl('span', { className: 'text-[10px] text-slate-400 flex-shrink-0', text: timeStr }) : null
+        ),
+        bodyText ? domEl('div', { className: 'text-[11px] text-slate-300 truncate', text: bodyText }) : null
+      );
     }
 
     const meta = typeMeta[fType] || { icon: '💬', label: '알림', color: 'text-slate-300' };
@@ -1063,31 +1074,46 @@ function renderRemoteFeed(items) {
     const isSub = fType === 'SUBSCRIPTION' || fType === 'GIFT' || fType === 'SUBSCRIPTION_GIFT';
     const isChatTTS = !isVideo && (fType === 'DONATION' || fType === 'DONATION_CHAT_CURRENCY' || isSub) && item.donationId;
 
-    return `
-      <div class="remote-feed-card p-2 rounded-lg bg-[#090D13] border border-[#1A2333] hover:border-[#1E2738] transition-colors text-xs space-y-1.5" data-feed-cat="${feedCat}">
-        <div class="flex items-center justify-between gap-2">
-          <div class="flex items-center gap-1.5 min-w-0">
-            <span>${meta.icon}</span>
-            <span class="font-bold text-slate-200 truncate max-w-[120px]">${escapeHtml(nickname)}</span>
-            <span class="msg-badge-accent text-[9.5px] px-1 py-0.2 rounded border border-transparent font-medium bg-[#161F2E] ${meta.color}">${meta.label}</span>
-          </div>
-          <div class="flex items-center gap-2 flex-shrink-0">
-            ${amountStr ? `<span class="msg-tag-accent font-mono font-bold text-[#00FFA3] text-[11px]">${amountStr}</span>` : ''}
-            ${timeStr ? `<span class="text-[10px] text-slate-400 font-medium">${timeStr}</span>` : ''}
-          </div>
-        </div>
-        ${bodyText ? `<div class="text-[11px] text-slate-300 break-words leading-snug bg-[#05080C]/70 p-1.5 rounded">${escapeHtml(bodyText)}</div>` : ''}
-        ${isVideo && item.donationId ? `
-          <div class="flex justify-end gap-1.5">
-            <button type="button" onclick="replayVideoDonation('${safeDonationId}', ${safeNewsFeedNo}, 'PLAY')" class="px-2 py-0.5 rounded bg-[#161F2E] hover:bg-[#00FFA3]/20 text-[#00FFA3] border border-[#00FFA3]/40 text-[10px] font-bold cursor-pointer transition-all">▶ 재생</button>
-            <button type="button" onclick="replayVideoDonation('${safeDonationId}', ${safeNewsFeedNo}, 'STOP')" class="px-2 py-0.5 rounded bg-[#121721] hover:bg-[#1E2738] text-slate-300 border border-[#1E2738] text-[10px] cursor-pointer transition-all">■ 중지</button>
-          </div>` : ''}
-        ${isChatTTS ? `
-          <div class="flex justify-end">
-            <button type="button" onclick="replayTTSDonation('${safeDonationId}', ${safeNewsFeedNo}, ${isSub})" class="px-2 py-0.5 rounded bg-[#161F2E] hover:bg-[#5C3BFF]/25 text-slate-200 hover:text-white border border-[#243044] text-[10px] font-medium cursor-pointer transition-all">🔊 다시 듣기</button>
-          </div>` : ''}
-      </div>`;
-  }).join('');
+    return domEl('div', {
+      className: 'remote-feed-card p-2 rounded-lg bg-[#090D13] border border-[#1A2333] hover:border-[#1E2738] transition-colors text-xs space-y-1.5',
+      dataset: { feedCat }
+    },
+      domEl('div', { className: 'flex items-center justify-between gap-2' },
+        domEl('div', { className: 'flex items-center gap-1.5 min-w-0' },
+          domEl('span', { text: meta.icon }),
+          domEl('span', { className: 'font-bold text-slate-200 truncate max-w-[120px]', text: nickname }),
+          domEl('span', { className: `msg-badge-accent text-[9.5px] px-1 py-0.2 rounded border border-transparent font-medium bg-[#161F2E] ${meta.color}`, text: meta.label })
+        ),
+        domEl('div', { className: 'flex items-center gap-2 flex-shrink-0' },
+          amountStr ? domEl('span', { className: 'msg-tag-accent font-mono font-bold text-[#00FFA3] text-[11px]', text: amountStr }) : null,
+          timeStr ? domEl('span', { className: 'text-[10px] text-slate-400 font-medium', text: timeStr }) : null
+        )
+      ),
+      bodyText ? domEl('div', { className: 'text-[11px] text-slate-300 break-words leading-snug bg-[#05080C]/70 p-1.5 rounded', text: bodyText }) : null,
+      (isVideo && donationId) ? domEl('div', { className: 'flex justify-end gap-1.5' },
+        domEl('button', {
+          type: 'button',
+          className: 'px-2 py-0.5 rounded bg-[#161F2E] hover:bg-[#00FFA3]/20 text-[#00FFA3] border border-[#00FFA3]/40 text-[10px] font-bold cursor-pointer transition-all',
+          text: '▶ 재생',
+          on: { click: () => replayVideoDonation(donationId, safeNewsFeedNo, 'PLAY') }
+        }),
+        domEl('button', {
+          type: 'button',
+          className: 'px-2 py-0.5 rounded bg-[#121721] hover:bg-[#1E2738] text-slate-300 border border-[#1E2738] text-[10px] cursor-pointer transition-all',
+          text: '■ 중지',
+          on: { click: () => replayVideoDonation(donationId, safeNewsFeedNo, 'STOP') }
+        })
+      ) : null,
+      isChatTTS ? domEl('div', { className: 'flex justify-end' },
+        domEl('button', {
+          type: 'button',
+          className: 'px-2 py-0.5 rounded bg-[#161F2E] hover:bg-[#5C3BFF]/25 text-slate-200 hover:text-white border border-[#243044] text-[10px] font-medium cursor-pointer transition-all',
+          text: '🔊 다시 듣기',
+          on: { click: () => replayTTSDonation(donationId, safeNewsFeedNo, isSub) }
+        })
+      ) : null
+    );
+  }));
   applyRemoteFilterColorsToFeedCards();
 }
 
@@ -1161,65 +1187,81 @@ function renderMissionList(items) {
   if (completedCountBadge) completedCountBadge.textContent = `${completedList.length}건`;
 
   if (activeList.length === 0) {
-    activeContainer.innerHTML = `
-      <div class="text-center py-6 text-[10.5px] text-slate-400 bg-[#090D13] rounded-lg border border-[#1A2333]/60">
-        현재 진행 중인 미션이 없습니다
-      </div>`;
+    activeContainer.replaceChildren(
+      domEl('div', {
+        className: 'text-center py-6 text-[10.5px] text-slate-400 bg-[#090D13] rounded-lg border border-[#1A2333]/60',
+        text: '현재 진행 중인 미션이 없습니다'
+      })
+    );
   } else {
-    activeContainer.innerHTML = activeList.map(entry => {
+    activeContainer.replaceChildren(...activeList.map(entry => {
       const nickname = entry.item.user?.nickname || '후원자';
       const amount = entry.payAmount > 0 ? `${entry.payAmount.toLocaleString()} 치즈` : '';
-      return `
-        <div class="p-2 rounded-lg bg-[#090D13] border border-[#1A2333] space-y-1.5 text-xs">
-          <div class="flex items-center justify-between gap-2">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span>🎯</span>
-              <span class="font-bold text-slate-200 truncate">${escapeHtml(nickname)}</span>
-            </div>
-            <span class="font-mono text-[#00FFA3] font-bold text-[11px] flex-shrink-0">${amount}</span>
-          </div>
-          <div class="text-[11px] text-slate-300 bg-[#05080C] p-2 rounded border border-[#1E2738]/50 break-words leading-normal">
-            ${escapeHtml(entry.missionText)}
-          </div>
-          ${entry.missionId ? `
-            <div class="grid grid-cols-2 gap-1.5 pt-0.5">
-              <button type="button" onclick="settleMission('${escapeHtml(entry.missionId)}', 'succeed')" class="py-1 rounded bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-700/60 text-[#00FFA3] font-bold text-[10.5px] cursor-pointer transition-colors">✅ 성공 판정</button>
-              <button type="button" onclick="settleMission('${escapeHtml(entry.missionId)}', 'fail')" class="py-1 rounded bg-rose-950/80 hover:bg-rose-900 border border-rose-700/60 text-rose-300 font-bold text-[10.5px] cursor-pointer transition-colors">❌ 실패 판정</button>
-            </div>` : ''}
-        </div>`;
-    }).join('');
+      return domEl('div', { className: 'p-2 rounded-lg bg-[#090D13] border border-[#1A2333] space-y-1.5 text-xs' },
+        domEl('div', { className: 'flex items-center justify-between gap-2' },
+          domEl('div', { className: 'flex items-center gap-1.5 min-w-0' },
+            domEl('span', { text: '🎯' }),
+            domEl('span', { className: 'font-bold text-slate-200 truncate', text: nickname })
+          ),
+          domEl('span', { className: 'font-mono text-[#00FFA3] font-bold text-[11px] flex-shrink-0', text: amount })
+        ),
+        domEl('div', {
+          className: 'text-[11px] text-slate-300 bg-[#05080C] p-2 rounded border border-[#1E2738]/50 break-words leading-normal',
+          text: entry.missionText || ''
+        }),
+        entry.missionId ? domEl('div', { className: 'grid grid-cols-2 gap-1.5 pt-0.5' },
+          domEl('button', {
+            type: 'button',
+            className: 'py-1 rounded bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-700/60 text-[#00FFA3] font-bold text-[10.5px] cursor-pointer transition-colors',
+            text: '✅ 성공 판정',
+            on: { click: () => settleMission(entry.missionId, 'succeed') }
+          }),
+          domEl('button', {
+            type: 'button',
+            className: 'py-1 rounded bg-rose-950/80 hover:bg-rose-900 border border-rose-700/60 text-rose-300 font-bold text-[10.5px] cursor-pointer transition-colors',
+            text: '❌ 실패 판정',
+            on: { click: () => settleMission(entry.missionId, 'fail') }
+          })
+        ) : null
+      );
+    }));
   }
 
   if (completedList.length === 0) {
-    completedContainer.innerHTML = `
-      <div class="text-center py-6 text-[10.5px] text-slate-500 bg-[#090D13] rounded-lg border border-[#1A2333]/60">
-        완료된 미션 내역이 없습니다
-      </div>`;
+    completedContainer.replaceChildren(
+      domEl('div', {
+        className: 'text-center py-6 text-[10.5px] text-slate-500 bg-[#090D13] rounded-lg border border-[#1A2333]/60',
+        text: '완료된 미션 내역이 없습니다'
+      })
+    );
   } else {
-    completedContainer.innerHTML = completedList.map(entry => {
+    completedContainer.replaceChildren(...completedList.map(entry => {
       const nickname = entry.item.user?.nickname || '후원자';
       const amount = entry.payAmount > 0 ? `${entry.payAmount.toLocaleString()} 치즈` : '';
-      let statusBadge = '<span class="text-[9.5px] px-1.5 py-0.2 rounded font-bold bg-slate-800 text-slate-300 border border-slate-700">🏁 완료</span>';
+      let badgeClass = 'text-[9.5px] px-1.5 py-0.2 rounded font-bold bg-slate-800 text-slate-300 border border-slate-700';
+      let badgeText = '🏁 완료';
       if (entry.outcome === 'succeed') {
-        statusBadge = '<span class="text-[9.5px] px-1.5 py-0.2 rounded font-bold bg-emerald-950 text-emerald-400 border border-emerald-800/60">✅ 성공</span>';
+        badgeClass = 'text-[9.5px] px-1.5 py-0.2 rounded font-bold bg-emerald-950 text-emerald-400 border border-emerald-800/60';
+        badgeText = '✅ 성공';
       } else if (entry.outcome === 'fail') {
-        statusBadge = '<span class="text-[9.5px] px-1.5 py-0.2 rounded font-bold bg-rose-950 text-rose-400 border border-rose-800/60">❌ 실패</span>';
+        badgeClass = 'text-[9.5px] px-1.5 py-0.2 rounded font-bold bg-rose-950 text-rose-400 border border-rose-800/60';
+        badgeText = '❌ 실패';
       }
-      return `
-        <div class="p-2 rounded-lg bg-[#070A0F] border border-[#161F2E] space-y-1.5 text-xs opacity-80">
-          <div class="flex items-center justify-between gap-2">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="text-slate-400">🎯</span>
-              <span class="font-medium text-slate-300 truncate">${escapeHtml(nickname)}</span>
-              ${statusBadge}
-            </div>
-            <span class="font-mono text-slate-400 text-[10.5px] flex-shrink-0">${amount}</span>
-          </div>
-          <div class="text-[10.5px] text-slate-400 bg-[#05080C]/80 p-1.5 rounded border border-[#1A2333]/40 break-words leading-tight">
-            ${escapeHtml(entry.missionText)}
-          </div>
-        </div>`;
-    }).join('');
+      return domEl('div', { className: 'p-2 rounded-lg bg-[#070A0F] border border-[#161F2E] space-y-1.5 text-xs opacity-80' },
+        domEl('div', { className: 'flex items-center justify-between gap-2' },
+          domEl('div', { className: 'flex items-center gap-1.5 min-w-0' },
+            domEl('span', { className: 'text-slate-400', text: '🎯' }),
+            domEl('span', { className: 'font-medium text-slate-300 truncate', text: nickname }),
+            domEl('span', { className: badgeClass, text: badgeText })
+          ),
+          domEl('span', { className: 'font-mono text-slate-400 text-[10.5px] flex-shrink-0', text: amount })
+        ),
+        domEl('div', {
+          className: 'text-[10.5px] text-slate-400 bg-[#05080C]/80 p-1.5 rounded border border-[#1A2333]/40 break-words leading-tight',
+          text: entry.missionText || ''
+        })
+      );
+    }));
   }
 }
 
@@ -1367,30 +1409,34 @@ function renderActivePartyView(data) {
 
   if (listEl) {
     if (members.length === 0) {
-      listEl.innerHTML = '<div class="text-center py-3 text-[11px] text-slate-400">참여자 정보를 불러오는 중...</div>';
+      listEl.replaceChildren(
+        domEl('div', { className: 'text-center py-3 text-[11px] text-slate-400', text: '참여자 정보를 불러오는 중...' })
+      );
     } else {
-      listEl.innerHTML = members.map(m => {
+      listEl.replaceChildren(...members.map(m => {
         const name = m.channelName || '멤버';
         const rowClass = m.isMe
           ? 'border-[#00FFA3]/75 bg-[#00FFA3]/10 hover:bg-[#00FFA3]/18'
           : 'border-transparent hover:bg-[#141C2B]';
-        const badgeText = m.isMe ? '나' : escapeHtml(name.slice(0, 1));
+        const badgeText = m.isMe ? '나' : name.slice(0, 1);
         const avatarClass = m.isMe
           ? 'bg-[#00FFA3]/25 border-[#00FFA3]/60 text-[#00FFA3]'
           : m.isHost
             ? 'bg-[#5C3BFF]/40 border-[#9E8BFF]/60 text-white'
             : 'bg-[#161F2E] border-[#2B3E5E] text-slate-300';
-        const safeCid = escapeHtml(m.channelId || '');
-        const safeName = (name || '').replace(/'/g, "\\'");
-        return `
-          <button type="button" onclick="openPartyMemberLive('${safeCid}', '${safeName}')" class="w-full px-2 py-1 rounded-md border ${rowClass} flex items-center justify-between cursor-pointer transition-colors" title="클릭하여 기본 브라우저에서 ${escapeHtml(name)} 방송 열기">
-            <div class="flex items-center gap-2 min-w-0">
-              <span class="w-5 h-5 rounded-full border ${avatarClass} flex items-center justify-center text-[9px] font-bold flex-shrink-0">${badgeText}</span>
-              <span class="text-[11.5px] ${m.isMe ? 'font-bold text-[#00FFA3]' : 'font-medium text-slate-200'} truncate">${escapeHtml(name)}</span>
-            </div>
-            ${m.isHost ? '<span class="text-[10px] px-1.5 py-0.2 rounded bg-[#5C3BFF]/25 text-[#C4B5FD] font-bold flex-shrink-0">👑 호스트</span>' : ''}
-          </button>`;
-      }).join('');
+        return domEl('button', {
+          type: 'button',
+          className: `w-full px-2 py-1 rounded-md border ${rowClass} flex items-center justify-between cursor-pointer transition-colors`,
+          title: `클릭하여 기본 브라우저에서 ${name} 방송 열기`,
+          on: { click: () => openPartyMemberLive(m.channelId || '', name) }
+        },
+          domEl('div', { className: 'flex items-center gap-2 min-w-0' },
+            domEl('span', { className: `w-5 h-5 rounded-full border ${avatarClass} flex items-center justify-center text-[9px] font-bold flex-shrink-0`, text: badgeText }),
+            domEl('span', { className: `text-[11.5px] ${m.isMe ? 'font-bold text-[#00FFA3]' : 'font-medium text-slate-200'} truncate`, text: name })
+          ),
+          m.isHost ? domEl('span', { className: 'text-[10px] px-1.5 py-0.2 rounded bg-[#5C3BFF]/25 text-[#C4B5FD] font-bold flex-shrink-0', text: '👑 호스트' }) : null
+        );
+      }));
     }
   }
 

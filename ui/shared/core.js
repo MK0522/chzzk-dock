@@ -104,10 +104,85 @@ var confirmModalResolver = null;
 var confirmModalDismissHandler = null;
 
 function escapeHtml(str) {
-  if (typeof str !== 'string') return str;
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function safeHttpUrl(raw) {
+  if (!raw || typeof raw !== 'string') return '';
+  const trimmed = raw.trim();
+  if (!trimmed || /[\r\n\x00]/.test(trimmed)) return '';
+  if (typeof URL === 'function') {
+    try {
+      const u = new URL(trimmed);
+      if ((u.protocol === 'https:' || u.protocol === 'http:') && !u.username && !u.password) {
+        return u.href;
+      }
+    } catch (_) {}
+    return '';
+  }
+  return /^https?:\/\/[^/\s?#]+/i.test(trimmed) && !/^https?:\/\/[^/]*@/i.test(trimmed) ? trimmed : '';
+}
+
+function domEl(tag, opts = {}, ...children) {
+  const el = document.createElement(tag);
+  if (opts && typeof opts === 'object') {
+    if (opts.id) el.id = opts.id;
+    if (opts.className) el.className = opts.className;
+    if (opts.type !== undefined) el.type = opts.type;
+    if (opts.text !== undefined && opts.text !== null) el.textContent = String(opts.text);
+    if (opts.title !== undefined && opts.title !== null) el.title = String(opts.title);
+    if (opts.value !== undefined && opts.value !== null) el.value = String(opts.value);
+    if (opts.disabled !== undefined) el.disabled = Boolean(opts.disabled);
+    if (opts.maxLength !== undefined) el.maxLength = opts.maxLength;
+    if (opts.alt !== undefined) el.alt = String(opts.alt);
+    if (opts.href) el.href = opts.href;
+    if (opts.target) el.target = opts.target;
+    if (opts.src) el.src = opts.src;
+    if (opts.dataset) {
+      for (const [k, v] of Object.entries(opts.dataset)) {
+        if (v !== undefined && v !== null) el.dataset[k] = String(v);
+      }
+    }
+    if (opts.attrs) {
+      for (const [k, v] of Object.entries(opts.attrs)) {
+        if (v !== undefined && v !== null) el.setAttribute(k, String(v));
+      }
+    }
+    if (opts.style) {
+      if (typeof opts.style === 'string' && el.style) {
+        el.style.cssText = opts.style;
+      } else if (el.style) {
+        for (const [k, v] of Object.entries(opts.style)) {
+          el.style[k] = v;
+        }
+      }
+    }
+    if (opts.on) {
+      for (const [ev, fn] of Object.entries(opts.on)) {
+        if (typeof fn === 'function') el.addEventListener(ev, fn);
+      }
+    }
+  }
+  const appendItem = (item) => {
+    if (item === null || item === undefined || item === false) return;
+    if (Array.isArray(item)) {
+      item.forEach(appendItem);
+      return;
+    }
+    if (typeof item === 'string' || typeof item === 'number') {
+      el.appendChild(document.createTextNode(String(item)));
+      return;
+    }
+    el.appendChild(item);
+  };
+  children.forEach(appendItem);
+  return el;
 }
 
 var activeToastCooldowns = new Set();

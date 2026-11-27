@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -297,12 +298,34 @@ func GetDefaultBrowserName() string {
 	}
 }
 
+// ValidateExternalHTTPURL: 외부 브라우저 실행 대상 URL이 안전한 http(s) URL인지 검증합니다.
+func ValidateExternalHTTPURL(raw string) (string, bool) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" || strings.ContainsAny(trimmed, "\r\n\x00") {
+		return "", false
+	}
+	u, err := url.Parse(trimmed)
+	if err != nil || u.Host == "" || u.User != nil {
+		return "", false
+	}
+	scheme := strings.ToLower(u.Scheme)
+	if scheme != "http" && scheme != "https" {
+		return "", false
+	}
+	return u.String(), true
+}
+
 // OpenBrowser: Win32 ShellExecuteW를 통해 기본 웹 브라우저로 대상 URL을 엽니다.
 func OpenBrowser(targetURL string) {
+	safeURL, ok := ValidateExternalHTTPURL(targetURL)
+	if !ok {
+		LogWarn("[Security] 허용되지 않은 외부 URL 실행 차단")
+		return
+	}
 	shell32 := syscall.NewLazyDLL("shell32.dll")
 	procShellExecuteW := shell32.NewProc("ShellExecuteW")
 	verbPtr, _ := syscall.UTF16PtrFromString("open")
-	urlPtr, _ := syscall.UTF16PtrFromString(targetURL)
+	urlPtr, _ := syscall.UTF16PtrFromString(safeURL)
 	procShellExecuteW.Call(0, uintptr(unsafe.Pointer(verbPtr)), uintptr(unsafe.Pointer(urlPtr)), 0, 0, 1 /* SW_SHOWNORMAL */)
 }
 
