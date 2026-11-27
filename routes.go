@@ -1175,9 +1175,9 @@ func handleObsScriptStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleBrowseObsFolder(w http.ResponseWriter, r *http.Request) {
-	selected, err := core.BrowseForObsExecutable("OBS 실행 파일(obs64.exe)을 선택하세요")
+	selected, err := core.BrowseForObsFolder("OBS 설치 폴더(obs-studio)를 선택하세요")
 	if err != nil {
-		respondErr(w, http.StatusInternalServerError, "OBS 실행 파일 선택 중 오류가 발생했습니다.")
+		respondErr(w, http.StatusInternalServerError, "OBS 설치 폴더 선택 중 오류가 발생했습니다.")
 		return
 	}
 	if selected == "" {
@@ -1186,13 +1186,15 @@ func handleBrowseObsFolder(w http.ResponseWriter, r *http.Request) {
 	}
 	resolved := core.ResolveObsScriptsDir(selected)
 	valid, warning := core.ValidateObsScriptsDir(resolved, selected)
+	installed, needsUpdate, _, _ := core.CheckScriptStatusWithVersion(resolved, getLauncherScriptData())
 	respondOK(w, map[string]any{
-		"code":          200,
-		"cancelled":     false,
-		"selected_path": selected,
-		"resolved_path": resolved,
-		"valid":         valid,
-		"warning":       warning,
+		"code":              200,
+		"cancelled":         false,
+		"selected_path":     selected,
+		"resolved_path":     resolved,
+		"valid":             valid,
+		"warning":           warning,
+		"already_installed": installed && !needsUpdate,
 	})
 }
 
@@ -1224,6 +1226,14 @@ func handleInstallObsScript(w http.ResponseWriter, r *http.Request) {
 		prevDirs = append(prevDirs, st.ObsScriptsDir)
 	}
 
+	var targetDir string
+	if strings.TrimSpace(req.CustomDir) != "" {
+		targetDir = core.ResolveObsScriptsDir(req.CustomDir)
+	} else {
+		targetDir, _ = core.DetectObsScriptsDir()
+	}
+	obs33Migrated := core.DetectObs33PathMigration(targetDir, prevDirs...)
+
 	installedPath, err := core.InstallLauncherScriptToObs(req.CustomDir, getLauncherScriptData(), prevDirs...)
 	if err != nil {
 		respondErr(w, http.StatusInternalServerError, "OBS 스크립트 설치에 실패했습니다.")
@@ -1236,12 +1246,13 @@ func handleInstallObsScript(w http.ResponseWriter, r *http.Request) {
 
 	valid, warning := core.ValidateObsScriptsDir(installedDir, req.CustomDir)
 	respondOK(w, map[string]any{
-		"code":    200,
-		"message": "OBS 스크립트 폴더에 성공적으로 추가되었습니다.",
-		"path":    installedPath,
-		"dir":     installedDir,
-		"valid":   valid,
-		"warning": warning,
+		"code":           200,
+		"message":        "OBS 스크립트 폴더에 성공적으로 추가되었습니다.",
+		"path":           installedPath,
+		"dir":            installedDir,
+		"valid":          valid,
+		"warning":        warning,
+		"obs33_migrated": obs33Migrated,
 	})
 }
 

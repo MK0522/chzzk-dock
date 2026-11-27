@@ -1915,7 +1915,7 @@
 
       if (warningBox) {
         if (currentObsStatus.detected === false) {
-          warningBox.textContent = '⚠️ OBS 설치 위치를 자동으로 찾지 못했습니다. [위치 변경] 또는 [스크립트 설치]를 눌러 obs64.exe 파일을 선택해 주세요.';
+          warningBox.textContent = '⚠️ OBS 설치 위치를 자동으로 찾지 못했습니다. [위치 변경] 또는 [스크립트 설치]를 눌러 OBS 설치 폴더(obs-studio 등)를 선택해 주세요.';
           warningBox.classList.remove('hidden');
         } else if (currentObsStatus.valid === false && currentObsStatus.warning) {
           warningBox.textContent = `⚠️ ${currentObsStatus.warning}`;
@@ -2039,6 +2039,31 @@
           if (currentObsStatus.latest_version) {
             currentObsStatus.installed_version = currentObsStatus.latest_version;
           }
+          if (data.obs33_migrated) {
+            if (typeof showNoticeModal === 'function') {
+              showNoticeModal({
+                title: '📂 OBS 33 스크립트 경로 변경 안내',
+                message: 'OBS Studio 33 이상부터 스크립트 기본 폴더 경로가 변경되어 새 경로로 설치되었습니다.',
+                submessage: 'OBS [도구] ➔ [스크립트]에서 기존 항목이 동작하지 않으면 [+] 버튼으로 새 경로의 chzzk_dock_launcher.lua를 다시 등록해 주세요.',
+                icon: '📂',
+                html: `
+                  <div class="mt-2.5 p-2.5 rounded-lg bg-[#00FFA3]/10 border border-[#00FFA3]/30 text-[11px] text-slate-200 space-y-1 break-all">
+                    <div><span class="text-slate-400">OBS 32 이하:</span> <code>data\\obs-plugins\\frontend-tools\\scripts</code></div>
+                    <div><span class="text-[#00FFA3] font-semibold">OBS 33 이상:</span> <code>${escapeHtml(String(data.dir || 'core\\frontend-tools\\data\\scripts'))}</code></div>
+                  </div>
+                `,
+                buttons: [
+                  {
+                    text: '확인',
+                    className: 'px-3.5 py-1.5 rounded-lg bg-[#00FFA3] hover:bg-[#00E591] text-black text-xs font-bold transition-all cursor-pointer',
+                    onClick: () => window.__resolveConfirmModal(true)
+                  }
+                ]
+              });
+            } else {
+              showToast('📂 OBS 33 스크립트 경로 변경 안내', 'info', 'OBS 33부터 스크립트 경로가 core\\frontend-tools\\data\\scripts로 변경되었습니다. 필요 시 [+]로 다시 등록해 주세요.');
+            }
+          }
         } else {
           showToast(isUpdate ? '업데이트 실패' : (isReinstall ? '재설치 실패' : '설치 실패'), 'error', data.message || '스크립트 적용 실패');
         }
@@ -2056,7 +2081,7 @@
       showNoticeModal({
         title: '⚠️ OBS 위치 확인 필요',
         message: plainWarn,
-        submessage: 'OBS가 설치된 폴더 안의 obs64.exe 파일(예: C:\\Program Files\\obs-studio\\bin\\64bit\\obs64.exe)을 선택해 주세요.',
+        submessage: 'OBS가 설치된 폴더(예: C:\\Program Files\\obs-studio)를 선택해 주세요. 폴더 이름이 달라도 내부에 bin, core, data 폴더가 있으면 자동으로 인식됩니다.',
         icon: '⚠️',
         html: `
           <div class="mt-2.5 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-200 break-all">
@@ -2102,6 +2127,17 @@
         await browseAndInstallObsFolder();
         return;
       }
+      if (currentObsStatus.installed && !currentObsStatus.needs_update && typeof showConfirmModal === 'function') {
+        const confirmed = await showConfirmModal({
+          title: 'OBS 스크립트 재설치 확인',
+          message: '이미 설정된 위치에 동일한 최신 스크립트(chzzk_dock_launcher.lua)가 설치되어 있습니다.\n정말 다시 설치하시겠습니까?',
+          submessage: currentObsStatus.path ? `설치 위치: ${currentObsStatus.path}` : '',
+          confirmText: '다시 설치',
+          cancelText: '취소',
+          icon: '🔄'
+        });
+        if (!confirmed) return;
+      }
       await handleObsScriptAction(true, currentObsStatus.path || '');
     }
 
@@ -2115,6 +2151,17 @@
             if (data.valid === false) {
               promptObsInvalidFolderConfirm(data.resolved_path, data.warning, prevPath);
               return;
+            }
+            if (data.already_installed && typeof showConfirmModal === 'function') {
+              const confirmed = await showConfirmModal({
+                title: 'OBS 스크립트 재설치 확인',
+                message: '선택한 위치에 이미 동일한 최신 스크립트(chzzk_dock_launcher.lua)가 설치되어 있습니다.\n정말 다시 설치하시겠습니까?',
+                submessage: `설치 위치: ${data.resolved_path}`,
+                confirmText: '다시 설치',
+                cancelText: '취소',
+                icon: '🔄'
+              });
+              if (!confirmed) return;
             }
             currentObsStatus.path = data.resolved_path;
             currentObsStatus.detected = true;
@@ -2293,6 +2340,36 @@
     }
 
 
+    var categoryPosterCache = {};
+    function rememberCategoryPoster(catId, catVal, poster) {
+      const safe = safeHttpUrl(poster || '');
+      if (!safe) return;
+      if (catId) categoryPosterCache[String(catId).toLowerCase()] = safe;
+      if (catVal) categoryPosterCache[String(catVal).toLowerCase()] = safe;
+    }
+
+    function resolveCategoryPoster(catId, catVal, popList, dropsList) {
+      const keys = [catId, catVal].filter(Boolean).map(k => String(k).toLowerCase());
+      for (const k of keys) {
+        if (categoryPosterCache[k]) return categoryPosterCache[k];
+      }
+      const pools = [
+        ...(Array.isArray(popList) ? popList : (typeof livePopularCategories !== 'undefined' && Array.isArray(livePopularCategories) ? livePopularCategories : [])),
+        ...(Array.isArray(dropsList) ? dropsList : (typeof activeChannelDrops !== 'undefined' && Array.isArray(activeChannelDrops) ? activeChannelDrops : []))
+      ];
+      for (const item of pools) {
+        if (!item) continue;
+        const iId = String(item.categoryId || item.category_id || '').toLowerCase();
+        const iVal = String(item.categoryValue || item.category_name || '').toLowerCase();
+        const p = safeHttpUrl(item.posterImageUrl || item.poster_image_url || '');
+        if (p && keys.some(k => k === iId || k === iVal)) {
+          rememberCategoryPoster(item.categoryId || item.category_id, item.categoryValue || item.category_name, p);
+          return p;
+        }
+      }
+      return '';
+    }
+
     function toggleCurrentCategoryFavorite(event) {
       if (event) {
         event.preventDefault();
@@ -2310,7 +2387,7 @@
         categoryId: catId || catVal,
         categoryValue: catVal || catId,
         categoryType: catType,
-        posterImageUrl: ''
+        posterImageUrl: resolveCategoryPoster(catId, catVal)
       });
     }
 
@@ -2476,22 +2553,12 @@
       nodes.push(noneRow);
 
       if (favs.length > 0) {
-        const favRows = [];
         favs.forEach(f => {
           let fId = f.category_id || f.categoryId || f.id || '';
           let fVal = f.category_name || f.categoryValue || fId;
-          let fType = f.category_type || f.categoryType || 'GAME';
-          let poster = f.poster_image_url || f.posterImageUrl || '';
-          if (fId.toLowerCase() === 'talk' || fVal.toLowerCase() === 'talk') {
-            fId = 'talk';
-            fVal = 'talk';
-            fType = 'ETC';
-            if (!poster) poster = 'https://ssl.pstatic.net/static/nng/glive/icon/category_poster_talk.png';
-          }
+          if (fId.toLowerCase() === 'talk' || fVal.toLowerCase() === 'talk') fId = 'talk';
           seenIds.add(fId);
-          favRows.push(createCategoryRowEl(fType, fId, fVal, poster, null, true));
         });
-        nodes.push(...createCategorySectionNodes('favorites', '⭐', '즐겨찾기 목록', 'text-amber-400', favRows, `${favs.length}/${MAX_CATEGORY_FAVORITES}`));
       }
 
       // 추천 카테고리 (치지직 실시간 상위 인기 카테고리 풀에서 즐겨찾기 중복을 제외하고 상시 5개 유지)
@@ -2508,21 +2575,46 @@
       const activeSearchEl = document.getElementById('category-search');
       if (activeSearchEl && activeSearchEl.value.trim().length > 0) return;
 
+      if (favs.length > 0) {
+        const favRows = [];
+        favs.forEach(f => {
+          let fId = f.category_id || f.categoryId || f.id || '';
+          let fVal = f.category_name || f.categoryValue || fId;
+          let fType = f.category_type || f.categoryType || 'GAME';
+          let poster = f.poster_image_url || f.posterImageUrl || '';
+          if (fId.toLowerCase() === 'talk' || fVal.toLowerCase() === 'talk') {
+            fId = 'talk';
+            fVal = 'talk';
+            fType = 'ETC';
+            if (!poster) poster = 'https://ssl.pstatic.net/static/nng/glive/icon/category_poster_talk.png';
+          }
+          if (!poster) {
+            poster = resolveCategoryPoster(fId, fVal, popList, dropsList);
+          } else {
+            rememberCategoryPoster(fId, fVal, poster);
+          }
+          favRows.push(createCategoryRowEl(fType, fId, fVal, poster, null, true));
+        });
+        nodes.push(...createCategorySectionNodes('favorites', '⭐', '즐겨찾기 목록', 'text-amber-400', favRows, `${favs.length}/${MAX_CATEGORY_FAVORITES}`));
+      }
+
       const recommendations = (popList || [])
         .filter(c => c && !seenIds.has(c.categoryId) && !seenIds.has(c.categoryValue))
         .slice(0, 5);
       if (recommendations.length > 0) {
-        const recRows = recommendations.map(c =>
-          createCategoryRowEl(c.categoryType, c.categoryId, c.categoryValue, c.posterImageUrl, c.dropsCampaignNo, false)
-        );
+        const recRows = recommendations.map(c => {
+          rememberCategoryPoster(c.categoryId, c.categoryValue, c.posterImageUrl);
+          return createCategoryRowEl(c.categoryType, c.categoryId, c.categoryValue, c.posterImageUrl, c.dropsCampaignNo, false);
+        });
         nodes.push(...createCategorySectionNodes('recommended', '🔥', '추천 카테고리', 'text-slate-400', recRows));
       }
 
       // 드롭스 진행 중 목록 (백엔드 /chzzkdock/drops/campaigns에서 정제·중복 제거된 목록 직접 렌더링)
       if (Array.isArray(dropsList) && dropsList.length > 0) {
-        const dropRows = dropsList.map(d =>
-          createCategoryRowEl(d.categoryType || 'GAME', d.categoryId, d.categoryValue, d.posterImageUrl || '', d.campaignNo || null, isCategoryFavorite(d.categoryId || d.categoryValue))
-        );
+        const dropRows = dropsList.map(d => {
+          const dropPoster = d.posterImageUrl || resolveCategoryPoster(d.categoryId, d.categoryValue, popList, dropsList);
+          return createCategoryRowEl(d.categoryType || 'GAME', d.categoryId, d.categoryValue, dropPoster, d.campaignNo || null, isCategoryFavorite(d.categoryId || d.categoryValue));
+        });
         nodes.push(...createCategorySectionNodes('drops', '🎁', '드롭스 진행 중', 'text-emerald-400', dropRows, String(dropsList.length)));
       }
 

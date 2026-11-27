@@ -581,19 +581,43 @@
         .finally(() => { if (diskRequest === request) diskRequest = null; });
     }
 
+    let pendingOpenRecordDirResolve = null;
+
     function updateRecordDirectoryUI(fullPath) {
       if (!fullPath) return;
       currentRecordDir = fullPath;
       const box = document.getElementById('box-disk-bar');
       if (box) box.title = `${formatPathForTooltip(fullPath)}\n(폴더 열기(클릭))`;
       fetchTotalDiskSpace(fullPath);
+      if (pendingOpenRecordDirResolve) {
+        const resolve = pendingOpenRecordDirResolve;
+        pendingOpenRecordDirResolve = null;
+        resolve(fullPath);
+      }
     }
 
-    // 파일 탐색기로 해당 폴더 열기 (Go 백엔드 연동)
-    function openRecordDirectory() {
-      if (!currentRecordDir) return;
-      chzzkApi.openFolder(currentRecordDir).catch(err => {
-        console.log('[Stats] 파일 탐색기 열기 요청:', currentRecordDir);
+    // 파일 탐색기로 해당 폴더 열기 (클릭 시 OBS WebSocket에서 최신 저장 경로 우선 조회)
+    async function openRecordDirectory() {
+      let targetDir = currentRecordDir;
+      if (ws && ws.readyState === WebSocket.OPEN && isConnected) {
+        try {
+          targetDir = await new Promise((resolve) => {
+            const timer = setTimeout(() => {
+              if (pendingOpenRecordDirResolve === done) pendingOpenRecordDirResolve = null;
+              resolve(currentRecordDir);
+            }, 300);
+            const done = (dir) => {
+              clearTimeout(timer);
+              resolve(dir || currentRecordDir);
+            };
+            pendingOpenRecordDirResolve = done;
+            sendReq('GetRecordDirectory');
+          });
+        } catch (_) {}
+      }
+      if (!targetDir) return;
+      chzzkApi.openFolder(targetDir).catch(err => {
+        console.log('[Stats] 파일 탐색기 열기 요청:', targetDir);
       });
     }
 

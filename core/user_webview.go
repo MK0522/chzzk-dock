@@ -1228,7 +1228,7 @@ func RunToolWebview(cfg ToolWebviewConfig) {
 		os.Exit(1)
 	}
 
-	hardenWebViewSettings(chromium, overlay != nil)
+	hardenWebViewSettings(chromium, false)
 
 	// 컨트롤러 가시성 및 크기 동기화
 	_ = chromium.Show()

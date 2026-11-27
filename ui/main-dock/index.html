@@ -1269,7 +1269,7 @@
                 <span class="text-xs font-bold text-slate-100">🚀 앱 자동 시작</span>
               </div>
               <div class="flex items-center gap-2 flex-shrink-0">
-                <button type="button" onclick="browseAndInstallObsFolder()" class="text-slate-500 hover:text-[#00FFA3] text-[9px] transition-colors cursor-pointer" title="obs64.exe 파일을 선택해 OBS 설치 위치를 변경합니다">
+                <button type="button" onclick="browseAndInstallObsFolder()" class="text-slate-500 hover:text-[#00FFA3] text-[9px] transition-colors cursor-pointer" title="OBS 설치 폴더(obs-studio 등)를 선택해 위치를 변경합니다">
                   위치 변경
                 </button>
                 <button type="button" id="btn-obs-script-reinstall" onclick="reinstallObsScript()" class="hidden text-slate-500 hover:text-amber-400 text-[9px] transition-colors cursor-pointer" title="현재 경로 또는 새 경로에 스크립트를 다시 설치합니다">
@@ -1296,6 +1296,9 @@
                   <li><span class="text-white font-bold">[+]</span> 버튼 클릭 후 <code class="text-slate-300 bg-slate-800 px-1 py-0.5 rounded">chzzk_dock_launcher.lua</code> 추가</li>
                   <li>스크립트 선택 후 옵션 설정 완료</li>
                 </ol>
+                <div class="mt-1.5 text-[9.5px] text-slate-400">
+                  ※ OBS 33 이상은 <code class="text-slate-300 bg-slate-800 px-1 py-0.5 rounded">core\frontend-tools\data\scripts</code>, 32 이하는 <code class="text-slate-300 bg-slate-800 px-1 py-0.5 rounded">data\obs-plugins\frontend-tools\scripts</code>에 설치됩니다. OBS 33으로 업데이트한 경우 새 경로의 스크립트를 <span class="text-white font-semibold">[+]</span>로 다시 등록해 주세요.
+                </div>
               </div>
             </div>
           </div>

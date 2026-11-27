@@ -2739,6 +2739,9 @@ async function initConnection() {
           const catId = cat.categoryId || '';
           const catVal = cat.categoryValue || catId;
           const poster = cat.posterImageUrl || '';
+          if (poster && typeof rememberCategoryPoster === 'function') {
+            rememberCategoryPoster(catId, catVal, poster);
+          }
           const dropsCampaignNo = extractDropsCampaignNo(cat);
           const isFav = isCategoryFavorite(catId);
           return createCategoryRowEl(catType, catId, catVal, poster, dropsCampaignNo, isFav);

@@ -15,7 +15,6 @@ import (
 	"strings"
 	"syscall"
 	"time"
-	"unicode/utf16"
 	"unsafe"
 )
 
@@ -45,7 +44,10 @@ var (
 	procOpenProcess     = kernel32.NewProc("OpenProcess")
 	procQueryFullProcessImageNameW = kernel32.NewProc("QueryFullProcessImageNameW")
 
-	procShellExecuteW        = shell32.NewProc("ShellExecuteW")
+	procShellExecuteW               = shell32.NewProc("ShellExecuteW")
+	procSHCreateItemFromParsingName = shell32.NewProc("SHCreateItemFromParsingName")
+	procSHBrowseForFolderW          = shell32.NewProc("SHBrowseForFolderW")
+	procSHGetPathFromIDListW        = shell32.NewProc("SHGetPathFromIDListW")
 
 	comdlg32DLL              = syscall.NewLazyDLL("comdlg32.dll")
 	procGetOpenFileNameW     = comdlg32DLL.NewProc("GetOpenFileNameW")
@@ -53,6 +55,7 @@ var (
 
 	procCoInitializeEx      = ole32DLL.NewProc("CoInitializeEx")
 	procCoUninitialize      = ole32DLL.NewProc("CoUninitialize")
+	procCoCreateInstance    = ole32DLL.NewProc("CoCreateInstance")
 	procGetForegroundWindow = user32.NewProc("GetForegroundWindow")
 	procSetWindowPos        = user32.NewProc("SetWindowPos")
 
@@ -62,7 +65,28 @@ var (
 	procGetCurrentProcess        = kernel32.NewProc("GetCurrentProcess")
 	procWaitForSingleObject      = kernel32.NewProc("WaitForSingleObject")
 	procGetProcessTimes          = kernel32.NewProc("GetProcessTimes")
+
+	versionDLL                  = syscall.NewLazyDLL("version.dll")
+	procGetFileVersionInfoSizeW = versionDLL.NewProc("GetFileVersionInfoSizeW")
+	procGetFileVersionInfoW     = versionDLL.NewProc("GetFileVersionInfoW")
+	procVerQueryValueW          = versionDLL.NewProc("VerQueryValueW")
 )
+
+type vsFixedFileInfo struct {
+	DwSignature        uint32
+	DwStrucVersion     uint32
+	DwFileVersionMS    uint32
+	DwFileVersionLS    uint32
+	DwProductVersionMS uint32
+	DwProductVersionLS uint32
+	DwFileFlagsMask    uint32
+	DwFileFlags        uint32
+	DwFileOS           uint32
+	DwFileType         uint32
+	DwFileSubtype      uint32
+	DwFileDateMS       uint32
+	DwFileDateLS       uint32
+}
 
 const (
 	JobObjectExtendedLimitInformation  = 9
@@ -387,6 +411,58 @@ func FindSafeFallbackPort() (int, net.Listener, error) {
 // 4. OBS Studio 디렉터리 탐색 및 스크립트 관리 (OBS Integration)
 // -----------------------------------------------------------------------------
 
+func getExecutableMajorVersion(exePath string) int {
+	if strings.TrimSpace(exePath) == "" {
+		return 0
+	}
+	p, err := syscall.UTF16PtrFromString(exePath)
+	if err != nil {
+		return 0
+	}
+	var handle uint32
+	size, _, _ := procGetFileVersionInfoSizeW.Call(uintptr(unsafe.Pointer(p)), uintptr(unsafe.Pointer(&handle)))
+	if size == 0 {
+		return 0
+	}
+	buf := make([]byte, size)
+	ret, _, _ := procGetFileVersionInfoW.Call(uintptr(unsafe.Pointer(p)), 0, size, uintptr(unsafe.Pointer(&buf[0])))
+	if ret == 0 {
+		return 0
+	}
+	subBlock, _ := syscall.UTF16PtrFromString(`\`)
+	var infoPtr uintptr
+	var infoLen uint32
+	ret, _, _ = procVerQueryValueW.Call(
+		uintptr(unsafe.Pointer(&buf[0])),
+		uintptr(unsafe.Pointer(subBlock)),
+		uintptr(unsafe.Pointer(&infoPtr)),
+		uintptr(unsafe.Pointer(&infoLen)),
+	)
+	if ret == 0 || infoPtr == 0 || infoLen < uint32(unsafe.Sizeof(vsFixedFileInfo{})) {
+		return 0
+	}
+	ffi := (*vsFixedFileInfo)(unsafe.Pointer(infoPtr))
+	if ffi.DwSignature != 0xFEEF04BD {
+		return 0
+	}
+	return int(ffi.DwFileVersionMS >> 16)
+}
+
+func detectObsMajorVersionFromRoot(rootDir string) int {
+	for _, rel := range [][]string{
+		{"bin", "64bit", "obs64.exe"},
+		{"bin", "32bit", "obs32.exe"},
+		{"obs64.exe"},
+		{"obs32.exe"},
+	} {
+		exePath := filepath.Join(append([]string{rootDir}, rel...)...)
+		if major := getExecutableMajorVersion(exePath); major > 0 {
+			return major
+		}
+	}
+	return 0
+}
+
 // DetectObsScriptsDir: OBS Studio의 scripts 디렉터리를 탐색하고 실제 디스크 존재 여부를 반환합니다.
 func DetectObsScriptsDir() (string, bool) {
 	// 1순위: 현재 실행 중인 OBS 프로세스로부터 추론
@@ -397,7 +473,20 @@ func DetectObsScriptsDir() (string, bool) {
 		}
 	}
 
-	// 2순위: 표준 C 드라이브 설치 경로 확인 (최신 OBS: core\frontend-tools\data\scripts 우선)
+	// 2순위: 표준 C 드라이브 설치 경로 확인 (실행 파일 버전으로 33+ vs <33 우선 판별)
+	stdRoots := []string{
+		`C:\Program Files\obs-studio`,
+		`C:\Program Files (x86)\obs-studio`,
+	}
+	for _, root := range stdRoots {
+		if detectObsMajorVersionFromRoot(root) > 0 {
+			candidate := resolveObsRootScriptsDir(root)
+			if stat, err := os.Stat(candidate); err == nil && stat.IsDir() {
+				return candidate, true
+			}
+		}
+	}
+
 	candidates := []string{
 		`C:\Program Files\obs-studio\core\frontend-tools\data\scripts`,
 		`C:\Program Files\obs-studio\data\obs-plugins\frontend-tools\scripts`,
@@ -412,11 +501,16 @@ func DetectObsScriptsDir() (string, bool) {
 	}
 
 	// 3순위: 디스크에 아직 존재하지 않는 경우 표준 64비트 기본 경로와 함께 false 반환
-	defaultPath := `C:\Program Files\obs-studio\core\frontend-tools\data\scripts`
-	return defaultPath, false
+	return resolveObsRootScriptsDir(`C:\Program Files\obs-studio`), false
 }
 
 func resolveObsRootScriptsDir(rootDir string) string {
+	if major := detectObsMajorVersionFromRoot(rootDir); major > 0 {
+		if major >= 33 {
+			return filepath.Join(rootDir, "core", "frontend-tools", "data", "scripts")
+		}
+		return filepath.Join(rootDir, "data", "obs-plugins", "frontend-tools", "scripts")
+	}
 	for _, rel := range [][]string{
 		{"core", "frontend-tools", "data", "scripts"},
 		{"data", "obs-plugins", "frontend-tools", "scripts"},
@@ -428,6 +522,35 @@ func resolveObsRootScriptsDir(rootDir string) string {
 		}
 	}
 	return filepath.Join(rootDir, "core", "frontend-tools", "data", "scripts")
+}
+
+// DetectObs33PathMigration: OBS 33 이상 경로(core\frontend-tools\data\scripts)로 설치할 때
+// 이전 32 이하 경로(data\obs-plugins\frontend-tools\scripts)에서 전환되었는지 감지합니다.
+func DetectObs33PathMigration(targetDir string, previousDirs ...string) bool {
+	cleanSlash := filepath.ToSlash(filepath.Clean(targetDir))
+	lowerSlash := strings.ToLower(cleanSlash)
+	const newSuffix = "/core/frontend-tools/data/scripts"
+	idx := strings.Index(lowerSlash, newSuffix)
+	if idx == -1 || !strings.HasSuffix(lowerSlash, newSuffix) {
+		return false
+	}
+
+	for _, prev := range previousDirs {
+		if strings.TrimSpace(prev) == "" {
+			continue
+		}
+		prevLower := strings.ToLower(filepath.ToSlash(filepath.Clean(prev)))
+		if strings.Contains(prevLower, "/data/obs-plugins/frontend-tools/scripts") {
+			return true
+		}
+	}
+
+	root := filepath.FromSlash(cleanSlash[:idx])
+	legacyScript := filepath.Join(root, "data", "obs-plugins", "frontend-tools", "scripts", "chzzk_dock_launcher.lua")
+	if _, err := os.Stat(legacyScript); err == nil {
+		return true
+	}
+	return false
 }
 
 // ResolveObsScriptsDir: 사용자가 입력하거나 선택한 폴더 경로로부터 scripts 디렉터리 경로를 도출합니다.
@@ -451,7 +574,7 @@ func ResolveObsScriptsDir(inputPath string) string {
 		return cleanPath
 	}
 
-	// 2. bin\64bit 또는 bin 경로가 포함된 경우 루트 디렉터리로 거슬러 올라가 탐색
+	// 2. bin\64bit, bin, core, data 등 하위 경로가 선택된 경우 루트 디렉터리로 거슬러 올라가 탐색
 	norm := filepath.ToSlash(cleanPath)
 	lowerNorm := strings.ToLower(norm)
 	if idx := strings.Index(lowerNorm, "/bin/64bit"); idx != -1 {
@@ -463,69 +586,165 @@ func ResolveObsScriptsDir(inputPath string) string {
 	if strings.HasSuffix(lowerNorm, "/bin") {
 		return resolveObsRootScriptsDir(filepath.Dir(cleanPath))
 	}
+	if idx := strings.Index(lowerNorm, "/core/frontend-tools"); idx != -1 {
+		return resolveObsRootScriptsDir(cleanPath[:idx])
+	}
+	if idx := strings.Index(lowerNorm, "/data/obs-plugins"); idx != -1 {
+		return resolveObsRootScriptsDir(cleanPath[:idx])
+	}
+	if strings.HasSuffix(lowerNorm, "/core") || strings.HasSuffix(lowerNorm, "/data") {
+		parent := filepath.Dir(cleanPath)
+		if st, err := os.Stat(filepath.Join(parent, "bin")); err == nil && st.IsDir() {
+			return resolveObsRootScriptsDir(parent)
+		}
+	}
 
-	// 3. 일반 obs-studio 루트 폴더로 간주하여 하위 scripts 경로 탐색
+	// 3. 폴더 이름과 무관하게 OBS 루트 폴더로 간주하여 내부 bin/core/data 구조로 scripts 경로 탐색
 	return resolveObsRootScriptsDir(cleanPath)
 }
 
-// BrowseForObsExecutable: Win32 GetOpenFileNameW를 사용하여 사용자에게 obs64.exe(또는 obs32.exe) 선택 다이얼로그를 표시합니다.
-func BrowseForObsExecutable(title string) (string, error) {
+type winGUID struct {
+	Data1 uint32
+	Data2 uint16
+	Data3 uint16
+	Data4 [8]byte
+}
+
+type browseInfoW struct {
+	hwndOwner      uintptr
+	pidlRoot       uintptr
+	pszDisplayName *uint16
+	lpszTitle      *uint16
+	ulFlags        uint32
+	lpfn           uintptr
+	lParam         uintptr
+	iImage         int32
+}
+
+// BrowseForObsFolder: Win32 IFileOpenDialog(폴더 선택 모드)를 사용하여 사용자에게 OBS 설치 폴더 선택 다이얼로그를 표시합니다.
+func BrowseForObsFolder(title string) (string, error) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
 	if title == "" {
-		title = "OBS 실행 파일(obs64.exe)을 선택하세요."
+		title = "OBS 설치 폴더(obs-studio)를 선택하세요."
 	}
 	titleUTF16, err := syscall.UTF16PtrFromString(title)
 	if err != nil {
 		return "", err
 	}
 
-	filterStr := "OBS 실행 파일 (obs64.exe; obs32.exe)\x00obs64.exe;obs32.exe\x00실행 파일 (*.exe)\x00*.exe\x00\x00"
-	filterUTF16 := utf16.Encode([]rune(filterStr))
-
-	var initialDirUTF16 *uint16
-	for _, dir := range []string{
-		`C:\Program Files\obs-studio\bin\64bit`,
-		`C:\Program Files (x86)\obs-studio\bin\32bit`,
-	} {
-		if st, statErr := os.Stat(dir); statErr == nil && st.IsDir() {
-			initialDirUTF16, _ = syscall.UTF16PtrFromString(dir)
-			break
-		}
-	}
-
 	fgHwnd, _, _ := procGetForegroundWindow.Call()
-	fileBuf := make([]uint16, 1024)
 
 	const (
-		ofnPathMustExist = 0x00000800
-		ofnFileMustExist = 0x00001000
-		ofnNoChangeDir   = 0x00000008
-		ofnHideReadOnly  = 0x00000004
+		coinitApartmentThreaded = 0x2
+		clsctxInprocServer      = 0x1
+		fosPickFolders          = 0x00000020
+		fosForceFileSystem      = 0x00000040
+		fosPathMustExist        = 0x00000800
+		sigdnFileSysPath        = 0x80058000
+		hrCancelled             = 0x800704C7
 	)
 
-	var ofn openFileNameW
-	ofn.lStructSize = uint32(unsafe.Sizeof(ofn))
-	ofn.hwndOwner = syscall.Handle(fgHwnd)
-	ofn.lpstrFilter = &filterUTF16[0]
-	ofn.nFilterIndex = 1
-	ofn.lpstrFile = &fileBuf[0]
-	ofn.nMaxFile = uint32(len(fileBuf))
-	ofn.lpstrInitialDir = initialDirUTF16
-	ofn.lpstrTitle = titleUTF16
-	ofn.flags = ofnPathMustExist | ofnFileMustExist | ofnNoChangeDir | ofnHideReadOnly
-
-	ret, _, _ := procGetOpenFileNameW.Call(uintptr(unsafe.Pointer(&ofn)))
-	if ret == 0 {
-		extErr, _, _ := procCommDlgExtendedError.Call()
-		if extErr == 0 {
-			return "", nil // 사용자 취소
-		}
-		return "", fmt.Errorf("파일 선택 다이얼로그 오류 (코드: 0x%x)", extErr)
+	hrInit, _, _ := procCoInitializeEx.Call(0, coinitApartmentThreaded)
+	if hrInit == 0 || hrInit == 1 {
+		defer procCoUninitialize.Call()
 	}
 
-	return syscall.UTF16ToString(fileBuf), nil
+	clsidFileOpenDialog := winGUID{0xDC1C5A9C, 0xE88A, 0x4dde, [8]byte{0xA5, 0xA1, 0x60, 0xF8, 0x2A, 0x20, 0xAE, 0xF7}}
+	iidIFileOpenDialog := winGUID{0xd57c7288, 0xd4ad, 0x4768, [8]byte{0xbe, 0x02, 0x9d, 0x96, 0x95, 0x32, 0xd9, 0x60}}
+	iidIShellItem := winGUID{0x43826d1e, 0xe718, 0x42ee, [8]byte{0xbc, 0x55, 0xa1, 0xe2, 0x61, 0xc3, 0x7b, 0xfe}}
+
+	var dlg uintptr
+	hr, _, _ := procCoCreateInstance.Call(
+		uintptr(unsafe.Pointer(&clsidFileOpenDialog)),
+		0,
+		clsctxInprocServer,
+		uintptr(unsafe.Pointer(&iidIFileOpenDialog)),
+		uintptr(unsafe.Pointer(&dlg)),
+	)
+	if hr == 0 && dlg != 0 {
+		vtable := *(*[28]uintptr)(unsafe.Pointer(*(*uintptr)(unsafe.Pointer(dlg))))
+		// IUnknown::Release (index 2)
+		defer syscall.SyscallN(vtable[2], dlg)
+
+		var opts uint32
+		// IFileDialog::GetOptions (index 10) & SetOptions (index 9)
+		_, _, _ = syscall.SyscallN(vtable[10], dlg, uintptr(unsafe.Pointer(&opts)))
+		_, _, _ = syscall.SyscallN(vtable[9], dlg, uintptr(opts|fosPickFolders|fosForceFileSystem|fosPathMustExist))
+		// IFileDialog::SetTitle (index 17)
+		_, _, _ = syscall.SyscallN(vtable[17], dlg, uintptr(unsafe.Pointer(titleUTF16)))
+
+		// 초기 폴더 설정 (C:\Program Files\obs-studio 우선, 없으면 C:\Program Files)
+		for _, initDir := range []string{`C:\Program Files\obs-studio`, `C:\Program Files (x86)\obs-studio`, `C:\Program Files`} {
+			if st, statErr := os.Stat(initDir); statErr == nil && st.IsDir() {
+				if pInit, pErr := syscall.UTF16PtrFromString(initDir); pErr == nil {
+					var folderItem uintptr
+					hrItem, _, _ := procSHCreateItemFromParsingName.Call(
+						uintptr(unsafe.Pointer(pInit)),
+						0,
+						uintptr(unsafe.Pointer(&iidIShellItem)),
+						uintptr(unsafe.Pointer(&folderItem)),
+					)
+					if hrItem == 0 && folderItem != 0 {
+						// IFileDialog::SetFolder (index 12)
+						_, _, _ = syscall.SyscallN(vtable[12], dlg, folderItem)
+						itemVtable := *(*[8]uintptr)(unsafe.Pointer(*(*uintptr)(unsafe.Pointer(folderItem))))
+						syscall.SyscallN(itemVtable[2], folderItem)
+					}
+				}
+				break
+			}
+		}
+
+		// IModalWindow::Show (index 3)
+		hrShow, _, _ := syscall.SyscallN(vtable[3], dlg, fgHwnd)
+		if uint32(hrShow) == hrCancelled {
+			return "", nil
+		}
+		if hrShow == 0 {
+			var resultItem uintptr
+			// IFileDialog::GetResult (index 20)
+			hrRes, _, _ := syscall.SyscallN(vtable[20], dlg, uintptr(unsafe.Pointer(&resultItem)))
+			if hrRes == 0 && resultItem != 0 {
+				itemVtable := *(*[8]uintptr)(unsafe.Pointer(*(*uintptr)(unsafe.Pointer(resultItem))))
+				defer syscall.SyscallN(itemVtable[2], resultItem)
+				var pszPath uintptr
+				// IShellItem::GetDisplayName (index 5)
+				hrName, _, _ := syscall.SyscallN(itemVtable[5], resultItem, sigdnFileSysPath, uintptr(unsafe.Pointer(&pszPath)))
+				if hrName == 0 && pszPath != 0 {
+					defer procCoTaskMemFree.Call(pszPath)
+					return syscall.UTF16ToString((*[1024]uint16)(unsafe.Pointer(pszPath))[:]), nil
+				}
+			}
+		}
+	}
+
+	// 폴백: SHBrowseForFolderW
+	const (
+		bifReturnOnlyFSDirs = 0x00000001
+		bifEditBox          = 0x00000010
+		bifNewDialogStyle   = 0x00000040
+	)
+	displayBuf := make([]uint16, 1024)
+	bi := browseInfoW{
+		hwndOwner:      fgHwnd,
+		pszDisplayName: &displayBuf[0],
+		lpszTitle:      titleUTF16,
+		ulFlags:        bifReturnOnlyFSDirs | bifEditBox | bifNewDialogStyle,
+	}
+	pidl, _, _ := procSHBrowseForFolderW.Call(uintptr(unsafe.Pointer(&bi)))
+	if pidl == 0 {
+		return "", nil
+	}
+	defer procCoTaskMemFree.Call(pidl)
+
+	pathBuf := make([]uint16, 1024)
+	ok, _, _ := procSHGetPathFromIDListW.Call(pidl, uintptr(unsafe.Pointer(&pathBuf[0])))
+	if ok == 0 {
+		return "", fmt.Errorf("선택한 폴더 경로를 읽을 수 없습니다")
+	}
+	return syscall.UTF16ToString(pathBuf), nil
 }
 
 // PrepareLauncherScriptWithExePath: 스크립트 템플릿에 현재 실행 중인 chzzk-dock.exe의 실제 절대 경로를 주입합니다.
@@ -593,7 +812,7 @@ func CheckScriptStatusWithVersion(scriptsDir string, latestScript []byte) (insta
 func ValidateObsScriptsDir(resolvedDir, rawSelected string) (bool, string) {
 	resolvedDir = strings.TrimSpace(resolvedDir)
 	if resolvedDir == "" {
-		return false, "OBS scripts 폴더 경로를 확인할 수 없습니다. OBS 설치 폴더(obs-studio), bin\\64bit 또는 scripts 폴더를 선택해 주세요."
+		return false, "OBS scripts 폴더 경로를 확인할 수 없습니다. OBS 설치 폴더(예: obs-studio), bin\\64bit 또는 scripts 폴더를 선택해 주세요."
 	}
 
 	hasDir := func(p string) bool {
@@ -641,7 +860,7 @@ func ValidateObsScriptsDir(resolvedDir, rawSelected string) (bool, string) {
 		}
 	}
 
-	// 2. 선택 경로 또는 도출 경로의 상위에서 OBS 실행 파일(obs64.exe/obs32.exe)이나 표준 scripts 폴더 확인
+	// 2. 선택 경로 또는 도출 경로의 상위에서 OBS 실행 파일(obs64.exe/obs32.exe), 표준 scripts 폴더 또는 내부 bin+(core|data) 구조 확인
 	checkObsRoot := func(root string) bool {
 		if root == "" || root == "." || root == string(filepath.Separator) {
 			return false
@@ -651,7 +870,8 @@ func ValidateObsScriptsDir(resolvedDir, rawSelected string) (bool, string) {
 			hasFile(filepath.Join(root, "obs64.exe")) ||
 			hasFile(filepath.Join(root, "obs32.exe")) ||
 			hasDir(filepath.Join(root, "core", "frontend-tools", "data", "scripts")) ||
-			hasDir(filepath.Join(root, "data", "obs-plugins", "frontend-tools", "scripts"))
+			hasDir(filepath.Join(root, "data", "obs-plugins", "frontend-tools", "scripts")) ||
+			(hasDir(filepath.Join(root, "bin")) && (hasDir(filepath.Join(root, "core")) || hasDir(filepath.Join(root, "data"))))
 	}
 
 	rootsToCheck := []string{}
@@ -672,7 +892,7 @@ func ValidateObsScriptsDir(resolvedDir, rawSelected string) (bool, string) {
 		}
 	}
 
-	return false, "선택한 폴더에서 OBS Studio(obs64.exe 또는 기존 scripts 폴더)를 찾지 못했습니다. 잘못된 위치에 설치하면 OBS에서 스크립트가 보이지 않을 수 있습니다."
+	return false, "선택한 폴더에서 OBS Studio 구조(bin, core, data 또는 scripts 폴더)를 찾지 못했습니다. 잘못된 위치에 설치하면 OBS에서 스크립트가 보이지 않을 수 있습니다."
 }
 
 // ObsScriptCleanupCandidates: 새 설치 경로(excludeDir) 외에 기존 chzzk_dock_launcher.lua가 남아있는 경로 목록을 반환합니다.

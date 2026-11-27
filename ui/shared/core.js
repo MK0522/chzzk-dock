@@ -115,8 +115,9 @@ function escapeHtml(str) {
 
 function safeHttpUrl(raw) {
   if (!raw || typeof raw !== 'string') return '';
-  const trimmed = raw.trim();
+  let trimmed = raw.trim();
   if (!trimmed || /[\r\n\x00]/.test(trimmed)) return '';
+  if (trimmed.startsWith('//')) trimmed = 'https:' + trimmed;
   if (typeof URL === 'function') {
     try {
       const u = new URL(trimmed);
