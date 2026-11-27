@@ -125,6 +125,50 @@ func ParseObsBitrateTargetFromDir(profileDir string) ObsBitrateTargets {
 	}
 }
 
+// IsConfiguredObsRecordDir: targetPath가 OBS 프로필(basic.ini)에 설정된 녹화 저장 폴더(NAS UNC 포함)와 일치하거나 하위 경로인지 확인합니다.
+func IsConfiguredObsRecordDir(targetPath string) bool {
+	cleanTarget := strings.TrimRight(filepath.Clean(strings.TrimSpace(targetPath)), `\`)
+	if cleanTarget == "" {
+		return false
+	}
+	appData := os.Getenv("APPDATA")
+	if appData == "" {
+		return false
+	}
+	profilesRoot := filepath.Join(appData, "obs-studio", "basic", "profiles")
+	entries, err := os.ReadDir(profilesRoot)
+	if err != nil {
+		return false
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		iniData, err := os.ReadFile(filepath.Join(profilesRoot, entry.Name(), "basic.ini"))
+		if err != nil {
+			continue
+		}
+		ini := parseSimpleINI(iniData)
+		candidates := []string{
+			ini["SimpleOutput"]["FilePath"],
+			ini["AdvOut"]["RecFilePath"],
+			ini["AdvOut"]["FFFilePath"],
+		}
+		for _, cand := range candidates {
+			cand = strings.TrimSpace(cand)
+			if cand == "" {
+				continue
+			}
+			cleanCand := strings.TrimRight(filepath.Clean(filepath.FromSlash(cand)), `\`)
+			if strings.EqualFold(cleanTarget, cleanCand) ||
+				strings.HasPrefix(strings.ToLower(cleanTarget), strings.ToLower(cleanCand)+`\`) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func readEncoderJSONTarget(path string) BitrateTargetInfo {
 	data, err := os.ReadFile(path)
 	if err != nil {

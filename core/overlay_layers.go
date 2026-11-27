@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -403,7 +404,8 @@ func isChzzkChatURL(raw string) bool {
 	if !ok || u.Scheme != "https" || !strings.EqualFold(u.Host, "chzzk.naver.com") {
 		return false
 	}
-	parts := strings.Split(strings.Trim(u.Path, "/"), "/")
+	cleaned := path.Clean("/" + u.Path)
+	parts := strings.Split(strings.Trim(cleaned, "/"), "/")
 	return len(parts) == 3 && parts[0] == "live" && parts[1] != "" && parts[2] == "chat"
 }
 

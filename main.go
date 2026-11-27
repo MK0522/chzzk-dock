@@ -178,6 +178,11 @@ func handleOpenFolder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	cleanPath := filepath.Clean(path)
+	isLocalDrive := len(cleanPath) >= 3 && cleanPath[1] == ':' && cleanPath[2] == '\\' && !strings.HasPrefix(cleanPath, `\\`)
+	if !isLocalDrive && !core.IsConfiguredObsRecordDir(cleanPath) {
+		sendJSON(w, map[string]string{"error": "로컬 드라이브 폴더 경로만 열 수 있습니다."}, http.StatusBadRequest)
+		return
+	}
 	info, err := os.Stat(cleanPath)
 	if err != nil || !info.IsDir() {
 		sendJSON(w, map[string]string{"error": "유효한 폴더 경로가 아닙니다."}, http.StatusBadRequest)
@@ -607,6 +612,9 @@ func handleSubcommands() bool {
 				os.Exit(1)
 			}
 		}
+		if strings.ContainsAny(targetDir, "\"\r\n") || !filepath.IsAbs(targetDir) {
+			os.Exit(1)
+		}
 		_ = os.MkdirAll(targetDir, 0755)
 		targetFile := filepath.Join(targetDir, "chzzk_dock_launcher.lua")
 		scriptData := getLauncherScriptData()
@@ -615,8 +623,12 @@ func handleSubcommands() bool {
 			os.Exit(1)
 		}
 		for _, oldFile := range cleanupFiles {
-			if oldFile != "" && !strings.EqualFold(filepath.Clean(oldFile), filepath.Clean(targetFile)) {
-				_ = os.Remove(oldFile)
+			cleanOld := filepath.Clean(oldFile)
+			if oldFile != "" &&
+				!strings.ContainsAny(oldFile, "\"\r\n") &&
+				strings.EqualFold(filepath.Base(cleanOld), "chzzk_dock_launcher.lua") &&
+				!strings.EqualFold(cleanOld, filepath.Clean(targetFile)) {
+				_ = os.Remove(cleanOld)
 			}
 		}
 		os.Exit(0)

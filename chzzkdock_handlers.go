@@ -609,6 +609,10 @@ func handleChzzkRevenueSummaryGet(w http.ResponseWriter, r *http.Request) {
 	if ym == "" {
 		ym = time.Now().Format("200601")
 	}
+	if !revenueYearMonthRegex.MatchString(ym) {
+		respondErr(w, http.StatusBadRequest, "잘못된 연월 형식입니다 (YYYYMM).")
+		return
+	}
 
 	path := fmt.Sprintf("/manage/v2/channels/%s/revenue/summary?channelId=%s&fromYearMonth=%s&toYearMonth=%s", cid, cid, ym, ym)
 	status, data, err := callChzzkCtx(r.Context(), "GET", path, nil, true)
@@ -1165,11 +1169,11 @@ func handleChzzkCategoriesSearchGet(w http.ResponseWriter, r *http.Request) {
 	if target, exists := categoryAliases[qLower]; exists {
 		q = target
 	}
-	size := strings.TrimSpace(r.URL.Query().Get("size"))
-	if size == "" {
-		size = "30"
+	sizeVal, err := strconv.Atoi(strings.TrimSpace(r.URL.Query().Get("size")))
+	if err != nil || sizeVal < 1 || sizeVal > 100 {
+		sizeVal = 30
 	}
-	path := fmt.Sprintf("/manage/v1/auto-complete/categories?keyword=%s&size=%s", url.QueryEscape(q), size)
+	path := fmt.Sprintf("/manage/v1/auto-complete/categories?keyword=%s&size=%d", url.QueryEscape(q), sizeVal)
 	status, data, err := callChzzkCtx(r.Context(), "GET", path, nil, false)
 	if err != nil || status != http.StatusOK {
 		respondErr(w, http.StatusBadGateway, "카테고리 검색 실패")
@@ -1643,8 +1647,9 @@ func handleChzzkDropsMatchGet(w http.ResponseWriter, r *http.Request) {
 // ============================================================
 
 var (
-	openBrowserFn   = core.OpenBrowser
-	partyTokenRegex = regexp.MustCompile(`^[a-zA-Z0-9_-]{4,128}$`)
+	openBrowserFn         = core.OpenBrowser
+	partyTokenRegex       = regexp.MustCompile(`^[a-zA-Z0-9_-]{4,128}$`)
+	revenueYearMonthRegex = regexp.MustCompile(`^[0-9]{6}$`)
 )
 
 func extractChzzkMessage(data []byte, fallback string) string {

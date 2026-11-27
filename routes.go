@@ -65,10 +65,6 @@ func buildRouter() http.Handler {
 				return
 			}
 			setCORSHeaders(w, r)
-			if r.Method == http.MethodOptions {
-				w.WriteHeader(http.StatusOK)
-				return
-			}
 			if isApi && !core.CheckApiAuth(w, r) {
 				return
 			}
@@ -958,7 +954,8 @@ func handleThemeEvents(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
 		return
 	}
-	_ = http.NewResponseController(w).SetWriteDeadline(time.Time{})
+	rc := http.NewResponseController(w)
+	_ = rc.SetWriteDeadline(time.Time{})
 
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
@@ -974,11 +971,20 @@ func handleThemeEvents(w http.ResponseWriter, r *http.Request) {
 		themeSubsMu.Unlock()
 	}()
 
+	writeSSE := func(format string, args ...any) bool {
+		_ = rc.SetWriteDeadline(time.Now().Add(5 * time.Second))
+		if _, err := fmt.Fprintf(w, format, args...); err != nil {
+			return false
+		}
+		flusher.Flush()
+		_ = rc.SetWriteDeadline(time.Time{})
+		return true
+	}
+
 	current := core.LoadSettings().GetThemeMode()
-	if _, err := fmt.Fprintf(w, "retry: 5000\nid: %s\nevent: theme\ndata: %s\n\n", serverInstanceID, current); err != nil {
+	if !writeSSE("retry: 5000\nid: %s\nevent: theme\ndata: %s\n\n", serverInstanceID, current) {
 		return
 	}
-	flusher.Flush()
 
 	keepAlive := time.NewTicker(30 * time.Second)
 	defer keepAlive.Stop()
@@ -988,15 +994,13 @@ func handleThemeEvents(w http.ResponseWriter, r *http.Request) {
 		case <-r.Context().Done():
 			return
 		case mode := <-ch:
-			if _, err := fmt.Fprintf(w, "event: theme\ndata: %s\n\n", mode); err != nil {
+			if !writeSSE("event: theme\ndata: %s\n\n", mode) {
 				return
 			}
-			flusher.Flush()
 		case <-keepAlive.C:
-			if _, err := fmt.Fprint(w, ": ping\n\n"); err != nil {
+			if !writeSSE(": ping\n\n") {
 				return
 			}
-			flusher.Flush()
 		}
 	}
 }

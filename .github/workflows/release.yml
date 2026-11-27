@@ -23,13 +23,13 @@ jobs:
           cache: true
 
       - name: Install Dependencies
-        run: go mod download
+        run: go mod download && go mod verify
 
       - name: Install Inno Setup
         run: choco install innosetup -y --no-progress
 
       - name: Generate PE Resource
-        run: go run github.com/josephspurrier/goversioninfo/cmd/goversioninfo@latest -64 -o resource_windows_amd64.syso
+        run: go run github.com/josephspurrier/goversioninfo/cmd/goversioninfo@v1.7.0 -64 -o resource_windows_amd64.syso
 
       - name: Build Windows Executable
         run: go build -trimpath -ldflags="-H windowsgui" -o chzzk-dock.exe .

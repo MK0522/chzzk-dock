@@ -3,10 +3,12 @@ package core
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
 	"os"
+	"runtime"
 	"strings"
 	"sync"
 	"syscall"
@@ -170,9 +172,11 @@ func CredReadSessions(targetName string) []SessionToken {
 				if len(blobBytes) > 0 {
 					blobPtr = &blobBytes[0]
 				}
-				pCred.CredentialBlobSize = uint32(len(blobBytes))
-				pCred.CredentialBlob = blobPtr
-				procCredWriteW.Call(uintptr(unsafe.Pointer(pCred)), 0)
+				newCred := *pCred
+				newCred.CredentialBlobSize = uint32(len(blobBytes))
+				newCred.CredentialBlob = blobPtr
+				procCredWriteW.Call(uintptr(unsafe.Pointer(&newCred)), 0)
+				runtime.KeepAlive(blobBytes)
 				LogInfo("[Credentials] 레거시 단일 세션 감지 -> 신규 세션 배열 스키마로 자동 마이그레이션 완료")
 				return migrated
 			}
@@ -226,6 +230,12 @@ func LoadConfig() Config {
 	}
 	cachedConfigMu.RUnlock()
 
+	cachedConfigMu.Lock()
+	defer cachedConfigMu.Unlock()
+	if cachedConfig != nil {
+		return *cachedConfig
+	}
+
 	cfg := Config{NidAut: "", NidSes: "", Sessions: nil}
 	sessions := CredReadSessions(GetTargetName())
 	if len(sessions) > 0 {
@@ -234,10 +244,7 @@ func LoadConfig() Config {
 		cfg.NidSes = sessions[0].NidSes
 	}
 
-	cachedConfigMu.Lock()
 	cachedConfig = &cfg
-	cachedConfigMu.Unlock()
-
 	return cfg
 }
 
@@ -358,10 +365,14 @@ func (t *cookieCapturingTransport) RoundTrip(req *http.Request) (*http.Response,
 	if err != nil {
 		return nil, err
 	}
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	for _, cookie := range resp.Cookies() {
-		t.captured[cookie.Name] = cookie.Value
+	if req.URL != nil && strings.EqualFold(req.URL.Scheme, "https") && isNaverOriginHost(req.URL.Hostname()) {
+		t.mu.Lock()
+		for _, cookie := range resp.Cookies() {
+			if cookie.Name == "NID_AUT" || cookie.Name == "NID_SES" {
+				t.captured[cookie.Name] = cookie.Value
+			}
+		}
+		t.mu.Unlock()
 	}
 	return resp, nil
 }
@@ -388,6 +399,15 @@ func RefreshNaverSession(nidAut string) (newAut, newSes string, err error) {
 		Jar:       jar,
 		Transport: capTransport,
 		Timeout:   10 * time.Second,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= 10 {
+				return fmt.Errorf("세션 갱신 리다이렉트 횟수 초과")
+			}
+			if req.URL == nil || !strings.EqualFold(req.URL.Scheme, "https") || !isNaverOriginHost(req.URL.Hostname()) {
+				return fmt.Errorf("허용되지 않은 세션 갱신 리다이렉트 대상")
+			}
+			return nil
+		},
 	}
 
 	nidURL, _ := url.Parse("https://nid.naver.com")
@@ -397,6 +417,7 @@ func RefreshNaverSession(nidAut string) (newAut, newSes string, err error) {
 			Value:  cleanAut,
 			Domain: ".naver.com",
 			Path:   "/",
+			Secure: true,
 		},
 	})
 
@@ -411,7 +432,8 @@ func RefreshNaverSession(nidAut string) (newAut, newSes string, err error) {
 	if err != nil {
 		return "", "", fmt.Errorf("네이버 세션 갱신 요청 통신 실패: %w", err)
 	}
-	defer resp.Body.Close()
+	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<20))
+	resp.Body.Close()
 
 	// 1. 트랜스포트에서 전 구간 캡처된 쿠키 확인
 	capTransport.mu.Lock()
@@ -461,7 +483,9 @@ func CheckAndRefreshSessionOnStartup(nidAut, nidSes string) {
 	// NID_SES가 비어있으면 즉시 자동 갱신 시도
 	if strings.TrimSpace(nidSes) == "" {
 		LogInfo("[Auth] NID_SES 미존재 감지 -> 시작 시 자동 세션 갱신 시도")
-		_, _, _ = RefreshNaverSession(nidAut)
+		if _, _, err := RefreshNaverSession(nidAut); err != nil {
+			LogWarn("[Auth] 시작 시 세션 자동 갱신 실패: %v", err)
+		}
 		return
 	}
 
@@ -483,7 +507,9 @@ func CheckAndRefreshSessionOnStartup(nidAut, nidSes string) {
 
 	if resp.StatusCode == http.StatusUnauthorized {
 		LogInfo("[Auth] 시작 시 세션 만료 감지 (HTTP 401) -> 자동 갱신 수행")
-		_, _, _ = RefreshNaverSession(nidAut)
+		if _, _, err := RefreshNaverSession(nidAut); err != nil {
+			LogWarn("[Auth] 시작 시 세션 자동 갱신 실패: %v", err)
+		}
 		return
 	}
 
@@ -495,7 +521,9 @@ func CheckAndRefreshSessionOnStartup(nidAut, nidSes string) {
 		}
 		if err := json.NewDecoder(resp.Body).Decode(&statusResp); err == nil && !statusResp.Content.LoggedIn {
 			LogInfo("[Auth] 시작 시 세션 미인증 상태 감지 (loggedIn=false) -> 자동 갱신 수행")
-			_, _, _ = RefreshNaverSession(nidAut)
+			if _, _, err := RefreshNaverSession(nidAut); err != nil {
+				LogWarn("[Auth] 시작 시 세션 자동 갱신 실패: %v", err)
+			}
 		}
 	}
 }

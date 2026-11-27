@@ -33,7 +33,7 @@ if not errorlevel 1 (
 REM 2. Generate Windows PE Resource
 echo [*] Generating Windows PE Resource (Icon and Manifest)...
 del /f /q resource_windows_amd64.syso rsrc_*.syso >nul 2>&1
-call go run github.com/josephspurrier/goversioninfo/cmd/goversioninfo@latest -64 -o resource_windows_amd64.syso
+call go run github.com/josephspurrier/goversioninfo/cmd/goversioninfo@v1.7.0 -64 -o resource_windows_amd64.syso
 if errorlevel 1 goto :fail
 
 REM 3. Fast test executable

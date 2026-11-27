@@ -38,7 +38,8 @@ func SaveOverlayShortcut(shortcut OverlayShortcut) error {
 		return err
 	}
 	if hwnd := overlayTrayWindow(); hwnd != 0 {
-		procSendMessageW.Call(hwnd, overlayShortcutMessage, 0, 0)
+		procSendMessageTimeoutW := user32.NewProc("SendMessageTimeoutW")
+		procSendMessageTimeoutW.Call(hwnd, overlayShortcutMessage, 0, 0, 0x0002 /* SMTO_ABORTIFHUNG */, 500, 0)
 		if shortcut.Key != 0 && !OverlayHotkeyAvailable() {
 			overlaySettingsLock.Lock()
 			settings, loadErr := loadOverlaySettingsLocked()
@@ -49,7 +50,7 @@ func SaveOverlayShortcut(shortcut OverlayShortcut) error {
 				err = loadErr
 			}
 			overlaySettingsLock.Unlock()
-			procSendMessageW.Call(hwnd, overlayShortcutMessage, 0, 0)
+			procSendMessageTimeoutW.Call(hwnd, overlayShortcutMessage, 0, 0, 0x0002 /* SMTO_ABORTIFHUNG */, 500, 0)
 			if err != nil {
 				return err
 			}

@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 	"unsafe"
@@ -211,6 +212,7 @@ const IDM_DOCK_TOPMOST = 0x1002
 var (
 	activeDockChromium *edge.Chromium
 	dockHwnd           uintptr
+	dockHwndMu         sync.Mutex
 	dockRegisteredMsg  uint32
 	toggleDockTopmost  func()
 )
@@ -278,7 +280,7 @@ func captureDockWindowState(hwnd uintptr) DockWindowState {
 	}
 
 	curTopmost := false
-	if dockHwnd != 0 {
+	if hwnd != 0 {
 		st := loadDockWindowState()
 		curTopmost = st.Topmost
 	}
@@ -409,20 +411,23 @@ func EnsureDockWindow(port int, version string, showInitially bool) uintptr {
 
 // ShowDockWindow: 독 윈도우를 화면에 복원 및 표시하고 맨 앞으로 가져옵니다. 미초기화 상태면 즉시 생성합니다.
 func ShowDockWindow() {
-	if dockHwnd == 0 {
+	dockHwndMu.Lock()
+	hwnd := dockHwnd
+	dockHwndMu.Unlock()
+	if hwnd == 0 {
 		if savedDockPort > 0 {
 			InitDockWindow(savedDockPort, savedDockVersion, true)
 		}
 		return
 	}
 	if dockRegisteredMsg != 0 {
-		procPostMessageW.Call(dockHwnd, uintptr(dockRegisteredMsg), 0, 0)
+		procPostMessageW.Call(hwnd, uintptr(dockRegisteredMsg), 0, 0)
 		return
 	}
-	procShowWindow.Call(dockHwnd, 9 /* SW_RESTORE */)
-	procUpdateWindow.Call(dockHwnd)
+	procShowWindow.Call(hwnd, 9 /* SW_RESTORE */)
+	procUpdateWindow.Call(hwnd)
 	st := loadDockWindowState()
-	ForceForegroundWindow(dockHwnd, st.Topmost)
+	ForceForegroundWindow(hwnd, st.Topmost)
 }
 
 // InitDockWindow: 독 독립 윈도우 및 WebView2 생성
@@ -482,7 +487,9 @@ func InitDockWindow(port int, version string, showInitially bool) uintptr {
 		return 0
 	}
 
+	dockHwndMu.Lock()
 	dockHwnd = hwnd
+	dockHwndMu.Unlock()
 	isDockTopmost := state.Topmost
 
 	// 타이틀바 및 작업표시줄 아이콘 설정
@@ -513,9 +520,9 @@ func InitDockWindow(port int, version string, showInitially bool) uintptr {
 
 	toggleDockTopmost = func() {
 		isDockTopmost = !isDockTopmost
-		SetWindowTopmost(dockHwnd, isDockTopmost)
-		updateWindowTitle(dockHwnd, baseDockTitle, isDockTopmost)
-		updateSystemMenuTopmost(dockHwnd, isDockTopmost, IDM_DOCK_TOPMOST)
+		SetWindowTopmost(hwnd, isDockTopmost)
+		updateWindowTitle(hwnd, baseDockTitle, isDockTopmost)
+		updateSystemMenuTopmost(hwnd, isDockTopmost, IDM_DOCK_TOPMOST)
 		if activeDockChromium != nil {
 			activeDockChromium.Eval(fmt.Sprintf("if (window.__updateTopmostUI) window.__updateTopmostUI(%v);", isDockTopmost))
 		}
@@ -559,7 +566,9 @@ func InitDockWindow(port int, version string, showInitially bool) uintptr {
 			GlobalTray.ShowErrorNotification("CHZZK OBS Dock", errMsg)
 		}
 		procDestroyWindow.Call(hwnd)
+		dockHwndMu.Lock()
 		dockHwnd = 0
+		dockHwndMu.Unlock()
 		activeDockChromium = nil
 		return 0
 	}
@@ -622,10 +631,13 @@ func InitDockWindow(port int, version string, showInitially bool) uintptr {
 
 // DestroyDockWindow: 프로그램 완전 종료 시 윈도우 파괴
 func DestroyDockWindow() {
-	if dockHwnd != 0 {
-		saveDockWindowState(captureDockWindowState(dockHwnd))
-		procDestroyWindow.Call(dockHwnd)
-		dockHwnd = 0
+	dockHwndMu.Lock()
+	hwnd := dockHwnd
+	dockHwnd = 0
+	dockHwndMu.Unlock()
+	if hwnd != 0 {
+		saveDockWindowState(captureDockWindowState(hwnd))
+		procPostMessageW.Call(hwnd, uintptr(WM_CLOSE_VAL), 0, 0)
 	}
 }
 
@@ -1314,6 +1326,7 @@ func injectUserSessionCookies(chromium *edge.Chromium) {
 	cfg := LoadConfig()
 	if cfg.NidAut != "" && cfg.NidSes != "" {
 		if cm, err := chromium.GetCookieManager(); err == nil && cm != nil {
+			defer cm.Release()
 			InjectRemoteCookies(cm, cfg.NidAut, cfg.NidSes)
 		}
 	}

@@ -46,8 +46,6 @@ var (
 	procQueryFullProcessImageNameW = kernel32.NewProc("QueryFullProcessImageNameW")
 
 	procShellExecuteW        = shell32.NewProc("ShellExecuteW")
-	procSHBrowseForFolderW   = shell32.NewProc("SHBrowseForFolderW")
-	procSHGetPathFromIDListW = shell32.NewProc("SHGetPathFromIDListW")
 
 	comdlg32DLL              = syscall.NewLazyDLL("comdlg32.dll")
 	procGetOpenFileNameW     = comdlg32DLL.NewProc("GetOpenFileNameW")
@@ -219,17 +217,6 @@ type OsTcpRow struct {
 	RemoteAddr uint32
 	RemotePort uint32
 	OwningPid  uint32
-}
-
-type BROWSEINFOW struct {
-	HwndOwner      uintptr
-	PidlRoot       uintptr
-	PszDisplayName *uint16
-	LpszTitle      *uint16
-	UlFlags        uint32
-	Lpfn           uintptr
-	LParam         uintptr
-	IImage         int32
 }
 
 // -----------------------------------------------------------------------------
@@ -541,62 +528,6 @@ func BrowseForObsExecutable(title string) (string, error) {
 	return syscall.UTF16ToString(fileBuf), nil
 }
 
-// BrowseForObsFolder: Win32 SHBrowseForFolderW를 사용하여 사용자에게 폴더 선택 다이얼로그를 표시합니다.
-func BrowseForObsFolder(title string) (string, error) {
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
-
-	procCoInitializeEx.Call(0, 0x6)
-	defer procCoUninitialize.Call()
-
-	if title == "" {
-		title = "OBS 설치 폴더(obs-studio), obs64.exe 폴더(bin\\64bit), 또는 scripts 폴더를 선택하세요."
-	}
-	titleUTF16, err := syscall.UTF16PtrFromString(title)
-	if err != nil {
-		return "", err
-	}
-
-	fgHwnd, _, _ := procGetForegroundWindow.Call()
-
-	callback := syscall.NewCallback(func(hwnd syscall.Handle, uMsg uint32, lParam, lpData uintptr) uintptr {
-		if uMsg == 1 { // BFFM_INITIALIZED
-			hwndTopmost := ^uintptr(0) // HWND_TOPMOST = -1
-			procSetWindowPos.Call(
-				uintptr(hwnd),
-				hwndTopmost,
-				0, 0, 0, 0,
-				0x0001|0x0002|0x0040,
-			)
-			procSetForegroundWindow.Call(uintptr(hwnd))
-		}
-		return 0
-	})
-
-	var displayName [260]uint16
-	bi := BROWSEINFOW{
-		HwndOwner:      fgHwnd,
-		LpszTitle:      titleUTF16,
-		PszDisplayName: &displayName[0],
-		UlFlags:        0x00000001 | 0x00000040 | 0x00000010,
-		Lpfn:           callback,
-	}
-
-	pidl, _, _ := procSHBrowseForFolderW.Call(uintptr(unsafe.Pointer(&bi)))
-	if pidl == 0 {
-		return "", nil // 취소
-	}
-	defer procCoTaskMemFree.Call(pidl)
-
-	var pathBuf [1024]uint16
-	ret, _, _ := procSHGetPathFromIDListW.Call(pidl, uintptr(unsafe.Pointer(&pathBuf[0])))
-	if ret == 0 {
-		return "", fmt.Errorf("선택된 폴더의 경로 변환에 실패했습니다")
-	}
-
-	return syscall.UTF16ToString(pathBuf[:]), nil
-}
-
 // PrepareLauncherScriptWithExePath: 스크립트 템플릿에 현재 실행 중인 chzzk-dock.exe의 실제 절대 경로를 주입합니다.
 func PrepareLauncherScriptWithExePath(scriptData []byte) []byte {
 	exePath, err := os.Executable()
@@ -810,6 +741,14 @@ func InstallLauncherScriptToObs(customDir string, scriptData []byte, previousDir
 	if strings.TrimSpace(targetDir) == "" {
 		return "", fmt.Errorf("OBS scripts 폴더를 찾을 수 없습니다")
 	}
+	if strings.ContainsAny(targetDir, "\"\r\n") || !filepath.IsAbs(targetDir) {
+		return "", fmt.Errorf("유효하지 않은 OBS scripts 경로입니다")
+	}
+	cleanTargetDir := filepath.Clean(targetDir)
+	if filepath.Dir(cleanTargetDir) == cleanTargetDir {
+		return "", fmt.Errorf("드라이브 루트 경로에는 스크립트를 설치할 수 없습니다")
+	}
+	targetDir = cleanTargetDir
 
 	scriptData = PrepareLauncherScriptWithExePath(scriptData)
 	targetPath := filepath.Join(targetDir, "chzzk_dock_launcher.lua")
@@ -834,9 +773,13 @@ func InstallLauncherScriptToObs(customDir string, scriptData []byte, previousDir
 		return "", fmt.Errorf("실행 파일 경로 확인 실패: %w", err)
 	}
 
-	args := fmt.Sprintf(`--install-script "%s"`, targetDir)
+	args := fmt.Sprintf(`--install-script "%s"`, strings.TrimRight(targetDir, `\`))
 	for _, oldFile := range cleanupFiles {
-		args += fmt.Sprintf(` --cleanup "%s"`, oldFile)
+		cleanOld := filepath.Clean(oldFile)
+		if strings.ContainsAny(oldFile, "\"\r\n") || !strings.EqualFold(filepath.Base(cleanOld), "chzzk_dock_launcher.lua") {
+			continue
+		}
+		args += fmt.Sprintf(` --cleanup "%s"`, cleanOld)
 	}
 
 	opPtr, _ := syscall.UTF16PtrFromString("runas")

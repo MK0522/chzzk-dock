@@ -478,6 +478,7 @@ func (t *PureWinTrayIcon) Run() {
 		hInstance,
 		0,
 	)
+	t.mu.Lock()
 	t.Hwnd = syscall.Handle(hwnd)
 	registerOverlayTrayShortcut(hwnd)
 	t.Hicon = LoadAppIcon()
@@ -496,6 +497,7 @@ func (t *PureWinTrayIcon) Run() {
 
 	t.Nid = &nid
 	procShell_NotifyIconW.Call(uintptr(NIM_ADD), uintptr(unsafe.Pointer(t.Nid)))
+	t.mu.Unlock()
 
 	// 서버 실행 알림 (Windows 알림 토스트/풍선)
 	if t.StartNotificationTitle != "" && t.StartNotificationMsg != "" {
@@ -518,12 +520,14 @@ func (t *PureWinTrayIcon) Run() {
 
 // Stop: 트레이 아이콘 삭제 및 윈도우 파괴
 func (t *PureWinTrayIcon) Stop() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	if t.Nid != nil {
 		procShell_NotifyIconW.Call(uintptr(NIM_DELETE), uintptr(unsafe.Pointer(t.Nid)))
 		t.Nid = nil
 	}
 	if t.Hwnd != 0 {
-		procDestroyWindow.Call(uintptr(t.Hwnd))
+		procPostMessageW.Call(uintptr(t.Hwnd), 0x0010 /* WM_CLOSE */, 0, 0)
 		t.Hwnd = 0
 	}
 }
